@@ -17,3 +17,7 @@ jobs:
           docker compose -f docker-compose.prod.yml pull
           docker compose -f docker-compose.prod.yml up -d
           docker image prune -f
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
