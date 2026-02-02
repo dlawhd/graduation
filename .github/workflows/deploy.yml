@@ -1,0 +1,16 @@
+name: deploy
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pull and restart containers
+        run: |
+          cd /home/ubuntu/deploy
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d
+          docker image prune -f
