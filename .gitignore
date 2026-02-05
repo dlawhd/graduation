@@ -35,3 +35,19 @@ out/
 
 ### VS Code ###
 .vscode/
+
+
+### Secrets (DO NOT COMMIT) ###
+# Spring config (contains passwords)
+src/main/resources/application*.properties
+src/main/resources/application*.yml
+
+# Env / keys
+*.env
+*.pem
+*.key
+
+### Frontend ###
+frontend/node_modules
+frontend/build
+frontend/.env
