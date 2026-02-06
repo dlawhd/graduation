@@ -1,29 +1,20 @@
 import { useEffect, useState } from "react";
-import apiClient from "./apiClient";
+import { Routes, Route, Link } from "react-router-dom";
+import Home from "./pages/Home";
+import LoginSuccess from "./pages/LoginSuccess";
 
-function App() {
-  const [status, setStatus] = useState("로딩중...");
-
-  useEffect(() => {
-    apiClient
-      .get("/health")
-      .then((res) => {
-        // 백엔드가 {"status":"very good!!!"} 이런 형태로 준다고 했지?
-        setStatus(res.data.status);
-      })
-      .catch((err) => {
-        console.error(err);
-        setStatus("연결 실패");
-      });
-  }, []);
-
+export default function App() {
   return (
-    <div>
-      <h1>프론트 ↔ 백엔드 연결 테스트</h1>
-      <p>서버 상태: {status}</p>
-      <p>API: {process.env.REACT_APP_API_BASE_URL}</p>
+    <div style={{ padding: 24 }}>
+      <nav style={{ marginBottom: 16 }}>
+        <Link to="/">Home</Link>{" "}
+        <Link to="/login/success">Login Success</Link>
+      </nav>
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login/success" element={<LoginSuccess />} />
+      </Routes>
     </div>
   );
 }
-
-export default App;

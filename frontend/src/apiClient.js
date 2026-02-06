@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL, // https://esjh.shop
+  baseURL: "http://localhost:8080",
+  withCredentials: true, // ✅ 쿠키 같이 보내기
 });
 
 export default apiClient;
