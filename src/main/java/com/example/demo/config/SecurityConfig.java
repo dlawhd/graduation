@@ -4,6 +4,7 @@ import com.example.demo.auth.OAuth2SuccessHandler;
 import com.example.demo.jwt.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -29,27 +30,40 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> {}) // ✅ CORS 켜기
+                // ✅ CORS: 아래 corsConfigurationSource()를 쓰도록 연결
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // ✅ 프리플라이트(OPTIONS)는 항상 열어두기
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         .requestMatchers("/", "/error", "/login/**", "/oauth2/**").permitAll()
-                        .requestMatchers("/api/**").authenticated() // ✅ API는 로그인 필요
+                        .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth -> oauth
                         .successHandler(oAuth2SuccessHandler)
                 );
 
-        // ✅ 쿠키 JWT 인증 필터를 앞에 끼워넣기
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // ✅ localhost:3000 에서 쿠키 요청 허용
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000"));
+
+        // ✅ 정확히 고정된 도메인들은 origins로
+        config.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "https://www.esjh.shop"
+        ));
+
+        // ✅ vercel처럼 주소가 바뀌는 건 patterns로 (와일드카드 OK)
+        config.setAllowedOriginPatterns(List.of(
+                "https://*.vercel.app"
+        ));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

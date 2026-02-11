@@ -8,6 +8,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -73,14 +75,15 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         String jwt = jwtTokenProvider.createAccessToken(subject, claims);
 
-        // ✅ HttpOnly 쿠키 세팅 (로컬용: Secure=false)
-        Cookie cookie = new Cookie("accessToken", jwt);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // 운영(https)에서는 true로 바꿔야 함
-        cookie.setPath("/");
-        // 로컬에서는 domain 설정 안 하는 게 안전함
+        ResponseCookie cookie = ResponseCookie.from("accessToken", jwt)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")   // 프론트/백엔드가 서로 다른 사이트면 이게 필요
+                .path("/")
+                .build();
 
-        response.addCookie(cookie);
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
 
         // ✅ 프론트로 이동 (로컬 프론트)
         response.sendRedirect(frontendUrl + "/login/success");

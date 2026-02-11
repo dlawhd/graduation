@@ -1,7 +1,10 @@
 export default function Home() {
+
+  const BACKEND = process.env.REACT_APP_API_BASE_URL;
+
   const login = () => {
     // ✅ 백엔드 oauth2 시작 URL로 이동
-    window.location.href = "http://localhost:8080/oauth2/authorization/naver";
+    window.location.href = `${BACKEND}/oauth2/authorization/naver`;
   };
 
   return (
