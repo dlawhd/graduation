@@ -3,6 +3,7 @@ package com.example.demo.repository;
 import com.example.demo.entity.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
@@ -10,4 +11,9 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
     Optional<RefreshToken> findByTokenHashAndRevokedAtIsNull(String tokenHash);
+
+    Optional<RefreshToken> findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(
+            String tokenHash,
+            LocalDateTime now
+    );
 }

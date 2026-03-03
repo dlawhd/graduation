@@ -3,6 +3,7 @@ package com.example.demo.auth;
 import com.example.demo.entity.Member;
 import com.example.demo.jwt.JwtTokenProvider;
 import com.example.demo.service.MemberService;
+import com.example.demo.service.RefreshTokenService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,19 +19,24 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.time.Duration;
 
 @Component
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final MemberService memberService;
+    private final RefreshTokenService refreshTokenService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    public OAuth2SuccessHandler(JwtTokenProvider jwtTokenProvider, MemberService memberService) {
+    public OAuth2SuccessHandler(JwtTokenProvider jwtTokenProvider,
+                                MemberService memberService,
+                                RefreshTokenService refreshTokenService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.memberService = memberService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Override
@@ -65,6 +71,20 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // ✅ DB에 회원 저장(없으면 생성)
         Member member = memberService.findOrCreateNaverMember(providerId, email, name, birthyear);
 
+        // ✅ refresh 발급 + 쿠키 세팅
+        String refreshRaw = refreshTokenService.issue(member);
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshRaw)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/api")                 // ✅ /api/auth/refresh 로 자동으로 같이 감
+                .maxAge(Duration.ofDays(14))  // ✅ 14일
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+
+
         // ✅ subject는 memberId로 (정석)
         String subject = String.valueOf(member.getId());
 
@@ -80,6 +100,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 .secure(true)
                 .sameSite("None")   // 프론트/백엔드가 서로 다른 사이트면 이게 필요
                 .path("/")
+                .maxAge(Duration.ofMinutes(30)) // ✅ 30분
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());

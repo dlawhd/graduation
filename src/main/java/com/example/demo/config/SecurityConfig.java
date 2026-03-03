@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         .requestMatchers("/", "/error", "/login/**", "/oauth2/**").permitAll()
+                        .requestMatchers("/api/auth/refresh", "/api/auth/logout").permitAll()
+
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )
