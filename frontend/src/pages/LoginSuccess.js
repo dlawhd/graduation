@@ -29,14 +29,28 @@ export default function LoginSuccess() {
 
   const logout = async () => {
     try {
-      await apiClient.post("/api/logout");
+      await apiClient.post("/api/auth/logout");
     } finally {
       window.location.href = "/"; // ✅ 홈으로 이동
     }
   };
 
   useEffect(() => {
-    loadMe();
+    const init = async () => {
+      // 1) refresh로 access 쿠키 재발급(회전)
+      try {
+        await apiClient.post("/api/auth/refresh");
+      } catch (e) {
+        // refresh가 없어도(또는 실패해도) 일단 /api/me 시도는 해볼 수 있게
+        // 필요하면 여기서 바로 /login 으로 보내도 됨
+        console.log("refresh failed:", e);
+      }
+
+      // 2) 그 다음 내 정보 조회
+      await loadMe();
+    };
+
+    init();
   }, []);
 
   return (
