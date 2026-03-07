@@ -28,12 +28,20 @@ export default function LoginSuccess() {
   };
 
   const logout = async () => {
-    try {
-      await apiClient.post("/api/auth/logout");
-    } finally {
-      window.location.href = "/"; // ✅ 홈으로 이동
-    }
-  };
+          try {
+            // ✅ 로그아웃도 POST라 CSRF 헤더 필요
+            // fetchCsrf()를 매번 호출할 필요는 없지만,
+            // 혹시 토큰이 비어있을 때 대비해서 안전하게 한 번 더 해도 됨.
+            if (!window.__csrfLoaded) {
+              await fetchCsrf();
+              window.__csrfLoaded = true;
+            }
+
+            await apiClient.post("/api/auth/logout");
+          } finally {
+            window.location.href = "/";
+          }
+        };
 
   useEffect(() => {
       const init = async () => {
@@ -53,23 +61,6 @@ export default function LoginSuccess() {
 
       init();
     }, []);
-
-    const logout = async () => {
-        try {
-          // ✅ 로그아웃도 POST라 CSRF 헤더 필요
-          // fetchCsrf()를 매번 호출할 필요는 없지만,
-          // 혹시 토큰이 비어있을 때 대비해서 안전하게 한 번 더 해도 됨.
-          if (!window.__csrfLoaded) {
-            await fetchCsrf();
-            window.__csrfLoaded = true;
-          }
-
-          await apiClient.post("/api/auth/logout");
-        } finally {
-          window.location.href = "/";
-        }
-      };
-
 
   return (
     <div className="auth-page">
