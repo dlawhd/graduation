@@ -70,7 +70,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         /**
          * ✅ 네이버는 user-name-attribute를 response로 잡아서
          * attributes 안에 response라는 키가 있고, 그 안에 진짜 정보가 들어있는 구조일 수 있음
-         *
          * 예)
          * attributes = { "resultcode": "...", "message": "...", "response": {email,name,birthyear,id...} }
          */
@@ -97,10 +96,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          */
         Member member = memberService.findOrCreateNaverMember(providerId, email, name, birthyear);
 
-        // =========================================================
         // ✅ 1) Refresh 토큰 발급 + 쿠키 저장
-        // =========================================================
-
         /**
          * ✅ refreshToken은 "accessToken을 다시 만드는 열쇠" 같은 것
          * - 만료 길게(14일)
@@ -128,10 +124,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // ✅ 응답 헤더에 Set-Cookie 추가 → 브라우저가 쿠키를 저장함
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
-        // =========================================================
         // ✅ 2) Access 토큰(JWT) 발급 + 쿠키 저장
-        // =========================================================
-
         /**
          * ✅ subject는 JWT의 "주인"을 나타내는 값
          * 너 필터(JwtAuthenticationFilter)가 subject를 memberId로 쓰고 있으니까

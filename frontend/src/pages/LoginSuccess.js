@@ -36,22 +36,40 @@ export default function LoginSuccess() {
   };
 
   useEffect(() => {
-    const init = async () => {
-      // 1) refresh로 access 쿠키 재발급(회전)
-      try {
-        await apiClient.post("/api/auth/refresh");
-      } catch (e) {
-        // refresh가 없어도(또는 실패해도) 일단 /api/me 시도는 해볼 수 있게
-        // 필요하면 여기서 바로 /login 으로 보내도 됨
-        console.log("refresh failed:", e);
-      }
+      const init = async () => {
+        try {
+          // ✅ 0) CSRF 토큰 먼저 받기 (POST 하기 전에 필수)
+          await fetchCsrf();
 
-      // 2) 그 다음 내 정보 조회
-      await loadMe();
-    };
+          // ✅ 1) refresh로 access 쿠키 재발급(회전)
+          await apiClient.post("/api/auth/refresh");
+        } catch (e) {
+          console.log("init failed:", e);
+        }
 
-    init();
-  }, []);
+        // ✅ 2) 그 다음 내 정보 조회
+        await loadMe();
+      };
+
+      init();
+    }, []);
+
+    const logout = async () => {
+        try {
+          // ✅ 로그아웃도 POST라 CSRF 헤더 필요
+          // fetchCsrf()를 매번 호출할 필요는 없지만,
+          // 혹시 토큰이 비어있을 때 대비해서 안전하게 한 번 더 해도 됨.
+          if (!window.__csrfLoaded) {
+            await fetchCsrf();
+            window.__csrfLoaded = true;
+          }
+
+          await apiClient.post("/api/auth/logout");
+        } finally {
+          window.location.href = "/";
+        }
+      };
+
 
   return (
     <div className="auth-page">
