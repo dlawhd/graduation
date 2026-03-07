@@ -1,7 +1,8 @@
 // src/pages/LoginSuccess.js
 import { useEffect, useMemo, useState } from "react";
-import apiClient from "../apiClient";
+import apiClient, { fetchCsrf } from "../apiClient";
 import "./auth.css";
+
 
 export default function LoginSuccess() {
   const [me, setMe] = useState(null);
