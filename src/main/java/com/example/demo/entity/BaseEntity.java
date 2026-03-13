@@ -16,14 +16,15 @@ import java.time.LocalDateTime;
 public abstract class BaseEntity {
 
     @CreatedDate
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     // Soft Delete: 지우는 대신 “삭제 시간”만 찍기
+    @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
     public void softDelete() {

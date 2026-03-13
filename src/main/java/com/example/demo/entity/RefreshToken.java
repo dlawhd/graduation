@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_refresh_tokens_expires_at", columnList = "expires_at")
         }
 )
-public class RefreshToken {
+public class RefreshToken extends BaseEntity{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,12 +58,6 @@ public class RefreshToken {
     // ✅ refresh 폐기된 시간을 저장하는 칸
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
-
-    // ✅ refresh 토큰이 처음 만들어진 시간
-    // insertable = false, updatable = false:
-    // 자바 코드가 직접 넣거나 수정하지 않고 DB의 기본값(current_timestamp)을 믿고 사용하겠다는 뜻
-    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
-    private LocalDateTime createdAt;
 
     // ✅ 이 토큰이 "지금 사용 가능한 토큰인지" 검사
     public boolean isActive(LocalDateTime now) {

@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(name = "uk_members_provider_provider_id", columnNames = {"provider", "provider_id"})
         }
 )
-public class Member {
+public class Member extends BaseEntity{
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -36,14 +36,6 @@ public class Member {
 
     @Column(name = "provider_id", nullable = false, length = 100)
     private String providerId; // 네이버 고유 ID
-
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    void prePersist() {
-        this.createdAt = LocalDateTime.now();
-    }
 
     public void updateProfile(String email, String name, String birthyear) {
         // 최신 값으로 업데이트(없으면 유지)
