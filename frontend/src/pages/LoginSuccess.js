@@ -45,23 +45,17 @@ export default function LoginSuccess() {
         };
 
   useEffect(() => {
-      const init = async () => {
-        try {
-          // ✅ 0) CSRF 토큰 먼저 받기 (POST 하기 전에 필수)
-          await fetchCsrf();
-
-          // ✅ 1) refresh로 access 쿠키 재발급(회전)
-          await apiClient.post("/api/auth/refresh");
-        } catch (e) {
-          console.log("init failed:", e);
-        }
-
-        // ✅ 2) 그 다음 내 정보 조회
+    const init = async () => {
+      try {
+        await fetchCsrf();
         await loadMe();
-      };
+      } catch (e) {
+        console.log("init failed:", e);
+      }
+    };
 
-      init();
-    }, []);
+    init();
+  }, []);
 
   return (
     <div className="auth-page">

@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.config.JwtProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -15,6 +16,12 @@ public class AuthCookieService {
     // SameSite는 브라우저가 쿠키를 언제 같이 보낼지 정하는 옵션
     private static final String SAME_SITE = "None";
 
+    private  final JwtProperties jwtProperties;
+
+    public AuthCookieService(JwtProperties jwtProperties) {
+        this.jwtProperties = jwtProperties;
+    }
+
     // ✅ accessToken 쿠키 저장
     // accessToken이라는 이름의 쿠키를 만들고 응답 헤더(Set-Cookie)에 넣어서 브라우저가 저장하게 함
     public void setAccessCookie(HttpServletResponse response, String accessJwt) {
@@ -25,7 +32,7 @@ public class AuthCookieService {
                 .secure(true) // HTTPS 연결에서만 쿠키를 보내게 함 → 평문 HTTP에서는 쿠키 전송 안 함
                 .sameSite(SAME_SITE) // 다른 출처(프론트 ↔ 백엔드) 요청에서도 쿠키 전송 가능하게 함
                 .path("/")
-                .maxAge(Duration.ofMinutes(30)) // accessToken 쿠키의 유지 시간, 30분
+                .maxAge(Duration.ofSeconds(jwtProperties.getAccessExpSeconds())) // accessToken 쿠키의 유지 시간, 30분
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
@@ -41,7 +48,7 @@ public class AuthCookieService {
                 .secure(true)
                 .sameSite(SAME_SITE)
                 .path("/api")                 // refresh는 API에만 실리게
-                .maxAge(Duration.ofDays(14))  // refresh 14일
+                .maxAge(Duration.ofSeconds(jwtProperties.getRefreshExpSeconds()))  // refresh 14일
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());

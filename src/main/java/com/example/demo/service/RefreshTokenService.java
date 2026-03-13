@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.auth.TokenCrypto;
+import com.example.demo.config.JwtProperties;
 import com.example.demo.entity.Member;
 import com.example.demo.entity.RefreshToken;
 import com.example.demo.repository.RefreshTokenRepository;
@@ -14,9 +15,12 @@ import java.time.LocalDateTime;
 public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
+    private final JwtProperties jwtProperties;
 
-    public RefreshTokenService(RefreshTokenRepository refreshTokenRepository) {
+    public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
+                               JwtProperties jwtProperties) {
         this.refreshTokenRepository = refreshTokenRepository;
+        this.jwtProperties = jwtProperties;
     }
 
     // ✅ 로그인 성공 시 refresh 토큰 발급 + DB 저장
@@ -33,7 +37,7 @@ public class RefreshTokenService {
         RefreshToken entity = RefreshToken.builder()
                 .member(member)
                 .tokenHash(hash)
-                .expiresAt(LocalDateTime.now().plusDays(14)) // 만료 시간(지금으로부터 14일 뒤)
+                .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpSeconds())) // 만료 시간(지금으로부터 14일 뒤)
                 .build();
 
         refreshTokenRepository.save(entity);
@@ -68,7 +72,7 @@ public class RefreshTokenService {
         RefreshToken next = RefreshToken.builder()
                 .member(member)
                 .tokenHash(newHash)
-                .expiresAt(LocalDateTime.now().plusDays(14))
+                .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpSeconds()))
                 .build();
 
         refreshTokenRepository.save(next);

@@ -2,6 +2,7 @@ package com.example.demo.config;
 
 import com.example.demo.auth.OAuth2SuccessHandler;
 import com.example.demo.jwt.JwtAuthenticationFilter;
+import com.example.demo.security.SecurityErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,11 +23,14 @@ public class SecurityConfig {
 
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final SecurityErrorHandler securityErrorHandler;
 
     public SecurityConfig(OAuth2SuccessHandler oAuth2SuccessHandler,
-                          JwtAuthenticationFilter jwtAuthenticationFilter) {
+                          JwtAuthenticationFilter jwtAuthenticationFilter,
+                          SecurityErrorHandler securityErrorHandler) {
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.securityErrorHandler = securityErrorHandler;
     }
 
     @Bean
@@ -48,6 +52,12 @@ public class SecurityConfig {
 
                 //  ✅ CORS 설정 연결, 프론트(www.esjh.shop)와 백(api.esjh.shop)는 주소가 다르기 때문에 어떤 요청을 허용할지 미리 알려줘야 함
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // ✅ Spring Security에서 나는 401 / 403 에러를 우리가 만든 형식으로 내려주기
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(securityErrorHandler) // 로그인 안 됨 -> 401
+                        .accessDeniedHandler(securityErrorHandler)      // 권한 없음 -> 403
+                )
 
                 // ✅ URL별 접근 규칙 설정
                 .authorizeHttpRequests(auth -> auth

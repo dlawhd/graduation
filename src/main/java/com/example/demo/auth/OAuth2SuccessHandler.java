@@ -2,6 +2,7 @@ package com.example.demo.auth;
 
 import com.example.demo.entity.Member;
 import com.example.demo.jwt.JwtTokenProvider;
+import com.example.demo.service.AuthCookieService;
 import com.example.demo.service.MemberService;
 import com.example.demo.service.RefreshTokenService;
 import jakarta.servlet.ServletException;
@@ -32,6 +33,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     // ✅ RefreshToken(재발급용 토큰)을 발급하고 DB에 저장하는 서비스
     private final RefreshTokenService refreshTokenService;
 
+    private final AuthCookieService authCookieService;
+
     // ✅ 로그인 성공 후 프론트로 보내줄 주소(예: https://www.esjh.shop)
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -39,10 +42,12 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     // ✅ 필요한 도구들을 스프링이 자동으로 넣어줌(주입)
     public OAuth2SuccessHandler(JwtTokenProvider jwtTokenProvider,
                                 MemberService memberService,
-                                RefreshTokenService refreshTokenService) {
+                                RefreshTokenService refreshTokenService,
+                                AuthCookieService authCookieService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.memberService = memberService;
         this.refreshTokenService = refreshTokenService;
+        this.authCookieService = authCookieService;
     }
 
     /**
@@ -96,7 +101,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          */
         Member member = memberService.findOrCreateNaverMember(providerId, email, name, birthyear);
 
-        // ✅ 1) Refresh 토큰 발급 + 쿠키 저장
+        // ✅ Refresh 토큰 발급 + 쿠키 저장
         /**
          * ✅ refreshToken은 "accessToken을 다시 만드는 열쇠" 같은 것
          * - 만료 길게(14일)
@@ -105,26 +110,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          */
         String refreshRaw = refreshTokenService.issue(member);
 
-        /**
-         * ✅ refreshToken 쿠키 만들기
-         * - httpOnly: 자바스크립트로 못 읽게(보안)
-         * - secure: HTTPS에서만 전송
-         * - sameSite(None): 프론트(www) ↔ 백(api) 같은 “다른 도메인/서브도메인”에서도 쿠키 전송 허용
-         * - path("/api"): /api 로 시작하는 요청에만 쿠키가 자동으로 같이 감
-         * - maxAge(14일): 쿠키 유지 시간
-         */
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshRaw)
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/api")
-                .maxAge(Duration.ofDays(14))
-                .build();
-
-        // ✅ 응답 헤더에 Set-Cookie 추가 → 브라우저가 쿠키를 저장함
-        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
-
-        // ✅ 2) Access 토큰(JWT) 발급 + 쿠키 저장
+        // ✅ Access 토큰(JWT) 발급 + 쿠키 저장
         /**
          * ✅ subject는 JWT의 "주인"을 나타내는 값
          * 너 필터(JwtAuthenticationFilter)가 subject를 memberId로 쓰고 있으니까
@@ -145,24 +131,11 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          */
         String jwt = jwtTokenProvider.createAccessToken(subject, claims);
 
-        /**
-         * ✅ accessToken 쿠키 만들기
-         * - httpOnly + secure + sameSite(None)
-         * - path("/") : 사이트 전체 요청에 붙음
-         * - maxAge(30분) : 30분 뒤 만료
-         */
-        ResponseCookie cookie = ResponseCookie.from("accessToken", jwt)
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
-                .maxAge(Duration.ofMinutes(30))
-                .build();
+        // ✅ 쿠키 저장은 AuthCookieService가 전담
+        authCookieService.setRefreshCookie(response, refreshRaw);
+        authCookieService.setAccessCookie(response, jwt);
 
-        // ✅ 브라우저가 accessToken 쿠키를 저장
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-
-        // ✅ 3) 로그인 성공 페이지로 이동
+        // ✅ 로그인 성공 페이지로 이동
         /**
          * ✅ 쿠키 저장까지 끝났으면 프론트 성공 페이지로 이동
          * 예: https://www.esjh.shop/login/success

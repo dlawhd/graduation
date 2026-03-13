@@ -1,16 +1,31 @@
 package com.example.demo.dto.reponse;
 
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import org.slf4j.MDC;
 
 import java.time.LocalDateTime;
 
 @Getter
-@AllArgsConstructor
+@Builder
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class ErrorResponse {
-    private String code;      // 예: AUTH_001
-    private String message;   // 사용자에게 보여줄 메시지
-    private String path;      // 요청 주소
-    private String traceId;   // 로그 추적용
-    private LocalDateTime timestamp;
+
+    private final String code;
+    private final String message;
+    private final String path;
+    private final String traceId;
+    private final LocalDateTime timestamp;
+
+    public static ErrorResponse of(String code, String message, String path) {
+        return ErrorResponse.builder()
+                .code(code)
+                .message(message)
+                .path(path)
+                .traceId(MDC.get("traceId"))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
 }
