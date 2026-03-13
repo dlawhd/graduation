@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+// 네이버 로그인이 성공하면 이 클래스가 자동으로 불려서 우리 서비스에 필요한 로그인 후처리를 한다.
 @Component
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
@@ -33,6 +34,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     // ✅ RefreshToken(재발급용 토큰)을 발급하고 DB에 저장하는 서비스
     private final RefreshTokenService refreshTokenService;
 
+    // ✅ accessToken / refreshToken 쿠키를 브라우저에 저장해주는 서비스
     private final AuthCookieService authCookieService;
 
     // ✅ 로그인 성공 후 프론트로 보내줄 주소(예: https://www.esjh.shop)
@@ -51,13 +53,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /**
-     * ✅ OAuth2(네이버) 로그인에 성공했을 때 자동으로 호출되는 메서드
+     * ✅ 네이버 로그인이 성공하면 스프링 시큐리티가 자동으로 이 메서드를 호출
      * 흐름:
-     * 1) 네이버에서 받은 사용자 정보 꺼내기
-     * 2) 우리 DB에 회원 저장/조회
-     * 3) RefreshToken 발급 + 쿠키 저장
-     * 4) AccessToken(JWT) 발급 + 쿠키 저장
-     * 5) 프론트 페이지로 리다이렉트
+     * 1. 네이버가 준 사용자 정보 꺼내기
+     * 2. 우리 DB 회원 조회/생성
+     * 3. refreshToken 발급
+     * 4. accessToken 발급
+     * 5. 토큰을 쿠키로 저장
+     * 6. 프론트 로그인 성공 페이지로 이동
      */
     @Override
     public void onAuthenticationSuccess(
@@ -66,7 +69,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication
     ) throws IOException, ServletException {
 
-        // ✅ OAuth2 로그인 결과(네이버 계정 정보 포함)
+        // ✅ 네이버 로그인 결과를 꺼내기 위해 OAuth2AuthenticationToken으로 변환
         OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
 
         // ✅ 네이버에서 내려준 사용자 정보(속성들) 가져오기
@@ -78,9 +81,10 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          * 예)
          * attributes = { "resultcode": "...", "message": "...", "response": {email,name,birthyear,id...} }
          */
+
+        // ✅ response 안에 진짜 사용자 정보가 들어 있으면 그 안쪽 map을 다시 attributes로 바꿔서 사용
         Object resp = attributes.get("response");
         if (resp instanceof Map<?, ?>) {
-            // ✅ response 안에 있는 Map이 진짜 사용자 정보임
             attributes = (Map<String, Object>) resp;
         }
 
@@ -91,31 +95,22 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         // ✅ 네이버 유저 고유 ID (우리 DB에서 "이 사람 누구인지" 구분할 때 사용)
         String providerId = (String) attributes.get("id");
-        if (providerId == null) providerId = "unknown"; // 방어 코드(거의 안 나옴)
 
-        /**
-         * ✅ 우리 DB에 회원이 이미 있으면 가져오고,
-         * 없으면 새로 만들어서 저장한 뒤 반환
-         *
-         * 결과: member 객체에는 우리 DB의 memberId가 들어있음
-         */
+        // ✅ 혹시라도 id가 없으면 null 대신 unknown으로 넣어주는 방어 코드
+        if (providerId == null) {
+            providerId = "unknown";
+        }
+
+        //✅ 우리 DB에 회원이 이미 있으면 가져오고,없으면 새로 만들어서 저장한 뒤 반환
         Member member = memberService.findOrCreateNaverMember(providerId, email, name, birthyear);
 
-        // ✅ Refresh 토큰 발급 + 쿠키 저장
-        /**
-         * ✅ refreshToken은 "accessToken을 다시 만드는 열쇠" 같은 것
-         * - 만료 길게(14일)
-         * - DB에 저장해서 '로그아웃하면 폐기(revoked_at)' 가능
-         * - 쿠키로 브라우저에 심어둠
-         */
+        //✅ refreshToken은 accessToken이 만료됐을 때 새 accessToken을 다시 발급받는 데 쓰는 긴 수명의 토큰
+        // 흐름 : 원본 refresh 문자열 생성 -> DB에는 해시값 저장 -> 브라우저에는 원본을 쿠키로 저장
         String refreshRaw = refreshTokenService.issue(member);
 
-        // ✅ Access 토큰(JWT) 발급 + 쿠키 저장
-        /**
-         * ✅ subject는 JWT의 "주인"을 나타내는 값
-         * 너 필터(JwtAuthenticationFilter)가 subject를 memberId로 쓰고 있으니까
-         * 여기서도 memberId로 맞추는 게 정석
-         */
+        // ✅ JWT subject 만들기
+        // ✅ subject는 JWT의 "주인"을 나타내는 값
+        // 필터(JwtAuthenticationFilter)가 subject를 memberId로 쓰고 있으니 여기서도 memberId로 맞추는 게 정석
         String subject = String.valueOf(member.getId());
 
         // ✅ JWT 안에 같이 넣고 싶은 정보(클레임)
@@ -124,22 +119,15 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         claims.put("name", name);
         claims.put("birthyear", birthyear);
 
-        /**
-         * ✅ accessToken은 "출입증" 같은 것
-         * - 만료 짧게(30분)
-         * - 요청마다 이 토큰으로 로그인 인증 처리
-         */
+        // ✅ accessToken(JWT) 발급
+        // accessToken은 실제 API 요청할 때 로그인한 사용자입니다를 증명하는 짧은 수명의 토큰
         String jwt = jwtTokenProvider.createAccessToken(subject, claims);
 
         // ✅ 쿠키 저장은 AuthCookieService가 전담
         authCookieService.setRefreshCookie(response, refreshRaw);
         authCookieService.setAccessCookie(response, jwt);
 
-        // ✅ 로그인 성공 페이지로 이동
-        /**
-         * ✅ 쿠키 저장까지 끝났으면 프론트 성공 페이지로 이동
-         * 예: https://www.esjh.shop/login/success
-         */
+        // ✅ 쿠키 저장까지 끝났으면 프론트 성공 페이지로 이동
         response.sendRedirect(frontendUrl + "/login/success");
     }
 }
