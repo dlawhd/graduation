@@ -2,6 +2,8 @@ package com.example.demo.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
@@ -10,6 +12,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
+@SQLDelete(sql = "UPDATE refresh_tokens SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Table(
         name = "refresh_tokens",
 
