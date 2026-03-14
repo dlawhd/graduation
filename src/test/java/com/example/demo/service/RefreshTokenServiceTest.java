@@ -19,7 +19,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+// Mockito를 이용해서 "가짜 Repository"를 넣고 RefreshTokenService의 로직만 빠르게 검사하는 단위 테스트
+@ExtendWith(MockitoExtension.class) // Mockito 기능을 JUnit5 테스트에서 쓸 수 있게 연결해주는 설정
 class RefreshTokenServiceTest {
 
     @Mock
@@ -27,6 +28,8 @@ class RefreshTokenServiceTest {
 
     private RefreshTokenService refreshTokenService;
 
+    // 각 테스트가 시작되기 전에 공통으로 실행되는 준비 코드
+    // 스프링이 자동으로 만들어주는 게 아니라, 단위 테스트니까 우리가 직접 만들어서 넣음
     @BeforeEach
     void setUp() {
         JwtProperties jwtProperties = new JwtProperties();
@@ -45,6 +48,7 @@ class RefreshTokenServiceTest {
                 .birthyear("2000")
                 .build();
 
+        // ArgumentCaptor : repository.save(...)에 실제로 어떤 RefreshToken 객체가 들어갔는지 잡아서 꺼내보기 위한 도구
         ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
 
         String raw = refreshTokenService.issue(member);
