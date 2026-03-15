@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.testImplementation
+
 plugins {
 	id("java")
 	id("org.springframework.boot") version "3.5.10"
@@ -48,6 +50,7 @@ dependencies {
 	// 통합테스트용
 	testImplementation("org.testcontainers:junit-jupiter")
 	testImplementation("org.testcontainers:mariadb")
+	testImplementation ("com.h2database:h2")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
