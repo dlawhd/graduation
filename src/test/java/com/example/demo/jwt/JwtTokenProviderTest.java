@@ -21,7 +21,7 @@ class JwtTokenProviderTest {
         JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(SECRET, 1800);
         String subject = "user@example.com";
         Map<String, Object> claims = Map.of(
-                "memberId", 1L,
+                "userId", 1L,
                 "role", "USER"
         );
 
@@ -59,7 +59,7 @@ class JwtTokenProviderTest {
         String token = jwtTokenProvider.createAccessToken(
                 "user@example.com",
                 Map.of(
-                        "memberId", 10L,
+                        "userId", 10L,
                         "role", "USER",
                         "nickname", "eunseo"
                 )
@@ -70,7 +70,7 @@ class JwtTokenProviderTest {
 
         // then
         assertThat(claims.getSubject()).isEqualTo("user@example.com");
-        assertThat(claims.get("memberId", Integer.class)).isEqualTo(10);
+        assertThat(claims.get("userId", Integer.class)).isEqualTo(10);
         assertThat(claims.get("role", String.class)).isEqualTo("USER");
         assertThat(claims.get("nickname", String.class)).isEqualTo("eunseo");
     }

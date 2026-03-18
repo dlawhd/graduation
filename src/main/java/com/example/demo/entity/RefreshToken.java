@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
 
         // ✅ 조회 성능을 높이기 위한 인덱스
         indexes = {
-                @Index(name = "idx_refresh_tokens_member_id", columnList = "member_id"),
+                @Index(name = "idx_refresh_tokens_user_id", columnList = "user_id"),
                 @Index(name = "idx_refresh_tokens_expires_at", columnList = "expires_at")
         }
 )
@@ -38,18 +38,18 @@ public class RefreshToken extends BaseEntity{
 
     //        ManyToOne:
     //     * - refresh 토큰은 여러 개가 한 회원에게 연결될 수 있음
-    //     * - 한 회원(Member) : 여러 RefreshToken
+    //     * - 한 회원(User) : 여러 RefreshToken
     //     * fetch = LAZY:
-    //     * - 꼭 필요할 때만 member를 DB에서 가져오겠다는 뜻
+    //     * - 꼭 필요할 때만 user DB에서 가져오겠다는 뜻
     //     * optional = false:
     //     * - 회원 없는 refresh 토큰은 존재하면 안 됨
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
-            name = "member_id",
+            name = "user_id",
             nullable = false,
-            foreignKey = @ForeignKey(name = "fk_refresh_tokens_member")
+            foreignKey = @ForeignKey(name = "fk_refresh_tokens_user")
     )
-    private Member member;
+    private User user;
 
     // ✅ refresh 토큰의 해시값(SHA-256)
     @Column(name = "token_hash", nullable = false, length = 64)

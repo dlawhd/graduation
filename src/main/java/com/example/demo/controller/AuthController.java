@@ -2,7 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.service.AuthCookieService;
 import com.example.demo.service.RefreshTokenService;
-import com.example.demo.entity.Member;
+import com.example.demo.entity.User;
 import com.example.demo.jwt.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.*;
@@ -51,7 +51,7 @@ public class AuthController {
         }
 
         // ✅ refreshToken 회전 결과를 담을 변수
-        // rotation 안에는 보통: 어떤 회원(member)인지, 새로 발급된 refreshToken 원본(newRefreshRaw)이 들어있음.
+        // rotation 안에는 보통: 어떤 회원(uesr)인지, 새로 발급된 refreshToken 원본(newRefreshRaw)이 들어있음.
         RefreshTokenService.Rotation rotation;
         try {
 
@@ -69,16 +69,16 @@ public class AuthController {
 
         // ✅ 이 refreshToken의 주인이 누구인지 꺼내기
         // refreshToken이 유효하면 이 토큰은 어떤 회원 것인지 알 수 있음.
-        Member member = rotation.member();
+        User user = rotation.user();
 
-        // ✅ subject는 memberId (너 필터가 subject를 memberId로 읽고 있음)
-        String subject = String.valueOf(member.getId());
+        // ✅ subject는 userId (너 필터가 subject를 userId로 읽고 있음)
+        String subject = String.valueOf(user.getId());
 
         // ✅ accessToken 안에 넣을 사용자 정보(claims)
         Map<String, Object> claims = new HashMap<>();
-        claims.put("email", member.getEmail());
-        claims.put("name", member.getName());
-        claims.put("birthyear", String.valueOf(member.getBirthyear())); // 타입에 맞게 조정
+        claims.put("email", user.getEmail());
+        claims.put("name", user.getName());
+        claims.put("birthyear", String.valueOf(user.getBirthyear())); // 타입에 맞게 조정
 
         // ✅ 새 accessToken 발급
         String newAccess = jwtTokenProvider.createAccessToken(subject, claims);

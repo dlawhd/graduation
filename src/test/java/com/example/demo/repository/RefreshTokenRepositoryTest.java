@@ -1,7 +1,7 @@
 package com.example.demo.repository;
 
 import com.example.demo.config.JpaAuditConfig;
-import com.example.demo.entity.Member;
+import com.example.demo.entity.User;
 import com.example.demo.entity.RefreshToken;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,14 +44,14 @@ class RefreshTokenRepositoryTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
-    private MemberRepository memberRepository;
+    private UserRepository userRepository;
 
     @Test
     void findByTokenHash_토큰이_있으면_반환한다() {
         // given
-        Member member = saveMember("naver-1", "user1@example.com", "은서");
+        User user = saveUser("naver-1", "user1@example.com", "은서");
         RefreshToken refreshToken = saveRefreshToken(
-                member,
+                user,
                 "hash-123",
                 LocalDateTime.now().plusDays(7),
                 null
@@ -78,9 +78,9 @@ class RefreshTokenRepositoryTest {
     @Test
     void findByTokenHashAndRevokedAtIsNull_폐기되지_않은_토큰이면_반환한다() {
         // given
-        Member member = saveMember("naver-2", "user2@example.com", "종현");
+        User user = saveUser("naver-2", "user2@example.com", "종현");
         saveRefreshToken(
-                member,
+                user,
                 "hash-active",
                 LocalDateTime.now().plusDays(7),
                 null
@@ -99,9 +99,9 @@ class RefreshTokenRepositoryTest {
     @Test
     void findByTokenHashAndRevokedAtIsNull_이미_폐기된_토큰이면_empty를_반환한다() {
         // given
-        Member member = saveMember("naver-3", "user3@example.com", "철수");
+        User user = saveUser("naver-3", "user3@example.com", "철수");
         saveRefreshToken(
-                member,
+                user,
                 "hash-revoked",
                 LocalDateTime.now().plusDays(7),
                 LocalDateTime.now()
@@ -118,11 +118,11 @@ class RefreshTokenRepositoryTest {
     @Test
     void findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter_사용가능한_토큰이면_반환한다() {
         // given
-        Member member = saveMember("naver-4", "user4@example.com", "영희");
+        User user = saveUser("naver-4", "user4@example.com", "영희");
         LocalDateTime now = LocalDateTime.now();
 
         saveRefreshToken(
-                member,
+                user,
                 "hash-valid",
                 now.plusDays(7),
                 null
@@ -143,11 +143,11 @@ class RefreshTokenRepositoryTest {
     @Test
     void findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter_만료된_토큰이면_empty를_반환한다() {
         // given
-        Member member = saveMember("naver-5", "user5@example.com", "민수");
+        User user = saveUser("naver-5", "user5@example.com", "민수");
         LocalDateTime now = LocalDateTime.now();
 
         saveRefreshToken(
-                member,
+                user,
                 "hash-expired",
                 now.minusMinutes(1),
                 null
@@ -167,11 +167,11 @@ class RefreshTokenRepositoryTest {
     @Test
     void findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter_폐기된_토큰이면_empty를_반환한다() {
         // given
-        Member member = saveMember("naver-6", "user6@example.com", "지민");
+        User user = saveUser("naver-6", "user6@example.com", "지민");
         LocalDateTime now = LocalDateTime.now();
 
         saveRefreshToken(
-                member,
+                user,
                 "hash-revoked-validtime",
                 now.plusDays(7),
                 now
@@ -188,8 +188,8 @@ class RefreshTokenRepositoryTest {
         assertThat(result).isEmpty();
     }
 
-    private Member saveMember(String providerId, String email, String name) {
-        Member member = Member.builder()
+    private User saveUser(String providerId, String email, String name) {
+        User user = User.builder()
                 .provider("NAVER")
                 .providerId(providerId)
                 .email(email)
@@ -197,17 +197,17 @@ class RefreshTokenRepositoryTest {
                 .birthyear("2000")
                 .build();
 
-        return memberRepository.save(member);
+        return userRepository.save(user);
     }
 
     private RefreshToken saveRefreshToken(
-            Member member,
+            User user,
             String tokenHash,
             LocalDateTime expiresAt,
             LocalDateTime revokedAt
     ) {
         RefreshToken refreshToken = RefreshToken.builder()
-                .member(member)
+                .user(user)
                 .tokenHash(tokenHash)
                 .expiresAt(expiresAt)
                 .revokedAt(revokedAt)

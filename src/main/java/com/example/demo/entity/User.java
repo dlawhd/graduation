@@ -5,23 +5,21 @@ import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
-import java.time.LocalDateTime;
-
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 @Entity
-@SQLDelete(sql = "UPDATE members SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 @Table(
-        name = "members",
+        name = "users",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_members_email", columnNames = "email"),
-                @UniqueConstraint(name = "uk_members_provider_provider_id", columnNames = {"provider", "provider_id"})
+                @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
+                @UniqueConstraint(name = "uk_users_provider_provider_id", columnNames = {"provider", "provider_id"})
         }
 )
-public class Member extends BaseEntity{
+public class User extends BaseEntity{
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

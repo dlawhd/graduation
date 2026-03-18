@@ -20,7 +20,7 @@ public class MeController {
         if (principal instanceof Map<?, ?> p) {
             return Map.of(
                     "authenticated", true,
-                    "memberId", p.get("memberId"),
+                    "userId", p.get("userId"),
                     "email", p.get("email"),
                     "name", p.get("name"),
                     "birthyear", p.get("birthyear")
@@ -29,7 +29,7 @@ public class MeController {
 
         return Map.of(
                 "authenticated", true,
-                "memberId", authentication.getName() // fallback
+                "userId", authentication.getName() // fallback
         );
     }
 }

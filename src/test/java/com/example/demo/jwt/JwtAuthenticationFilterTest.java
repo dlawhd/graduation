@@ -68,7 +68,7 @@ class JwtAuthenticationFilterTest {
                         .cookie(new Cookie("accessToken", accessToken)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.memberId").value("1"))
+                .andExpect(jsonPath("$.userId").value("1"))
                 .andExpect(jsonPath("$.email").value("test@example.com"))
                 .andExpect(jsonPath("$.name").value("은서"))
                 .andExpect(jsonPath("$.birthyear").value("2000"));

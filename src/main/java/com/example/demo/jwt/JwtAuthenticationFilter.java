@@ -39,15 +39,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             Claims claims = jwtTokenProvider.getClaimsFromToken(jwt);
 
-            // ✅ subject = memberId (String)
-            String memberId = claims.getSubject();
+            // ✅ subject = userId (String)
+            String userId = claims.getSubject();
 
             String email = (String) claims.get("email");
             String name = (String) claims.get("name");
             String birthyear = (String) claims.get("birthyear");
 
             Map<String, Object> principal = new HashMap<>();
-            principal.put("memberId", memberId);
+            principal.put("userId", userId);
             principal.put("email", email);
             principal.put("name", name);
             principal.put("birthyear", birthyear);

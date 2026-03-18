@@ -1,6 +1,6 @@
 package com.example.demo.security;
 
-import com.example.demo.dto.reponse.ErrorResponse;
+import com.example.demo.dto.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

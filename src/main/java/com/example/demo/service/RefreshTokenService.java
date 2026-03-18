@@ -2,7 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.auth.TokenCrypto;
 import com.example.demo.config.JwtProperties;
-import com.example.demo.entity.Member;
+import com.example.demo.entity.User;
 import com.example.demo.entity.RefreshToken;
 import com.example.demo.repository.RefreshTokenRepository;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ public class RefreshTokenService {
 
     // ✅ 로그인 성공 시 refresh 토큰 발급 + DB 저장
     @Transactional
-    public String issue(Member member) {
+    public String issue(User user) {
 
         // ✅ 브라우저에 저장할 refresh 토큰 원본 생성
         String raw = TokenCrypto.generateRefreshRaw();
@@ -35,7 +35,7 @@ public class RefreshTokenService {
 
         // ✅ RefreshToken 엔티티 만들기
         RefreshToken entity = RefreshToken.builder()
-                .member(member)
+                .user(user)
                 .tokenHash(hash)
                 .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpSeconds())) // 만료 시간(지금으로부터 14일 뒤)
                 .build();
@@ -59,8 +59,8 @@ public class RefreshTokenService {
         // ✅ 1) 기존 refresh 토큰 폐기
         old.revokeNow();
 
-        // ✅ 2) 새 refresh 토큰도 같은 회원에게 발급해야 하니까 기존 토큰의 주인(member) 가져오기
-        Member member = old.getMember();
+        // ✅ 2) 새 refresh 토큰도 같은 회원에게 발급해야 하니까 기존 토큰의 주인(user) 가져오기
+        User user = old.getUser();
 
         // ✅ 새 refresh 토큰 원본 생성
         String newRaw = TokenCrypto.generateRefreshRaw();
@@ -70,14 +70,14 @@ public class RefreshTokenService {
 
         // ✅ 새 refresh 토큰 엔티티 만들기
         RefreshToken next = RefreshToken.builder()
-                .member(member)
+                .user(user)
                 .tokenHash(newHash)
                 .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpSeconds()))
                 .build();
 
         refreshTokenRepository.save(next);
 
-        return new Rotation(member, newRaw);
+        return new Rotation(user, newRaw);
     }
 
     // ✅ 로그아웃 시 refresh 토큰 폐기
@@ -99,5 +99,5 @@ public class RefreshTokenService {
 
     // 메서드 결과를 여러 개 묶어서 전달하는 작은 데이터 클래스로도 쓰임
     // rotate()에서 여러 값을 반환해야 하는데 자바 메서드는 보통 한 개만 반환하니까 둘을 묶어서 깔끔하게 반환
-    public record Rotation(Member member, String newRefreshRaw) {}
+    public record Rotation(User user, String newRefreshRaw) {}
 }

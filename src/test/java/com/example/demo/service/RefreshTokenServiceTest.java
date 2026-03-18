@@ -2,7 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.auth.TokenCrypto;
 import com.example.demo.config.JwtProperties;
-import com.example.demo.entity.Member;
+import com.example.demo.entity.User;
 import com.example.demo.entity.RefreshToken;
 import com.example.demo.repository.RefreshTokenRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +39,7 @@ class RefreshTokenServiceTest {
 
     @Test
     void issue는_raw를_반환하고_DB에는_hash를_저장한다() {
-        Member member = Member.builder()
+        User user = User.builder()
                 .id(1L)
                 .provider("NAVER")
                 .providerId("naver-123")
@@ -51,13 +51,13 @@ class RefreshTokenServiceTest {
         // ArgumentCaptor : repository.save(...)에 실제로 어떤 RefreshToken 객체가 들어갔는지 잡아서 꺼내보기 위한 도구
         ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
 
-        String raw = refreshTokenService.issue(member);
+        String raw = refreshTokenService.issue(user);
 
         verify(refreshTokenRepository).save(captor.capture());
         RefreshToken saved = captor.getValue();
 
         assertThat(raw).isNotBlank();
-        assertThat(saved.getMember()).isEqualTo(member);
+        assertThat(saved.getUser()).isEqualTo(user);
         assertThat(saved.getTokenHash()).isEqualTo(TokenCrypto.sha256Hex(raw));
         assertThat(saved.getRevokedAt()).isNull();
         assertThat(saved.getExpiresAt()).isAfter(LocalDateTime.now().minusSeconds(1));
@@ -65,7 +65,7 @@ class RefreshTokenServiceTest {
 
     @Test
     void rotate는_기존_토큰을_폐기하고_새토큰을_발급한다() {
-        Member member = Member.builder()
+        User user = User.builder()
                 .id(1L)
                 .provider("NAVER")
                 .providerId("naver-123")
@@ -75,7 +75,7 @@ class RefreshTokenServiceTest {
         String oldHash = TokenCrypto.sha256Hex(oldRaw);
 
         RefreshToken oldToken = RefreshToken.builder()
-                .member(member)
+                .user(user)
                 .tokenHash(oldHash)
                 .expiresAt(LocalDateTime.now().plusDays(1))
                 .build();
@@ -91,7 +91,7 @@ class RefreshTokenServiceTest {
         RefreshToken newToken = captor.getValue();
 
         assertThat(oldToken.getRevokedAt()).isNotNull();
-        assertThat(result.member()).isEqualTo(member);
+        assertThat(result.user()).isEqualTo(user);
         assertThat(result.newRefreshRaw()).isNotBlank();
         assertThat(newToken.getTokenHash()).isEqualTo(TokenCrypto.sha256Hex(result.newRefreshRaw()));
     }

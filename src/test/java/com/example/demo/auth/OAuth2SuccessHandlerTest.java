@@ -1,9 +1,9 @@
 package com.example.demo.auth;
 
-import com.example.demo.entity.Member;
+import com.example.demo.entity.User;
 import com.example.demo.jwt.JwtTokenProvider;
 import com.example.demo.service.AuthCookieService;
-import com.example.demo.service.MemberService;
+import com.example.demo.service.UserService;
 import com.example.demo.service.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ class OAuth2SuccessHandlerTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @Mock
-    private MemberService memberService;
+    private UserService userService;
 
     @Mock
     private RefreshTokenService refreshTokenService;
@@ -45,7 +45,7 @@ class OAuth2SuccessHandlerTest {
     void setUp() {
         oAuth2SuccessHandler = new OAuth2SuccessHandler(
                 jwtTokenProvider,
-                memberService,
+                userService,
                 refreshTokenService,
                 authCookieService
         );
@@ -79,17 +79,17 @@ class OAuth2SuccessHandlerTest {
         when(authentication.getPrincipal()).thenReturn(principal);
         when(principal.getAttributes()).thenReturn(outerAttributes);
 
-        Member member = mock(Member.class);
-        when(member.getId()).thenReturn(1L);
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(1L);
 
-        when(memberService.findOrCreateNaverMember(
+        when(userService.findOrCreateNaverUser(
                 "naver-123",
                 "user@example.com",
                 "은서",
                 "2000"
-        )).thenReturn(member);
+        )).thenReturn(user);
 
-        when(refreshTokenService.issue(member)).thenReturn("refresh-raw-token");
+        when(refreshTokenService.issue(user)).thenReturn("refresh-raw-token");
         when(jwtTokenProvider.createAccessToken(eq("1"), anyMap())).thenReturn("access-jwt-token");
 
         // when
@@ -97,7 +97,7 @@ class OAuth2SuccessHandlerTest {
 
         // then
         // ✅ 회원 조회/생성 서비스가 올바른 값으로 호출됐는지 확인
-        verify(memberService).findOrCreateNaverMember(
+        verify(userService).findOrCreateNaverUser(
                 "naver-123",
                 "user@example.com",
                 "은서",
@@ -105,9 +105,9 @@ class OAuth2SuccessHandlerTest {
         );
 
         // ✅ refresh 토큰 발급 호출 확인
-        verify(refreshTokenService).issue(member);
+        verify(refreshTokenService).issue(user);
 
-        // ✅ access 토큰 발급 시 subject가 memberId 문자열인지 확인
+        // ✅ access 토큰 발급 시 subject가 userId 문자열인지 확인
         // 그리고 claims 안에 email, name, birthyear가 들어갔는지도 확인
         verify(jwtTokenProvider).createAccessToken(
                 eq("1"),
@@ -148,17 +148,17 @@ class OAuth2SuccessHandlerTest {
         when(authentication.getPrincipal()).thenReturn(principal);
         when(principal.getAttributes()).thenReturn(outerAttributes);
 
-        Member member = mock(Member.class);
-        when(member.getId()).thenReturn(99L);
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(99L);
 
-        when(memberService.findOrCreateNaverMember(
+        when(userService.findOrCreateNaverUser(
                 "unknown",
                 "user@example.com",
                 "은서",
                 "2000"
-        )).thenReturn(member);
+        )).thenReturn(user);
 
-        when(refreshTokenService.issue(member)).thenReturn("refresh-token");
+        when(refreshTokenService.issue(user)).thenReturn("refresh-token");
         when(jwtTokenProvider.createAccessToken(eq("99"), anyMap())).thenReturn("access-token");
 
         // when
@@ -166,14 +166,14 @@ class OAuth2SuccessHandlerTest {
 
         // then
         // ✅ providerId가 null이면 unknown으로 바꿔서 회원 조회하는지 확인
-        verify(memberService).findOrCreateNaverMember(
+        verify(userService).findOrCreateNaverUser(
                 "unknown",
                 "user@example.com",
                 "은서",
                 "2000"
         );
 
-        verify(refreshTokenService).issue(member);
+        verify(refreshTokenService).issue(user);
         verify(authCookieService).setRefreshCookie(response, "refresh-token");
         verify(authCookieService).setAccessCookie(response, "access-token");
 

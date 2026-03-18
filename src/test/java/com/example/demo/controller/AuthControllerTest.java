@@ -1,6 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.entity.Member;
+import com.example.demo.entity.User;
 import com.example.demo.jwt.JwtTokenProvider;
 import com.example.demo.service.AuthCookieService;
 import com.example.demo.service.RefreshTokenService;
@@ -51,7 +51,7 @@ class AuthControllerTest {
 
     @Test
     void refresh성공시_ok_true와_쿠키_재발급() throws Exception {
-        Member member = Member.builder()
+        User user = User.builder()
                 .id(1L)
                 .email("test@test.com")
                 .name("은서")
@@ -61,7 +61,7 @@ class AuthControllerTest {
                 .build();
 
         given(refreshTokenService.rotate("old-refresh"))
-                .willReturn(new RefreshTokenService.Rotation(member, "new-refresh"));
+                .willReturn(new RefreshTokenService.Rotation(user, "new-refresh"));
 
         given(jwtTokenProvider.createAccessToken(eq("1"), anyMap()))
                 .willReturn("new-access");

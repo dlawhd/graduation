@@ -26,7 +26,7 @@ class MeControllerTest {
     void principal이_Map이면_회원정보를_반환한다() {
         // given
         Map<String, Object> principal = Map.of(
-                "memberId", 1L,
+                "userId", 1L,
                 "email", "user@example.com",
                 "name", "은서",
                 "birthyear", "2000"
@@ -40,14 +40,14 @@ class MeControllerTest {
 
         // then
         assertThat(result.get("authenticated")).isEqualTo(true);
-        assertThat(result.get("memberId")).isEqualTo(1L);
+        assertThat(result.get("userId")).isEqualTo(1L);
         assertThat(result.get("email")).isEqualTo("user@example.com");
         assertThat(result.get("name")).isEqualTo("은서");
         assertThat(result.get("birthyear")).isEqualTo("2000");
     }
 
     @Test
-    void principal이_Map이_아니면_authentication_name을_memberId로_반환한다() {
+    void principal이_Map이_아니면_authentication_name을_userId로_반환한다() {
         // given
         TestingAuthenticationToken authentication =
                 new TestingAuthenticationToken("principal-string", null);
@@ -59,7 +59,7 @@ class MeControllerTest {
 
         // then
         assertThat(result.get("authenticated")).isEqualTo(true);
-        assertThat(result.get("memberId")).isEqualTo("principal-string");
+        assertThat(result.get("userId")).isEqualTo("principal-string");
         assertThat(result).doesNotContainKeys("email", "name", "birthyear");
     }
 }

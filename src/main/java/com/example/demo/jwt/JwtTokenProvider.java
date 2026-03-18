@@ -18,8 +18,11 @@ public class JwtTokenProvider {
     private final long accessExpMillis;
 
     public JwtTokenProvider(
-            @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.access-exp-seconds}") long accessExpSeconds
+            @Value("${app.jwt.secret}")
+            String secret,
+
+            @Value("${app.jwt.access-exp-seconds}")
+            long accessExpSeconds
     ) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessExpMillis = accessExpSeconds * 1000L;

@@ -1,23 +1,20 @@
 package com.example.demo.auth;
 
-import com.example.demo.entity.Member;
+import com.example.demo.entity.User;
 import com.example.demo.jwt.JwtTokenProvider;
 import com.example.demo.service.AuthCookieService;
-import com.example.demo.service.MemberService;
+import com.example.demo.service.UserService;
 import com.example.demo.service.RefreshTokenService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,7 +26,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final JwtTokenProvider jwtTokenProvider;
 
     // ✅ 네이버로 받은 사용자 정보를 "우리 DB 회원"으로 저장/조회하는 서비스
-    private final MemberService memberService;
+    private final UserService userService;
 
     // ✅ RefreshToken(재발급용 토큰)을 발급하고 DB에 저장하는 서비스
     private final RefreshTokenService refreshTokenService;
@@ -43,11 +40,11 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     // ✅ 필요한 도구들을 스프링이 자동으로 넣어줌(주입)
     public OAuth2SuccessHandler(JwtTokenProvider jwtTokenProvider,
-                                MemberService memberService,
+                                UserService userService,
                                 RefreshTokenService refreshTokenService,
                                 AuthCookieService authCookieService) {
         this.jwtTokenProvider = jwtTokenProvider;
-        this.memberService = memberService;
+        this.userService = userService;
         this.refreshTokenService = refreshTokenService;
         this.authCookieService = authCookieService;
     }
@@ -102,16 +99,16 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         }
 
         //✅ 우리 DB에 회원이 이미 있으면 가져오고,없으면 새로 만들어서 저장한 뒤 반환
-        Member member = memberService.findOrCreateNaverMember(providerId, email, name, birthyear);
+        User user = userService.findOrCreateNaverUser(providerId, email, name, birthyear);
 
         //✅ refreshToken은 accessToken이 만료됐을 때 새 accessToken을 다시 발급받는 데 쓰는 긴 수명의 토큰
         // 흐름 : 원본 refresh 문자열 생성 -> DB에는 해시값 저장 -> 브라우저에는 원본을 쿠키로 저장
-        String refreshRaw = refreshTokenService.issue(member);
+        String refreshRaw = refreshTokenService.issue(user);
 
         // ✅ JWT subject 만들기
         // ✅ subject는 JWT의 "주인"을 나타내는 값
-        // 필터(JwtAuthenticationFilter)가 subject를 memberId로 쓰고 있으니 여기서도 memberId로 맞추는 게 정석
-        String subject = String.valueOf(member.getId());
+        // 필터(JwtAuthenticationFilter)가 subject를 userId로 쓰고 있으니 여기서도 userId로 맞추는 게 정석
+        String subject = String.valueOf(user.getId());
 
         // ✅ JWT 안에 같이 넣고 싶은 정보(클레임)
         Map<String, Object> claims = new HashMap<>();
