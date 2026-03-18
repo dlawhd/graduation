@@ -44,7 +44,7 @@ public class RefreshTokenService {
         return raw; // ✅ 쿠키에 넣어줄 원본 refresh 토큰 반환
     }
 
-    // ✅ /api/auth/refresh 에서 refresh 토큰 검증 + 회전(rotation)
+    // ✅ /api/v1/auth/refresh 에서 refresh 토큰 검증 + 회전(rotation)
     @Transactional
     public Rotation rotate(String refreshRaw) {
 

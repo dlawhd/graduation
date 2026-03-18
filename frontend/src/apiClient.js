@@ -12,7 +12,7 @@ let csrfToken = "";
 
 // ✅ CSRF 토큰 먼저 받아오기
 export async function fetchCsrf() {
-  const res = await apiClient.get("/api/csrf");
+  const res = await apiClient.get("/api/v1/csrf");
   csrfHeaderName = res.data?.headerName || "X-XSRF-TOKEN";
   csrfToken = res.data?.token || "";
   return csrfToken;

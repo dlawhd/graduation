@@ -9,7 +9,7 @@ import java.util.Map;
 @RestController
 public class MeController {
 
-    @GetMapping("/api/me")
+    @GetMapping("/api/v1/me")
     public Map<String, Object> me(Authentication authentication) {
         if (authentication == null) {
             return Map.of("authenticated", false);

@@ -15,7 +15,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 // 로그인 이후 토큰을 어떻게 유지하고 끝낼지"를 처리하는 클래스
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
     private final RefreshTokenService refreshTokenService;

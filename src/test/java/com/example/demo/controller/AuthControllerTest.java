@@ -43,7 +43,7 @@ class AuthControllerTest {
     void refresh쿠키가_없으면_401() throws Exception {
 
         // .with(csrf())는 POST 요청이라 CSRF 토큰을 함께 붙여준다
-        mockMvc.perform(post("/api/auth/refresh").with(csrf()))
+        mockMvc.perform(post("/api/v1/auth/refresh").with(csrf()))
 
                 // 응답 상태코드가 401인지 확인
                 .andExpect(status().isUnauthorized());
@@ -66,7 +66,7 @@ class AuthControllerTest {
         given(jwtTokenProvider.createAccessToken(eq("1"), anyMap()))
                 .willReturn("new-access");
 
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                         .with(csrf())
                         .cookie(new Cookie("refreshToken", "old-refresh")))
                 .andExpect(status().isOk())
@@ -81,7 +81,7 @@ class AuthControllerTest {
 
     @Test
     void logout은_쿠키_삭제를_호출한다() throws Exception {
-        mockMvc.perform(post("/api/auth/logout")
+        mockMvc.perform(post("/api/v1/auth/logout")
                         .with(csrf())
                         .cookie(new Cookie("refreshToken", "refresh-value")))
                 .andExpect(status().isOk())

@@ -17,7 +17,7 @@ export default function LoginSuccess() {
   const loadMe = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get("/api/me");
+      const res = await apiClient.get("/api/v1/me");
       setMe(res.data);
       setError("");
     } catch (e) {
@@ -38,7 +38,7 @@ export default function LoginSuccess() {
               window.__csrfLoaded = true;
             }
 
-            await apiClient.post("/api/auth/logout");
+            await apiClient.post("/api/v1/auth/logout");
           } finally {
             window.location.href = "/";
           }
@@ -63,7 +63,7 @@ export default function LoginSuccess() {
         <div className="success-header">
           <div>
             <h1 className="auth-title">로그인 성공 🎉</h1>
-            <p className="auth-subtitle">/api/me 결과를 보기 좋게 보여줄게요</p>
+            <p className="auth-subtitle">/api/v1/me 결과를 보기 좋게 보여줄게요</p>
           </div>
 
           <div className="actions">

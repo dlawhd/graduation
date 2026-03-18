@@ -98,9 +98,9 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("/api/csrf 는 로그인 없이 접근 가능하다")
+    @DisplayName("/api/v1/csrf 는 로그인 없이 접근 가능하다")
     void csrfEndpoint_withoutLogin_success() throws Exception {
-        mockMvc.perform(get("/api/csrf"))
+        mockMvc.perform(get("/api/v1/csrf"))
                 .andExpect(status().isOk());
     }
 

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CsrfController {
     // 프론트가 /api/csrf 를 호출하면 Spring Security가 생성한 CSRF 토큰 정보를 응답으로 내려줌.
     // 응답에는 headerName (예: X-XSRF-TOKEN), parameterName (예: _csrf), token 이런 것들을 포함.
-    @GetMapping("/api/csrf")
+    @GetMapping("/api/v1/csrf")
         public CsrfToken csrf(CsrfToken csrfToken) {
             return csrfToken; // { headerName, parameterName, token } 형태로 내려옴
     }

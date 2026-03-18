@@ -66,11 +66,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // ✅ /api/csrf 는 로그인 없이 허용, 로그인 전/후 상관없이 먼저 받아야 할 수 있으니 열어둠.
-                        .requestMatchers("/api/csrf").permitAll()
+                        .requestMatchers("/api/v1/csrf").permitAll()
 
                         // ✅ 로그인 없이 접근 가능한 기본 주소들
                         .requestMatchers("/", "/error", "/login/**", "/oauth2/**").permitAll()
-                        .requestMatchers("/api/auth/refresh", "/api/auth/logout").permitAll()
+                        .requestMatchers("/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
 
                         // JwtAuthenticationFilter가 앞에서 accessToken을 검사해서 로그인 사용자로 인정되면 접근 가능해짐.
                         .requestMatchers("/api/**").authenticated()
