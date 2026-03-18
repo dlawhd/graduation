@@ -102,7 +102,7 @@ export default function LoginSuccess() {
               <div className="grid">
                 <Field label="name" value={me.name} />
                 <Field label="email" value={me.email} />
-                <Field label="memberId" value={me.memberId} />
+                <Field label="userId" value={me.userId} />
                 <Field label="birthyear" value={me.birthyear} />
               </div>
             </div>
