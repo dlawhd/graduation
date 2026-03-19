@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.config.AppProperties;
 import com.example.demo.config.JwtProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,16 +14,24 @@ class AuthCookieServiceTest {
 
     private AuthCookieService authCookieService;
     private JwtProperties jwtProperties;
+    private AppProperties appProperties;
 
     @BeforeEach
     void setUp() {
         // ✅ 테스트용 JWT 설정값 준비
         jwtProperties = new JwtProperties();
-        jwtProperties.setAccessExpSeconds(1800);      // 30분
-        jwtProperties.setRefreshExpSeconds(1209600); // 14일
+        jwtProperties.setAccessExpSeconds(1800);       // 30분
+        jwtProperties.setRefreshExpSeconds(1209600);   // 14일
+
+        // ✅ 테스트용 쿠키 설정값 준비 (로컬 환경 기준)
+        appProperties = new AppProperties();
+        appProperties.setFrontendUrl("http://localhost:3000");
+        appProperties.getCookie().setSecure(false);
+        appProperties.getCookie().setSameSite("Lax");
+        appProperties.getCookie().setDomain("");
 
         // ✅ 테스트할 서비스 생성
-        authCookieService = new AuthCookieService(jwtProperties);
+        authCookieService = new AuthCookieService(jwtProperties, appProperties);
     }
 
     @Test
@@ -42,8 +51,11 @@ class AuthCookieServiceTest {
         assertThat(setCookieHeader).contains("Path=/");
         assertThat(setCookieHeader).contains("Max-Age=1800");
         assertThat(setCookieHeader).contains("HttpOnly");
-        assertThat(setCookieHeader).contains("Secure");
-        assertThat(setCookieHeader).contains("SameSite=None");
+        assertThat(setCookieHeader).contains("SameSite=Lax");
+
+        // ✅ 로컬 설정에서는 Secure, Domain이 없어야 함
+        assertThat(setCookieHeader).doesNotContain("Secure");
+        assertThat(setCookieHeader).doesNotContain("Domain=");
     }
 
     @Test
@@ -63,8 +75,10 @@ class AuthCookieServiceTest {
         assertThat(setCookieHeader).contains("Path=/api");
         assertThat(setCookieHeader).contains("Max-Age=1209600");
         assertThat(setCookieHeader).contains("HttpOnly");
-        assertThat(setCookieHeader).contains("Secure");
-        assertThat(setCookieHeader).contains("SameSite=None");
+        assertThat(setCookieHeader).contains("SameSite=Lax");
+
+        assertThat(setCookieHeader).doesNotContain("Secure");
+        assertThat(setCookieHeader).doesNotContain("Domain=");
     }
 
     @Test
@@ -83,8 +97,10 @@ class AuthCookieServiceTest {
         assertThat(setCookieHeader).contains("Path=/");
         assertThat(setCookieHeader).contains("Max-Age=0");
         assertThat(setCookieHeader).contains("HttpOnly");
-        assertThat(setCookieHeader).contains("Secure");
-        assertThat(setCookieHeader).contains("SameSite=None");
+        assertThat(setCookieHeader).contains("SameSite=Lax");
+
+        assertThat(setCookieHeader).doesNotContain("Secure");
+        assertThat(setCookieHeader).doesNotContain("Domain=");
     }
 
     @Test
@@ -103,21 +119,29 @@ class AuthCookieServiceTest {
         assertThat(setCookieHeader).contains("Path=/api");
         assertThat(setCookieHeader).contains("Max-Age=0");
         assertThat(setCookieHeader).contains("HttpOnly");
-        assertThat(setCookieHeader).contains("Secure");
-        assertThat(setCookieHeader).contains("SameSite=None");
+        assertThat(setCookieHeader).contains("SameSite=Lax");
+
+        assertThat(setCookieHeader).doesNotContain("Secure");
+        assertThat(setCookieHeader).doesNotContain("Domain=");
     }
 
     @Test
     void access와_refresh쿠키를_같은_응답에_둘다_추가할_수_있다() {
+        // given
         MockHttpServletResponse response = new MockHttpServletResponse();
 
+        // when
         authCookieService.setAccessCookie(response, "access-value");
         authCookieService.setRefreshCookie(response, "refresh-value");
 
+        // then
         var cookies = response.getHeaders(HttpHeaders.SET_COOKIE);
 
         assertThat(cookies).hasSize(2);
         assertThat(cookies.get(0)).contains("accessToken=access-value");
+        assertThat(cookies.get(0)).contains("SameSite=Lax");
+
         assertThat(cookies.get(1)).contains("refreshToken=refresh-value");
+        assertThat(cookies.get(1)).contains("SameSite=Lax");
     }
 }

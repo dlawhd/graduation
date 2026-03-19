@@ -1,5 +1,6 @@
 package com.example.demo.config.exception;
 
+import com.example.demo.dto.response.ErrorEnvelope;
 import com.example.demo.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -16,7 +17,7 @@ public class GlobalExceptionHandler {
     // ✅ IllegalArgumentException(주로 잘못된 값이 들어왔을 때 많이 사용하는 예외) 처리
     // 이 예외가 발생하면 BAD_REQUEST(400) 형태의 에러 응답으로 바꿔서 내림.
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(
+    public ResponseEntity<ErrorEnvelope> handleIllegalArgument(
             IllegalArgumentException ex,
             HttpServletRequest request
     ) {
@@ -28,14 +29,14 @@ public class GlobalExceptionHandler {
         );
 
         // ✅ HTTP 400 상태코드와 함께 응답 반환
-        return ResponseEntity.badRequest().body(error);
+        return ResponseEntity.badRequest().body(ErrorEnvelope.of(error));
     }
 
     // ✅ ResponseStatusException(이 예외는 상태코드까지 같이 담아서 던질 수 있는 예외) 처리
     // 상태코드(401, 403, 404 등)를 꺼내고 그에 맞는 code 문자열을 만들고 reason(설명 메시지)이 있으면 그걸 사용하고
     // 없으면 기본 메시지를 넣어줌
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ErrorResponse> handleResponseStatusException(
+    public ResponseEntity<ErrorEnvelope> handleResponseStatusException(
             ResponseStatusException ex,
             HttpServletRequest request
     ) {
@@ -56,12 +57,12 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        return ResponseEntity.status(statusCode).body(error);
+        return ResponseEntity.status(statusCode).body(ErrorEnvelope.of(error));
     }
 
     // ✅ 그 밖의 모든 예외 처리
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(
+    public ResponseEntity<ErrorEnvelope> handleException(
             Exception ex,
             HttpServletRequest request
     ) {
@@ -72,7 +73,7 @@ public class GlobalExceptionHandler {
         );
 
         // ✅ HTTP 500 상태코드와 함께 응답 반환
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ErrorEnvelope.of(error));
     }
 
     // ✅ 상태코드 숫자를 에러 코드 문자열로 바꾸는 메서드

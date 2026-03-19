@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import com.example.demo.dto.response.ErrorEnvelope;
 import com.example.demo.dto.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
@@ -77,6 +78,6 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
         // ✅ ErrorResponse 객체를 JSON으로 바꿔서 응답 바디에 써줌
-        objectMapper.writeValue(response.getWriter(), errorResponse);
+        objectMapper.writeValue(response.getWriter(), ErrorEnvelope.of(errorResponse));
     }
 }

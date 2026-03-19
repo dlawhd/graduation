@@ -13,9 +13,13 @@ let csrfToken = "";
 // ✅ CSRF 토큰 먼저 받아오기
 export async function fetchCsrf() {
   const res = await apiClient.get("/api/v1/csrf");
-  csrfHeaderName = res.data?.headerName || "X-XSRF-TOKEN";
-  csrfToken = res.data?.token || "";
-  return csrfToken;
+
+    // ✅ 이제 응답이 { data: { headerName, token, ... } } 구조라서
+    //    바깥 data 안의 진짜 data를 한 번 더 꺼내야 함
+    const csrfData = res.data?.data;
+    csrfHeaderName = csrfData?.headerName || "X-XSRF-TOKEN";
+    csrfToken = csrfData?.token || "";
+    return csrfToken;
 }
 
 // ✅ POST/PUT/PATCH/DELETE 요청에는 CSRF 헤더 자동 첨부

@@ -1,7 +1,9 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.response.MeResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;
+import com.example.demo.dto.response.ApiResponse;
 
 import java.util.Map;
 
@@ -11,16 +13,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MeControllerTest {
 
     private final MeController meController = new MeController();
-
-    @Test
-    void authentication이_null이면_authenticated_false를_반환한다() {
-        // when
-        Map<String, Object> result = meController.me(null);
-
-        // then
-        assertThat(result.get("authenticated")).isEqualTo(false);
-        assertThat(result).hasSize(1);
-    }
 
     @Test
     void principal이_Map이면_회원정보를_반환한다() {
@@ -36,14 +28,13 @@ class MeControllerTest {
                 new TestingAuthenticationToken(principal, null);
 
         // when
-        Map<String, Object> result = meController.me(authentication);
+        ApiResponse<MeResponse> result = meController.me(authentication);
 
         // then
-        assertThat(result.get("authenticated")).isEqualTo(true);
-        assertThat(result.get("userId")).isEqualTo(1L);
-        assertThat(result.get("email")).isEqualTo("user@example.com");
-        assertThat(result.get("name")).isEqualTo("은서");
-        assertThat(result.get("birthyear")).isEqualTo("2000");
+        assertThat(result.data().userId()).isEqualTo(1L);
+        assertThat(result.data().email()).isEqualTo("user@example.com");
+        assertThat(result.data().name()).isEqualTo("은서");
+        assertThat(result.data().birthyear()).isEqualTo("2000");
     }
 
     @Test
@@ -55,11 +46,12 @@ class MeControllerTest {
         authentication.setAuthenticated(true);
 
         // when
-        Map<String, Object> result = meController.me(authentication);
+        ApiResponse<MeResponse> result = meController.me(authentication);
 
         // then
-        assertThat(result.get("authenticated")).isEqualTo(true);
-        assertThat(result.get("userId")).isEqualTo("principal-string");
-        assertThat(result).doesNotContainKeys("email", "name", "birthyear");
+        assertThat(result.data().userId()).isEqualTo("principal-string");
+        assertThat(result.data().email()).isNull();
+        assertThat(result.data().name()).isNull();
+        assertThat(result.data().birthyear()).isNull();
     }
 }

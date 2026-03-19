@@ -70,7 +70,7 @@ class AuthControllerTest {
                         .with(csrf())
                         .cookie(new Cookie("refreshToken", "old-refresh")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ok").value(true));
+                .andExpect(jsonPath("$.data.ok").value(true));
 
         // 컨트롤러가 새 access 쿠키를 심었는지 확인
         verify(authCookieService).setAccessCookie(any(), eq("new-access"));
@@ -85,7 +85,7 @@ class AuthControllerTest {
                         .with(csrf())
                         .cookie(new Cookie("refreshToken", "refresh-value")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ok").value(true));
+                .andExpect(jsonPath("$.data.ok").value(true));
 
         // refresh token 폐기 메서드가 호출되었는지 확인
         verify(refreshTokenService).revokeIfPresent("refresh-value");

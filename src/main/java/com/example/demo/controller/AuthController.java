@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.service.AuthCookieService;
 import com.example.demo.service.RefreshTokenService;
 import com.example.demo.entity.User;
@@ -36,7 +37,7 @@ public class AuthController {
     // ✅ POST /api/auth/refresh
     // 출입증(accessToken)이 만료되기 전에 재발급 쿠폰(refreshToken)으로 새 출입증을 다시 받는 API
     @PostMapping("/refresh")
-    public Map<String, Object> refresh(
+    public ApiResponse<Map<String, Object>> refresh(
 
             // ✅ 브라우저 쿠키에서 refreshToken 꺼내기
             // required = false : 쿠키가 없어도 일단 메서드 진입은 가능, 대신 아래에서 직접 검사해서 401 처리함
@@ -87,13 +88,13 @@ public class AuthController {
         authCookieService.setAccessCookie(response, newAccess);
         authCookieService.setRefreshCookie(response, rotation.newRefreshRaw());
 
-        return Map.of("ok", true);
+        return ApiResponse.of(Map.of("ok", true));
     }
 
     // ✅ POST /api/auth/logout
     // 현재 refreshToken을 폐기(revoked_at 찍기), accessToken 쿠키 삭제, refreshToken 쿠키 삭제
     @PostMapping("/logout")
-    public Map<String, Object> logout(
+    public ApiResponse<Map<String, Object>> logout(
             // ✅ 브라우저 쿠키에서 refreshToken 읽기
             @CookieValue(name = "refreshToken", required = false) String refreshToken,
 
@@ -104,6 +105,6 @@ public class AuthController {
         authCookieService.clearAccessCookie(response);
         authCookieService.clearRefreshCookie(response);
 
-        return Map.of("ok", true);
+        return ApiResponse.of(Map.of("ok", true));
     }
 }

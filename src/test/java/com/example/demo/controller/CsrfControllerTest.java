@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.response.ApiResponse;
+import com.example.demo.dto.response.CsrfResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
@@ -20,11 +22,11 @@ class CsrfControllerTest {
         );
 
         // when
-        CsrfToken result = controller.csrf(csrfToken);
+        ApiResponse<CsrfResponse> result = controller.csrf(csrfToken);
 
         // then
-        assertThat(result.getHeaderName()).isEqualTo("X-XSRF-TOKEN");
-        assertThat(result.getParameterName()).isEqualTo("_csrf");
-        assertThat(result.getToken()).isEqualTo("test-csrf-token");
+        assertThat(result.data().headerName()).isEqualTo("X-XSRF-TOKEN");
+        assertThat(result.data().parameterName()).isEqualTo("_csrf");
+        assertThat(result.data().token()).isEqualTo("test-csrf-token");
     }
 }

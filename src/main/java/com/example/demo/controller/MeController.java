@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.response.ApiResponse;
+import com.example.demo.dto.response.MeResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,26 +12,25 @@ import java.util.Map;
 public class MeController {
 
     @GetMapping("/api/v1/me")
-    public Map<String, Object> me(Authentication authentication) {
-        if (authentication == null) {
-            return Map.of("authenticated", false);
-        }
-
+    public ApiResponse<MeResponse> me(Authentication authentication) {
         Object principal = authentication.getPrincipal();
 
         if (principal instanceof Map<?, ?> p) {
-            return Map.of(
-                    "authenticated", true,
-                    "userId", p.get("userId"),
-                    "email", p.get("email"),
-                    "name", p.get("name"),
-                    "birthyear", p.get("birthyear")
+            MeResponse response = new MeResponse(
+                    p.get("userId"),
+                    (String) p.get("email"),
+                    (String) p.get("name"),
+                    (String) p.get("birthyear")
             );
+            return ApiResponse.of(response);
         }
 
-        return Map.of(
-                "authenticated", true,
-                "userId", authentication.getName() // fallback
+        MeResponse response = new MeResponse(
+                authentication.getName(),
+                null,
+                null,
+                null
         );
+        return ApiResponse.of(response);
     }
 }

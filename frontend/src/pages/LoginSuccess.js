@@ -18,7 +18,7 @@ export default function LoginSuccess() {
     setLoading(true);
     try {
       const res = await apiClient.get("/api/v1/me");
-      setMe(res.data);
+      setMe(res.data.data);
       setError("");
     } catch (e) {
       setMe(null);
@@ -94,8 +94,8 @@ export default function LoginSuccess() {
           <>
             <div className="panel">
               <div className="badge-row">
-                <span className={`badge ${me.authenticated ? "ok" : "no"}`}>
-                  {me.authenticated ? "authenticated: true" : "authenticated: false"}
+                <span className="badge ok">
+                  로그인된 사용자
                 </span>
               </div>
 

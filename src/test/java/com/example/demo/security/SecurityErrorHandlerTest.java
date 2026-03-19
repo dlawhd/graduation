@@ -43,9 +43,9 @@ class SecurityErrorHandlerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(content().encoding("UTF-8"))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
-                .andExpect(jsonPath("$.message").value("로그인이 필요합니다."))
-                .andExpect(jsonPath("$.path").value("/secure"));
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.error.message").value("로그인이 필요합니다."))
+                .andExpect(jsonPath("$.error.path").value("/secure"));
     }
 
     @Test
@@ -57,9 +57,9 @@ class SecurityErrorHandlerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(content().encoding("UTF-8"))
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
-                .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."))
-                .andExpect(jsonPath("$.path").value("/admin"));
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.error.message").value("접근 권한이 없습니다."))
+                .andExpect(jsonPath("$.error.path").value("/admin"));
     }
 
     @Test

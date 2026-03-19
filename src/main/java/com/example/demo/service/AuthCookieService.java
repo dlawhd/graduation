@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.config.AppProperties;
 import com.example.demo.config.JwtProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -12,28 +13,48 @@ import java.time.Duration;
 @Component
 public class AuthCookieService {
 
-    // ✅ SameSite 설정값
-    // SameSite는 브라우저가 쿠키를 언제 같이 보낼지 정하는 옵션
-    private static final String SAME_SITE = "None";
+    private final JwtProperties jwtProperties;
+    private final AppProperties appProperties;
 
-    private  final JwtProperties jwtProperties;
-
-    public AuthCookieService(JwtProperties jwtProperties) {
+    public AuthCookieService(JwtProperties jwtProperties,
+                             AppProperties appProperties) {
         this.jwtProperties = jwtProperties;
+        this.appProperties = appProperties;
     }
 
+    // ✅ 공통 쿠키 생성 메서드
+    private ResponseCookie createCookie(
+            String name,
+            String value,
+            String path,
+            Duration maxAge
+    ) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(appProperties.getCookie().isSecure())
+                .sameSite(appProperties.getCookie().getSameSite())
+                .path(path)
+                .maxAge(maxAge);
+
+        // ✅ domain 값이 비어있지 않을 때만 넣기
+        String domain = appProperties.getCookie().getDomain();
+        if (domain != null && !domain.isBlank()) {
+            builder.domain(domain);
+        }
+
+        return builder.build();
+    }
     // ✅ accessToken 쿠키 저장
     // accessToken이라는 이름의 쿠키를 만들고 응답 헤더(Set-Cookie)에 넣어서 브라우저가 저장하게 함
     public void setAccessCookie(HttpServletResponse response, String accessJwt) {
 
         // ✅ accessToken 쿠키 만들기
-        ResponseCookie cookie = ResponseCookie.from("accessToken", accessJwt)
-                .httpOnly(true) // 자바스크립트(document.cookie)로 이 쿠키를 읽지 못하게 막음 -> XSS 같은 공격에서 토큰 탈취 위험을 줄여줌
-                .secure(true) // HTTPS 연결에서만 쿠키를 보내게 함 → 평문 HTTP에서는 쿠키 전송 안 함
-                .sameSite(SAME_SITE) // 다른 출처(프론트 ↔ 백엔드) 요청에서도 쿠키 전송 가능하게 함
-                .path("/")
-                .maxAge(Duration.ofSeconds(jwtProperties.getAccessExpSeconds())) // accessToken 쿠키의 유지 시간, 30분
-                .build();
+        ResponseCookie cookie = createCookie(
+                "accessToken",
+                accessJwt,
+                "/",
+                Duration.ofSeconds(jwtProperties.getAccessExpSeconds())
+        );
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -43,13 +64,12 @@ public class AuthCookieService {
     public void setRefreshCookie(HttpServletResponse response, String refreshRaw) {
 
         // ✅ refreshToken 쿠키 만들기
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshRaw)
-                .httpOnly(true)
-                .secure(true)
-                .sameSite(SAME_SITE)
-                .path("/api")                 // refresh는 API에만 실리게
-                .maxAge(Duration.ofSeconds(jwtProperties.getRefreshExpSeconds()))  // refresh 14일
-                .build();
+        ResponseCookie cookie = createCookie(
+                "refreshToken",
+                refreshRaw,
+                "/api",
+                Duration.ofSeconds(jwtProperties.getRefreshExpSeconds())
+        );
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -59,13 +79,12 @@ public class AuthCookieService {
     public void clearAccessCookie(HttpServletResponse response) {
 
         // ✅ "삭제용 accessToken 쿠키" 만들기
-        ResponseCookie cookie = ResponseCookie.from("accessToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .sameSite(SAME_SITE)
-                .path("/")
-                .maxAge(0) // ✅ 즉시 만료 = 삭제
-                .build();
+        ResponseCookie cookie = createCookie(
+                "accessToken",
+                "",
+                "/",
+                Duration.ZERO
+        );
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -75,13 +94,12 @@ public class AuthCookieService {
     public void clearRefreshCookie(HttpServletResponse response) {
 
         // ✅ "삭제용 refreshToken 쿠키" 만들기
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .sameSite(SAME_SITE)
-                .path("/api")
-                .maxAge(0)
-                .build();
+        ResponseCookie cookie = createCookie(
+                "refreshToken",
+                "",
+                "/api",
+                Duration.ZERO
+        );
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }

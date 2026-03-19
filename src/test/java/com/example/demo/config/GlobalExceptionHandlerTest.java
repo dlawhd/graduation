@@ -46,9 +46,9 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test/illegal"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
-                .andExpect(jsonPath("$.message").value("이름은 비워둘 수 없습니다."))
-                .andExpect(jsonPath("$.path").value("/test/illegal"));
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.error.message").value("이름은 비워둘 수 없습니다."))
+                .andExpect(jsonPath("$.error.path").value("/test/illegal"));
     }
 
     @Test
@@ -57,9 +57,9 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test/unauthorized"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
-                .andExpect(jsonPath("$.message").value("토큰이 만료되었습니다."))
-                .andExpect(jsonPath("$.path").value("/test/unauthorized"));
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.error.message").value("토큰이 만료되었습니다."))
+                .andExpect(jsonPath("$.error.path").value("/test/unauthorized"));
     }
 
     @Test
@@ -68,9 +68,9 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test/not-found"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("대상을 찾을 수 없습니다."))
-                .andExpect(jsonPath("$.path").value("/test/not-found"));
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.error.message").value("대상을 찾을 수 없습니다."))
+                .andExpect(jsonPath("$.error.path").value("/test/not-found"));
     }
 
     @Test
@@ -79,9 +79,9 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test/conflict"))
                 .andExpect(status().isConflict())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.code").value("HTTP_409"))
-                .andExpect(jsonPath("$.message").value("요청 처리 중 오류가 발생했습니다."))
-                .andExpect(jsonPath("$.path").value("/test/conflict"));
+                .andExpect(jsonPath("$.error.code").value("HTTP_409"))
+                .andExpect(jsonPath("$.error.message").value("요청 처리 중 오류가 발생했습니다."))
+                .andExpect(jsonPath("$.error.path").value("/test/conflict"));
     }
 
     @Test
@@ -90,9 +90,9 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test/error"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
-                .andExpect(jsonPath("$.message").value("서버 내부 오류가 발생했습니다."))
-                .andExpect(jsonPath("$.path").value("/test/error"));
+                .andExpect(jsonPath("$.error.code").value("INTERNAL_SERVER_ERROR"))
+                .andExpect(jsonPath("$.error.message").value("서버 내부 오류가 발생했습니다."))
+                .andExpect(jsonPath("$.error.path").value("/test/error"));
     }
 
     @RestController
