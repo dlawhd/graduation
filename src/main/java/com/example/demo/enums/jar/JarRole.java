@@ -1,4 +1,4 @@
-package com.example.demo.enums;
+package com.example.demo.enums.jar;
 
 public enum JarRole {
     OWNER,  // 저금통 주인

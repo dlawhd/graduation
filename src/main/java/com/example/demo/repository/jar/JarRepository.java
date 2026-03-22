@@ -1,6 +1,6 @@
-package com.example.demo.repository;
+package com.example.demo.repository.jar;
 
-import com.example.demo.entity.Jar;
+import com.example.demo.entity.jar.Jar;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

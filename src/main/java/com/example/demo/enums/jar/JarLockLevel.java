@@ -1,4 +1,4 @@
-package com.example.demo.enums;
+package com.example.demo.enums.jar;
 
 public enum JarLockLevel {
     HIDDEN,     // 거의 아무것도 안 보임

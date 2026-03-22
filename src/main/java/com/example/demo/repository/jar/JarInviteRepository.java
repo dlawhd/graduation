@@ -1,6 +1,6 @@
-package com.example.demo.repository;
+package com.example.demo.repository.jar;
 
-import com.example.demo.entity.JarInvite;
+import com.example.demo.entity.jar.JarInvite;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;

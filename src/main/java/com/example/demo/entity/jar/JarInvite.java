@@ -1,5 +1,6 @@
-package com.example.demo.entity;
+package com.example.demo.entity.jar;
 
+import com.example.demo.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

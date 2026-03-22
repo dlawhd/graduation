@@ -1,4 +1,4 @@
-package com.example.demo.enums;
+package com.example.demo.enums.jar;
 
 public enum JarOpenMode {
     ALL_AT_ONCE,    // 열리는 날 전체 공개

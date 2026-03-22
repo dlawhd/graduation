@@ -1,8 +1,10 @@
-package com.example.demo.entity;
+package com.example.demo.entity.jar;
 
-import com.example.demo.enums.JarLockLevel;
-import com.example.demo.enums.JarOpenMode;
-import com.example.demo.enums.JarTheme;
+import com.example.demo.entity.BaseEntity;
+import com.example.demo.entity.User;
+import com.example.demo.enums.jar.JarLockLevel;
+import com.example.demo.enums.jar.JarOpenMode;
+import com.example.demo.enums.jar.JarTheme;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

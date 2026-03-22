@@ -1,6 +1,8 @@
-package com.example.demo.entity;
+package com.example.demo.entity.jar;
 
-import com.example.demo.enums.JarRole;
+import com.example.demo.entity.BaseEntity;
+import com.example.demo.entity.User;
+import com.example.demo.enums.jar.JarRole;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
