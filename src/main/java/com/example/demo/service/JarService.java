@@ -1,0 +1,737 @@
+package com.example.demo.service;
+
+import com.example.demo.dto.jar.request.*;
+import com.example.demo.dto.jar.response.*;
+import com.example.demo.entity.User;
+import com.example.demo.entity.jar.Jar;
+import com.example.demo.entity.jar.JarInvite;
+import com.example.demo.entity.jar.JarMember;
+import com.example.demo.enums.jar.JarRole;
+import com.example.demo.enums.jar.JarTheme;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.repository.jar.JarInviteRepository;
+import com.example.demo.repository.jar.JarMemberRepository;
+import com.example.demo.repository.jar.JarRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+// 저금통 만들기
+// 내가 들어간 저금통 목록 보기, 저금통 상세 보기, 멤버 목록 보기, 초대코드 만들기, 초대코드로 참여하기
+@Service
+@Transactional(readOnly = true)
+public class JarService {
+
+    // 우리 서비스는 한국 시간 기준으로 응답을 맞춘다고 생각하고 +09:00으로 변환
+    private static final ZoneOffset KST_OFFSET = ZoneOffset.ofHours(9);
+
+    // 초대코드 기본 정책
+    // 요청값이 비어 있으면 이 기본값을 사용
+    private static final int DEFAULT_EXPIRES_HOURS = 24;
+    private static final int DEFAULT_MAX_USES = 1;
+
+    private final JarRepository jarRepository;
+    private final JarMemberRepository jarMemberRepository;
+    private final JarInviteRepository jarInviteRepository;
+    private final UserRepository userRepository;
+
+    public JarService(
+            JarRepository jarRepository,
+            JarMemberRepository jarMemberRepository,
+            JarInviteRepository jarInviteRepository,
+            UserRepository userRepository
+    ) {
+        this.jarRepository = jarRepository;
+        this.jarMemberRepository = jarMemberRepository;
+        this.jarInviteRepository = jarInviteRepository;
+        this.userRepository = userRepository;
+    }
+
+    // 저금통을 새로 만드는 메서드야.
+    // 꼭 같이 해야 하는 일: jars 테이블에 저금통 저장, jar_members 테이블에 OWNER 한 줄 저장
+    @Transactional
+    public JarCreateResponse createJar(Long currentUserId, JarCreateRequest request) {
+
+        // 1. 현재 로그인한 사용자 찾기
+        User currentUser = getUserOrThrow(currentUserId);
+
+        // 2. 저금통 엔티티 만들기
+        Jar jar = Jar.builder()
+                .owner(currentUser)
+                .name(request.name())
+                .description(request.description())
+                .theme(request.theme())
+                .maxMembers(request.maxMembers())
+                .openAt(toLocalDateTime(request.openAt()))
+                .openMode(request.openMode())
+                .lockLevel(request.lockLevel())
+                .build();
+
+        // 3. 저금통 먼저 저장
+        Jar savedJar = jarRepository.save(jar);
+
+        // 4. 만든 사람을 OWNER 멤버로도 저장
+        JarMember ownerMember = JarMember.createOwner(savedJar, currentUser);
+        jarMemberRepository.save(ownerMember);
+
+        // 5. 응답 만들기
+        return new JarCreateResponse(
+                savedJar.getJarId(),
+                savedJar.getName(),
+                toOffsetDateTime(savedJar.getOpenAt()),
+                savedJar.getOpenMode(),
+                savedJar.getLockLevel(),
+                JarRole.OWNER,
+                toOffsetDateTime(savedJar.getCreatedAt())
+        );
+    }
+
+    // 내가 현재 참여 중인 저금통 목록을 가져옴
+    // 저금통마다 memberCount / myRole을 따로 조회해(나중에 성능 최적화가 필요하면 projection / query 한 방 조회 바꾸자)
+    public JarListResponse listMyJars(Long currentUserId, int page, int size) {
+
+        // page, size는 너무 이상한 값이 들어오지 않게 간단히 보정
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+
+        // 내가 active 멤버로 들어가 있는 저금통 목록 가져오기
+        Page<Jar> jarPage = jarRepository.findMyJarsByUserId(currentUserId, pageable);
+
+        // 각 저금통을 목록용 DTO로 변환
+        List<JarListItem> items = jarPage.getContent().stream()
+                .map(jar -> {
+                    long memberCount = jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(jar.getJarId());
+
+                    JarMember myMember = jarMemberRepository
+                            .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(jar.getJarId(), currentUserId)
+                            .orElseThrow(() -> new ResponseStatusException(
+                                    HttpStatus.FORBIDDEN,
+                                    "현재 저금통 멤버가 아니야."
+                            ));
+
+                    return new JarListItem(
+                            jar.getJarId(),
+                            jar.getName(),
+                            jar.getTheme(),
+                            (int) memberCount,
+                            jar.getMaxMembers(),
+                            toOffsetDateTime(jar.getOpenAt()),
+                            jar.getOpenMode(),
+                            jar.getLockLevel(),
+                            isOpen(jar),
+                            myMember.getRole(),
+                            toOffsetDateTime(jar.getUpdatedAt())
+                    );
+                })
+                .toList();
+
+        return new JarListResponse(
+                items,
+                jarPage.getNumber(),
+                jarPage.getSize(),
+                jarPage.getTotalElements(),
+                jarPage.getTotalPages()
+        );
+    }
+
+    // 저금통 상세 정보를 가져옴
+    public JarDetailResponse getJarDetail(Long currentUserId, Long jarId) {
+
+        // 1. 저금통 찾기
+        Jar jar = jarRepository.findDetailByJarId(jarId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "저금통을 찾을 수 없어."
+                ));
+
+        // 2. 현재 사용자가 active 멤버인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+
+        // 3. 현재 active 멤버 수 세기
+        long memberCount = jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(jarId);
+
+        // 4. 상세 응답 만들기
+        return new JarDetailResponse(
+                jar.getJarId(),
+                jar.getName(),
+                jar.getDescription(),
+                jar.getTheme(),
+                jar.getOwner().getId(),
+                (int) memberCount,
+                jar.getMaxMembers(),
+                toOffsetDateTime(jar.getOpenAt()),
+                jar.getOpenMode(),
+                jar.getLockLevel(),
+                isOpen(jar),
+                myMember.getRole(),
+                toOffsetDateTime(jar.getCreatedAt()),
+                toOffsetDateTime(jar.getUpdatedAt())
+        );
+    }
+
+    // 저금통 멤버 목록을 가져옴
+    public JarMemberListResponse listMembers(Long currentUserId, Long jarId) {
+
+        // 1. 먼저 현재 사용자가 이 저금통 멤버인지 검사
+        getActiveMemberOrThrow(jarId, currentUserId);
+
+        // 2. active 멤버 전체 조회
+        List<JarMember> members = jarMemberRepository.findActiveMembersWithUserByJarId(jarId);
+
+        // 3. DTO로 변환
+        List<JarMemberItem> items = members.stream()
+                .map(member -> new JarMemberItem(
+                        member.getUser().getId(),
+                        member.getUser().getName(),
+
+                        // 현재 User 엔티티에는 profileImageUrl 필드가 없어서 일단 null
+                        null,
+
+                        member.getRole(),
+                        toOffsetDateTime(member.getJoinedAt())
+                ))
+                .toList();
+
+        return new JarMemberListResponse(items);
+    }
+
+    // 초대코드를 만드는 메서드
+    // OWNER / ADMIN 만 만들 수 있음, 기본 추천값: 24시간, 1회 사용
+    @Transactional
+    public JarInviteCreateResponse createInvite(
+            Long currentUserId,
+            Long jarId,
+            JarInviteCreateRequest request
+    ) {
+
+        // 1. 현재 사용자가 이 저금통에서 OWNER / ADMIN 인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        if (!myMember.isAdminOrOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "초대코드는 OWNER 또는 ADMIN만 만들 수 있어."
+            );
+        }
+
+        // 2. 저금통 찾기
+        Jar jar = jarRepository.findByJarId(jarId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "저금통을 찾을 수 없어."
+                ));
+
+        // 3. 현재 사용자 찾기
+        User currentUser = getUserOrThrow(currentUserId);
+
+        // 4. 요청값이 비어 있으면 기본값 사용
+        int expiresInHours = request.expiresInHours() != null
+                ? request.expiresInHours()
+                : DEFAULT_EXPIRES_HOURS;
+
+        int maxUses = request.maxUses() != null
+                ? request.maxUses()
+                : DEFAULT_MAX_USES;
+
+        // 5. 중복되지 않는 초대코드 생성
+        String code = generateUniqueInviteCode();
+
+        // 6. 초대장 만들기
+        JarInvite invite = JarInvite.builder()
+                .jar(jar)
+                .createdBy(currentUser)
+                .code(code)
+                .expiresAt(LocalDateTime.now().plusHours(expiresInHours))
+                .maxUses(maxUses)
+                .build();
+
+        JarInvite savedInvite = jarInviteRepository.save(invite);
+
+        // 7. 응답 만들기
+        return new JarInviteCreateResponse(
+                savedInvite.getInviteId(),
+                jar.getJarId(),
+                savedInvite.getCode(),
+
+                // 프론트 라우팅 규칙이 정해지면 여기는 그 주소로 바꾸면 돼.
+                // 지금은 예시 링크 형태만 넣어둘게.
+                "/invite/" + savedInvite.getCode(),
+
+                toOffsetDateTime(savedInvite.getExpiresAt()),
+                savedInvite.getMaxUses(),
+                savedInvite.getUsedCount(),
+                savedInvite.isAvailable(LocalDateTime.now()),
+                toOffsetDateTime(savedInvite.getCreatedAt())
+        );
+    }
+
+    // 초대코드로 저금통에 참여하는 메서드
+    // 초대코드 검사, 이미 멤버인지 검사, 정원 초과 검사, 멤버 추가 또는 재활성화, usedCount 증가
+    @Transactional
+    public JarInviteJoinResponse joinByInvite(Long currentUserId, JarInviteJoinRequest request) {
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. 현재 사용자 찾기
+        User currentUser = getUserOrThrow(currentUserId);
+
+        // 2. 초대코드를 잠금 조회
+        JarInvite invite = jarInviteRepository.findByCodeForUpdate(request.code())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "초대코드를 찾을 수 없어."
+                ));
+
+        // 3. 초대코드 사용 가능 여부 검사
+        if (invite.isRevoked()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이미 폐기된 초대코드야."
+            );
+        }
+
+        if (invite.isExpired(now)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이미 만료된 초대코드야."
+            );
+        }
+
+        if (invite.isExhausted()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이미 최대 사용 횟수를 다 쓴 초대코드야."
+            );
+        }
+
+        // 4. 정원 체크를 안전하게 하려고 저금통도 잠금 조회
+        Long jarId = invite.getJar().getJarId();
+        Jar jar = jarRepository.findByJarIdForUpdate(jarId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "저금통을 찾을 수 없어."
+                ));
+
+        // 5. 기존 멤버 row가 있는지 확인 (삭제된 것 포함)
+        Optional<JarMember> existingMemberOpt =
+                jarMemberRepository.findByJar_JarIdAndUser_Id(jarId, currentUserId);
+
+        // 6. 이미 active 멤버면 다시 들어올 필요가 없어
+        if (existingMemberOpt.isPresent() && existingMemberOpt.get().isActive()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이미 이 저금통의 멤버야."
+            );
+        }
+
+        // 7. 현재 active 멤버 수 검사
+        long activeMemberCount = jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(jarId);
+        if (activeMemberCount >= jar.getMaxMembers()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "저금통 정원이 가득 찼어."
+            );
+        }
+
+        // 8. 새 멤버를 만들거나, 기존 row를 재활성화
+        JarMember joinedMember;
+        if (existingMemberOpt.isPresent()) {
+
+            // 예전에 들어왔다가 나간 사람이라면 재가입 처리
+            joinedMember = existingMemberOpt.get();
+            joinedMember.rejoin();
+
+            // 참고:
+            // 지금은 예전 role을 그대로 유지해.
+            // 재가입 시 항상 MEMBER로 바꾸고 싶다면 아래 한 줄을 열면 돼.
+            // joinedMember.changeRole(JarRole.MEMBER);
+        } else {
+            // 처음 들어오는 사람이면 새 row 생성
+            joinedMember = JarMember.createMember(jar, currentUser);
+            jarMemberRepository.save(joinedMember);
+        }
+
+        // 9. 초대코드 사용 횟수 증가
+        invite.increaseUsedCount();
+
+        // 10. 참여 성공 응답
+        return new JarInviteJoinResponse(
+                jar.getJarId(),
+                jar.getName(),
+                joinedMember.getRole(),
+                toOffsetDateTime(joinedMember.getJoinedAt())
+        );
+    }
+
+    // 저금통에서 나가는 기능
+    // 현재 active 멤버만 나갈 수 있음, OWNER는 그냥 나가면 안 됌(owner_id 와 OWNER 멤버 정합성이 깨지기 때문)
+    @Transactional
+    public JarLeaveResponse leaveJar(Long currentUserId, Long jarId) {
+
+        // 1. 현재 사용자가 이 저금통의 active 멤버인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+
+        // 2. OWNER는 leave 금지
+        if (myMember.isOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "OWNER는 저금통을 바로 나갈 수 없어. 먼저 소유권을 넘기거나 저금통을 종료해야 해."
+            );
+        }
+
+        // 3. 나가기 처리
+        myMember.leave();
+
+        // 4. 응답 반환
+        return new JarLeaveResponse(
+                jarId,
+                toOffsetDateTime(myMember.getLeftAt())
+        );
+    }
+
+    // 저금통의 초대코드 목록을 조회하는 기능
+    // OWNER / ADMIN 만 볼 수 있음
+    public JarInviteListResponse listInvites(Long currentUserId, Long jarId) {
+
+        // 1. 현재 사용자가 이 저금통의 관리자 이상인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        if (!myMember.isAdminOrOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "초대코드 목록은 OWNER 또는 ADMIN만 볼 수 있어."
+            );
+        }
+
+        // 2. 초대코드 목록 조회
+        List<JarInvite> invites = jarInviteRepository.findAllByJarIdOrderByCreatedAtDesc(jarId);
+
+        // 3. DTO로 변환
+        List<JarInviteItem> items = invites.stream()
+                .map(invite -> new JarInviteItem(
+                        invite.getInviteId(),
+                        invite.getCode(),
+                        toOffsetDateTime(invite.getExpiresAt()),
+                        invite.getRevokedAt() == null ? null : toOffsetDateTime(invite.getRevokedAt()),
+                        invite.getMaxUses(),
+                        invite.getUsedCount(),
+                        invite.isAvailable(LocalDateTime.now()),
+                        invite.getCreatedBy().getId(),
+                        toOffsetDateTime(invite.getCreatedAt())
+                ))
+                .toList();
+
+        return new JarInviteListResponse(items);
+    }
+
+    // 초대코드를 폐기하는 기능
+    // OWNER / ADMIN 만 가능
+    @Transactional
+    public JarInviteRevokeResponse revokeInvite(Long currentUserId, Long jarId, Long inviteId) {
+
+        // 1. 현재 사용자가 관리자 이상인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        if (!myMember.isAdminOrOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "초대코드 폐기는 OWNER 또는 ADMIN만 할 수 있어."
+            );
+        }
+
+        // 2. 초대코드 찾기
+        JarInvite invite = jarInviteRepository.findByInviteIdAndJar_JarId(inviteId, jarId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "초대코드를 찾을 수 없어."
+                ));
+
+        // 3. 이미 폐기된 초대코드면 예외
+        if (invite.isRevoked()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이미 폐기된 초대코드야."
+            );
+        }
+
+        // 4. 폐기 처리
+        invite.revoke();
+
+        // 5. 응답 반환
+        return new JarInviteRevokeResponse(
+                invite.getInviteId(),
+                toOffsetDateTime(invite.getRevokedAt())
+        );
+    }
+
+    // 저금통 멤버 역할을 바꾸는 기능
+    // OWNER만 가능, 대상은 현재 active 멤버여야 함
+    // OWNER로 바꾸는 건 지금 단계에서는 막음(owner_id 와 OWNER 멤버 정합성 문제가 생길 수 있음)
+    @Transactional
+    public JarMemberRoleUpdateResponse updateMemberRole(
+            Long currentUserId,
+            Long jarId,
+            Long targetUserId,
+            JarMemberRoleUpdateRequest request
+    ) {
+
+        // 1. 요청한 사람이 OWNER인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        if (!myMember.isOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "멤버 역할 변경은 OWNER만 할 수 있어."
+            );
+        }
+
+        // 2. 대상 멤버 찾기
+        JarMember targetMember = getActiveMemberOrThrow(jarId, targetUserId);
+
+        // 3. OWNER 관련 역할 변경은 막기
+        if (targetMember.isOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "OWNER의 역할은 변경할 수 없어."
+            );
+        }
+
+        if (request.role() == JarRole.OWNER) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "지금은 OWNER 역할 변경을 지원하지 않아."
+            );
+        }
+
+        // 4. 역할 변경
+        targetMember.changeRole(request.role());
+
+        // 5. 응답 반환
+        return new JarMemberRoleUpdateResponse(
+                jarId,
+                targetUserId,
+                targetMember.getRole(),
+                toOffsetDateTime(targetMember.getUpdatedAt())
+        );
+    }
+
+    // 저금통 멤버를 강퇴하는 기능이야.
+    // ADMIN 이상 가능, 대상은 현재 active 멤버여야 함
+    // OWNER는 강퇴할 수 없음, 자기 자신은 강퇴할 수 없음
+    @Transactional
+    public JarKickResponse kickMember(Long currentUserId, Long jarId, Long targetUserId) {
+
+        // 1. 요청한 사람이 ADMIN 이상인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        if (!myMember.isAdminOrOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "멤버 강퇴는 ADMIN 이상만 할 수 있어."
+            );
+        }
+
+        // 2. 자기 자신 강퇴 방지
+        if (currentUserId.equals(targetUserId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "자기 자신은 강퇴할 수 없어."
+            );
+        }
+
+        // 3. 대상 멤버 찾기
+        JarMember targetMember = getActiveMemberOrThrow(jarId, targetUserId);
+
+        // 4. OWNER는 강퇴 불가
+        if (targetMember.isOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "OWNER는 강퇴할 수 없어."
+            );
+        }
+
+        // 5. 강퇴 처리
+        targetMember.leave();
+
+        // 6. 응답 반환
+        return new JarKickResponse(
+                jarId,
+                targetUserId,
+                toOffsetDateTime(targetMember.getLeftAt())
+        );
+    }
+
+    // 저금통 기본 설정을 수정하는 기능
+    // OWNER / ADMIN 만 수정 가능, PATCH 방식이라서 들어온 값만 바꾸고 나머지는 그대로 둠
+    // maxMembers는 현재 active 멤버 수보다 작게 줄일 수 없음
+    @Transactional
+    public JarUpdateResponse updateJar(Long currentUserId, Long jarId, JarUpdateRequest request) {
+
+        // 1. 현재 사용자가 이 저금통에서 OWNER / ADMIN 인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        if (!myMember.isAdminOrOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "저금통 수정은 OWNER 또는 ADMIN만 할 수 있어."
+            );
+        }
+
+        // 2. 저금통 찾기
+        Jar jar = jarRepository.findByJarId(jarId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "저금통을 찾을 수 없어."
+                ));
+
+        // 3. 현재 값 가져오기
+        String newName = jar.getName();
+        String newDescription = jar.getDescription();
+        JarTheme newTheme = jar.getTheme();
+        int newMaxMembers = jar.getMaxMembers();
+
+        // 4. 요청으로 들어온 값만 덮어쓰기
+        if (request.name() != null) {
+            // 공백만 들어온 이름은 막아두는 게 안전해
+            if (!StringUtils.hasText(request.name())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "저금통 이름은 공백만 입력할 수 없어."
+                );
+            }
+            newName = request.name();
+        }
+
+        if (request.description() != null) {
+            newDescription = request.description();
+        }
+
+        if (request.theme() != null) {
+            newTheme = request.theme();
+        }
+
+        if (request.maxMembers() != null) {
+            long activeMemberCount = jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(jarId);
+
+            // 현재 들어와 있는 사람 수보다 더 작게 줄이면 안 돼
+            if (request.maxMembers() < activeMemberCount) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "현재 참여 중인 멤버 수보다 maxMembers를 작게 설정할 수 없어."
+                );
+            }
+
+            newMaxMembers = request.maxMembers();
+        }
+
+        // 5. 엔티티 수정
+        jar.updateSettings(
+                newName,
+                newDescription,
+                newTheme,
+                newMaxMembers
+        );
+
+        // 6. updatedAt 값을 응답에 안정적으로 쓰기 위해 save
+        Jar savedJar = jarRepository.save(jar);
+
+        // 7. 응답 반환
+        return new JarUpdateResponse(
+                savedJar.getJarId(),
+                toOffsetDateTime(savedJar.getUpdatedAt())
+        );
+    }
+
+    // 저금통을 삭제(종료)하는 기능이야.
+    // OWNER만 가능, 저금통은 soft delete 처리, 현재 active 멤버들도 같이 leave 처리해서 membership 상태를 정리해줘
+    @Transactional
+    public void deleteJar(Long currentUserId, Long jarId) {
+
+        // 1. 현재 사용자가 이 저금통의 active 멤버인지 확인
+        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+
+        // 2. OWNER만 삭제 가능
+        if (!myMember.isOwner()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "저금통 삭제는 OWNER만 할 수 있어."
+            );
+        }
+
+        // 3. 저금통 찾기
+        Jar jar = jarRepository.findByJarId(jarId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "저금통을 찾을 수 없어."
+                ));
+
+        // 4. 저금통을 삭제할 때, 그 저금통에 속한 멤버들도 더 이상 참여 중이 아니라고 표시
+        List<JarMember> activeMembers = jarMemberRepository.findActiveMembersWithUserByJarId(jarId);
+        for (JarMember member : activeMembers) {
+            member.leave();
+        }
+
+        // 5. 저금통 soft delete
+        jarRepository.delete(jar);
+    }
+
+    // userId로 사용자 찾기
+    private User getUserOrThrow(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "사용자를 찾을 수 없어."
+                ));
+    }
+
+    // 현재 저금통의 active 멤버인지 검사
+    private JarMember getActiveMemberOrThrow(Long jarId, Long userId) {
+        return jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "현재 저금통 멤버가 아니야."
+                ));
+    }
+
+    // 중복되지 않는 초대코드를 만들기 위한 간단한 메서드
+    // 매우 드물게 중복이 날 수 있으니 몇 번 시도하다가 안 되면 예외를 던짐
+    private String generateUniqueInviteCode() {
+        for (int i = 0; i < 10; i++) {
+            String code = UUID.randomUUID()
+                    .toString()
+                    .replace("-", "")
+                    .substring(0, 8)
+                    .toUpperCase();
+
+            if (jarInviteRepository.findByCode(code).isEmpty()) {
+                return code;
+            }
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "초대코드 생성에 실패했어. 다시 시도해줘."
+        );
+    }
+
+    // DTO는 OffsetDateTime, 엔티티는 LocalDateTime 으로 쓰고 있어서 변환 메서드를 따로 둠
+    private LocalDateTime toLocalDateTime(OffsetDateTime offsetDateTime) {
+        return offsetDateTime.toLocalDateTime();
+    }
+
+    private OffsetDateTime toOffsetDateTime(LocalDateTime localDateTime) {
+        return localDateTime.atOffset(KST_OFFSET);
+    }
+
+    // 저금통이 열렸는지 판단
+    private boolean isOpen(Jar jar) {
+        return !jar.getOpenAt().isAfter(LocalDateTime.now());
+    }
+}

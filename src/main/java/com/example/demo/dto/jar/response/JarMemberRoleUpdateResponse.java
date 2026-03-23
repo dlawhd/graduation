@@ -1,15 +1,15 @@
 package com.example.demo.dto.jar.response;
 
+
 import com.example.demo.enums.jar.JarRole;
 
 import java.time.OffsetDateTime;
 
-// 멤버 목록에서 사람 1명의 정보
-public record JarMemberItem(
+// 멤버 역할 변경이 끝난 뒤 돌려주는 응답
+public record JarMemberRoleUpdateResponse(
+        Long jarId,
         Long userId,
-        String name,
-        String profileImageUrl,
         JarRole role,
-        OffsetDateTime joinedAt
+        OffsetDateTime updatedAt
 ) {
 }

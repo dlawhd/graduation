@@ -95,6 +95,19 @@ public class Jar extends BaseEntity {
         this.lockLevel = lockLevel;
     }
 
+    // 저금통 기본 설정만 수정하는 메서드
+    public void updateSettings(
+            String name,
+            String description,
+            JarTheme theme,
+            int maxMembers
+    ) {
+        this.name = name;
+        this.description = description;
+        this.theme = theme;
+        this.maxMembers = maxMembers;
+    }
+
     public boolean isOwner(Long userId) {
         return owner != null && owner.getId().equals(userId);
     }
