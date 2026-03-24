@@ -2,7 +2,7 @@
 import "./auth.css";
 
 export default function Home() {
-  const BACKEND = process.env.REACT_APP_API_BASE_URL;
+  const BACKEND = import.meta.env.VITE_API_BASE_URL;
 
   const login = () => {
     if (!BACKEND) {

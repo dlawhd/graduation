@@ -1,6 +1,6 @@
 // src/pages/LoginSuccess.js
 import { useEffect, useMemo, useState } from "react";
-import apiClient, { fetchCsrf } from "../apiClient";
+import apiClient, { fetchCsrf } from "../api/apiClient";
 import "./auth.css";
 
 
