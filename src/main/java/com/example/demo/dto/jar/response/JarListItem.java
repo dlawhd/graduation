@@ -12,6 +12,7 @@ public record JarListItem(
         Long jarId,
         String name,
         JarTheme theme,
+        String description,
         int memberCount,
         int maxMembers,
         OffsetDateTime openAt,

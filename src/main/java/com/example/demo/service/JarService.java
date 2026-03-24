@@ -127,6 +127,7 @@ public class JarService {
                             jar.getJarId(),
                             jar.getName(),
                             jar.getTheme(),
+                            jar.getDescription(),
                             (int) memberCount,
                             jar.getMaxMembers(),
                             toOffsetDateTime(jar.getOpenAt()),
