@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import LoginSuccess from "./pages/LoginSuccess";
 import JarsPage from "./pages/JarsPage";
 import JarsNewPage from "./pages/JarsNewPage";
+import JarDetailPage from "./pages/JarDetailPage";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/login/success" element={<LoginSuccess />} />
         <Route path="/jars" element={<JarsPage />} />
         <Route path="/jars/new" element={<JarsNewPage />} />
+        <Route path="/jars/:jarId" element={<JarDetailPage />} />
       </Routes>
     </div>
   );
