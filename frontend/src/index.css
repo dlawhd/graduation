@@ -1,1 +1,17 @@
+/* src/index.css */
+/* ✅ Tailwind 전체 스타일 불러오기 */
 @import "tailwindcss";
+
+/* ✅ 화면 전체 기본 배경/글꼴을 살짝 정리 */
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+  background: #f8f4ef;
+  color: #1e293b;
+}
