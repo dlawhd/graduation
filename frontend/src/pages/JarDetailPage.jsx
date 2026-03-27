@@ -23,8 +23,10 @@ const ROLE_LABEL = {
 };
 
 const THEME_LABEL = {
-  BASIC: "기본",
-  SPRING: "봄",
+  COUPLE: "커플 추억",
+  FRIEND: "친구 우정",
+  FAMILY: "가족 추억",
+  CUSTOM: "직접 만든 저금통",
 };
 
 // 날짜를 보기 좋게 바꿔주는 함수
@@ -65,36 +67,55 @@ function getOpenStatus(jar) {
   };
 }
 
-// 테마에 따라 큰 카드 배경색을 바꿔주는 함수
+// 저금통 종류(theme)에 따라 큰 카드와 저금통 색을 정해줘.
 function getThemePalette(theme) {
-  if (theme === "SPRING") {
+  if (theme === "COUPLE") {
     return {
-      hero:
-        "from-rose-100 via-pink-50 to-orange-50 border-rose-200",
-      badge:
-        "bg-gradient-to-r from-rose-400 to-orange-400 text-white",
-      jarBody:
-        "bg-gradient-to-b from-rose-100 via-pink-50 to-white border-rose-200",
-      lid:
-        "bg-gradient-to-r from-rose-400 to-orange-400",
-      floating:
-        "bg-rose-200/60",
+      hero: "from-rose-100 via-pink-50 to-orange-50 border-rose-200",
+      badge: "bg-gradient-to-r from-rose-400 to-orange-400 text-white",
+      jarBody: "bg-gradient-to-b from-rose-100 via-pink-50 to-white border-rose-200",
+      lid: "bg-gradient-to-r from-rose-400 to-orange-400",
+      floating: "bg-rose-200/60",
+    };
+  }
+
+  if (theme === "FRIEND") {
+    return {
+      hero: "from-sky-100 via-cyan-50 to-indigo-50 border-sky-200",
+      badge: "bg-gradient-to-r from-sky-500 to-indigo-500 text-white",
+      jarBody: "bg-gradient-to-b from-sky-100 via-cyan-50 to-white border-sky-200",
+      lid: "bg-gradient-to-r from-sky-500 to-indigo-500",
+      floating: "bg-sky-200/60",
+    };
+  }
+
+  if (theme === "FAMILY") {
+    return {
+      hero: "from-emerald-100 via-lime-50 to-amber-50 border-emerald-200",
+      badge: "bg-gradient-to-r from-emerald-500 to-lime-500 text-white",
+      jarBody: "bg-gradient-to-b from-emerald-100 via-lime-50 to-white border-emerald-200",
+      lid: "bg-gradient-to-r from-emerald-500 to-lime-500",
+      floating: "bg-emerald-200/60",
     };
   }
 
   return {
-    hero:
-      "from-sky-100 via-cyan-50 to-indigo-50 border-sky-200",
-    badge:
-      "bg-gradient-to-r from-sky-500 to-indigo-500 text-white",
-    jarBody:
-      "bg-gradient-to-b from-sky-100 via-cyan-50 to-white border-sky-200",
-    lid:
-      "bg-gradient-to-r from-sky-500 to-indigo-500",
-    floating:
-      "bg-sky-200/60",
+    hero: "from-violet-100 via-fuchsia-50 to-pink-50 border-violet-200",
+    badge: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white",
+    jarBody: "bg-gradient-to-b from-violet-100 via-fuchsia-50 to-white border-violet-200",
+    lid: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
+    floating: "bg-violet-200/60",
   };
 }
+
+// 저금통 종류마다 가운데 대표 이모지를 하나씩 보여줘.
+function getThemeEmoji(theme) {
+  if (theme === "COUPLE") return "💞";
+  if (theme === "FRIEND") return "⭐";
+  if (theme === "FAMILY") return "🏡";
+  return "✨";
+}
+
 
 // 저금통 안쪽에 보이는 작은 장식들
 function JarVisual({ jar }) {
@@ -129,7 +150,7 @@ function JarVisual({ jar }) {
         {/* 안쪽 아이콘 */}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <div className="text-5xl">
-            {jar?.theme === "SPRING" ? "🌸" : "💎"}
+            {getThemeEmoji(jar?.theme)}
           </div>
 
           <div className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-slate-700 shadow">

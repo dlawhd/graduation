@@ -7,8 +7,10 @@ import apiClient, { fetchCsrf } from "../api/apiClient";
 // 화면에 보여줄 한글 라벨
 // ==============================
 const THEME_LABEL = {
-  BASIC: "기본",
-  SPRING: "봄",
+  COUPLE: "커플",
+  FRIEND: "친구",
+  FAMILY: "가족",
+  CUSTOM: "커스텀",
 };
 
 const OPEN_MODE_LABEL = {
@@ -37,7 +39,7 @@ const JAR_TEMPLATES = [
     values: {
       name: "우리의 추억 저금통",
       description: "함께한 소중한 순간을 하나씩 모아둘래요.",
-      theme: "SPRING",
+      theme: "COUPLE",
       maxMembers: 2,
       openAt: "",
       openMode: "ALL_AT_ONCE",
@@ -55,7 +57,7 @@ const JAR_TEMPLATES = [
     values: {
       name: "우정 저금통",
       description: "서로에게 남기고 싶은 말들을 모아보자.",
-      theme: "BASIC",
+      theme: "FRIEND",
       maxMembers: 4,
       openAt: "",
       openMode: "DAILY_DRAW",
@@ -73,7 +75,7 @@ const JAR_TEMPLATES = [
     values: {
       name: "가족 추억 저금통",
       description: "우리 가족의 특별한 이야기를 담아둘 공간이에요.",
-      theme: "SPRING",
+      theme: "FAMILY",
       maxMembers: 5,
       openAt: "",
       openMode: "ALL_AT_ONCE",
@@ -91,7 +93,7 @@ const JAR_TEMPLATES = [
     values: {
       name: "",
       description: "",
-      theme: "BASIC",
+      theme: "CUSTOM",
       maxMembers: 2,
       openAt: "",
       openMode: "ALL_AT_ONCE",
@@ -119,173 +121,295 @@ function toOffsetDateTimeString(localValue) {
 // ==============================
 // 타입별 색/배경/저금통 스타일
 // ==============================
-function getVisualPreset(type, theme) {
-  const isSpring = theme === "SPRING";
-
-  if (type === "COUPLE") {
+// 저금통 theme 값만 보고, 예전에 쓰던 "style 객체 모양" 그대로 돌려주는 함수
+function getVisualPreset(theme) {
+  // =========================
+  // 1) 커플 저금통
+  // =========================
+  if (theme === "COUPLE") {
     return {
+      // 바깥 큰 미리보기 카드 배경
       previewCardStyle: {
-        background: isSpring
-          ? "linear-gradient(135deg, #fff1f4 0%, #fff7fb 45%, #fff6eb 100%)"
-          : "linear-gradient(135deg, #fff1f4 0%, #fdf2f8 45%, #f5f3ff 100%)",
+        background:
+          "linear-gradient(135deg, #fff1f4 0%, #fff7fb 45%, #fff6eb 100%)",
       },
+
+      // 왼쪽 작은 배지 스타일
       badgeStyle: {
         backgroundColor: "#ffeff5",
         color: "#e63c74",
       },
+
+      // 오른쪽 작은 테마 배지 스타일
       themeBadgeStyle: {
         backgroundColor: "#fff3e8",
         color: "#ff8a3d",
       },
+
+      // 뒤쪽 번지는 빛 효과
       glowStyle: {
-        background: "radial-gradient(circle, rgba(255,108,163,0.35) 0%, rgba(255,108,163,0.06) 65%, rgba(255,108,163,0) 100%)",
+        background:
+          "radial-gradient(circle, rgba(255,108,163,0.35) 0%, rgba(255,108,163,0.06) 65%, rgba(255,108,163,0) 100%)",
       },
+
+      // 저금통 뚜껑 스타일
       lidStyle: {
         background: "linear-gradient(90deg, #ff6391 0%, #ffb25e 100%)",
       },
+
+      // 저금통 몸통 스타일
       jarBodyStyle: {
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,248,251,0.92) 55%, rgba(255,241,228,0.96) 100%)",
         border: "4px solid rgba(255,255,255,0.8)",
         boxShadow: "0 24px 45px rgba(255, 118, 160, 0.20)",
       },
+
+      // 가운데 작은 라벨 알약 모양
       labelPillStyle: {
         backgroundColor: "rgba(255,255,255,0.92)",
         color: "#5b5560",
       },
+
+      // 가운데 대표 이모지
       centerEmoji: "💞",
+
+      // 주변 장식 이모지
       decor: [
         { left: 55, top: 95, emoji: "💌", delay: 0 },
         { left: 300, top: 105, emoji: "💖", delay: 0.2 },
         { left: 70, top: 300, emoji: "✨", delay: 0.4 },
         { left: 305, top: 285, emoji: "🌷", delay: 0.3 },
       ],
+
+      // 포인트 선 색
       accentLine: "#ff7ea8",
     };
   }
 
-  if (type === "FRIEND") {
+  // =========================
+  // 2) 친구 저금통
+  // =========================
+  if (theme === "FRIEND") {
     return {
       previewCardStyle: {
-        background: isSpring
-          ? "linear-gradient(135deg, #f4fbff 0%, #f8fdff 45%, #eef6ff 100%)"
-          : "linear-gradient(135deg, #effbff 0%, #f4faff 45%, #eef2ff 100%)",
+        background:
+          "linear-gradient(135deg, #effbff 0%, #f4faff 45%, #eef2ff 100%)",
       },
+
       badgeStyle: {
         backgroundColor: "#ebfbff",
         color: "#1482b8",
       },
+
       themeBadgeStyle: {
         backgroundColor: "#eff6ff",
         color: "#4c74d9",
       },
+
       glowStyle: {
-        background: "radial-gradient(circle, rgba(78,194,255,0.30) 0%, rgba(78,194,255,0.06) 65%, rgba(78,194,255,0) 100%)",
+        background:
+          "radial-gradient(circle, rgba(78,194,255,0.30) 0%, rgba(78,194,255,0.06) 65%, rgba(78,194,255,0) 100%)",
       },
+
       lidStyle: {
         background: "linear-gradient(90deg, #34c7ff 0%, #4f75ff 100%)",
       },
+
       jarBodyStyle: {
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(243,251,255,0.92) 55%, rgba(238,244,255,0.96) 100%)",
         border: "4px solid rgba(255,255,255,0.8)",
         boxShadow: "0 24px 45px rgba(79, 117, 255, 0.18)",
       },
+
       labelPillStyle: {
         backgroundColor: "rgba(255,255,255,0.92)",
         color: "#4b5f77",
       },
+
       centerEmoji: "🎊",
+
       decor: [
         { left: 55, top: 95, emoji: "⭐", delay: 0 },
         { left: 300, top: 105, emoji: "💬", delay: 0.2 },
         { left: 70, top: 300, emoji: "🎈", delay: 0.4 },
         { left: 300, top: 285, emoji: "🎉", delay: 0.3 },
       ],
+
       accentLine: "#5cb9ff",
     };
   }
 
-  if (type === "FAMILY") {
+  // =========================
+  // 3) 가족 저금통
+  // =========================
+  if (theme === "FAMILY") {
     return {
       previewCardStyle: {
-        background: isSpring
-          ? "linear-gradient(135deg, #eefbf5 0%, #f7fff8 45%, #fffceb 100%)"
-          : "linear-gradient(135deg, #eefbf5 0%, #f2fff8 45%, #f5fff1 100%)",
+        background:
+          "linear-gradient(135deg, #eefbf5 0%, #f7fff8 45%, #fffceb 100%)",
       },
+
       badgeStyle: {
         backgroundColor: "#edfdf3",
         color: "#2d9152",
       },
+
       themeBadgeStyle: {
         backgroundColor: "#fff7e5",
         color: "#f39a2c",
       },
+
       glowStyle: {
-        background: "radial-gradient(circle, rgba(127,214,120,0.28) 0%, rgba(127,214,120,0.06) 65%, rgba(127,214,120,0) 100%)",
+        background:
+          "radial-gradient(circle, rgba(127,214,120,0.28) 0%, rgba(127,214,120,0.06) 65%, rgba(127,214,120,0) 100%)",
       },
+
       lidStyle: {
         background: "linear-gradient(90deg, #43d3c0 0%, #b8df3c 100%)",
       },
+
       jarBodyStyle: {
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(242,255,246,0.92) 55%, rgba(255,251,230,0.96) 100%)",
         border: "4px solid rgba(255,255,255,0.8)",
         boxShadow: "0 24px 45px rgba(100, 182, 118, 0.18)",
       },
+
       labelPillStyle: {
         backgroundColor: "rgba(255,255,255,0.92)",
         color: "#4f5b4e",
       },
+
       centerEmoji: "🏠",
+
       decor: [
         { left: 50, top: 100, emoji: "🌿", delay: 0 },
         { left: 302, top: 100, emoji: "💛", delay: 0.2 },
         { left: 72, top: 300, emoji: "☀️", delay: 0.4 },
         { left: 300, top: 285, emoji: "📖", delay: 0.3 },
       ],
+
       accentLine: "#4fc26d",
     };
   }
 
+  // =========================
+  // 4) 직접 만들기(CUSTOM)
+  // =========================
   return {
     previewCardStyle: {
-      background: isSpring
-        ? "linear-gradient(135deg, #f6f1ff 0%, #fbf8ff 45%, #fff6eb 100%)"
-        : "linear-gradient(135deg, #f4f1ff 0%, #f8f5ff 45%, #fbf7ff 100%)",
+      background:
+        "linear-gradient(135deg, #f4f1ff 0%, #f8f5ff 45%, #fbf7ff 100%)",
     },
+
     badgeStyle: {
       backgroundColor: "#f4efff",
       color: "#7b55e8",
     },
+
     themeBadgeStyle: {
       backgroundColor: "#fff4fb",
       color: "#d45be6",
     },
+
     glowStyle: {
-      background: "radial-gradient(circle, rgba(155,115,255,0.28) 0%, rgba(155,115,255,0.06) 65%, rgba(155,115,255,0) 100%)",
+      background:
+        "radial-gradient(circle, rgba(155,115,255,0.28) 0%, rgba(155,115,255,0.06) 65%, rgba(155,115,255,0) 100%)",
     },
+
     lidStyle: {
       background: "linear-gradient(90deg, #8f62ff 0%, #e068d8 100%)",
     },
+
     jarBodyStyle: {
       background:
         "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(248,244,255,0.92) 55%, rgba(252,245,255,0.96) 100%)",
       border: "4px solid rgba(255,255,255,0.8)",
       boxShadow: "0 24px 45px rgba(155, 115, 255, 0.20)",
     },
+
     labelPillStyle: {
       backgroundColor: "rgba(255,255,255,0.92)",
       color: "#605177",
     },
+
     centerEmoji: "✨",
+
     decor: [
       { left: 55, top: 95, emoji: "✨", delay: 0 },
       { left: 300, top: 105, emoji: "🎨", delay: 0.2 },
       { left: 70, top: 300, emoji: "🌈", delay: 0.4 },
       { left: 300, top: 285, emoji: "🪄", delay: 0.3 },
     ],
+
     accentLine: "#8d69ff",
+  };
+}
+
+// ==============================
+// 왼쪽 템플릿 카드의 선택 색상
+// ==============================
+// 선택된 카드가 어떤 저금통인지에 따라
+// 배경색 / 테두리색 / 그림자 / 선택 배지 색을 바꿔주는 함수야.
+function getTemplateCardStyle(theme) {
+  // 커플 저금통
+  if (theme === "COUPLE") {
+    return {
+      cardStyle: {
+        borderColor: "#ff7ea8",
+        background: "linear-gradient(135deg, #fff7fa 0%, #fff1f6 100%)",
+        boxShadow: "0 10px 24px rgba(255, 126, 168, 0.18)",
+      },
+      badgeStyle: {
+        backgroundColor: "#ffeff5",
+        color: "#ff4f82",
+      },
+    };
+  }
+
+  // 친구 저금통
+  if (theme === "FRIEND") {
+    return {
+      cardStyle: {
+        borderColor: "#5cb9ff",
+        background: "linear-gradient(135deg, #f3fbff 0%, #eef4ff 100%)",
+        boxShadow: "0 10px 24px rgba(92, 185, 255, 0.18)",
+      },
+      badgeStyle: {
+        backgroundColor: "#ebf7ff",
+        color: "#2b7fff",
+      },
+    };
+  }
+
+  // 가족 저금통
+  if (theme === "FAMILY") {
+    return {
+      cardStyle: {
+        borderColor: "#4fc26d",
+        background: "linear-gradient(135deg, #f2fff6 0%, #fffceb 100%)",
+        boxShadow: "0 10px 24px rgba(79, 194, 109, 0.18)",
+      },
+      badgeStyle: {
+        backgroundColor: "#edfdf3",
+        color: "#2d9152",
+      },
+    };
+  }
+
+  // 직접 만들기(CUSTOM)
+  return {
+    cardStyle: {
+      borderColor: "#8d69ff",
+      background: "linear-gradient(135deg, #f7f2ff 0%, #fff5fd 100%)",
+      boxShadow: "0 10px 24px rgba(141, 105, 255, 0.18)",
+    },
+    badgeStyle: {
+      backgroundColor: "#f4efff",
+      color: "#7b55e8",
+    },
   };
 }
 
@@ -314,7 +438,7 @@ function FloatingIcon({ left, top, delay, children }) {
 // 실제 저금통 그림
 // ==============================
 function JarIllustration({ template, form }) {
-  const preset = getVisualPreset(template.type, form.theme);
+  const preset = getVisualPreset(form.theme);
 
   return (
     <div className="relative mx-auto mt-4 h-[390px] w-full max-w-[430px]">
@@ -424,7 +548,7 @@ function JarIllustration({ template, form }) {
 // 오른쪽 큰 미리보기 카드
 // ==============================
 function JarPreview({ template, form }) {
-  const preset = getVisualPreset(template.type, form.theme);
+  const preset = getVisualPreset(form.theme);
 
   return (
     <AnimatePresence mode="wait">
@@ -497,10 +621,9 @@ export default function JarsNewPage() {
 
   const defaultTemplate = JAR_TEMPLATES[0];
 
-  const [selectedTemplateId, setSelectedTemplateId] = useState(defaultTemplate.id);
   const [form, setForm] = useState({
-    ...defaultTemplate.values,
-    openAt: "",
+      ...defaultTemplate.values,
+      openAt: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -508,22 +631,22 @@ export default function JarsNewPage() {
 
   const selectedTemplate = useMemo(() => {
     return (
-      JAR_TEMPLATES.find((template) => template.id === selectedTemplateId) ||
+      JAR_TEMPLATES.find((template) => template.values.theme === form.theme) ||
       defaultTemplate
     );
-  }, [selectedTemplateId]);
+  }, [form.theme, defaultTemplate]);
 
-  // 템플릿 선택
-  function handleTemplateClick(template) {
-    setSelectedTemplateId(template.id);
+    // 템플릿 카드를 누르면 그 템플릿의 theme 기본값이 form에 들어가게 함
+    function handleTemplateClick(template) {
+      setForm((prev) => ({
+        ...template.values,
 
-    setForm((prev) => ({
-      ...template.values,
-      openAt: prev.openAt,
-    }));
+        // 사용자가 이미 고른 날짜는 유지해줄게.
+        openAt: prev.openAt,
+      }));
 
-    setError("");
-  }
+      setError("");
+    }
 
   // 폼 값 변경
   function handleChange(e) {
@@ -596,8 +719,10 @@ export default function JarsNewPage() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-1">
               {JAR_TEMPLATES.map((template) => {
-                const isSelected = selectedTemplateId === template.id;
+                const isSelected = form.theme === template.values.theme;
 
+                // 지금 카드(theme)에 맞는 선택 색상 세트
+                const templateCardStyle = getTemplateCardStyle(template.values.theme);
                 return (
                   <motion.button
                     key={template.id}
@@ -606,16 +731,18 @@ export default function JarsNewPage() {
                     whileHover={{ y: -4, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
                     className={`rounded-[20px] border p-5 text-left shadow-sm transition ${
-                      isSelected
-                        ? "border-[#ff7ea8] bg-[#fff7fa] shadow-[0_10px_24px_rgba(255,126,168,0.18)]"
-                        : "border-[#ece7e1] bg-white"
+                      isSelected ? "" : "border-[#ece7e1] bg-white"
                     }`}
+                    style={isSelected ? templateCardStyle.cardStyle : undefined}
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <div className="text-3xl">{template.emoji}</div>
 
                       {isSelected && (
-                        <span className="rounded-full bg-[#ffeff5] px-3 py-1 text-xs font-extrabold text-[#ff4f82]">
+                        <span
+                          className="rounded-full px-3 py-1 text-xs font-extrabold"
+                          style={templateCardStyle.badgeStyle}
+                        >
                           선택됨
                         </span>
                       )}
@@ -692,8 +819,10 @@ export default function JarsNewPage() {
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
                 >
-                  <option value="BASIC">{THEME_LABEL.BASIC}</option>
-                  <option value="SPRING">{THEME_LABEL.SPRING}</option>
+                  <option value="COUPLE">{THEME_LABEL.COUPLE}</option>
+                  <option value="FRIEND">{THEME_LABEL.FRIEND}</option>
+                  <option value="FAMILY">{THEME_LABEL.FAMILY}</option>
+                  <option value="CUSTOM">{THEME_LABEL.CUSTOM}</option>
                 </select>
               </div>
 

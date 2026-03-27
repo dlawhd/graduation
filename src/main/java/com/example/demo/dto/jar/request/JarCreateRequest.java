@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 // 저금통을 새로 만들 때 클라이언트가 보내는 요청
-// 어떤 이름의 저금통을, 몇 명까지, 언제 열리게 만들지
+// 어떤 이름으로 만들지, 어떤 분위기의 저금통인지, 몇 명까지 들어갈지, 언제 열릴지
 public record JarCreateRequest(
 
         // 저금통 이름은 꼭 있어야 함
@@ -24,7 +24,7 @@ public record JarCreateRequest(
         @Size(max = 200)
         String description,
 
-        // 테마는 꼭 선택
+        // 이제 값은 COUPLE / FRIEND / FAMILY / CUSTOM 중 하나야.
         @NotNull
         JarTheme theme,
 
