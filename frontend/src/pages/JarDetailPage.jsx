@@ -91,6 +91,19 @@ function getThemePalette(theme) {
       outlineBtn: "border-rose-200 bg-white/80 text-rose-700 hover:bg-rose-50",
       dangerBtn: "bg-gradient-to-r from-rose-500 to-orange-500 text-white",
       hintBox: "border-rose-200/80 bg-white/65 text-rose-700",
+      // 커플 저금통 전용 초대 카드 색
+      inviteCard:
+        "border-rose-200/80 bg-gradient-to-br from-rose-50/90 via-white/92 to-orange-50/85",
+      inviteInfoBox:
+        "border-rose-200/80 bg-white/88",
+      inviteStatusActive:
+        "bg-rose-100 text-rose-700",
+      inviteStatusUsed:
+        "bg-orange-100 text-orange-700",
+      inviteStatusRevoked:
+        "bg-slate-200 text-slate-700",
+      inviteStatusExpired:
+        "bg-amber-100 text-amber-700",
     };
   }
 
@@ -116,6 +129,19 @@ function getThemePalette(theme) {
       outlineBtn: "border-sky-200 bg-white/80 text-sky-700 hover:bg-sky-50",
       dangerBtn: "bg-gradient-to-r from-sky-500 to-indigo-500 text-white",
       hintBox: "border-sky-200/80 bg-white/65 text-sky-700",
+      // 친구 저금통 전용 초대 카드 색
+      inviteCard:
+        "border-sky-200/80 bg-gradient-to-br from-sky-50/90 via-white/92 to-indigo-50/85",
+      inviteInfoBox:
+        "border-sky-200/80 bg-white/88",
+      inviteStatusActive:
+        "bg-sky-100 text-sky-700",
+      inviteStatusUsed:
+        "bg-indigo-100 text-indigo-700",
+      inviteStatusRevoked:
+        "bg-slate-200 text-slate-700",
+      inviteStatusExpired:
+        "bg-amber-100 text-amber-700",
     };
   }
 
@@ -141,6 +167,19 @@ function getThemePalette(theme) {
       outlineBtn: "border-emerald-200 bg-white/80 text-emerald-700 hover:bg-emerald-50",
       dangerBtn: "bg-gradient-to-r from-emerald-500 to-lime-500 text-white",
       hintBox: "border-emerald-200/80 bg-white/65 text-emerald-700",
+      // 가족 저금통 전용 초대 카드 색
+      inviteCard:
+        "border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-white/92 to-lime-50/85",
+      inviteInfoBox:
+        "border-emerald-200/80 bg-white/88",
+      inviteStatusActive:
+        "bg-emerald-100 text-emerald-700",
+      inviteStatusUsed:
+        "bg-lime-100 text-lime-700",
+      inviteStatusRevoked:
+        "bg-slate-200 text-slate-700",
+      inviteStatusExpired:
+        "bg-amber-100 text-amber-700",
     };
   }
 
@@ -165,6 +204,19 @@ function getThemePalette(theme) {
     outlineBtn: "border-violet-200 bg-white/80 text-violet-700 hover:bg-violet-50",
     dangerBtn: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white",
     hintBox: "border-violet-200/80 bg-white/65 text-violet-700",
+    // 커스텀 저금통 전용 초대 카드 색
+    inviteCard:
+      "border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white/92 to-fuchsia-50/85",
+    inviteInfoBox:
+      "border-violet-200/80 bg-white/88",
+    inviteStatusActive:
+      "bg-violet-100 text-violet-700",
+    inviteStatusUsed:
+      "bg-fuchsia-100 text-fuchsia-700",
+    inviteStatusRevoked:
+      "bg-slate-200 text-slate-700",
+    inviteStatusExpired:
+      "bg-amber-100 text-amber-700",
   };
 }
 
@@ -237,7 +289,8 @@ function InfoItem({ label, value, className = "" }) {
   );
 }
 
-function getInviteStatus(invite) {
+// 초대코드 상태를 판단해서, 각 저금통 테마에 맞는 색까지 같이 돌려주는 함수
+function getInviteStatus(invite, palette) {
   if (!invite) {
     return {
       label: "확인 중",
@@ -245,31 +298,35 @@ function getInviteStatus(invite) {
     };
   }
 
+  // 관리자가 직접 폐기한 코드
   if (invite.revokedAt) {
     return {
       label: "폐기됨",
-      className: "bg-rose-100 text-rose-700",
+      className: palette.inviteStatusRevoked,
     };
   }
 
+  // 최대 사용 횟수를 다 채운 코드
   if (invite.usedCount >= invite.maxUses) {
     return {
       label: "사용 완료",
-      className: "bg-slate-200 text-slate-700",
+      className: palette.inviteStatusUsed,
     };
   }
 
+  // 시간이 지나서 만료된 코드
   if (invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now()) {
     return {
       label: "만료됨",
-      className: "bg-amber-100 text-amber-700",
+      className: palette.inviteStatusExpired,
     };
   }
 
+  // 지금 바로 사용할 수 있는 코드
   if (invite.isActive) {
     return {
       label: "사용 가능",
-      className: "bg-emerald-100 text-emerald-700",
+      className: palette.inviteStatusActive,
     };
   }
 
@@ -656,7 +713,7 @@ async function handleRevokeInvite(inviteId) {
                 {jar.description || "아직 설명이 없는 저금통이에요."}
               </p>
 
-              <div className="mb-6 rounded-[28px] border border-white/70 bg-white/70 p-5 backdrop-blur-sm">
+              <div className={`mb-6 rounded-[28px] border p-5 shadow-sm backdrop-blur-sm ${palette.panel}`}>
                 <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
                   현재 상태
                 </p>
@@ -670,7 +727,7 @@ async function handleRevokeInvite(inviteId) {
 
               <JarVisual jar={jar} />
 
-              <div className="mt-6 rounded-[28px] border border-white/70 bg-white/70 p-5 backdrop-blur-sm">
+              <div className={`mb-6 rounded-[28px] border p-5 shadow-sm backdrop-blur-sm ${palette.panel}`}>
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-sm font-extrabold text-slate-800">
                     참여 인원 현황
@@ -905,7 +962,7 @@ async function handleRevokeInvite(inviteId) {
                                 <>
                                   <form
                                     onSubmit={handleCreateInvite}
-                                    className={`mb-5 rounded-2xl border p-4 ${palette.softCard}`}
+                                    className={`mb-5 rounded-2xl border p-4 ${palette.inviteCard}`}
                                   >
                                     <p className="mb-4 text-sm font-bold text-slate-800">
                                       새 초대코드 만들기
@@ -967,7 +1024,7 @@ async function handleRevokeInvite(inviteId) {
                                       {[1, 2].map((item) => (
                                         <div
                                           key={item}
-                                          className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
+                                          className={`animate-pulse rounded-2xl border p-4 ${palette.inviteCard}`}
                                         >
                                           <div className="mb-4 flex items-center justify-between gap-4">
                                             <div className="space-y-2">
@@ -1000,12 +1057,12 @@ async function handleRevokeInvite(inviteId) {
                                   {!invitesLoading && !invitesError && invites.length > 0 && (
                                     <div className="space-y-3">
                                       {invites.map((invite) => {
-                                        const status = getInviteStatus(invite);
+                                        const status = getInviteStatus(invite, palette);
 
                                         return (
                                           <div
                                             key={invite.inviteId}
-                                            className={`rounded-2xl border p-4 ${palette.softCard}`}
+                                            className={`rounded-2xl border p-4 ${palette.inviteCard}`}
                                           >
                                             <div className="flex flex-wrap items-center justify-between gap-3">
                                               <div>
@@ -1028,18 +1085,22 @@ async function handleRevokeInvite(inviteId) {
                                               <InfoItem
                                                 label="만료 시간"
                                                 value={formatDate(invite.expiresAt)}
+                                                className={palette.inviteInfoBox}
                                               />
                                               <InfoItem
                                                 label="사용 횟수"
                                                 value={`${invite.usedCount} / ${invite.maxUses}`}
+                                                className={palette.inviteInfoBox}
                                               />
                                               <InfoItem
                                                 label="만든 시간"
                                                 value={formatDate(invite.createdAt)}
+                                                className={palette.inviteInfoBox}
                                               />
                                               <InfoItem
                                                 label="폐기 시간"
                                                 value={formatDate(invite.revokedAt)}
+                                                className={palette.inviteInfoBox}
                                               />
                                             </div>
 
@@ -1059,7 +1120,11 @@ async function handleRevokeInvite(inviteId) {
                                                   !invite.isActive ||
                                                   revokeLoadingId === invite.inviteId
                                                 }
-                                                className="rounded-2xl bg-gradient-to-r from-slate-700 to-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+                                                className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                  invite.isActive
+                                                    ? palette.dangerBtn
+                                                    : "bg-slate-200 text-slate-500"
+                                                }`}
                                               >
                                                 {revokeLoadingId === invite.inviteId
                                                   ? "폐기 중..."
