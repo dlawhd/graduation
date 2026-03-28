@@ -378,8 +378,11 @@ export default function JarDetailPage() {
   // 초대코드 목록은 2개씩 페이지처럼 보여줄 거야.
   const [invitePage, setInvitePage] = useState(1);
 
-  // 사용자가 "X"를 눌러서 화면에서 숨긴 폐기 코드 id들을 저장해둘 배열이야.
-  const [hiddenInviteIds, setHiddenInviteIds] = useState([]);
+    // 사용자가 화면에서 숨긴 폐기 코드 id 목록
+    const [hiddenInviteIds, setHiddenInviteIds] = useState([]);
+
+    // localStorage에서 숨김 목록을 다 읽었는지 표시하는 값
+    const [hiddenInvitesReady, setHiddenInvitesReady] = useState(false);
 
   // 저금통마다 숨김 목록을 따로 저장하려고 key를 jarId 기준으로 만들어줘.
   const hiddenInviteStorageKey = `jar-detail-hidden-revoked-invites:${jarId}`;
@@ -443,7 +446,8 @@ export default function JarDetailPage() {
             setHiddenInviteIds((prev) =>
               prev.filter((hiddenId) =>
                 items.some(
-                  (invite) => invite.inviteId === hiddenId && invite.revokedAt
+                  (invite) =>
+                    Number(invite.inviteId) === Number(hiddenId) && invite.revokedAt
                 )
               )
             );
@@ -489,14 +493,25 @@ export default function JarDetailPage() {
         const saved = localStorage.getItem(hiddenInviteStorageKey);
         const parsed = saved ? JSON.parse(saved) : [];
 
-        setHiddenInviteIds(Array.isArray(parsed) ? parsed : []);
+        // 혹시 문자열로 저장돼 있어도 숫자로 통일해줘.
+        const normalized = Array.isArray(parsed)
+          ? parsed.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
+          : [];
+
+        setHiddenInviteIds(normalized);
       } catch {
         setHiddenInviteIds([]);
+      } finally {
+        // 이제 숨김 목록을 다 읽었으니 준비 완료
+        setHiddenInvitesReady(true);
       }
     }, [hiddenInviteStorageKey]);
 
     // 숨긴 코드 목록이 바뀔 때마다 브라우저에 저장해 둬.
     useEffect(() => {
+      // 아직 localStorage에서 기존 숨김 목록을 읽기 전이면 저장하지 않아.
+      if (!hiddenInvitesReady) return;
+
       try {
         localStorage.setItem(
           hiddenInviteStorageKey,
@@ -505,7 +520,7 @@ export default function JarDetailPage() {
       } catch {
         // 저장 실패는 앱이 멈출 일은 아니라서 조용히 넘어가도 괜찮아.
       }
-    }, [hiddenInviteStorageKey, hiddenInviteIds]);
+    }, [hiddenInviteStorageKey, hiddenInviteIds, hiddenInvitesReady]);
 
   // 삭제 버튼 클릭
   async function handleDelete() {
@@ -567,9 +582,11 @@ async function handleCreateInvite(e) {
     // 새 코드를 만들면 첫 페이지로 보내서 바로 보이게 해줘.
     setInvitePage(1);
 
+    const createdInviteUrl = created?.code ? getInviteUrl(created.code) : "";
+
     window.alert(
       created?.code
-        ? `초대코드가 만들어졌어요.\n코드: ${created.code}`
+        ? `초대코드가 만들어졌어요.\n코드: ${created.code}\n링크: ${createdInviteUrl}`
         : "초대코드가 만들어졌어요."
     );
   } catch (e) {
@@ -582,6 +599,27 @@ async function handleCreateInvite(e) {
     window.alert(serverMessage);
   } finally {
     setCreateInviteLoading(false);
+  }
+}
+
+// 초대코드로 실제 공유용 링크를 만드는 함수
+function getInviteUrl(code) {
+  if (!code) return "";
+
+  // 지금 접속한 주소를 기준으로 자동으로 맞춰줘.
+  // 로컬이면 localhost:3000, 배포면 www.esjh.shop 이 돼.
+  return `${window.location.origin}/invite/${code}`;
+}
+
+// 초대 링크를 복사하는 함수
+async function handleCopyInviteUrl(code) {
+  try {
+    const inviteUrl = getInviteUrl(code);
+
+    await navigator.clipboard.writeText(inviteUrl);
+    window.alert("초대 링크를 복사했어요.");
+  } catch (e) {
+    window.alert("링크 복사에 실패했어요. 다시 한 번 시도해 주세요.");
   }
 }
 
@@ -629,10 +667,12 @@ function handleHideRevokedInvite(inviteId) {
     return;
   }
 
-  setHiddenInviteIds((prev) => {
-    if (prev.includes(inviteId)) return prev;
-    return [...prev, inviteId];
-  });
+    setHiddenInviteIds((prev) => {
+      const normalizedId = Number(inviteId);
+
+      if (prev.includes(normalizedId)) return prev;
+      return [...prev, normalizedId];
+    });
 }
 
 // 숨겼던 폐기 코드들을 다시 보고 싶을 때 사용해.
@@ -675,10 +715,13 @@ function handleRestoreHiddenInvites() {
 
     // X로 숨긴 초대코드는 목록에서 빼줄 거야.
     const visibleInvites = useMemo(() => {
+      // 숨김 목록을 아직 읽기 전이면 일단 그대로 계산하지 않도록 막아줘.
+      if (!hiddenInvitesReady) return [];
+
       return invites.filter(
-        (invite) => !hiddenInviteIds.includes(invite.inviteId)
+        (invite) => !hiddenInviteIds.includes(Number(invite.inviteId))
       );
-    }, [invites, hiddenInviteIds]);
+    }, [invites, hiddenInviteIds, hiddenInvitesReady]);
 
     // 새로 만든 초대코드가 먼저 보이도록 최신순 정렬
     const orderedInvites = useMemo(() => {
@@ -1210,6 +1253,16 @@ function handleRestoreHiddenInvites() {
                                                     <p className="mt-1 text-lg font-black tracking-[0.22em] text-slate-800">
                                                       {invite.code}
                                                     </p>
+
+                                                      {/* 초대코드 밑에 실제 공유할 링크도 같이 보여줘 */}
+                                                      <div className={`mt-3 rounded-2xl border px-4 py-3 ${palette.inviteInfoBox}`}>
+                                                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                                          초대 링크
+                                                        </p>
+                                                        <p className="mt-2 break-all text-sm font-semibold text-slate-700">
+                                                          {getInviteUrl(invite.code)}
+                                                        </p>
+                                                      </div>
                                                   </div>
 
                                                   <div className="flex items-center gap-2">
@@ -1277,11 +1330,7 @@ function handleRestoreHiddenInvites() {
                                                 <div className="mt-4 flex flex-wrap gap-2">
                                                   <button
                                                     type="button"
-                                                    onClick={() =>
-                                                      handleCopyInviteCode(
-                                                        invite.code
-                                                      )
-                                                    }
+                                                    onClick={() => handleCopyInviteCode(invite.code)}
                                                     className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
                                                   >
                                                     코드 복사
@@ -1289,24 +1338,23 @@ function handleRestoreHiddenInvites() {
 
                                                   <button
                                                     type="button"
-                                                    onClick={() =>
-                                                      handleRevokeInvite(
-                                                        invite.inviteId
-                                                      )
-                                                    }
-                                                    disabled={
-                                                      !invite.isActive ||
-                                                      revokeLoadingId ===
-                                                        invite.inviteId
-                                                    }
+                                                    onClick={() => handleCopyInviteUrl(invite.code)}
+                                                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                                                  >
+                                                    링크 복사
+                                                  </button>
+
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleRevokeInvite(invite.inviteId)}
+                                                    disabled={!invite.isActive || revokeLoadingId === invite.inviteId}
                                                     className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${
                                                       invite.isActive
                                                         ? palette.dangerBtn
                                                         : "bg-slate-200 text-slate-500"
                                                     }`}
                                                   >
-                                                    {revokeLoadingId ===
-                                                    invite.inviteId
+                                                    {revokeLoadingId === invite.inviteId
                                                       ? "폐기 중..."
                                                       : invite.isActive
                                                       ? "초대코드 폐기"

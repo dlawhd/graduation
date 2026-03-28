@@ -4,6 +4,7 @@ import LoginSuccess from "./pages/LoginSuccess";
 import JarsPage from "./pages/JarsPage";
 import JarsNewPage from "./pages/JarsNewPage";
 import JarDetailPage from "./pages/JarDetailPage";
+import InvitePage from "./pages/InvitePage";
 
 export default function App() {
   return (
@@ -30,6 +31,8 @@ export default function App() {
         <Route path="/jars" element={<JarsPage />} />
         <Route path="/jars/new" element={<JarsNewPage />} />
         <Route path="/jars/:jarId" element={<JarDetailPage />} />
+        {/* 초대 링크 전용 입장 화면 */}
+        <Route path="/invite/:code" element={<InvitePage />} />
       </Routes>
     </div>
   );

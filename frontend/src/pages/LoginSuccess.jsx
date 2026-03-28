@@ -122,6 +122,16 @@ export default function LoginSuccess() {
         setPhase("done");
 
         moveTimer = window.setTimeout(() => {
+          // 로그인 전에 저장해둔 "원래 가려던 주소"가 있으면 그쪽으로 먼저 보내기
+          const redirectTarget = sessionStorage.getItem("postLoginRedirect");
+
+          if (redirectTarget) {
+            sessionStorage.removeItem("postLoginRedirect");
+            navigate(redirectTarget, { replace: true });
+            return;
+          }
+
+          // 없으면 기존처럼 저금통 목록으로 이동
           navigate("/jars", { replace: true });
         }, 1100);
       } catch (e) {
