@@ -29,6 +29,9 @@ const THEME_LABEL = {
   CUSTOM: "직접 만든 저금통",
 };
 
+// 초대코드는 한 번에 2개씩만 보여줄 거야.
+const INVITES_PER_PAGE = 2;
+
 // 날짜를 보기 좋게 바꿔주는 함수
 function formatDate(dateTime) {
   if (!dateTime) return "-";
@@ -372,6 +375,15 @@ export default function JarDetailPage() {
   const [createInviteLoading, setCreateInviteLoading] = useState(false);
   const [revokeLoadingId, setRevokeLoadingId] = useState(null);
 
+  // 초대코드 목록은 2개씩 페이지처럼 보여줄 거야.
+  const [invitePage, setInvitePage] = useState(1);
+
+  // 사용자가 "X"를 눌러서 화면에서 숨긴 폐기 코드 id들을 저장해둘 배열이야.
+  const [hiddenInviteIds, setHiddenInviteIds] = useState([]);
+
+  // 저금통마다 숨김 목록을 따로 저장하려고 key를 jarId 기준으로 만들어줘.
+  const hiddenInviteStorageKey = `jar-detail-hidden-revoked-invites:${jarId}`;
+
   // 상세 데이터 불러오기
   async function loadJarDetail() {
     setLoading(true);
@@ -427,6 +439,14 @@ export default function JarDetailPage() {
       const res = await apiClient.get(`/api/v1/jars/${jarId}/invites`);
       const items = res.data?.data?.items || [];
       setInvites(items);
+      // 이미 서버에 없어진 코드나, 폐기 상태가 아닌 코드는 숨김 목록에서 정리해줘.
+            setHiddenInviteIds((prev) =>
+              prev.filter((hiddenId) =>
+                items.some(
+                  (invite) => invite.inviteId === hiddenId && invite.revokedAt
+                )
+              )
+            );
     } catch (e) {
       const serverMessage =
         e?.response?.data?.error?.message ||
@@ -462,6 +482,30 @@ export default function JarDetailPage() {
     setInvitesError("");
     setInvitesLoading(false);
   }, [jarId, jar?.myRole]);
+
+    // 페이지를 다시 열어도, 내가 숨긴 폐기 코드는 그대로 안 보이게 저장값을 꺼내와.
+    useEffect(() => {
+      try {
+        const saved = localStorage.getItem(hiddenInviteStorageKey);
+        const parsed = saved ? JSON.parse(saved) : [];
+
+        setHiddenInviteIds(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setHiddenInviteIds([]);
+      }
+    }, [hiddenInviteStorageKey]);
+
+    // 숨긴 코드 목록이 바뀔 때마다 브라우저에 저장해 둬.
+    useEffect(() => {
+      try {
+        localStorage.setItem(
+          hiddenInviteStorageKey,
+          JSON.stringify(hiddenInviteIds)
+        );
+      } catch {
+        // 저장 실패는 앱이 멈출 일은 아니라서 조용히 넘어가도 괜찮아.
+      }
+    }, [hiddenInviteStorageKey, hiddenInviteIds]);
 
   // 삭제 버튼 클릭
   async function handleDelete() {
@@ -520,6 +564,9 @@ async function handleCreateInvite(e) {
 
     await loadInvites();
 
+    // 새 코드를 만들면 첫 페이지로 보내서 바로 보이게 해줘.
+    setInvitePage(1);
+
     window.alert(
       created?.code
         ? `초대코드가 만들어졌어요.\n코드: ${created.code}`
@@ -573,6 +620,26 @@ async function handleRevokeInvite(inviteId) {
   }
 }
 
+// 폐기된 코드만 X 버튼으로 화면에서 숨길 수 있어.
+function handleHideRevokedInvite(inviteId) {
+  const targetInvite = invites.find((invite) => invite.inviteId === inviteId);
+
+  if (!targetInvite?.revokedAt) {
+    window.alert("폐기된 초대코드만 화면에서 숨길 수 있어요.");
+    return;
+  }
+
+  setHiddenInviteIds((prev) => {
+    if (prev.includes(inviteId)) return prev;
+    return [...prev, inviteId];
+  });
+}
+
+// 숨겼던 폐기 코드들을 다시 보고 싶을 때 사용해.
+function handleRestoreHiddenInvites() {
+  setHiddenInviteIds([]);
+}
+
   const openStatus = useMemo(() => getOpenStatus(jar), [jar]);
   const palette = useMemo(() => getThemePalette(jar?.theme), [jar]);
 
@@ -606,6 +673,49 @@ async function handleRevokeInvite(inviteId) {
       return invites.filter((invite) => invite.isActive).length;
     }, [invites]);
 
+    // X로 숨긴 초대코드는 목록에서 빼줄 거야.
+    const visibleInvites = useMemo(() => {
+      return invites.filter(
+        (invite) => !hiddenInviteIds.includes(invite.inviteId)
+      );
+    }, [invites, hiddenInviteIds]);
+
+    // 새로 만든 초대코드가 먼저 보이도록 최신순 정렬
+    const orderedInvites = useMemo(() => {
+      return [...visibleInvites].sort((a, b) => {
+        const aTime = new Date(a.createdAt || 0).getTime();
+        const bTime = new Date(b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+    }, [visibleInvites]);
+
+    // 총 페이지 수 계산
+    const invitePageCount = useMemo(() => {
+      return Math.max(1, Math.ceil(orderedInvites.length / INVITES_PER_PAGE));
+    }, [orderedInvites]);
+
+    // 현재 페이지에 보여줄 2개만 잘라서 꺼내기
+    const pagedInvites = useMemo(() => {
+      const startIndex = (invitePage - 1) * INVITES_PER_PAGE;
+      return orderedInvites.slice(
+        startIndex,
+        startIndex + INVITES_PER_PAGE
+      );
+    }, [orderedInvites, invitePage]);
+
+    // 숨긴 폐기 코드가 몇 개인지 세기
+    const hiddenRevokedCount = useMemo(() => {
+      return invites.filter((invite) =>
+        hiddenInviteIds.includes(invite.inviteId)
+      ).length;
+    }, [invites, hiddenInviteIds]);
+
+    // 현재 페이지가 범위를 벗어나면 마지막 페이지로 자동 보정
+    useEffect(() => {
+      if (invitePage > invitePageCount) {
+        setInvitePage(invitePageCount);
+      }
+    }, [invitePage, invitePageCount]);
   // 로딩 화면
   if (loading) {
     return (
@@ -1048,98 +1158,228 @@ async function handleRevokeInvite(inviteId) {
                                     </div>
                                   )}
 
-                                  {!invitesLoading && !invitesError && invites.length === 0 && (
-                                    <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
-                                      아직 만든 초대코드가 없어요.
+                                  {hiddenRevokedCount > 0 && (
+                                    <div
+                                      className={`mb-4 flex flex-col gap-3 rounded-2xl border border-dashed px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${palette.hintBox}`}
+                                    >
+                                      <p className="text-sm">
+                                        숨긴 폐기 코드가 <b>{hiddenRevokedCount}개</b> 있어요.
+                                      </p>
+
+                                      <button
+                                        type="button"
+                                        onClick={handleRestoreHiddenInvites}
+                                        className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                                      >
+                                        숨긴 코드 다시 보기
+                                      </button>
                                     </div>
                                   )}
 
-                                  {!invitesLoading && !invitesError && invites.length > 0 && (
-                                    <div className="space-y-3">
-                                      {invites.map((invite) => {
-                                        const status = getInviteStatus(invite, palette);
+                                  {!invitesLoading &&
+                                    !invitesError &&
+                                    visibleInvites.length === 0 && (
+                                      <div
+                                        className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}
+                                      >
+                                        보이는 초대코드가 없어요.
+                                      </div>
+                                    )}
 
-                                        return (
-                                          <div
-                                            key={invite.inviteId}
-                                            className={`rounded-2xl border p-4 ${palette.inviteCard}`}
-                                          >
-                                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                              <div>
-                                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                                  초대코드
-                                                </p>
-                                                <p className="mt-1 text-lg font-black tracking-[0.22em] text-slate-800">
-                                                  {invite.code}
-                                                </p>
+                                  {!invitesLoading &&
+                                    !invitesError &&
+                                    visibleInvites.length > 0 && (
+                                      <>
+                                        <div className="space-y-3">
+                                          {pagedInvites.map((invite) => {
+                                            const status = getInviteStatus(
+                                              invite,
+                                              palette
+                                            );
+
+                                            return (
+                                              <div
+                                                key={invite.inviteId}
+                                                className={`rounded-2xl border p-4 ${palette.inviteCard}`}
+                                              >
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                  <div>
+                                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                                      초대코드
+                                                    </p>
+                                                    <p className="mt-1 text-lg font-black tracking-[0.22em] text-slate-800">
+                                                      {invite.code}
+                                                    </p>
+                                                  </div>
+
+                                                  <div className="flex items-center gap-2">
+                                                    <span
+                                                      className={`rounded-full px-3 py-1 text-xs font-bold ${status.className}`}
+                                                    >
+                                                      {status.label}
+                                                    </span>
+
+                                                    {invite.revokedAt && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                          handleHideRevokedInvite(
+                                                            invite.inviteId
+                                                          )
+                                                        }
+                                                        title="화면에서 숨기기"
+                                                        aria-label="폐기된 초대코드 숨기기"
+                                                        className={`flex h-8 w-8 items-center justify-center rounded-full border text-base font-bold transition ${palette.outlineButton}`}
+                                                      >
+                                                        ×
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                </div>
+
+                                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                                  <InfoItem
+                                                    label="만료 시간"
+                                                    value={formatDate(
+                                                      invite.expiresAt
+                                                    )}
+                                                    className={
+                                                      palette.inviteInfoBox
+                                                    }
+                                                  />
+                                                  <InfoItem
+                                                    label="사용 횟수"
+                                                    value={`${invite.usedCount} / ${invite.maxUses}`}
+                                                    className={
+                                                      palette.inviteInfoBox
+                                                    }
+                                                  />
+                                                  <InfoItem
+                                                    label="만든 시간"
+                                                    value={formatDate(
+                                                      invite.createdAt
+                                                    )}
+                                                    className={
+                                                      palette.inviteInfoBox
+                                                    }
+                                                  />
+                                                  <InfoItem
+                                                    label="폐기 시간"
+                                                    value={formatDate(
+                                                      invite.revokedAt
+                                                    )}
+                                                    className={
+                                                      palette.inviteInfoBox
+                                                    }
+                                                  />
+                                                </div>
+
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      handleCopyInviteCode(
+                                                        invite.code
+                                                      )
+                                                    }
+                                                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                                                  >
+                                                    코드 복사
+                                                  </button>
+
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      handleRevokeInvite(
+                                                        invite.inviteId
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      !invite.isActive ||
+                                                      revokeLoadingId ===
+                                                        invite.inviteId
+                                                    }
+                                                    className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                      invite.isActive
+                                                        ? palette.dangerBtn
+                                                        : "bg-slate-200 text-slate-500"
+                                                    }`}
+                                                  >
+                                                    {revokeLoadingId ===
+                                                    invite.inviteId
+                                                      ? "폐기 중..."
+                                                      : invite.isActive
+                                                      ? "초대코드 폐기"
+                                                      : "종료된 코드"}
+                                                  </button>
+                                                </div>
                                               </div>
+                                            );
+                                          })}
+                                        </div>
 
-                                              <span
-                                                className={`rounded-full px-3 py-1 text-xs font-bold ${status.className}`}
-                                              >
-                                                {status.label}
-                                              </span>
-                                            </div>
+                                        <div className="mt-5 flex flex-col gap-3 border-t border-white/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                                          <p className="text-xs font-semibold text-slate-500">
+                                            {invitePage} / {invitePageCount} 페이지
+                                          </p>
 
-                                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                              <InfoItem
-                                                label="만료 시간"
-                                                value={formatDate(invite.expiresAt)}
-                                                className={palette.inviteInfoBox}
-                                              />
-                                              <InfoItem
-                                                label="사용 횟수"
-                                                value={`${invite.usedCount} / ${invite.maxUses}`}
-                                                className={palette.inviteInfoBox}
-                                              />
-                                              <InfoItem
-                                                label="만든 시간"
-                                                value={formatDate(invite.createdAt)}
-                                                className={palette.inviteInfoBox}
-                                              />
-                                              <InfoItem
-                                                label="폐기 시간"
-                                                value={formatDate(invite.revokedAt)}
-                                                className={palette.inviteInfoBox}
-                                              />
-                                            </div>
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setInvitePage((prev) =>
+                                                  Math.max(1, prev - 1)
+                                                )
+                                              }
+                                              disabled={invitePage === 1}
+                                              className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineButton}`}
+                                            >
+                                              이전
+                                            </button>
 
-                                            <div className="mt-4 flex flex-wrap gap-2">
+                                            {Array.from(
+                                              { length: invitePageCount },
+                                              (_, index) => index + 1
+                                            ).map((pageNumber) => (
                                               <button
+                                                key={pageNumber}
                                                 type="button"
-                                                onClick={() => handleCopyInviteCode(invite.code)}
-                                                className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
-                                              >
-                                                코드 복사
-                                              </button>
-
-                                              <button
-                                                type="button"
-                                                onClick={() => handleRevokeInvite(invite.inviteId)}
-                                                disabled={
-                                                  !invite.isActive ||
-                                                  revokeLoadingId === invite.inviteId
+                                                onClick={() =>
+                                                  setInvitePage(pageNumber)
                                                 }
-                                                className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${
-                                                  invite.isActive
-                                                    ? palette.dangerBtn
-                                                    : "bg-slate-200 text-slate-500"
+                                                className={`rounded-2xl px-3 py-2 text-sm font-bold transition ${
+                                                  pageNumber === invitePage
+                                                    ? palette.primaryButton
+                                                    : palette.outlineButton
                                                 }`}
                                               >
-                                                {revokeLoadingId === invite.inviteId
-                                                  ? "폐기 중..."
-                                                  : invite.isActive
-                                                  ? "초대코드 폐기"
-                                                  : "종료된 코드"}
+                                                {pageNumber}
                                               </button>
-                                            </div>
+                                            ))}
+
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setInvitePage((prev) =>
+                                                  Math.min(
+                                                    invitePageCount,
+                                                    prev + 1
+                                                  )
+                                                )
+                                              }
+                                              disabled={
+                                                invitePage === invitePageCount
+                                              }
+                                              className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineButton}`}
+                                            >
+                                              다음
+                                            </button>
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
+                                        </div>
+                                      </>
+                                    )}
                                 </>
-                              )}
+                                )}
                             </section>
                           </div>
       </div>
