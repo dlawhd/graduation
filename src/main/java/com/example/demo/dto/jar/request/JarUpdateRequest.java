@@ -1,9 +1,13 @@
 package com.example.demo.dto.jar.request;
 
+import com.example.demo.enums.jar.JarLockLevel;
+import com.example.demo.enums.jar.JarOpenMode;
 import com.example.demo.enums.jar.JarTheme;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+
+import java.time.OffsetDateTime;
 
 // 이름, 설명, 테마, 최대 인원을 바꾸고 싶을 때 보내는 수정 요청서야.
 // PATCH라서 모든 값은 선택
@@ -23,6 +27,15 @@ public record JarUpdateRequest(
         // 최대 인원도 선택
         @Min(2)
         @Max(50)
-        Integer maxMembers
+        Integer maxMembers,
+
+        // 오픈일
+        OffsetDateTime openAt,
+
+        // 공개 방식
+        JarOpenMode openMode,
+
+        // 잠금 레벨
+        JarLockLevel lockLevel
 ) {
 }

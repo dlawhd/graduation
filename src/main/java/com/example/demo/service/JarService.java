@@ -6,6 +6,8 @@ import com.example.demo.entity.User;
 import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.jar.JarInvite;
 import com.example.demo.entity.jar.JarMember;
+import com.example.demo.enums.jar.JarLockLevel;
+import com.example.demo.enums.jar.JarOpenMode;
 import com.example.demo.enums.jar.JarRole;
 import com.example.demo.enums.jar.JarTheme;
 import com.example.demo.repository.UserRepository;
@@ -597,6 +599,9 @@ public class JarService {
         String newDescription = jar.getDescription();
         JarTheme newTheme = jar.getTheme();
         int newMaxMembers = jar.getMaxMembers();
+        LocalDateTime newOpenAt = jar.getOpenAt();
+        JarOpenMode newOpenMode = jar.getOpenMode();
+        JarLockLevel newLockLevel = jar.getLockLevel();
 
         // 4. 요청으로 들어온 값만 덮어쓰기
         if (request.name() != null) {
@@ -632,12 +637,27 @@ public class JarService {
             newMaxMembers = request.maxMembers();
         }
 
+        if (request.openAt() != null) {
+            newOpenAt = toLocalDateTime(request.openAt());
+        }
+
+        if (request.openMode() != null) {
+            newOpenMode = request.openMode();
+        }
+
+        if (request.lockLevel() != null) {
+            newLockLevel = request.lockLevel();
+        }
+
         // 5. 엔티티 수정
-        jar.updateSettings(
+        jar.updateInfo(
                 newName,
                 newDescription,
                 newTheme,
-                newMaxMembers
+                newMaxMembers,
+                newOpenAt,
+                newOpenMode,
+                newLockLevel
         );
 
         // 6. updatedAt 값을 응답에 안정적으로 쓰기 위해 save

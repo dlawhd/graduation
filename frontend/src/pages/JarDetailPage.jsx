@@ -45,6 +45,28 @@ function formatDate(dateTime) {
   });
 }
 
+// input type="datetime-local"에 넣기 좋은 형태로 바꿔줘.
+function formatDateTimeLocalValue(dateTime) {
+  if (!dateTime) return "";
+
+  const date = new Date(dateTime);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+// 백엔드가 OffsetDateTime을 받으니까
+// 한국 시간(+09:00)을 붙여서 안전하게 보내는 함수야.
+function toKstOffsetDateTime(localValue) {
+  if (!localValue) return null;
+  return `${localValue}:00+09:00`;
+}
+
 // 오픈 상태를 사람이 읽기 쉽게 정리해주는 함수
 function getOpenStatus(jar) {
   if (!jar) {
@@ -374,6 +396,9 @@ export default function JarDetailPage() {
 
   const [createInviteLoading, setCreateInviteLoading] = useState(false);
   const [revokeLoadingId, setRevokeLoadingId] = useState(null);
+  const [roleUpdateLoadingId, setRoleUpdateLoadingId] = useState(null);
+  const [kickLoadingId, setKickLoadingId] = useState(null);
+  const [leaveLoading, setLeaveLoading] = useState(false);
 
   // 초대코드 목록은 2개씩 페이지처럼 보여줄 거야.
   const [invitePage, setInvitePage] = useState(1);
@@ -383,6 +408,21 @@ export default function JarDetailPage() {
 
     // localStorage에서 숨김 목록을 다 읽었는지 표시하는 값
     const [hiddenInvitesReady, setHiddenInvitesReady] = useState(false);
+
+    // 설정 수정 모달 상태
+    const [editOpen, setEditOpen] = useState(false);
+    const [editLoading, setEditLoading] = useState(false);
+
+    // 수정 폼 상태
+    const [editForm, setEditForm] = useState({
+      name: "",
+      description: "",
+      theme: "CUSTOM",
+      maxMembers: "2",
+      openMode: "ALL_AT_ONCE",
+      lockLevel: "HIDDEN",
+      openAt: "",
+    });
 
   // 저금통마다 숨김 목록을 따로 저장하려고 key를 jarId 기준으로 만들어줘.
   const hiddenInviteStorageKey = `jar-detail-hidden-revoked-invites:${jarId}`;
@@ -522,6 +562,20 @@ export default function JarDetailPage() {
       }
     }, [hiddenInviteStorageKey, hiddenInviteIds, hiddenInvitesReady]);
 
+    useEffect(() => {
+      if (!jar) return;
+
+      setEditForm({
+        name: jar.name ?? "",
+        description: jar.description ?? "",
+        theme: jar.theme ?? "CUSTOM",
+        maxMembers: String(jar.maxMembers ?? 2),
+        openMode: jar.openMode ?? "ALL_AT_ONCE",
+        lockLevel: jar.lockLevel ?? "HIDDEN",
+        openAt: formatDateTimeLocalValue(jar.openAt),
+      });
+    }, [jar]);
+
   // 삭제 버튼 클릭
   async function handleDelete() {
     const ok = window.confirm(
@@ -551,6 +605,179 @@ export default function JarDetailPage() {
       setDeleteLoading(false);
     }
   }
+
+  async function handleLeaveJar() {
+    if (!canLeaveJar) {
+      window.alert("방장은 저금통을 바로 나갈 수 없어요.");
+      return;
+    }
+
+    const ok = window.confirm(
+      "정말 이 저금통에서 나갈까요?\n나가면 다시 초대를 받아야 들어올 수 있어요."
+    );
+
+    if (!ok) return;
+
+    setLeaveLoading(true);
+
+    try {
+      await fetchCsrf();
+
+      await apiClient.post(`/api/v1/jars/${jarId}/leave`);
+
+      window.alert("저금통에서 나갔어요.");
+      navigate("/jars", { replace: true });
+    } catch (e) {
+      const serverMessage =
+        e?.response?.data?.error?.message ||
+        e?.response?.data?.message ||
+        e?.message ||
+        "저금통 나가기에 실패했어요.";
+
+      window.alert(serverMessage);
+    } finally {
+      setLeaveLoading(false);
+    }
+  }
+
+async function handleUpdateJar(e) {
+  e.preventDefault();
+
+  if (!canEditJar) {
+    window.alert("저금통 수정은 방장 또는 관리자만 할 수 있어요.");
+    return;
+  }
+
+  const trimmedName = editForm.name.trim();
+  const trimmedDescription = editForm.description.trim();
+  const maxMembers = Number(editForm.maxMembers);
+
+  if (!trimmedName) {
+    window.alert("저금통 이름을 입력해 주세요.");
+    return;
+  }
+
+  if (!Number.isFinite(maxMembers) || maxMembers < 2 || maxMembers > 50) {
+    window.alert("최대 인원은 2명 이상 50명 이하로 입력해 주세요.");
+    return;
+  }
+
+  if (!editForm.openAt) {
+    window.alert("오픈일을 입력해 주세요.");
+    return;
+  }
+
+  setEditLoading(true);
+
+  try {
+    await fetchCsrf();
+
+    await apiClient.patch(`/api/v1/jars/${jarId}`, {
+      name: trimmedName,
+      description: trimmedDescription,
+      theme: editForm.theme,
+      maxMembers,
+      openAt: toKstOffsetDateTime(editForm.openAt),
+      openMode: editForm.openMode,
+      lockLevel: editForm.lockLevel,
+    });
+
+    await loadJarDetail();
+    await loadMembers();
+
+    setEditOpen(false);
+    window.alert("저금통 설정을 수정했어요.");
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "저금통 수정에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setEditLoading(false);
+  }
+}
+
+async function handleChangeMemberRole(targetUserId, nextRole) {
+  if (!canChangeMemberRole) {
+    window.alert("멤버 역할 변경은 방장만 할 수 있어요.");
+    return;
+  }
+
+  const ok = window.confirm(
+    `이 멤버의 역할을 ${ROLE_LABEL[nextRole] || nextRole}(으)로 바꿀까요?`
+  );
+
+  if (!ok) return;
+
+  setRoleUpdateLoadingId(targetUserId);
+
+  try {
+    await fetchCsrf();
+
+    await apiClient.patch(`/api/v1/jars/${jarId}/members/${targetUserId}/role`, {
+      role: nextRole,
+    });
+
+    await loadMembers();
+    await loadJarDetail();
+
+    window.alert("멤버 역할을 변경했어요.");
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "멤버 역할 변경에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setRoleUpdateLoadingId(null);
+  }
+}
+
+async function handleKickMember(targetUserId, targetName, targetRole) {
+  if (!canKickMembers) {
+    window.alert("멤버 강퇴는 방장 또는 관리자만 할 수 있어요.");
+    return;
+  }
+
+  if (targetRole === "OWNER") {
+    window.alert("방장은 강퇴할 수 없어요.");
+    return;
+  }
+
+  const ok = window.confirm(
+    `${targetName || "이 멤버"}님을 저금통에서 내보낼까요?`
+  );
+
+  if (!ok) return;
+
+  setKickLoadingId(targetUserId);
+
+  try {
+    await fetchCsrf();
+
+    await apiClient.post(`/api/v1/jars/${jarId}/members/${targetUserId}/kick`);
+
+    await loadMembers();
+    await loadJarDetail();
+
+    window.alert("멤버를 강퇴했어요.");
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "멤버 강퇴에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setKickLoadingId(null);
+  }
+}
 
 async function handleCreateInvite(e) {
   e.preventDefault();
@@ -691,6 +918,18 @@ function handleRestoreHiddenInvites() {
 
   // 삭제 버튼은 OWNER일 때만 보여주기
   const canDelete = jar?.myRole === "OWNER";
+
+  // 수정 가능한 사람 체크
+  const canEditJar = jar?.myRole === "OWNER" || jar?.myRole === "ADMIN";
+
+  // 방장이 아니고, 현재 어떤 역할이든 있으면 나가기 가능
+  const canLeaveJar = !!jar?.myRole && jar.myRole !== "OWNER";
+
+  // 역할 변경은 현재 백엔드 규칙상 OWNER만 가능
+  const canChangeMemberRole = jar?.myRole === "OWNER";
+
+  // 강퇴는 OWNER 또는 ADMIN 이 할 수 있어.
+  const canKickMembers = jar?.myRole === "OWNER" || jar?.myRole === "ADMIN";
 
     const canManageInvites =
       jar?.myRole === "OWNER" || jar?.myRole === "ADMIN";
@@ -944,7 +1183,25 @@ function handleRestoreHiddenInvites() {
                   >
                     목록으로 돌아가기
                   </Link>
-
+                    {canEditJar && (
+                      <button
+                        type="button"
+                        onClick={() => setEditOpen(true)}
+                        className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] ${palette.primaryButton}`}
+                      >
+                        저금통 설정 수정하기
+                      </button>
+                    )}
+                  {canLeaveJar && (
+                    <button
+                      type="button"
+                      onClick={handleLeaveJar}
+                      disabled={leaveLoading}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.outlineBtn}`}
+                    >
+                      {leaveLoading ? "나가는 중..." : "저금통 나가기"}
+                    </button>
+                  )}
                   {canDelete && (
                     <button
                       onClick={handleDelete}
@@ -1046,19 +1303,19 @@ function handleRestoreHiddenInvites() {
                                           {member.profileImageUrl ? (
                                             <img
                                               src={member.profileImageUrl}
-                                              alt={member.userName || "멤버 프로필"}
+                                              alt={member.name || "멤버 프로필"}
                                               className="h-12 w-12 rounded-full object-cover"
                                             />
                                           ) : (
                                             <div className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-black ${palette.avatar}`}>
-                                              {(member.userName || "?").slice(0, 1)}
+                                              {(member.name || "?").slice(0, 1)}
                                             </div>
                                           )}
 
                                           <div>
                                             <div className="flex flex-wrap items-center gap-2">
                                               <p className="text-sm font-bold text-slate-800">
-                                                {member.userName || `사용자 ${member.userId}`}
+                                                {member.name || `사용자 ${member.userId}`}
                                               </p>
 
                                               {member.userId === jar.ownerId && (
@@ -1074,11 +1331,50 @@ function handleRestoreHiddenInvites() {
                                           </div>
                                         </div>
 
-                                        <span
-                                          className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${roleChipClass}`}
-                                        >
-                                          {ROLE_LABEL[member.role] || member.role}
-                                        </span>
+                                        <div className="flex flex-wrap items-center justify-end gap-2">
+                                          {canChangeMemberRole && member.role !== "OWNER" ? (
+                                            <select
+                                              value={member.role}
+                                              disabled={roleUpdateLoadingId === member.userId || kickLoadingId === member.userId}
+                                              onChange={(e) => {
+                                                const nextRole = e.target.value;
+
+                                                if (nextRole === member.role) return;
+
+                                                handleChangeMemberRole(member.userId, nextRole);
+                                              }}
+                                              className={`rounded-full border px-3 py-2 text-xs font-bold outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.input}`}
+                                            >
+                                              <option value="ADMIN">관리자</option>
+                                              <option value="MEMBER">멤버</option>
+                                            </select>
+                                          ) : (
+                                            <span
+                                              className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${roleChipClass}`}
+                                            >
+                                              {ROLE_LABEL[member.role] || member.role}
+                                            </span>
+                                          )}
+
+                                          {canKickMembers && member.role !== "OWNER" && (
+                                            <button
+                                              type="button"
+                                              disabled={kickLoadingId === member.userId || roleUpdateLoadingId === member.userId}
+                                              onClick={() =>
+                                                handleKickMember(member.userId, member.name, member.role)
+                                              }
+                                              className={`rounded-full px-3 py-2 text-xs font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
+                                            >
+                                              {kickLoadingId === member.userId ? "강퇴 중..." : "강퇴"}
+                                            </button>
+                                          )}
+
+                                          {roleUpdateLoadingId === member.userId && (
+                                            <span className="text-xs font-semibold text-slate-500">
+                                              변경 중...
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                     );
                                   })}
@@ -1430,6 +1726,167 @@ function handleRestoreHiddenInvites() {
                                 )}
                             </section>
                           </div>
+                          {editOpen && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4 py-6">
+                              <div className="w-full max-w-2xl rounded-[32px] border border-white/70 bg-white p-6 shadow-2xl">
+                                <div className="mb-5 flex items-center justify-between">
+                                  <div>
+                                    <p className="text-lg font-black text-slate-800">저금통 설정 수정</p>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                      이름부터 오픈 방식, 잠금 레벨, 오픈일까지 한 번에 바꿀 수 있어요.
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditOpen(false)}
+                                    className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+                                  >
+                                    닫기
+                                  </button>
+                                </div>
+
+                                <form onSubmit={handleUpdateJar} className="space-y-4">
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className="block">
+                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
+                                        저금통 이름
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={editForm.name}
+                                        onChange={(e) =>
+                                          setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                                        }
+                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                      />
+                                    </label>
+
+                                    <label className="block">
+                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
+                                        최대 인원
+                                      </span>
+                                      <input
+                                        type="number"
+                                        min="2"
+                                        max="50"
+                                        value={editForm.maxMembers}
+                                        onChange={(e) =>
+                                          setEditForm((prev) => ({ ...prev, maxMembers: e.target.value }))
+                                        }
+                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  <label className="block">
+                                    <span className="mb-2 block text-xs font-semibold text-slate-500">
+                                      설명
+                                    </span>
+                                    <textarea
+                                      rows="4"
+                                      value={editForm.description}
+                                      onChange={(e) =>
+                                        setEditForm((prev) => ({ ...prev, description: e.target.value }))
+                                      }
+                                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                    />
+                                  </label>
+
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className="block">
+                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
+                                        테마
+                                      </span>
+                                      <select
+                                        value={editForm.theme}
+                                        onChange={(e) =>
+                                          setEditForm((prev) => ({ ...prev, theme: e.target.value }))
+                                        }
+                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                      >
+                                        {Object.entries(THEME_LABEL).map(([value, label]) => (
+                                          <option key={value} value={value}>
+                                            {label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+
+                                    <label className="block">
+                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
+                                        공개 방식
+                                      </span>
+                                      <select
+                                        value={editForm.openMode}
+                                        onChange={(e) =>
+                                          setEditForm((prev) => ({ ...prev, openMode: e.target.value }))
+                                        }
+                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                      >
+                                        {Object.entries(OPEN_MODE_LABEL).map(([value, label]) => (
+                                          <option key={value} value={value}>
+                                            {label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+
+                                    <label className="block">
+                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
+                                        잠금 레벨
+                                      </span>
+                                      <select
+                                        value={editForm.lockLevel}
+                                        onChange={(e) =>
+                                          setEditForm((prev) => ({ ...prev, lockLevel: e.target.value }))
+                                        }
+                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                      >
+                                        {Object.entries(LOCK_LEVEL_LABEL).map(([value, label]) => (
+                                          <option key={value} value={value}>
+                                            {label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+
+                                    <label className="block">
+                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
+                                        오픈일
+                                      </span>
+                                      <input
+                                        type="datetime-local"
+                                        value={editForm.openAt}
+                                        onChange={(e) =>
+                                          setEditForm((prev) => ({ ...prev, openAt: e.target.value }))
+                                        }
+                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  <div className="flex flex-wrap justify-end gap-3 pt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditOpen(false)}
+                                      className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${palette.outlineBtn}`}
+                                    >
+                                      취소
+                                    </button>
+
+                                    <button
+                                      type="submit"
+                                      disabled={editLoading}
+                                      className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+                                    >
+                                      {editLoading ? "수정하는 중..." : "설정 저장하기"}
+                                    </button>
+                                  </div>
+                                </form>
+                              </div>
+                            </div>
+                          )}
       </div>
     </div>
   );
