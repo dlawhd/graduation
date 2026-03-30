@@ -8,7 +8,7 @@ import com.example.demo.enums.jar.JarRole;
 import com.example.demo.enums.jar.JarTheme;
 import com.example.demo.jwt.JwtAuthenticationFilter;
 import com.example.demo.jwt.JwtTokenProvider;
-import com.example.demo.service.JarService;
+import com.example.demo.service.jar.JarService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

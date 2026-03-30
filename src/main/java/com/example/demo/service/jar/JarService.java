@@ -1,4 +1,4 @@
-package com.example.demo.service;
+package com.example.demo.service.jar;
 
 import com.example.demo.dto.jar.request.*;
 import com.example.demo.dto.jar.response.*;

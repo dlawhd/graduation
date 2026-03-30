@@ -14,6 +14,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarInviteRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.service.jar.JarService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

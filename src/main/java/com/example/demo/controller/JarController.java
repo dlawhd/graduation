@@ -3,7 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.jar.request.*;
 import com.example.demo.dto.jar.response.*;
 import com.example.demo.dto.response.ApiResponse;
-import com.example.demo.service.JarService;
+import com.example.demo.service.jar.JarService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
