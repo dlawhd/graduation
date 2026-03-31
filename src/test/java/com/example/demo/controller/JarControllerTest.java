@@ -57,7 +57,7 @@ class JarControllerTest {
         JarCreateRequest request = new JarCreateRequest(
                 "우리 저금통",
                 "설명",
-                JarTheme.BASIC,
+                JarTheme.CUSTOM,
                 2,
                 OffsetDateTime.of(2026, 12, 31, 0, 0, 0, 0, ZoneOffset.ofHours(9)),
                 JarOpenMode.ALL_AT_ONCE,
@@ -132,7 +132,7 @@ class JarControllerTest {
                 10L,
                 "우리 저금통",
                 "설명",
-                JarTheme.BASIC,
+                JarTheme.CUSTOM,
                 1L,
                 2,
                 5,
@@ -400,8 +400,12 @@ class JarControllerTest {
         JarUpdateRequest request = new JarUpdateRequest(
                 "우리 저금통(수정)",
                 "설명 바꿈",
-                JarTheme.SPRING,
-                5
+                JarTheme.CUSTOM,
+                5,
+                OffsetDateTime.parse("2027-02-27T00:00:00+09:00"),
+                JarOpenMode.ALL_AT_ONCE,
+                JarLockLevel.META_ONLY
+
         );
 
         JarUpdateResponse response = new JarUpdateResponse(
