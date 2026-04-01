@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import NoteSection from "./NoteSection";
 
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
 const OPEN_MODE_LABEL = {
@@ -1220,18 +1221,15 @@ function handleRestoreHiddenInvites() {
                 </div>
               </div>
 
-              <div className="rounded-[30px] border border-dashed border-rose-200 bg-white/70 p-6">
-                <p className="mb-2 text-sm font-extrabold text-slate-800">
-                  다음에 더 붙이면 좋은 것
-                </p>
-                <p className="text-sm leading-7 text-slate-500">
-                  멤버 목록, 초대 코드, 메모 카드 미리보기까지 들어가면
-                  상세 페이지가 더 꽉 찬 느낌이 돼요.
-                </p>
-              </div>
+
             </aside>
           </div>
         </div>
+        <NoteSection
+                  jar={jar}
+                  palette={palette}
+                  formatDate={formatDate}
+                />
         <div className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                             {/* 멤버 목록 */}
                             <section className={`rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}>
