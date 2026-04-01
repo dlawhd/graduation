@@ -183,13 +183,15 @@ function wait(ms) {
 }
 
 function PaperComposeModal({
-  open,
+open,
   phase,
   step,
   form,
   setForm,
+  setFormError,
   palette,
   loading,
+  formError,
   onClose,
   onShowPreview,
   onShowConfirm,
@@ -277,13 +279,24 @@ function PaperComposeModal({
                   <input
                     type="text"
                     value={form.title}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, title: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+
+                      setForm((prev) => ({ ...prev, title: nextValue }));
+
+                      if (toSafeText(nextValue)) {
+                        setFormError((prev) => ({ ...prev, title: "" }));
+                      }
+                    }}
                     placeholder="예: 우리 첫 여행"
                     required
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
+                  {formError?.title && (
+                    <p className="mt-2 text-sm font-semibold text-rose-500">
+                      {formError.title}
+                    </p>
+                  )}
                 </label>
 
                 <label className="block">
@@ -293,13 +306,24 @@ function PaperComposeModal({
                   <textarea
                     rows="7"
                     value={form.content}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, content: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+
+                      setForm((prev) => ({ ...prev, content: nextValue }));
+
+                      if (toSafeText(nextValue)) {
+                        setFormError((prev) => ({ ...prev, content: "" }));
+                      }
+                    }}
                     placeholder="남기고 싶은 추억을 자유롭게 적어 주세요."
                     required
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
+                  {formError?.content && (
+                    <p className="mt-2 text-sm font-semibold text-rose-500">
+                      {formError.content}
+                    </p>
+                  )}
                 </label>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -639,7 +663,17 @@ function NoteDetailModal({
   );
 }
 
-export default function NoteSection({ jar, palette, formatDate }) {
+export default function NoteSection({
+  jar,
+  palette,
+  formatDate,
+  showCreateButton = true,
+  showSearchControls = true,
+  createRequestId = 0,
+  getJarDropTargetRect,
+}) {
+
+  // 목록 첫 로딩 때 사용할 기본 검색 조건
   const initialQuery = useMemo(
     () => ({
       q: "",
@@ -664,6 +698,19 @@ export default function NoteSection({ jar, palette, formatDate }) {
     tag: "",
   });
 
+  // 입력 에러 문구를 저장하는 상태
+  const [formError, setFormError] = useState({
+    title: "",
+    content: "",
+  });
+
+  // 토스트 메시지를 저장하는 상태
+  const [toast, setToast] = useState({
+    show: false,
+    type: "success", // success | error
+    message: "",
+  });
+
   const [notesLoading, setNotesLoading] = useState(true);
   const [notesError, setNotesError] = useState("");
 
@@ -679,6 +726,9 @@ const [composerStep, setComposerStep] = useState("form");
 const [createLoading, setCreateLoading] = useState(false);
 const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
+// 저장 완료 후 저금통으로 날아가는 작은 쪽지 상태
+const [flyingNote, setFlyingNote] = useState(null);
+
 
   const [writeForm, setWriteForm] = useState({
     title: "",
@@ -689,6 +739,84 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
   });
 
   const lockGuide = useMemo(() => getLockGuide(jar), [jar]);
+
+  // 화면에 잠깐 뜨는 토스트를 보여주는 함수
+  function showToast(type, message) {
+    setToast({
+      show: true,
+      type,
+      message,
+    });
+
+    window.setTimeout(() => {
+      setToast((prev) => ({
+        ...prev,
+        show: false,
+      }));
+    }, 3000);
+  }
+
+  // 제목과 내용을 검사해서 에러 문구를 만들어주는 함수
+  function validateWriteForm(form) {
+    const nextError = {
+      title: "",
+      content: "",
+    };
+
+    const title = toSafeText(form.title);
+    const content = toSafeText(form.content);
+
+    if (!title) {
+      nextError.title = "제목을 꼭 입력해 주세요.";
+    }
+
+    if (!content) {
+      nextError.content = "내용을 꼭 입력해 주세요.";
+    }
+
+    setFormError(nextError);
+
+    // 둘 다 비어있지 않으면 true
+    return !nextError.title && !nextError.content;
+  }
+
+  // 화면 가운데에서 저금통 입구까지 쪽지를 날려 보내는 함수
+  function startFlyingNoteToJar() {
+    const target = getJarDropTargetRect?.();
+
+    if (!target) {
+      return 0;
+    }
+
+    const noteWidth = 76;
+    const noteHeight = 92;
+
+    // 모달이 화면 가운데에서 열리니까 시작점도 화면 가운데로 잡아줘
+    const startX = window.innerWidth / 2 - noteWidth / 2;
+    const startY = window.innerHeight / 2 - noteHeight / 2;
+
+    const endX = target.x - noteWidth / 2;
+    const endY = target.y - noteHeight / 2;
+
+    const nextFlight = {
+      id: Date.now(),
+      startX,
+      startY,
+      deltaX: endX - startX,
+      deltaY: endY - startY,
+    };
+
+    setFlyingNote(nextFlight);
+
+    // 애니메이션 끝나면 화면에서 제거
+    window.setTimeout(() => {
+      setFlyingNote((current) =>
+        current?.id === nextFlight.id ? null : current
+      );
+    }, 920);
+
+    return 920;
+  }
 
   async function loadNotes(nextQuery = query) {
     if (!jar?.jarId) return;
@@ -752,17 +880,27 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
     setDetailLoading(false);
   }
 
-  function resetWriteForm() {
-    setWriteForm({
-      title: "",
-      content: "",
-      noteDate: "",
-      location: "",
-      tagsText: "",
-    });
-  }
+function resetWriteForm() {
+  setWriteForm({
+    title: "",
+    content: "",
+    noteDate: "",
+    location: "",
+    tagsText: "",
+  });
+
+  setFormError({
+    title: "",
+    content: "",
+  });
+}
 
 function openComposer() {
+  setFormError({
+    title: "",
+    content: "",
+  });
+
   setComposerStep("form");
   setPaperVisible(true);
   setComposerPhase("opening");
@@ -780,15 +918,10 @@ async function closeComposer() {
 }
 
 function handleOpenPreview() {
-  const payload = buildCreatePayload(writeForm);
+  const isValid = validateWriteForm(writeForm);
 
-  if (!payload.title) {
-    window.alert("쪽지 제목은 꼭 입력해 주세요.");
-    return;
-  }
-
-  if (!payload.content) {
-    window.alert("쪽지 내용은 꼭 입력해 주세요.");
+  if (!isValid) {
+    showToast("error", "필수 입력값을 먼저 확인해 주세요.");
     return;
   }
 
@@ -808,28 +941,43 @@ function handleBackToPreview() {
 }
 
 async function handleCreateNote() {
+  const isValid = validateWriteForm(writeForm);
+
+  if (!isValid) {
+    showToast("error", "제목과 내용을 입력한 뒤 다시 시도해 주세요.");
+    return;
+  }
+
   const payload = buildCreatePayload(writeForm);
-
-  if (!payload.title) {
-    window.alert("쪽지 제목은 꼭 입력해 주세요.");
-    return;
-  }
-
-  if (!payload.content) {
-    window.alert("쪽지 내용은 꼭 입력해 주세요.");
-    return;
-  }
 
   setCreateLoading(true);
   setComposerPhase("submitting");
 
   try {
+    // 서버 저장 먼저 시작
     const createPromise = noteApi.createNote(jar.jarId, payload);
 
-    await wait(650);
+    // 종이가 한 번 접히는 느낌을 잠깐 보여줌
+    await wait(420);
 
     const createdNote = await createPromise;
     const createdNoteId = getNoteId(createdNote);
+
+    // 모달은 먼저 닫아줘
+    setPaperVisible(false);
+    setComposerPhase("closed");
+    setComposerStep("form");
+
+    // 작은 접힌 쪽지를 저금통 쪽으로 날려 보냄
+    const flightDuration = startFlyingNoteToJar();
+
+    // 입력 폼도 초기화
+    resetWriteForm();
+
+    // 쪽지가 날아가는 시간만큼 잠깐 기다렸다가 목록 갱신
+    if (flightDuration > 0) {
+      await wait(Math.max(0, flightDuration - 120));
+    }
 
     const resetQuery = {
       q: "",
@@ -847,13 +995,7 @@ async function handleCreateNote() {
       setJustCreatedNoteId(createdNoteId);
     }
 
-    setPaperVisible(false);
-    setComposerPhase("closed");
-    setComposerStep("form");
-
-    resetWriteForm();
-
-    window.alert("쪽지를 저금통에 넣었어요.");
+    showToast("success", "쪽지를 저금통에 넣었어요.");
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -864,7 +1006,7 @@ async function handleCreateNote() {
     setComposerPhase("ready");
     setComposerStep("confirm");
 
-    window.alert(serverMessage);
+    showToast("error", serverMessage);
   } finally {
     setCreateLoading(false);
   }
@@ -935,6 +1077,11 @@ async function handleCreateNote() {
 
     return () => window.clearTimeout(timer);
   }, [paperVisible, composerPhase]);
+
+  useEffect(() => {
+    if (!createRequestId) return;
+    openComposer();
+  }, [createRequestId]);
 
   const previewTags = useMemo(
     () => normalizeTags(writeForm.tagsText),
@@ -1074,306 +1221,100 @@ async function handleCreateNote() {
           .paper-content-hide {
             animation: paperContentHide 180ms ease-in both;
           }
+
+          @keyframes noteFlightToJar {
+            0% {
+              opacity: 1;
+              transform: translate(0, 0) scale(1) rotate(-8deg);
+            }
+            35% {
+              opacity: 1;
+              transform: translate(
+                calc(var(--note-dx) * 0.34),
+                calc(var(--note-dy) * 0.22 - 26px)
+              ) scale(0.92) rotate(6deg);
+            }
+            75% {
+              opacity: 1;
+              transform: translate(
+                calc(var(--note-dx) * 0.82),
+                calc(var(--note-dy) * 0.86)
+              ) scale(0.46) rotate(12deg);
+            }
+            100% {
+              opacity: 0;
+              transform: translate(var(--note-dx), var(--note-dy)) scale(0.16) rotate(18deg);
+            }
+          }
+
+          .note-flight-paper {
+            position: fixed;
+            width: 76px;
+            height: 92px;
+            pointer-events: none;
+            z-index: 140;
+            animation: noteFlightToJar 920ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            filter: drop-shadow(0 18px 28px rgba(15, 23, 42, 0.2));
+          }
+
+          .note-flight-body {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            border: 4px solid #69a8d8;
+            border-radius: 18px;
+            background: #f4dde2;
+          }
+
+          .note-flight-fold {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 22px;
+            height: 22px;
+            border-left: 4px solid #69a8d8;
+            border-bottom: 4px solid #69a8d8;
+            border-bottom-left-radius: 14px;
+            background: rgba(255, 255, 255, 0.72);
+          }
+
+          .note-flight-line {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 68px;
+            height: 4px;
+            border-radius: 999px;
+            background: #69a8d8;
+            transform-origin: center;
+          }
+
+          .note-flight-line-1 {
+            transform: translate(-50%, -50%) rotate(36deg);
+          }
+
+          .note-flight-line-2 {
+            transform: translate(-50%, -50%) rotate(-36deg);
+          }
         `}
       </style>
 
-      <section
-        className={`mt-8 rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}
-      >
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                추억 쪽지
-              </span>
-
-              <span className={`rounded-full px-3 py-1 text-xs font-bold ${lockGuide.chipClass}`}>
-                {lockGuide.chip}
-              </span>
-            </div>
-
-            <h2 className="text-2xl font-black text-slate-800">
-              이 저금통 안에 모인 추억들
-            </h2>
-
-            <p className="mt-2 text-sm leading-7 text-slate-500">
-              {lockGuide.description}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
-              전체 {listData.totalElements}개
-            </span>
-
-            <button
-              type="button"
-              onClick={openComposer}
-              className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] ${palette.primaryButton}`}
-            >
-              새 쪽지 쓰기
-            </button>
-          </div>
-        </div>
-
-        <div className={`mb-6 rounded-[28px] border p-5 ${palette.panel}`}>
-          <p className="mb-1 text-sm font-extrabold text-slate-800">
-            {lockGuide.title}
-          </p>
-          <p className="text-sm text-slate-500">
-            {jar?.isOpen
-              ? "지금은 카드와 상세 모달에서 내용을 바로 읽을 수 있어요."
-              : `현재 잠금 레벨은 ${LOCK_LEVEL_LABEL[jar?.lockLevel] || jar?.lockLevel} 상태예요.`}
-          </p>
-        </div>
-
-        <form
-          onSubmit={handleSearchSubmit}
-          className={`mb-6 rounded-[28px] border p-4 ${palette.panelSoft}`}
-        >
-          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto]">
-            <input
-              type="text"
-              value={searchForm.q}
-              onChange={(e) =>
-                setSearchForm((prev) => ({ ...prev, q: e.target.value }))
-              }
-              placeholder="제목이나 내용으로 찾아보기"
-              className={`rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-            />
-
-            <input
-              type="text"
-              value={searchForm.tag}
-              onChange={(e) =>
-                setSearchForm((prev) => ({ ...prev, tag: e.target.value }))
-              }
-              placeholder="태그로 찾아보기"
-              className={`rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-            />
-
-            <button
-              type="submit"
-              className={`rounded-2xl px-4 py-3 text-sm font-bold transition hover:scale-[1.01] ${palette.primaryButton}`}
-            >
-              검색
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResetSearch}
-              className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${palette.outlineBtn}`}
-            >
-              초기화
-            </button>
-          </div>
-        </form>
-
-        {notesLoading && (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className={`animate-pulse rounded-[28px] border p-5 ${palette.softCard}`}
-              >
-                <div className="mb-3 h-6 w-24 rounded-full bg-slate-200" />
-                <div className="mb-3 h-6 w-40 rounded-full bg-slate-200" />
-                <div className="mb-2 h-4 w-full rounded-full bg-slate-100" />
-                <div className="mb-4 h-4 w-4/5 rounded-full bg-slate-100" />
-                <div className="flex gap-2">
-                  <div className="h-7 w-16 rounded-full bg-slate-100" />
-                  <div className="h-7 w-16 rounded-full bg-slate-100" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!notesLoading && notesError && (
-          <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
-            <p>{notesError}</p>
-
-            <button
-              type="button"
-              onClick={() => loadNotes(query)}
-              className={`mt-4 rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
-            >
-              다시 불러오기
-            </button>
-          </div>
-        )}
-
-        {!notesLoading && !notesError && listData.items.length === 0 && (
-          <div className={`rounded-2xl border border-dashed px-4 py-8 text-center text-sm ${palette.emptyBox}`}>
-            <div className="mb-3 text-4xl">📝</div>
-            <p className="font-bold">아직 들어온 쪽지가 없어요.</p>
-            <p className="mt-2 text-xs leading-6">
-              첫 번째 추억을 남겨서 저금통을 채워 보자.
-            </p>
-          </div>
-        )}
-
-        {!notesLoading && !notesError && listData.items.length > 0 && (
-          <>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {listData.items.map((note) => {
-                const noteId = getNoteId(note);
-                const title = getVisibleTitle(note, jar);
-                const summary = getCardSummary(note, jar);
-                const tags = normalizeTags(note?.tags);
-
-                const isJustCreated =
-                  noteId !== null &&
-                  justCreatedNoteId !== null &&
-                  Number(noteId) === Number(justCreatedNoteId);
-
-                return (
-                  <button
-                    key={noteId}
-                    type="button"
-                    onClick={() => openDetail(noteId)}
-                    className={`group relative overflow-hidden text-left rounded-[28px] border p-5 transition hover:-translate-y-1 hover:shadow-lg ${palette.softCard} ${
-                      isJustCreated
-                        ? "note-card-enter shadow-[0_18px_40px_rgba(15,23,42,0.16)]"
-                        : ""
-                    }`}
-                  >
-                    {/* 접힌 메모 모서리 장식 */}
-                    <div className="pointer-events-none absolute right-0 top-0 h-12 w-12">
-                      <div
-                        className={`absolute right-0 top-0 h-12 w-12 rounded-bl-[22px] border-b border-l border-white/80 ${
-                          isJustCreated
-                            ? "note-corner-enter bg-white/95"
-                            : "bg-white/75"
-                        }`}
-                      />
-                    </div>
-
-                    {/* 종이 하이라이트 */}
-                    <div className="pointer-events-none absolute left-4 top-4 h-10 w-3 rounded-full bg-white/30 blur-sm" />
-
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          jar?.isOpen
-                            ? "bg-emerald-100 text-emerald-700"
-                            : palette.countChip
-                        }`}
-                      >
-                        {jar?.isOpen
-                          ? "내용 확인 가능"
-                          : LOCK_LEVEL_LABEL[jar?.lockLevel] || "잠금 중"}
-                      </span>
-
-                      {note.noteDate && (
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
-                          {formatDateOnly(note.noteDate)}
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="mb-2 pr-8 text-lg font-black text-slate-800">
-                      {title}
-                    </h3>
-
-                    <p className="min-h-[52px] text-sm leading-6 text-slate-500">
-                      {summary}
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {toSafeText(note.location) && (
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.outlineButton}`}>
-                          {note.location}
-                        </span>
-                      )}
-
-                      {tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag}
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${palette.outlineButton}`}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="mt-4 border-t border-white/70 pt-3">
-                      <p className="text-xs font-semibold text-slate-400">
-                        작성 시간: {formatDate(note.createdAt)}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {listData.totalPages > 1 && (
-              <div className="mt-6 flex flex-col gap-3 border-t border-white/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs font-semibold text-slate-500">
-                  {listData.page + 1} / {listData.totalPages} 페이지
-                </p>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleMovePage(Math.max(0, listData.page - 1))}
-                    disabled={listData.page === 0}
-                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
-                  >
-                    이전
-                  </button>
-
-                  {Array.from(
-                    { length: listData.totalPages },
-                    (_, index) => index
-                  ).map((pageNumber) => (
-                    <button
-                      key={pageNumber}
-                      type="button"
-                      onClick={() => handleMovePage(pageNumber)}
-                      className={`rounded-2xl px-3 py-2 text-sm font-bold transition ${
-                        pageNumber === listData.page
-                          ? palette.primaryButton
-                          : palette.outlineButton
-                      }`}
-                    >
-                      {pageNumber + 1}
-                    </button>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleMovePage(
-                        Math.min(listData.totalPages - 1, listData.page + 1)
-                      )
-                    }
-                    disabled={listData.page + 1 >= listData.totalPages}
-                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
-                  >
-                    다음
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
       <PaperComposeModal
         open={paperVisible}
-        phase={composerPhase}
-        step={composerStep}
-        form={writeForm}
-        setForm={setWriteForm}
-        palette={palette}
-        loading={createLoading}
-        onClose={closeComposer}
-        onShowPreview={handleOpenPreview}
-        onShowConfirm={handleOpenConfirm}
-        onBackToForm={handleBackToForm}
-        onBackToPreview={handleBackToPreview}
-        onSubmit={handleCreateNote}
+          phase={composerPhase}
+          step={composerStep}
+          form={writeForm}
+          setForm={setWriteForm}
+          setFormError={setFormError}
+          palette={palette}
+          loading={createLoading}
+          formError={formError}
+          onClose={closeComposer}
+          onShowPreview={handleOpenPreview}
+          onShowConfirm={handleOpenConfirm}
+          onBackToForm={handleBackToForm}
+          onBackToPreview={handleBackToPreview}
+          onSubmit={handleCreateNote}
       />
 
       <NoteDetailModal
@@ -1387,6 +1328,39 @@ async function handleCreateNote() {
         onClose={closeDetail}
         onRetry={() => openDetail(detailNoteId)}
       />
+      {flyingNote && (
+        <div
+          className="note-flight-paper"
+          style={{
+            left: `${flyingNote.startX}px`,
+            top: `${flyingNote.startY}px`,
+            "--note-dx": `${flyingNote.deltaX}px`,
+            "--note-dy": `${flyingNote.deltaY}px`,
+          }}
+        >
+          <div className="note-flight-body">
+            <div className="note-flight-fold" />
+            <div className="note-flight-line note-flight-line-1" />
+            <div className="note-flight-line note-flight-line-2" />
+          </div>
+        </div>
+      )}
+      {toast.show && (
+        <div className="fixed right-6 top-6 z-[120]">
+          <div
+            className={`min-w-[260px] rounded-2xl border px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur-sm ${
+              toast.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-rose-200 bg-rose-50 text-rose-700"
+            }`}
+          >
+            <p className="text-sm font-bold">
+              {toast.type === "success" ? "완료" : "확인해 주세요"}
+            </p>
+            <p className="mt-1 text-sm">{toast.message}</p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
