@@ -159,15 +159,16 @@ function getCardSummary(note, jar) {
 
 // 작성 요청용 payload 만들기
 function buildCreatePayload(form) {
-  const payload = {
-    content: toSafeText(form.content),
-  };
-
   const title = toSafeText(form.title);
+  const content = toSafeText(form.content);
   const location = toSafeText(form.location);
   const tags = normalizeTags(form.tagsText);
 
-  if (title) payload.title = title;
+  const payload = {
+    title,
+    content,
+  };
+
   if (form.noteDate) payload.noteDate = form.noteDate;
   if (location) payload.location = location;
   if (tags.length > 0) payload.tags = tags;
@@ -271,7 +272,7 @@ function PaperComposeModal({
               <div className="space-y-4">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold text-slate-500">
-                    제목 (선택)
+                    제목 (필수)
                   </span>
                   <input
                     type="text"
@@ -280,6 +281,7 @@ function PaperComposeModal({
                       setForm((prev) => ({ ...prev, title: e.target.value }))
                     }
                     placeholder="예: 우리 첫 여행"
+                    required
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
                 </label>
@@ -295,6 +297,7 @@ function PaperComposeModal({
                       setForm((prev) => ({ ...prev, content: e.target.value }))
                     }
                     placeholder="남기고 싶은 추억을 자유롭게 적어 주세요."
+                    required
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
                 </label>
@@ -779,6 +782,11 @@ async function closeComposer() {
 function handleOpenPreview() {
   const payload = buildCreatePayload(writeForm);
 
+  if (!payload.title) {
+    window.alert("쪽지 제목은 꼭 입력해 주세요.");
+    return;
+  }
+
   if (!payload.content) {
     window.alert("쪽지 내용은 꼭 입력해 주세요.");
     return;
@@ -802,6 +810,11 @@ function handleBackToPreview() {
 async function handleCreateNote() {
   const payload = buildCreatePayload(writeForm);
 
+  if (!payload.title) {
+    window.alert("쪽지 제목은 꼭 입력해 주세요.");
+    return;
+  }
+
   if (!payload.content) {
     window.alert("쪽지 내용은 꼭 입력해 주세요.");
     return;
@@ -811,10 +824,8 @@ async function handleCreateNote() {
   setComposerPhase("submitting");
 
   try {
-    // 종이가 접히는 동안 서버 요청도 같이 보냄
     const createPromise = noteApi.createNote(jar.jarId, payload);
 
-    // 먼저 종이가 접히는 시간을 조금 보여줌
     await wait(650);
 
     const createdNote = await createPromise;
