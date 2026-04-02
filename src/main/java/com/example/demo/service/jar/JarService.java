@@ -36,6 +36,8 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class JarService {
 
+    private final JarOpenService jarOpenService;
+
     // 우리 서비스는 한국 시간 기준으로 응답을 맞춘다고 생각하고 +09:00으로 변환
     private static final ZoneOffset KST_OFFSET = ZoneOffset.ofHours(9);
 
@@ -53,12 +55,14 @@ public class JarService {
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
             JarInviteRepository jarInviteRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            JarOpenService jarOpenService
     ) {
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
         this.jarInviteRepository = jarInviteRepository;
         this.userRepository = userRepository;
+        this.jarOpenService = jarOpenService;
     }
 
     // 저금통을 새로 만드는 메서드야.
@@ -69,26 +73,36 @@ public class JarService {
         // 1. 현재 로그인한 사용자 찾기
         User currentUser = getUserOrThrow(currentUserId);
 
-        // 2. 저금통 엔티티 만들기
+        // 2. openAt 변환값을 먼저 변수에 담아두기
+        LocalDateTime openAt = toLocalDateTime(request.openAt());
+
+        // 3. 저금통 엔티티 만들기
         Jar jar = Jar.builder()
                 .owner(currentUser)
                 .name(request.name())
                 .description(request.description())
                 .theme(request.theme())
                 .maxMembers(request.maxMembers())
-                .openAt(toLocalDateTime(request.openAt()))
+                .openAt(openAt)
                 .openMode(request.openMode())
                 .lockLevel(request.lockLevel())
                 .build();
 
-        // 3. 저금통 먼저 저장
+        // 4. 저금통 먼저 저장
         Jar savedJar = jarRepository.save(jar);
 
-        // 4. 만든 사람을 OWNER 멤버로도 저장
+        // 5. 만든 사람을 OWNER 멤버로도 저장
         JarMember ownerMember = JarMember.createOwner(savedJar, currentUser);
         jarMemberRepository.save(ownerMember);
 
-        // 5. 응답 만들기
+        // 6. 로그 찍기
+        System.out.println("=== [BACKEND CREATE] ===");
+        System.out.println("request.openAt = " + request.openAt());
+        System.out.println("converted openAt = " + openAt);
+        System.out.println("savedJar.openAt = " + savedJar.getOpenAt());
+        System.out.println("response.openAt = " + toOffsetDateTime(savedJar.getOpenAt()));
+
+        // 7. 응답 만들기
         return new JarCreateResponse(
                 savedJar.getJarId(),
                 savedJar.getName(),
@@ -594,6 +608,24 @@ public class JarService {
                         "저금통을 찾을 수 없어."
                 ));
 
+        // 2-1. 오픈 정책(openAt/openMode/lockLevel)을 바꾸려는 요청인지 먼저 확인
+        boolean wantsToChangeOpenPolicy =
+                request.openAt() != null ||
+                        request.openMode() != null ||
+                        request.lockLevel() != null;
+
+        // 2-2. 오픈 정책을 바꾸려는 경우에만 "이미 열렸는지" 확인
+        if (wantsToChangeOpenPolicy) {
+            boolean alreadyOpened = jarOpenService.ensureOpenedIfDue(jarId);
+
+            if (alreadyOpened) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "이미 열린 저금통은 오픈 정책을 다시 바꿀 수 없어."
+                );
+            }
+        }
+
         // 3. 현재 값 가져오기
         String newName = jar.getName();
         String newDescription = jar.getDescription();
@@ -750,9 +782,9 @@ public class JarService {
     private OffsetDateTime toOffsetDateTime(LocalDateTime localDateTime) {
         return localDateTime.atOffset(KST_OFFSET);
     }
-
-    // 저금통이 열렸는지 판단
+    
+    // 이제: 기록형 오픈 기준으로 판단
     private boolean isOpen(Jar jar) {
-        return !jar.getOpenAt().isAfter(LocalDateTime.now());
+        return jarOpenService.ensureOpenedIfDue(jar.getJarId());
     }
 }

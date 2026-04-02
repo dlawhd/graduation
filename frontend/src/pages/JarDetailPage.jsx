@@ -1337,6 +1337,16 @@ export default function JarDetailPage() {
       });
     }, [jar]);
 
+    useEffect(() => {
+      if (!jar) return;
+
+      console.log("=== [DETAIL RESPONSE] ===");
+      console.log("jar.openAt =", jar.openAt); // 서버가 내려준 원본 문자열
+      console.log("new Date(jar.openAt) =", new Date(jar.openAt).toString());
+      console.log("formatDate(jar.openAt) =", formatDate(jar.openAt));
+      console.log("formatDateTimeLocalValue(jar.openAt) =", formatDateTimeLocalValue(jar.openAt));
+    }, [jar]);
+
   // 삭제 버튼 클릭
   async function handleDelete() {
     const ok = window.confirm(

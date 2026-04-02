@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface JarRepository extends JpaRepository<Jar, Long> {
@@ -58,6 +60,19 @@ public interface JarRepository extends JpaRepository<Jar, Long> {
             where j.jarId = :jarId
             """)
     Optional<Jar> findByJarIdForUpdate(@Param("jarId") Long jarId);
+
+    @Query("""
+            select j
+            from Jar j
+            where j.openAt <= :now
+              and not exists (
+                  select 1
+                  from JarOpenEvent e
+                  where e.jar = j
+              )
+            order by j.openAt asc
+            """)
+    List<Jar> findDueJarsWithoutOpenEvent(@Param("now") LocalDateTime now);
 
     // OWNER 체크할 때 간단하게 쓸 수 있는 메서드
     //  예: 저금통 삭제, owner 전용 기능

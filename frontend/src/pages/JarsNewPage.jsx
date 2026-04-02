@@ -672,6 +672,13 @@ export default function JarsNewPage() {
         openAt: toOffsetDateTimeString(form.openAt),
       };
 
+      // 나중에 삭제. 오류 찾기
+      console.log("=== [CREATE REQUEST] ===");
+      console.log("form.openAt =", form.openAt); // input datetime-local 원본
+      console.log("payload.openAt =", payload.openAt); // 서버로 보내는 최종 값
+      console.log("new Date(form.openAt) =", new Date(form.openAt).toString());
+      console.log("timezoneOffset =", new Date().getTimezoneOffset());
+
       const res = await apiClient.post("/api/v1/jars", payload);
       const createdJar = res.data?.data;
 

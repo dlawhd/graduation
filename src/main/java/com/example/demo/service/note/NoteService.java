@@ -13,6 +13,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
 import com.example.demo.repository.note.NoteRepository;
+import com.example.demo.service.jar.JarOpenService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +34,8 @@ public class NoteService {
     // 우리 서비스 응답 시간을 한국 시간(+09:00)으로 맞출 때 사용
     private static final ZoneOffset KST_OFFSET = ZoneOffset.ofHours(9);
 
+    private final JarOpenService jarOpenService;
+
     private final NoteRepository noteRepository;
     private final JarRepository jarRepository;
     private final JarMemberRepository jarMemberRepository;
@@ -42,12 +45,14 @@ public class NoteService {
             NoteRepository noteRepository,
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            JarOpenService jarOpenService
     ) {
         this.noteRepository = noteRepository;
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
         this.userRepository = userRepository;
+        this.jarOpenService = jarOpenService;
     }
 
     // 쪽지를 새로 작성하는 기능
@@ -204,7 +209,7 @@ public class NoteService {
 
     // 저금통이 열렸는지 확인
     private boolean isJarOpen(Jar jar) {
-        return !jar.getOpenAt().isAfter(LocalDateTime.now());
+        return jarOpenService.ensureOpenedIfDue(jar.getJarId());
     }
 
     // 목록 응답 만들기
