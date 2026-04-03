@@ -669,7 +669,7 @@ export default function JarsNewPage() {
 
       const payload = {
         ...form,
-        openAt: toOffsetDateTimeString(form.openAt),
+        openAt: form.openAt,
       };
 
       // 나중에 삭제. 오류 찾기

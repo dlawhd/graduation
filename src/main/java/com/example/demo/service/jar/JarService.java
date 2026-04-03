@@ -74,7 +74,7 @@ public class JarService {
         User currentUser = getUserOrThrow(currentUserId);
 
         // 2. openAt 변환값을 먼저 변수에 담아두기
-        LocalDateTime openAt = toLocalDateTime(request.openAt());
+        LocalDateTime openAt = request.openAt();
 
         // 3. 저금통 엔티티 만들기
         Jar jar = Jar.builder()
@@ -670,7 +670,7 @@ public class JarService {
         }
 
         if (request.openAt() != null) {
-            newOpenAt = toLocalDateTime(request.openAt());
+            newOpenAt = request.openAt();
         }
 
         if (request.openMode() != null) {

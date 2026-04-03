@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 // 이름, 설명, 테마, 최대 인원을 바꾸고 싶을 때 보내는 수정 요청서야.
@@ -30,7 +31,7 @@ public record JarUpdateRequest(
         Integer maxMembers,
 
         // 오픈일
-        OffsetDateTime openAt,
+        LocalDateTime openAt,
 
         // 공개 방식
         JarOpenMode openMode,

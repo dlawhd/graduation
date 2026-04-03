@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 // 저금통을 새로 만들 때 클라이언트가 보내는 요청
@@ -36,7 +37,7 @@ public record JarCreateRequest(
 
         // 언제 열릴지 시간은 꼭 필요
         @NotNull
-        OffsetDateTime openAt,
+        LocalDateTime openAt,
 
         // 오픈 방식도 꼭 필요
         @NotNull

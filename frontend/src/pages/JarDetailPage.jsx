@@ -1448,7 +1448,7 @@ async function handleUpdateJar(e) {
       description: trimmedDescription,
       theme: editForm.theme,
       maxMembers,
-      openAt: toKstOffsetDateTime(editForm.openAt),
+      openAt: editForm.openAt,
       openMode: editForm.openMode,
       lockLevel: editForm.lockLevel,
     });
