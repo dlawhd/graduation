@@ -1,7 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.auth.TokenCrypto;
-import com.example.demo.config.JwtProperties;
+import com.example.demo.config.properties.JwtProperties;
 import com.example.demo.entity.User;
 import com.example.demo.entity.RefreshToken;
 import com.example.demo.repository.RefreshTokenRepository;

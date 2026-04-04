@@ -36,8 +36,16 @@ dependencies {
 
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
-	implementation("io.jsonwebtoken:jjwt-api:0.12.5")
 
+	// ✅ S3 업로드용
+	implementation(platform("software.amazon.awssdk:bom:2.31.67"))
+	implementation("software.amazon.awssdk:s3")
+	implementation("software.amazon.awssdk:sts")
+
+	// ✅ 이미지 썸네일 생성용
+	implementation("net.coobird:thumbnailator:0.4.20")
+
+	implementation("io.jsonwebtoken:jjwt-api:0.12.5")
 	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
 	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
 

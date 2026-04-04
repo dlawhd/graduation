@@ -1,7 +1,7 @@
 package com.example.demo.service;
 
-import com.example.demo.config.AppProperties;
-import com.example.demo.config.JwtProperties;
+import com.example.demo.config.properties.AppProperties;
+import com.example.demo.config.properties.JwtProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;

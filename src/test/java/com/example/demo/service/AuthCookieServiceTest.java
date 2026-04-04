@@ -1,7 +1,7 @@
 package com.example.demo.service;
 
-import com.example.demo.config.AppProperties;
-import com.example.demo.config.JwtProperties;
+import com.example.demo.config.properties.AppProperties;
+import com.example.demo.config.properties.JwtProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
