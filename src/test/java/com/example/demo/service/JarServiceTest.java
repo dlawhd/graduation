@@ -14,6 +14,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarInviteRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.service.jar.JarOpenService;
 import com.example.demo.service.jar.JarService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,9 @@ class JarServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private JarOpenService  jarOpenService;
+
     private JarService jarService;
 
     @BeforeEach
@@ -57,7 +61,8 @@ class JarServiceTest {
                 jarRepository,
                 jarMemberRepository,
                 jarInviteRepository,
-                userRepository
+                userRepository,
+                jarOpenService
         );
     }
 
@@ -78,7 +83,7 @@ class JarServiceTest {
                 "1년 뒤에 열어보자",
                 JarTheme.CUSTOM,
                 2,
-                OffsetDateTime.of(2026, 12, 31, 0, 0, 0, 0, ZoneOffset.ofHours(9)),
+                LocalDateTime.of(2026, 12, 31, 0, 0, 0),
                 JarOpenMode.ALL_AT_ONCE,
                 JarLockLevel.HIDDEN
         );
@@ -671,7 +676,7 @@ class JarServiceTest {
                 "설명 바꿈",
                 JarTheme.FAMILY,
                 5,
-                OffsetDateTime.parse("2027-02-27T00:00:00+09:00"),
+                LocalDateTime.parse("2027-02-27T00:00:00+09:00"),
                 JarOpenMode.ALL_AT_ONCE,
                 JarLockLevel.META_ONLY
         );

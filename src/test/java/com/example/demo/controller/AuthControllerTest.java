@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -23,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // 컨트롤러 테스트는 요청이 잘 들어오는지, 응답 상태코드가 맞는지, JSON 결과가 맞는지, 서비스를 잘 호출하는지를 빠르게 확인하는 게 목적
 @WebMvcTest(AuthController.class) // AuthController 중심으로 웹 테스트 환경을 만듦
 @AutoConfigureMockMvc(addFilters = false) // 테스트할 때 보안 필터(Security Filter)는 잠깐 끄는 옵션
+@ActiveProfiles("test")
 class AuthControllerTest {
 
 

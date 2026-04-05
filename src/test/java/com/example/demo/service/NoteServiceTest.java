@@ -15,6 +15,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
 import com.example.demo.repository.note.NoteRepository;
+import com.example.demo.service.jar.JarOpenService;
 import com.example.demo.service.note.NoteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,8 @@ class NoteServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private JarOpenService jarOpenService;
     private NoteService noteService;
 
     @BeforeEach
@@ -62,7 +65,8 @@ class NoteServiceTest {
                 noteRepository,
                 jarRepository,
                 jarMemberRepository,
-                userRepository
+                userRepository,
+                jarOpenService
         );
     }
 

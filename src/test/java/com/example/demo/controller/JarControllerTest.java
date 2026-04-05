@@ -14,9 +14,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -34,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(JarController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
 class JarControllerTest {
 
     @Autowired
@@ -59,7 +62,7 @@ class JarControllerTest {
                 "설명",
                 JarTheme.CUSTOM,
                 2,
-                OffsetDateTime.of(2026, 12, 31, 0, 0, 0, 0, ZoneOffset.ofHours(9)),
+                LocalDateTime.of(2026, 12, 31, 0, 0, 0),
                 JarOpenMode.ALL_AT_ONCE,
                 JarLockLevel.HIDDEN
         );
@@ -402,7 +405,7 @@ class JarControllerTest {
                 "설명 바꿈",
                 JarTheme.CUSTOM,
                 5,
-                OffsetDateTime.parse("2027-02-27T00:00:00+09:00"),
+                LocalDateTime.parse("2027-02-27T00:00:00+09:00"),
                 JarOpenMode.ALL_AT_ONCE,
                 JarLockLevel.META_ONLY
 

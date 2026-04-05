@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -74,6 +75,30 @@ public class GlobalExceptionHandler {
 
         // ✅ HTTP 500 상태코드와 함께 응답 반환
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ErrorEnvelope.of(error));
+    }
+
+    // ✅ @Valid 검증 실패 처리
+// 예: fileName이 비어 있거나, size가 0 이하일 때 발생
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorEnvelope> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex,
+            HttpServletRequest request
+    ) {
+        // 여러 필드 에러가 있을 수 있지만 지금은 가장 첫 번째 에러 메시지를 대표 메시지로 내려줌
+        String message = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .findFirst()
+                .map(fieldError -> fieldError.getDefaultMessage())
+                .orElse("잘못된 요청입니다.");
+
+        ErrorResponse error = ErrorResponse.of(
+                "BAD_REQUEST",
+                message,
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.badRequest().body(ErrorEnvelope.of(error));
     }
 
     // ✅ 상태코드 숫자를 에러 코드 문자열로 바꾸는 메서드
