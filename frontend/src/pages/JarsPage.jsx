@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/apiClient";
 
 /*
@@ -267,6 +267,8 @@ function LoadingCard() {
 }
 
 export default function JarsPage() {
+    const navigate = useNavigate();
+
   // 서버에서 받아온 저금통 목록
   const [items, setItems] = useState([]);
 
@@ -320,6 +322,32 @@ export default function JarsPage() {
     }
   };
 
+    // 새 저금통 만들기 버튼을 눌렀을 때 실행되는 함수
+    // 먼저 로그인한 사용자인지 확인하고,
+    // 로그인된 상태면 생성 페이지로 보내줘요.
+    // 로그인 안 되어 있으면 안내 문구를 띄워줘요.
+    const handleCreateJarClick = async () => {
+      try {
+        // 로그인 사용자 정보 확인
+        // 성공하면 로그인된 상태라는 뜻이에요.
+        await apiClient.get("/api/v1/me");
+
+        // 로그인되어 있으면 생성 페이지로 이동
+        navigate("/jars/new");
+      } catch (e) {
+        const status = e?.response?.status;
+
+        // 로그인 안 된 상태
+        if (status === 401 || status === 403) {
+          alert("로그인 후 저금통을 만들 수 있어요.");
+          return;
+        }
+
+        // 그 외 서버 에러
+        alert("지금은 저금통 만들기 화면으로 이동할 수 없어요. 잠시 후 다시 시도해 주세요.");
+      }
+    };
+
   // 페이지가 처음 열릴 때 목록을 한 번 불러와요.
   useEffect(() => {
     loadJars(0);
@@ -371,12 +399,13 @@ export default function JarsPage() {
             </div>
 
             {/* 새 저금통 만들기 버튼 */}
-            <Link
-              to="/jars/new"
+            <button
+              type="button"
+              onClick={handleCreateJarClick}
               className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-r px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 ${primaryPalette.heroButton}`}
             >
               + 새 저금통 만들기
-            </Link>
+            </button>
           </div>
         </section>
 
@@ -412,12 +441,13 @@ export default function JarsPage() {
               <br className="md:hidden" /> 추억을 하나씩 모아보자!
             </p>
 
-            <Link
-              to="/jars/new"
+            <button
+              type="button"
+              onClick={handleCreateJarClick}
               className="mt-6 inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
             >
               저금통 만들러 가기
-            </Link>
+            </button>
           </div>
         )}
 

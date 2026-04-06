@@ -103,4 +103,19 @@ public class AuthCookieService {
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
+
+    // ✅ JSESSIONID 쿠키 삭제
+    // 스프링 시큐리티 세션까지 완전히 끊기 위해 세션 쿠키도 함께 삭제
+    public void clearSessionCookie(HttpServletResponse response) {
+
+        // ✅ "삭제용 JSESSIONID 쿠키" 만들기
+        ResponseCookie cookie = createCookie(
+                "JSESSIONID",
+                "",
+                "/",
+                Duration.ZERO
+        );
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
 }

@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -24,13 +26,23 @@ public class SecurityConfig {
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SecurityErrorHandler securityErrorHandler;
+    private final ClientRegistrationRepository clientRegistrationRepository;
 
     public SecurityConfig(OAuth2SuccessHandler oAuth2SuccessHandler,
                           JwtAuthenticationFilter jwtAuthenticationFilter,
-                          SecurityErrorHandler securityErrorHandler) {
+                          SecurityErrorHandler securityErrorHandler,
+                          ClientRegistrationRepository clientRegistrationRepository) {
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.securityErrorHandler = securityErrorHandler;
+        this.clientRegistrationRepository = clientRegistrationRepository;
+    }
+
+    // ------------------------------------------------------------
+    // 네이버 로그인 요청에 auth_type=reauthenticate 를 붙여주는 resolver
+    // ------------------------------------------------------------
+    private OAuth2AuthorizationRequestResolver naverAuthorizationRequestResolver() {
+        return new NaverAuthorizationRequestResolver(clientRegistrationRepository);
     }
 
     @Bean
@@ -81,6 +93,9 @@ public class SecurityConfig {
 
                 // ✅ 네이버 로그인 성공 후에는 그냥 끝나는 게 아니라 successHandler가 실행되게 연결.
                 .oauth2Login(oauth -> oauth
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestResolver(naverAuthorizationRequestResolver())
+                        )
                         .successHandler(oAuth2SuccessHandler)
                 );
 

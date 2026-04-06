@@ -5,7 +5,10 @@ import com.example.demo.service.AuthCookieService;
 import com.example.demo.service.RefreshTokenService;
 import com.example.demo.entity.User;
 import com.example.demo.jwt.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -34,7 +37,7 @@ public class AuthController {
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
-    // ✅ POST /api/auth/refresh
+    // ✅ POST /api/v1/auth/refresh
     // 출입증(accessToken)이 만료되기 전에 재발급 쿠폰(refreshToken)으로 새 출입증을 다시 받는 API
     @PostMapping("/refresh")
     public ApiResponse<Map<String, Object>> refresh(
@@ -91,19 +94,39 @@ public class AuthController {
         return ApiResponse.of(Map.of("ok", true));
     }
 
-    // ✅ POST /api/auth/logout
-    // 현재 refreshToken을 폐기(revoked_at 찍기), accessToken 쿠키 삭제, refreshToken 쿠키 삭제
+    // ✅ POST /api/v1/auth/logout
+    // refresh 토큰 폐기 + access/refresh 쿠키 삭제 + 세션 종료 + JSESSIONID 삭제
     @PostMapping("/logout")
     public ApiResponse<Map<String, Object>> logout(
             // ✅ 브라우저 쿠키에서 refreshToken 읽기
             @CookieValue(name = "refreshToken", required = false) String refreshToken,
 
-            // 여기다가 access/refresh 쿠키 삭제 명령(Set-Cookie maxAge=0)을 넣음
+            // ✅ 현재 요청 정보
+            // 여기서 세션을 꺼내서 끊을 수 있어요.
+            HttpServletRequest request,
+
+            // ✅ 응답 객체
+            // 여기다가 쿠키 삭제 명령을 담아요.
             HttpServletResponse response
     ) {
+        // 1. refreshToken이 있으면 DB에서 폐기 처리
         refreshTokenService.revokeIfPresent(refreshToken);
+
+        // 2. access / refresh 쿠키 삭제
         authCookieService.clearAccessCookie(response);
         authCookieService.clearRefreshCookie(response);
+
+        // 3. 현재 세션이 있으면 세션도 종료
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+
+        // 4. 스프링 시큐리티에 저장된 인증 정보도 비우기
+        SecurityContextHolder.clearContext();
+
+        // 5. 세션 쿠키(JSESSIONID)도 삭제
+        authCookieService.clearSessionCookie(response);
 
         return ApiResponse.of(Map.of("ok", true));
     }
