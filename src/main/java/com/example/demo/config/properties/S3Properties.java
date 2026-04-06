@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+//  application.yml 안의 app.s3.* 값을 자바 객체로 꺼내오기 위한 설정 클래스
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.s3")

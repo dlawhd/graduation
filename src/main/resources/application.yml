@@ -39,10 +39,10 @@ app:
     domain: ""
 
   s3:
-    region: ${APP_S3_REGION:ap-northeast-2}
+    region: ${APP_S3_REGION:}
     bucket: ${APP_S3_BUCKET:}
     public-base-url: ${APP_S3_PUBLIC_BASE_URL:}
-    presign-exp-seconds: ${APP_S3_PRESIGN_EXP_SECONDS:300}
+    presign-exp-seconds: ${APP_S3_PRESIGN_EXP_SECONDS:}
 
   file:
     max-size: ${APP_FILE_MAX_SIZE:10485760} # 10MB
