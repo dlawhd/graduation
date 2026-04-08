@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.auth.OAuth2SuccessHandler;
+import com.example.demo.dto.note.request.NoteAttachmentCreateRequest;
 import com.example.demo.dto.note.request.NoteCreateRequest;
 import com.example.demo.dto.note.response.NoteCreateResponse;
 import com.example.demo.dto.note.response.NoteDetailResponse;
@@ -69,7 +70,8 @@ class NoteControllerTest {
                 "첫 번째 쪽지",
                 "오늘도 화이팅!",
                 LocalDate.of(2026, 3, 31),
-                "서울"
+                "서울",
+                List.of()
         );
 
         NoteCreateResponse response = new NoteCreateResponse(
@@ -116,7 +118,8 @@ class NoteControllerTest {
                 "첫 번째 쪽지",
                 "오늘도 화이팅!",
                 LocalDate.of(2026, 3, 31),
-                "서울"
+                "서울",
+                List.of()
         );
 
         // when & then
@@ -137,7 +140,8 @@ class NoteControllerTest {
                 "문자열 userId 테스트",
                 "잘 변환되는지 확인",
                 LocalDate.of(2026, 3, 31),
-                "부산"
+                "부산",
+                List.of()
         );
 
         NoteCreateResponse response = new NoteCreateResponse(
@@ -178,6 +182,7 @@ class NoteControllerTest {
                 "내용",
                 LocalDate.of(2026, 3, 31),
                 "서울"
+                ,List.of()
         );
 
         // when & then
@@ -186,6 +191,53 @@ class NoteControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
+    }
+    @Test
+    @DisplayName("쪽지 작성 성공 - 첨부파일 포함 요청")
+    void createNote_success_withAttachments() throws Exception {
+        Long jarId = 10L;
+        Long currentUserId = 1L;
+
+        NoteCreateRequest request = new NoteCreateRequest(
+                "첨부 있는 쪽지",
+                "사진도 같이 저장",
+                LocalDate.of(2026, 3, 31),
+                "서울",
+                List.of(
+                        new NoteAttachmentCreateRequest(
+                                "notes/2026/04/08/test.png",
+                                "https://esjh-files.s3.ap-northeast-2.amazonaws.com/notes/2026/04/08/test.png",
+                                null,
+                                "image/png",
+                                13345L
+                        )
+                )
+        );
+
+        NoteCreateResponse response = new NoteCreateResponse(
+                101L,
+                jarId,
+                currentUserId,
+                "첨부 있는 쪽지",
+                "사진도 같이 저장",
+                false,
+                LocalDate.of(2026, 3, 31),
+                "서울",
+                OffsetDateTime.parse("2026-03-31T12:30:00+09:00")
+        );
+
+        when(noteService.createNote(eq(currentUserId), eq(jarId), eq(request)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/jars/{jarId}/notes", jarId)
+                        .principal(authWithUserId(currentUserId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.noteId").value(101L))
+                .andExpect(jsonPath("$.data.title").value("첨부 있는 쪽지"));
+
+        verify(noteService).createNote(currentUserId, jarId, request);
     }
 
     @Test
@@ -204,7 +256,8 @@ class NoteControllerTest {
                 2L,
                 "현수",
                 false,
-                OffsetDateTime.parse("2026-03-30T10:00:00+09:00")
+                OffsetDateTime.parse("2026-03-30T10:00:00+09:00"),
+                List.of()
         );
 
         NoteListResponse response = new NoteListResponse(
@@ -230,7 +283,9 @@ class NoteControllerTest {
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.size").value(20))
                 .andExpect(jsonPath("$.data.totalElements").value(1))
-                .andExpect(jsonPath("$.data.totalPages").value(1));
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.items[0].attachments").isArray())
+                .andExpect(jsonPath("$.data.items[0].attachments.length()").value(0));
 
         verify(noteService).listNotes(currentUserId, jarId, 0, 20);
     }
@@ -254,7 +309,8 @@ class NoteControllerTest {
                 LocalDate.of(2026, 3, 29),
                 "제주",
                 OffsetDateTime.parse("2026-03-29T09:00:00+09:00"),
-                OffsetDateTime.parse("2026-03-29T09:10:00+09:00")
+                OffsetDateTime.parse("2026-03-29T09:10:00+09:00"),
+                List.of()
         );
 
         when(noteService.getNoteDetail(currentUserId, jarId, noteId))
@@ -271,7 +327,9 @@ class NoteControllerTest {
                 .andExpect(jsonPath("$.data.title").value("상세 제목"))
                 .andExpect(jsonPath("$.data.content").value("상세 내용"))
                 .andExpect(jsonPath("$.data.noteDate").value("2026-03-29"))
-                .andExpect(jsonPath("$.data.location").value("제주"));
+                .andExpect(jsonPath("$.data.location").value("제주"))
+                .andExpect(jsonPath("$.data.attachments").isArray())
+                .andExpect(jsonPath("$.data.attachments.length()").value(0));
 
         verify(noteService).getNoteDetail(currentUserId, jarId, noteId);
     }

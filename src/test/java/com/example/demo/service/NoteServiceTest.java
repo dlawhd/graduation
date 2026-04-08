@@ -57,7 +57,10 @@ class NoteServiceTest {
 
     @Mock
     private JarOpenService jarOpenService;
+
     private NoteService noteService;
+
+    @Mock
     private NoteAttachmentService noteAttachmentService;
 
     @BeforeEach
@@ -87,7 +90,8 @@ class NoteServiceTest {
                 "제목이야",
                 "오늘 정말 즐거운 하루였어!",
                 LocalDate.of(2026, 3, 31),
-                "서울"
+                "서울",
+                List.of()
         );
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
@@ -147,7 +151,8 @@ class NoteServiceTest {
                 "제목",
                 "내용",
                 LocalDate.of(2026, 3, 31),
-                "서울"
+                "서울",
+                List.of()
         );
 
         // when
@@ -174,7 +179,8 @@ class NoteServiceTest {
                 "제목",
                 "내용",
                 LocalDate.of(2026, 3, 31),
-                "서울"
+                "서울",
+                List.of()
         );
 
         // when
@@ -204,7 +210,8 @@ class NoteServiceTest {
                 "제목",
                 "내용",
                 LocalDate.of(2026, 3, 31),
-                "서울"
+                "서울",
+                List.of()
         );
 
         // when
@@ -249,6 +256,8 @@ class NoteServiceTest {
                 .thenReturn(true);
         when(noteRepository.findByJarId(eq(jarId), any()))
                 .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
+        when(noteAttachmentService.getAttachmentsByNoteIds(anyList())).thenReturn(List.of());
 
         // when
         NoteListResponse response = noteService.listNotes(currentUserId, jarId, 0, 10);
@@ -421,6 +430,8 @@ class NoteServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
         when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
+        when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
+        when(noteAttachmentService.getAttachments(noteId)).thenReturn(List.of());
 
         // when
         NoteDetailResponse response = noteService.getNoteDetail(currentUserId, jarId, noteId);

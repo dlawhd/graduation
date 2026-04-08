@@ -226,13 +226,15 @@ class NoteAttachmentServiceTest {
         assertThat(savedAttachments.get(1).getSortOrder()).isEqualTo(3);
         assertThat(savedAttachments.get(1).getS3Key()).isEqualTo("notes/1/file3.png");
         assertThat(savedAttachments.get(1).getThumbnailUrl()).isEqualTo("https://cdn.test.com/thumb3.png");
+        assertThat(savedAttachments.get(0).getNote()).isEqualTo(note);
+        assertThat(savedAttachments.get(1).getNote()).isEqualTo(note);
     }
 
     @Test
     @DisplayName("첨부파일 여러 개 저장 - 요청이 비어 있으면 빈 리스트 반환")
     void createAttachments_emptyRequest_returnsEmptyList() {
         // when
-        List<NoteAttachment> result = noteAttachmentService.createAttachments(1L, List.of());
+        List<NoteAttachment> result = noteAttachmentService.createAttachments(1L, null);
 
         // then
         assertThat(result).isEmpty();
@@ -419,6 +421,66 @@ class NoteAttachmentServiceTest {
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
                     assertThat(exception.getReason()).isEqualTo("현재 쪽지에 없는 첨부파일이 포함되어 있어.");
                 });
+    }
+
+    @Test
+    @DisplayName("첨부파일 여러 개 저장 실패 - 요청 안에 같은 s3Key가 있으면 400")
+    void createAttachments_fail_duplicateS3KeyInRequest() {
+        Long noteId = 1L;
+
+        List<NoteAttachmentCreateRequest> requests = List.of(
+                new NoteAttachmentCreateRequest(
+                        "notes/1/file2.png",
+                        "https://cdn.test.com/file2.png",
+                        null,
+                        "image/png",
+                        200L
+                ),
+                new NoteAttachmentCreateRequest(
+                        "notes/1/file2.png",
+                        "https://cdn.test.com/file2-dup.png",
+                        null,
+                        "image/png",
+                        300L
+                )
+        );
+
+        assertThatThrownBy(() -> noteAttachmentService.createAttachments(noteId, requests))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> {
+                    ResponseStatusException exception = (ResponseStatusException) ex;
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(exception.getReason()).isEqualTo("요청 안에 중복된 s3Key가 있어.");
+                });
+
+        verify(noteRepository, never()).findByNoteId(any());
+        verify(noteAttachmentRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("여러 noteId의 첨부파일을 한 번에 조회한다")
+    void getAttachmentsByNoteIds_success() {
+        List<Long> noteIds = List.of(1L, 2L);
+
+        NoteAttachment a1 = mock(NoteAttachment.class);
+        NoteAttachment a2 = mock(NoteAttachment.class);
+
+        when(noteAttachmentRepository.findAllByNote_NoteIdInOrderByNote_NoteIdAscSortOrderAsc(noteIds))
+                .thenReturn(List.of(a1, a2));
+
+        List<NoteAttachment> result = noteAttachmentService.getAttachmentsByNoteIds(noteIds);
+
+        assertThat(result).containsExactly(a1, a2);
+    }
+
+    @Test
+    @DisplayName("여러 noteId 조회 - 요청이 비어 있으면 빈 리스트 반환")
+    void getAttachmentsByNoteIds_emptyRequest_returnsEmptyList() {
+        List<NoteAttachment> result = noteAttachmentService.getAttachmentsByNoteIds(List.of());
+
+        assertThat(result).isEmpty();
+        verify(noteAttachmentRepository, never())
+                .findAllByNote_NoteIdInOrderByNote_NoteIdAscSortOrderAsc(anyList());
     }
 
     private NoteAttachment createAttachmentEntity(Long id, Integer sortOrder, String s3Key) {
