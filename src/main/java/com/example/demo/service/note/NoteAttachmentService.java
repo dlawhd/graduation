@@ -71,28 +71,44 @@ public class NoteAttachmentService {
         return noteAttachmentRepository.save(attachment);
     }
 
+    private void validateDuplicateS3KeysInRequest(List<NoteAttachmentCreateRequest> requests) {
+        long distinctCount = requests.stream()
+                .map(NoteAttachmentCreateRequest::s3Key)
+                .distinct()
+                .count();
+
+        if (distinctCount != requests.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "요청 안에 중복된 s3Key가 있어."
+            );
+        }
+    }
+
     // 첨부파일 여러 개 저장
-    @Transactional
     public List<NoteAttachment> createAttachments(
             Long noteId,
             List<NoteAttachmentCreateRequest> requests
     ) {
 
-        // 빈 리스트면 저장할 게 없으니 바로 빈 리스트 반환
+        // 0. 요청이 비어 있으면 바로 종료
         if (requests == null || requests.isEmpty()) {
             return List.of();
         }
 
-        // 1. 쪽지 존재 확인
+        // 🔥 1. 요청 안에서 s3Key 중복 검사 (여기에 넣기)
+        validateDuplicateS3KeysInRequest(requests);
+
+        // 2. 쪽지 존재 확인
         Note note = getNoteOrThrow(noteId);
 
-        // 2. 개수 제한 확인
+        // 3. 개수 제한 확인
         validateAttachmentCount(noteId, requests.size());
 
-        // 3. 현재 마지막 순서 번호 찾기
+        // 4. 현재 마지막 순서 번호 찾기
         int nextSortOrder = getNextSortOrder(noteId);
 
-        // 4. 저장할 엔티티 목록 만들기
+        // 5. 저장할 엔티티 목록 만들기
         List<NoteAttachment> attachments = new ArrayList<>();
 
         for (NoteAttachmentCreateRequest request : requests) {
@@ -111,8 +127,16 @@ public class NoteAttachmentService {
             attachments.add(attachment);
         }
 
-        // 5. 한 번에 저장
         return noteAttachmentRepository.saveAll(attachments);
+    }
+
+    // 여러 개를 한 번에 가져오는 메서드
+    public List<NoteAttachment> getAttachmentsByNoteIds(List<Long> noteIds) {
+        if (noteIds == null || noteIds.isEmpty()) {
+            return List.of();
+        }
+
+        return noteAttachmentRepository.findAllByNote_NoteIdInOrderByNote_NoteIdAscSortOrderAsc(noteIds);
     }
 
     // 특정 쪽지의 첨부파일 목록 조회

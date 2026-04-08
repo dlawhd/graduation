@@ -2,6 +2,7 @@ package com.example.demo.dto.note.response;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 // 쪽지 상세 화면에 필요한 정보
 public record NoteDetailResponse(
@@ -15,6 +16,7 @@ public record NoteDetailResponse(
         LocalDate noteDate,
         String location,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        List<NoteAttachmentResponse> attachments
 ) {
 }

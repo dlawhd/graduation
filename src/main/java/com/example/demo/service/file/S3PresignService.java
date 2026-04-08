@@ -1,5 +1,6 @@
 package com.example.demo.service.file;
 
+import com.example.demo.config.properties.FileProperties;
 import com.example.demo.config.properties.S3Properties;
 import com.example.demo.dto.file.request.FilePresignRequest;
 import com.example.demo.dto.file.response.FilePresignResponse;
@@ -17,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -27,24 +29,18 @@ import java.util.UUID;
 @Service
 public class S3PresignService {
 
-    // 지금은 이미지 업로드를 먼저 기준으로 갈 거라서 허용할 contentType을 안전하게 제한해 두는 게 좋음
-    // 나중에 영상, pdf까지 허용하고 싶으면 여기에 추가하면 됌
-    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/gif"
-    );
-
     private final S3Presigner s3Presigner;
     private final S3Properties s3Properties;
+    private final FileProperties fileProperties;
 
     public S3PresignService(
             S3Presigner s3Presigner,
-            S3Properties s3Properties
+            S3Properties s3Properties,
+            FileProperties fileProperties
     ) {
         this.s3Presigner = s3Presigner;
         this.s3Properties = s3Properties;
+        this.fileProperties = fileProperties;
     }
 
     // presigned URL 생성
@@ -67,7 +63,7 @@ public class S3PresignService {
                 .build();
 
         // 5. presigned URL 유효 시간
-        Duration signatureDuration = Duration.ofMinutes(s3Properties.getPresignExpSeconds());
+        Duration signatureDuration = Duration.ofSeconds(s3Properties.getPresignExpSeconds());
 
         // 6. presigned URL 요청 만들기
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
@@ -80,7 +76,7 @@ public class S3PresignService {
 
         // 8. 만료 시간 계산
         OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC)
-                .plusMinutes(s3Properties.getPresignExpSeconds());
+                .plusSeconds(s3Properties.getPresignExpSeconds());
 
         // 9. public URL 만들기
         String publicUrl = createPublicUrl(s3Key);
@@ -103,7 +99,15 @@ public class S3PresignService {
             );
         }
 
-        if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
+        Set<String> allowedTypes = new HashSet<>();
+        if (fileProperties.getAllowedImageTypes() != null) {
+            allowedTypes.addAll(fileProperties.getAllowedImageTypes());
+        }
+        if (fileProperties.getAllowedVideoTypes() != null) {
+            allowedTypes.addAll(fileProperties.getAllowedVideoTypes());
+        }
+
+        if (!allowedTypes.contains(contentType)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "허용하지 않는 파일 형식이야."
@@ -111,7 +115,7 @@ public class S3PresignService {
         }
     }
 
-    // 파일 크기 검증, 지금은 10MB
+    // 파일 크기 검증, 최대 크기는 application.yml 의 app.file.max-size 설정값을 사용
     private void validateFileSize(Long size) {
         if (size == null || size <= 0) {
             throw new ResponseStatusException(
@@ -120,15 +124,14 @@ public class S3PresignService {
             );
         }
 
-        long maxSize = 10 * 1024 * 1024L; // 10MB
-
-        if (size > maxSize) {
+        if (size > fileProperties.getMaxSize()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "파일은 최대 10MB까지 업로드할 수 있어."
+                    "파일이 너무 커. 업로드 가능한 최대 크기를 확인해줘."
             );
         }
     }
+
 
     // S3 저장 경로(s3Key) 생성
     // purpose별로 폴더를 나누고, 날짜 폴더를 넣어서 관리하기 쉽게 하고, UUID를 붙여서 파일 이름 충돌을 막는 것

@@ -22,9 +22,11 @@ public interface NoteAttachmentRepository extends JpaRepository<NoteAttachment, 
     // 예: 기존 sortOrder가 0,1,2 면 마지막 값 2를 찾아서 새 파일은 3으로 넣는 식
     Optional<NoteAttachment> findTopByNoteOrderBySortOrderDesc(Note note);
 
-
     // 특정 noteId 기준으로 마지막 순서 첨부파일 1개를 조회. noteId(Long) 기준으로 바로 조회하고 싶을 때 사용함
     Optional<NoteAttachment> findTopByNote_NoteIdOrderBySortOrderDesc(Long noteId);
+
+    // 여러 noteId의 첨부파일을 한 번에 조회
+    List<NoteAttachment> findAllByNote_NoteIdInOrderByNote_NoteIdAscSortOrderAsc(List<Long> noteIds);
 
     // 특정 S3 key를 가진 첨부파일이 이미 존재하는지 확인
     // 왜 필요하냐면? 같은 s3Key를 중복 저장하려는 실수를 서비스 단에서 한 번 더 막을 수 있음

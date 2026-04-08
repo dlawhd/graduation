@@ -1,13 +1,11 @@
 package com.example.demo.service.note;
 
 import com.example.demo.dto.note.request.NoteCreateRequest;
-import com.example.demo.dto.note.response.NoteCreateResponse;
-import com.example.demo.dto.note.response.NoteDetailResponse;
-import com.example.demo.dto.note.response.NoteListItem;
-import com.example.demo.dto.note.response.NoteListResponse;
+import com.example.demo.dto.note.response.*;
 import com.example.demo.entity.User;
 import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.note.Note;
+import com.example.demo.entity.note.NoteAttachment;
 import com.example.demo.enums.jar.JarLockLevel;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
@@ -22,10 +20,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -35,24 +34,26 @@ public class NoteService {
     private static final ZoneOffset KST_OFFSET = ZoneOffset.ofHours(9);
 
     private final JarOpenService jarOpenService;
-
     private final NoteRepository noteRepository;
     private final JarRepository jarRepository;
     private final JarMemberRepository jarMemberRepository;
     private final UserRepository userRepository;
+    private final NoteAttachmentService noteAttachmentService;
 
     public NoteService(
             NoteRepository noteRepository,
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
             UserRepository userRepository,
-            JarOpenService jarOpenService
+            JarOpenService jarOpenService,
+            NoteAttachmentService noteAttachmentService
     ) {
         this.noteRepository = noteRepository;
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
         this.userRepository = userRepository;
         this.jarOpenService = jarOpenService;
+        this.noteAttachmentService = noteAttachmentService;
     }
 
     // 쪽지를 새로 작성하는 기능
@@ -85,6 +86,10 @@ public class NoteService {
 
         // 5. 저장
         Note savedNote = noteRepository.save(note);
+
+        if (request.attachments() != null && !request.attachments().isEmpty()) {
+            noteAttachmentService.createAttachments(savedNote.getNoteId(), request.attachments());
+        }
 
         // 6. 응답 반환
         return new NoteCreateResponse(
@@ -127,9 +132,14 @@ public class NoteService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Note> notePage = noteRepository.findByJarId(jar.getJarId(), pageable);
 
-        // 4. Note -> NoteListItem 변환
-        List<NoteListItem> items = notePage.getContent().stream()
-                .map(note -> toNoteListItem(note, jar))
+        List<Note> notes = notePage.getContent();
+
+        // 4. 첨부파일을 한 번에 조회해서 noteId별로 묶어둠
+        Map<Long, List<NoteAttachmentResponse>> attachmentMap =
+                getAttachmentResponseMap(notes);
+
+        List<NoteListItem> items = notes.stream()
+                .map(note -> toNoteListItem(note, jar, attachmentMap))
                 .toList();
 
         // 5. 응답 반환
@@ -140,6 +150,20 @@ public class NoteService {
                 notePage.getTotalElements(),
                 notePage.getTotalPages()
         );
+    }
+
+    private List<NoteAttachmentResponse> toAttachmentResponses(Long noteId) {
+        return noteAttachmentService.getAttachments(noteId).stream()
+                .map(attachment -> new NoteAttachmentResponse(
+                        attachment.getId(),
+                        attachment.getSortOrder(),
+                        attachment.getS3Key(),
+                        attachment.getUrl(),
+                        attachment.getThumbnailUrl(),
+                        attachment.getContentType(),
+                        attachment.getSize()
+                ))
+                .toList();
     }
 
     // 목록에서는 내용 전체 대신 미리보기만 짧게 보여주기
@@ -207,13 +231,15 @@ public class NoteService {
         }
     }
 
+
+
     // 저금통이 열렸는지 확인
     private boolean isJarOpen(Jar jar) {
         return jarOpenService.ensureOpenedIfDue(jar.getJarId());
     }
 
     // 목록 응답 만들기
-    private NoteListItem toNoteListItem(Note note, Jar jar) {
+    private NoteListItem toNoteListItem(Note note, Jar jar, Map<Long, List<NoteAttachmentResponse>> attachmentMap) {
 
         // 이미 오픈된 저금통이면 진짜 내용 그대로 보여주기
         if (isJarOpen(jar)) {
@@ -226,7 +252,8 @@ public class NoteService {
                     note.getAuthor().getId(),
                     note.getAuthor().getName(),
                     note.isEncrypted(),
-                    toOffsetDateTime(note.getCreatedAt())
+                    toOffsetDateTime(note.getCreatedAt()),
+                    attachmentMap.getOrDefault(note.getNoteId(), List.of())
             );
         }
 
@@ -250,7 +277,8 @@ public class NoteService {
                     note.getNoteDate(),
                     note.getLocation(),
                     toOffsetDateTime(note.getCreatedAt()),
-                    toOffsetDateTime(note.getUpdatedAt())
+                    toOffsetDateTime(note.getUpdatedAt()),
+                    toAttachmentResponses(note.getNoteId())
             );
         }
 
@@ -272,7 +300,8 @@ public class NoteService {
                     null,
                     null,
                     note.isEncrypted(),
-                    null
+                    null,
+                    List.of()
             );
 
             // 메타만 공개: 날짜/장소는 보여주고 제목/내용은 숨김
@@ -285,7 +314,8 @@ public class NoteService {
                     null,
                     null,
                     note.isEncrypted(),
-                    toOffsetDateTime(note.getCreatedAt())
+                    toOffsetDateTime(note.getCreatedAt()),
+                    List.of()
             );
 
             // 제목만 공개: 제목은 보이고 내용은 숨김
@@ -298,9 +328,43 @@ public class NoteService {
                     null,
                     null,
                     note.isEncrypted(),
-                    toOffsetDateTime(note.getCreatedAt())
+                    toOffsetDateTime(note.getCreatedAt()),
+                    List.of()
             );
         };
+    }
+
+    // 미리 다 가져와서 묶어둠
+    private Map<Long, List<NoteAttachmentResponse>> getAttachmentResponseMap(List<Note> notes) {
+
+        if (notes == null || notes.isEmpty()) {
+            return Map.of();
+        }
+
+        // noteId만 뽑기
+        List<Long> noteIds = notes.stream()
+                .map(Note::getNoteId)
+                .toList();
+
+        List<NoteAttachment> attachments =
+                noteAttachmentService.getAttachmentsByNoteIds(noteIds);
+
+        return attachments.stream()
+                .collect(Collectors.groupingBy(
+                        attachment -> attachment.getNote().getNoteId(),
+                        java.util.stream.Collectors.mapping(
+                                attachment -> new NoteAttachmentResponse(
+                                        attachment.getId(),
+                                        attachment.getSortOrder(),
+                                        attachment.getS3Key(),
+                                        attachment.getUrl(),
+                                        attachment.getThumbnailUrl(),
+                                        attachment.getContentType(),
+                                        attachment.getSize()
+                                ),
+                                java.util.stream.Collectors.toList()
+                        )
+                ));
     }
 
     // 상세용 마스킹
@@ -319,7 +383,8 @@ public class NoteService {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    List.of()
             );
 
             // 메타만 공개: 날짜, 장소 정도만 보여주고 나머지는 숨김
@@ -334,7 +399,8 @@ public class NoteService {
                     note.getNoteDate(),
                     note.getLocation(),
                     toOffsetDateTime(note.getCreatedAt()),
-                    toOffsetDateTime(note.getUpdatedAt())
+                    toOffsetDateTime(note.getUpdatedAt()),
+                    List.of()
             );
 
             // 제목만 공개: 제목은 보여주고 내용은 숨김
@@ -349,7 +415,8 @@ public class NoteService {
                     note.getNoteDate(),
                     note.getLocation(),
                     toOffsetDateTime(note.getCreatedAt()),
-                    toOffsetDateTime(note.getUpdatedAt())
+                    toOffsetDateTime(note.getUpdatedAt()),
+                    List.of()
             );
         };
     }

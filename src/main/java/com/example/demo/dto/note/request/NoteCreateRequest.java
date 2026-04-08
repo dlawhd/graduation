@@ -1,9 +1,11 @@
 package com.example.demo.dto.note.request;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.List;
 
 // 쪽지를 새로 만들 때 프론트가 보내는 요청값
 public record NoteCreateRequest(
@@ -22,6 +24,9 @@ public record NoteCreateRequest(
 
         // 장소도 선택
         @Size(max = 100)
-        String location
+        String location,
+
+        @Valid
+        List<NoteAttachmentCreateRequest> attachments
 ) {
 }
