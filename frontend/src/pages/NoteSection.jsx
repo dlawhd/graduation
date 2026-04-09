@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import noteApi from "../api/noteApi";
+import fileApi from "../api/fileApi";
 
 // 잠금 레벨을 화면용으로 바꿔주는 작은 사전
 const LOCK_LEVEL_LABEL = {
@@ -167,6 +168,7 @@ function buildCreatePayload(form) {
   const payload = {
     title,
     content,
+    attachments: Array.isArray(form.attachments) ? form.attachments : [],
   };
 
   if (form.noteDate) payload.noteDate = form.noteDate;
@@ -183,7 +185,7 @@ function wait(ms) {
 }
 
 function PaperComposeModal({
-open,
+  open,
   phase,
   step,
   form,
@@ -192,6 +194,10 @@ open,
   palette,
   loading,
   formError,
+  uploading,
+  uploadError,
+  handleAttachFiles,
+  handleRemoveAttachment,
   onClose,
   onShowPreview,
   onShowConfirm,
@@ -326,6 +332,97 @@ open,
                   )}
                 </label>
 
+                {/* 사용자가 파일을 고르고, 업로드가 끝난 뒤, “지금 note에 붙을 첨부 목록”을 눈으로 볼 수 있음 */}
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold text-slate-500">
+                    첨부 파일 (선택)
+                  </span>
+
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={handleAttachFiles}
+                    disabled={uploading || loading}
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                  />
+
+                  <p className="mt-2 text-xs text-slate-400">
+                    사진이나 영상을 10개 올릴 수 있어요.
+                  </p>
+
+                  {uploading && (
+                    <p className="mt-2 text-sm font-semibold text-emerald-600">
+                      파일을 올리고 있어요...
+                    </p>
+                  )}
+
+                  {uploadError && (
+                    <p className="mt-2 text-sm font-semibold text-rose-500">
+                      {uploadError}
+                    </p>
+                  )}
+                </label>
+
+                {Array.isArray(form.attachments) && form.attachments.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-500">업로드된 첨부</p>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {form.attachments.map((attachment, index) => {
+                        const isImage = attachment.contentType?.startsWith("image/");
+                        const isVideo = attachment.contentType?.startsWith("video/");
+
+                        return (
+                          <div
+                            key={`${attachment.s3Key}-${index}`}
+                            className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80"
+                          >
+                            <div className="flex h-44 items-center justify-center bg-slate-50">
+                              {isImage ? (
+                                <img
+                                  src={attachment.previewUrl || attachment.thumbnailUrl || attachment.url}
+                                  alt={`첨부 ${index + 1}`}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : isVideo ? (
+                                <video
+                                  src={attachment.previewUrl || attachment.url}
+                                  controls
+                                  className="h-full w-full bg-black object-cover"
+                                />
+                              ) : (
+                                <div className="px-4 text-center text-xs font-semibold text-slate-500">
+                                  미리보기를 지원하지 않는 파일이에요.
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 px-4 py-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-700">
+                                  {attachment.s3Key}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                  {attachment.contentType} · {attachment.size} bytes
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment(index)}
+                                className="rounded-xl border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-500 transition hover:bg-rose-50"
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold text-slate-500">
@@ -424,6 +521,57 @@ open,
                         {form.location}
                       </span>
                     )}
+
+                    {Array.isArray(form.attachments) && form.attachments.length > 0 && (
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white/60 p-4">
+                        <p className="mb-3 text-xs font-semibold text-slate-500">
+                          함께 들어갈 첨부
+                        </p>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {form.attachments.map((attachment, index) => {
+                            const isImage = attachment.contentType?.startsWith("image/");
+                            const isVideo = attachment.contentType?.startsWith("video/");
+
+                            return (
+                              <div
+                                key={`${attachment.s3Key}-${index}`}
+                                className="overflow-hidden rounded-2xl border border-slate-100 bg-white"
+                              >
+                                <div className="flex h-44 items-center justify-center bg-slate-50">
+                                  {isImage ? (
+                                    <img
+                                      src={attachment.previewUrl || attachment.thumbnailUrl || attachment.url}
+                                      alt={`첨부 ${index + 1}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : isVideo ? (
+                                    <video
+                                      src={attachment.previewUrl || attachment.url}
+                                      controls
+                                      className="h-full w-full bg-black object-cover"
+                                    />
+                                  ) : (
+                                    <div className="px-4 text-center text-xs font-semibold text-slate-500">
+                                      미리보기를 지원하지 않는 파일이에요.
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="px-3 py-2">
+                                  <p className="truncate text-sm font-semibold text-slate-700">
+                                    {attachment.s3Key}
+                                  </p>
+                                  <p className="text-xs text-slate-400">
+                                    {attachment.contentType} · {attachment.size} bytes
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <h3 className="mb-3 text-xl font-black text-slate-800">
@@ -473,13 +621,13 @@ open,
               <div className="py-4 text-center">
                 <div className="mb-4 text-5xl">📮</div>
 
-                <h3 className="mb-2 text-xl font-black text-slate-800">
-                  이 쪽지를 정말 넣을까요?
-                </h3>
-
                 <p className="text-sm leading-7 text-slate-500">
-                  누르면 종이가 다시 접히면서 저금통 안으로 들어가요.
+                  누르면 수정이나 삭제가 불가능해요.
                 </p>
+
+                <h3 className="mb-2 text-xl font-black text-slate-800">
+                    이 쪽지를 정말 넣을까요?
+                </h3>
 
                 <div className="mt-6 flex flex-wrap justify-center gap-3">
                   <button
@@ -494,10 +642,10 @@ open,
                   <button
                     type="button"
                     onClick={onSubmit}
-                    disabled={loading}
+                    disabled={loading || uploading}
                     className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
                   >
-                    {loading ? "저금통에 넣는 중..." : "정말 넣기"}
+                    {uploading ? "파일 업로드 중..." : loading ? "넣는 중..." : "저금통에 넣기"}
                   </button>
                 </div>
               </div>
@@ -638,6 +786,46 @@ function NoteDetailModal({
               </div>
             </div>
 
+            {Array.isArray(note?.attachments) && note.attachments.length > 0 && (
+              <section className="mt-6">
+                <h4 className="mb-3 text-sm font-bold text-slate-700">첨부</h4>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {note.attachments.map((attachment, index) => {
+                    const isImage = attachment.contentType?.startsWith("image/");
+
+                    return (
+                      <div
+                        key={`${attachment.s3Key}-${index}`}
+                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                      >
+                        {isImage ? (
+                          <img
+                            src={attachment.thumbnailUrl || attachment.url}
+                            alt={`첨부 ${index + 1}`}
+                            className="h-44 w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-44 items-center justify-center bg-slate-50 text-sm font-semibold text-slate-400">
+                            미리보기를 준비하지 못했어요.
+                          </div>
+                        )}
+
+                        <div className="p-3">
+                          <p className="truncate text-sm font-semibold text-slate-700">
+                            {attachment.s3Key}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {attachment.contentType} · {attachment.size} bytes
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {tags.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -726,9 +914,8 @@ const [composerStep, setComposerStep] = useState("form");
 const [createLoading, setCreateLoading] = useState(false);
 const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
-// 저장 완료 후 저금통으로 날아가는 작은 쪽지 상태
-const [flyingNote, setFlyingNote] = useState(null);
-
+  // 저장 완료 후 저금통으로 날아가는 작은 쪽지 상태
+  const [flyingNote, setFlyingNote] = useState(null);
 
   const [writeForm, setWriteForm] = useState({
     title: "",
@@ -736,7 +923,12 @@ const [flyingNote, setFlyingNote] = useState(null);
     noteDate: "",
     location: "",
     tagsText: "",
+    attachments: [],
   });
+
+  // 첨부 업로드 중인지, 업로드 에러가 났는지
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const lockGuide = useMemo(() => getLockGuide(jar), [jar]);
 
@@ -858,6 +1050,10 @@ const [flyingNote, setFlyingNote] = useState(null);
 
     try {
       const data = await noteApi.getNoteDetail(jar.jarId, noteId);
+
+      console.log("detail data =", data);
+      console.log("detail data.attachments =", data?.attachments);
+
       setDetailNote(data || null);
     } catch (e) {
       const serverMessage =
@@ -881,18 +1077,27 @@ const [flyingNote, setFlyingNote] = useState(null);
   }
 
 function resetWriteForm() {
+  (writeForm.attachments || []).forEach((attachment) => {
+    if (attachment?.previewUrl) {
+      URL.revokeObjectURL(attachment.previewUrl);
+    }
+  });
+
   setWriteForm({
     title: "",
     content: "",
     noteDate: "",
     location: "",
     tagsText: "",
+    attachments: [],
   });
 
   setFormError({
     title: "",
     content: "",
   });
+
+  setUploadError("");
 }
 
 function openComposer() {
@@ -947,6 +1152,7 @@ async function handleCreateNote() {
     showToast("error", "제목과 내용을 입력한 뒤 다시 시도해 주세요.");
     return;
   }
+
 
   const payload = buildCreatePayload(writeForm);
 
@@ -1011,6 +1217,74 @@ async function handleCreateNote() {
     setCreateLoading(false);
   }
 }
+
+   // 파일을 고른다 ->서버한테 “올릴 주소 하나 주세요” 한다 -> 받은 주소로 S3에 파일을 올린다
+   // note 생성할 때 쓸 첨부 정보만 form에 저장한다
+   async function handleAttachFiles(e) {
+     const files = Array.from(e.target.files || []);
+     if (files.length === 0) return;
+
+     setUploadError("");
+     setUploading(true);
+
+     try {
+       const uploadedAttachments = [];
+
+       for (const file of files) {
+         const presignData = await fileApi.presignNoteFile({
+           jarId: jar.jarId,
+           fileName: file.name,
+           contentType: file.type,
+           size: file.size,
+         });
+
+         await fileApi.uploadFileToS3(
+           presignData.uploadUrl,
+           file,
+           file.type
+         );
+
+         const attachmentPayload = fileApi.toNoteAttachmentPayload(presignData, file);
+
+         uploadedAttachments.push({
+           ...attachmentPayload,
+           previewUrl: URL.createObjectURL(file),
+         });
+       }
+
+       setWriteForm((prev) => ({
+         ...prev,
+         attachments: [...(prev.attachments || []), ...uploadedAttachments],
+       }));
+     } catch (error) {
+       const serverMessage =
+         error?.response?.data?.error?.message ||
+         error?.response?.data?.message ||
+         error?.message ||
+         "파일 업로드에 실패했어요.";
+
+       setUploadError(serverMessage);
+     } finally {
+       setUploading(false);
+       e.target.value = "";
+     }
+   }
+
+   // 첨부 삭제
+   function handleRemoveAttachment(index) {
+     setWriteForm((prev) => {
+       const target = prev.attachments?.[index];
+
+       if (target?.previewUrl) {
+         URL.revokeObjectURL(target.previewUrl);
+       }
+
+       return {
+         ...prev,
+         attachments: (prev.attachments || []).filter((_, i) => i !== index),
+       };
+     });
+   }
 
   function handleSearchSubmit(e) {
     e.preventDefault();
@@ -1301,20 +1575,24 @@ async function handleCreateNote() {
 
       <PaperComposeModal
         open={paperVisible}
-          phase={composerPhase}
-          step={composerStep}
-          form={writeForm}
-          setForm={setWriteForm}
-          setFormError={setFormError}
-          palette={palette}
-          loading={createLoading}
-          formError={formError}
-          onClose={closeComposer}
-          onShowPreview={handleOpenPreview}
-          onShowConfirm={handleOpenConfirm}
-          onBackToForm={handleBackToForm}
-          onBackToPreview={handleBackToPreview}
-          onSubmit={handleCreateNote}
+        phase={composerPhase}
+        step={composerStep}
+        form={writeForm}
+        setForm={setWriteForm}
+        setFormError={setFormError}
+        palette={palette}
+        loading={createLoading}
+        formError={formError}
+        uploading={uploading}
+        uploadError={uploadError}
+        handleAttachFiles={handleAttachFiles}
+        handleRemoveAttachment={handleRemoveAttachment}
+        onClose={closeComposer}
+        onShowPreview={handleOpenPreview}
+        onShowConfirm={handleOpenConfirm}
+        onBackToForm={handleBackToForm}
+        onBackToPreview={handleBackToPreview}
+        onSubmit={handleCreateNote}
       />
 
       <NoteDetailModal

@@ -422,6 +422,90 @@ function JarZoomNoteDetailModal({
     const tags = normalizeJarZoomTags(note?.tags);
     const hasContent = toSafeNoteText(note?.content).length > 0;
 
+    const [selectedIndex, setSelectedIndex] = useState(null);
+    const [zoom, setZoom] = useState(1);
+
+    const images = note?.attachments || [];
+    const currentImage =
+      selectedIndex !== null ? images[selectedIndex] : null;
+
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [dragging, setDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const [lastPosition, setLastPosition] = useState({ x: 0, y: 0 });
+
+    function handleDragStart(e) {
+      if (zoom <= 1) return; // 확대 안 했으면 이동할 필요 없음
+
+      setDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      setLastPosition(position);
+    }
+
+    function handleDragMove(e) {
+      if (!dragging) return;
+
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+
+      setPosition({
+        x: lastPosition.x + deltaX,
+        y: lastPosition.y + deltaY,
+      });
+    }
+
+    function handleDragEnd() {
+      setDragging(false);
+    }
+
+    useEffect(() => {
+      if (!dragging) return;
+
+      function onMouseMove(e) {
+        handleDragMove(e);
+      }
+
+      function onMouseUp() {
+        handleDragEnd();
+      }
+
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+
+      return () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
+    }, [dragging, dragStart, lastPosition]);
+
+    useEffect(() => {
+      const handler = (e) => {
+        if (selectedIndex === null) return;
+
+        if (e.key === "Escape") {
+          setSelectedIndex(null);
+        }
+
+        if (e.key === "ArrowRight") {
+          setSelectedIndex((prev) =>
+            prev < images.length - 1 ? prev + 1 : prev
+          );
+        }
+
+        if (e.key === "ArrowLeft") {
+          setSelectedIndex((prev) =>
+            prev > 0 ? prev - 1 : prev
+          );
+        }
+      };
+
+      window.addEventListener("keydown", handler);
+      return () => window.removeEventListener("keydown", handler);
+    }, [selectedIndex, images.length]);
+
+
+    if (!open) return null;
+
     return (
       <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-900/60 px-4 py-6">
         <div className="w-full max-w-3xl rounded-[32px] border border-white/70 bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
@@ -506,6 +590,51 @@ function JarZoomNoteDetailModal({
               </div>
 
               <div className={`rounded-[28px] border p-5 ${palette.panel}`}>
+                  {/* 첨부 이미지 */}
+                  {Array.isArray(note?.attachments) && note.attachments.length > 0 && (
+                    <div className="mt-5">
+                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                        첨부 파일
+                      </p>
+
+                      <div className="flex flex-wrap gap-3">
+                        {note.attachments.map((attachment, index) => {
+                          const isImage = attachment.contentType?.startsWith("image/");
+                          const isVideo = attachment.contentType?.startsWith("video/");
+
+                          return (
+                            <div
+                              key={attachment.attachmentId ?? index}
+                              className="overflow-hidden rounded-2xl border bg-white"
+                            >
+                              {isImage ? (
+                                <img
+                                  src={attachment.thumbnailUrl || attachment.url}
+                                  alt={`첨부 이미지 ${index + 1}`}
+                                  className="h-32 w-32 cursor-pointer object-cover"
+                                  onClick={() => {
+                                    setSelectedIndex(index);
+                                    setZoom(1);
+                                    setPosition({ x: 0, y: 0 });
+                                  }}
+                                />
+                              ) : isVideo ? (
+                                <video
+                                  src={attachment.url}
+                                  controls
+                                  className="h-32 w-40 rounded-2xl bg-black"
+                                />
+                              ) : (
+                                <div className="flex h-32 w-32 items-center justify-center text-xs text-slate-500">
+                                  미리보기를 지원하지 않는 파일
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
                   내용
                 </p>
@@ -558,6 +687,96 @@ function JarZoomNoteDetailModal({
             </div>
           )}
         </div>
+        {currentImage && (
+          <div
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80"
+            onClick={() => setSelectedIndex(null)}
+          >
+            {selectedIndex > 0 && (
+              <button
+                className="absolute left-6 text-3xl text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedIndex((prev) => prev - 1);
+                  setZoom(1);
+                  setPosition({ x: 0, y: 0 });
+                }}
+              >
+                ←
+              </button>
+            )}
+
+            {currentImage.contentType?.startsWith("image/") ? (
+              <img
+                src={currentImage.url}
+                alt="확대 이미지"
+                className={`max-h-[80vh] max-w-[90vw] rounded-2xl shadow-lg transition ${
+                  dragging ? "cursor-grabbing" : zoom > 1 ? "cursor-grab" : "cursor-default"
+                }`}
+                style={{
+                  transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                  transition: dragging ? "none" : "transform 0.15s ease-out",
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  handleDragStart(e);
+                }}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+
+                  setZoom((z) => {
+                    const nextZoom = Math.max(0.5, Math.min(3, z + delta));
+
+                    // 다시 1 이하로 줄어들면 위치 원위치
+                    if (nextZoom <= 1) {
+                      setPosition({ x: 0, y: 0 });
+                    }
+
+                    return nextZoom;
+                  });
+                }}
+              />
+            ) : currentImage.contentType?.startsWith("video/") ? (
+              <video
+                src={currentImage.url}
+                controls
+                autoPlay
+                className="max-h-[80vh] max-w-[90vw] rounded-2xl bg-black shadow-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <div
+                className="rounded-2xl bg-white px-6 py-4 text-sm text-slate-700"
+                onClick={(e) => e.stopPropagation()}
+              >
+                미리보기를 지원하지 않는 파일이에요.
+              </div>
+            )}
+
+            {selectedIndex < images.length - 1 && (
+              <button
+                className="absolute right-6 text-3xl text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedIndex((prev) => prev + 1);
+                  setZoom(1);
+                  setPosition({ x: 0, y: 0 });
+                }}
+              >
+                →
+              </button>
+            )}
+
+            <button
+              className="absolute right-6 top-6 text-xl text-white"
+              onClick={() => setSelectedIndex(null)}
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -573,6 +792,7 @@ function JarZoomModal({
   onRetry,
   onOpenNoteDetail,
 }) {
+
 
   if (!open) return null;
 
@@ -965,6 +1185,7 @@ function JarZoomModal({
                       onClick={() => onOpenNoteDetail?.(note.noteId ?? note.id)}
                       className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${palette.softCard}`}
                     >
+                      {/* 날짜 + 장소 */}
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.activeChip}`}>
                           {note?.noteDate || "날짜 없음"}
@@ -977,12 +1198,35 @@ function JarZoomModal({
                         )}
                       </div>
 
+                      {/* 제목 */}
                       <p className="text-sm font-black text-slate-800">
                         {note?.title || "오픈 전 쪽지"}
                       </p>
+
+                      {/* 내용 */}
                       <p className="mt-2 text-xs leading-6 text-slate-500">
                         {getJarZoomNotePreview(note, jar)}
                       </p>
+
+                      {/* ✅ 여기 추가 */}
+                      {Array.isArray(note.attachments) && note.attachments.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {note.attachments.slice(0, 3).map((attachment, index) => (
+                            <span
+                              key={`${attachment.s3Key}-${index}`}
+                              className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
+                            >
+                              첨부 {index + 1}
+                            </span>
+                          ))}
+
+                          {note.attachments.length > 3 && (
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                              +{note.attachments.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       <p className="mt-3 text-[11px] font-semibold text-slate-400">
                         눌러서 상세 보기
@@ -1184,6 +1428,7 @@ export default function JarDetailPage() {
       lockLevel: "HIDDEN",
       openAt: "",
     });
+
 
   // 저금통마다 숨김 목록을 따로 저장하려고 key를 jarId 기준으로 만들어줘.
   const hiddenInviteStorageKey = `jar-detail-hidden-revoked-invites:${jarId}`;
