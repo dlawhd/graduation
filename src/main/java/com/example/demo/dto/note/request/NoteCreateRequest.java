@@ -26,7 +26,13 @@ public record NoteCreateRequest(
         @Size(max = 100)
         String location,
 
+        // 첨부 파일도 선택
         @Valid
-        List<NoteAttachmentCreateRequest> attachments
+        List<NoteAttachmentCreateRequest> attachments,
+
+        // 태그도 선택
+        // 예: ["여행", "봄", "웃음"]
+        @Size(max = 10)
+        List<@NotBlank @Size(max = 30) String> tags
 ) {
 }

@@ -17,6 +17,7 @@ public record NoteDetailResponse(
         String location,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
+        List<String> tags,
         List<NoteAttachmentResponse> attachments
 ) {
 }

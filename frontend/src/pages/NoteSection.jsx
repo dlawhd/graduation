@@ -622,7 +622,7 @@ function PaperComposeModal({
                 <div className="mb-4 text-5xl">📮</div>
 
                 <p className="text-sm leading-7 text-slate-500">
-                  누르면 수정이나 삭제가 불가능해요.
+                  저금통에 넣으면 쪽지 수정이나 삭제가 불가능해요!
                 </p>
 
                 <h3 className="mb-2 text-xl font-black text-slate-800">

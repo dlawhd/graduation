@@ -2,6 +2,7 @@ package com.example.demo.entity.note;
 
 import com.example.demo.entity.BaseEntity;
 import com.example.demo.entity.User;
+import com.example.demo.entity.converter.StringListJsonConverter;
 import com.example.demo.entity.jar.Jar;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -12,6 +13,8 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 // 어떤 저금통에 들어있는 쪽지인지, 누가 쓴 쪽지인지, 제목, 내용, 날짜, 장소가 무엇인지
 @Getter
@@ -59,6 +62,12 @@ public class Note extends BaseEntity {
     @Column(name = "location", length = 100)
     private String location;
 
+    // 태그 목록
+    // DB에는 tags_json(TEXT)로 저장되고, 자바에서는 List<String>으로 사용
+    @Convert(converter = StringListJsonConverter.class)
+    @Column(name = "tags_json", columnDefinition = "TEXT")
+    private List<String> tags = new ArrayList<>();
+
     // Builder로 Note를 만들 때 쓰는 생성자
     // Builder 쓰는 이유 : 나중에 필드가 늘면 더 복잡해짐, 순서를 헷갈리기 쉬움, 한눈에 보기 쉬움
     @Builder
@@ -69,7 +78,8 @@ public class Note extends BaseEntity {
             String content,
             boolean isEncrypted,
             LocalDate noteDate,
-            String location
+            String location,
+            List<String> tags
     ) {
         this.jar = jar;
         this.author = author;
@@ -78,6 +88,7 @@ public class Note extends BaseEntity {
         this.isEncrypted = isEncrypted;
         this.noteDate = noteDate;
         this.location = location;
+        this.tags = tags == null ? new ArrayList<>() : new ArrayList<>(tags);
     }
 
     // 쪽지 수정할 때 사용하는 메서드
@@ -85,12 +96,14 @@ public class Note extends BaseEntity {
             String title,
             String content,
             LocalDate noteDate,
-            String location
+            String location,
+            List<String> tags
     ) {
         this.title = title;
         this.content = content;
         this.noteDate = noteDate;
         this.location = location;
+        this.tags = tags == null ? new ArrayList<>() : new ArrayList<>(tags);
     }
 
     // 나중에 내용을 암호문으로 바꾸고 true로 표시할 때 쓸 수 있음

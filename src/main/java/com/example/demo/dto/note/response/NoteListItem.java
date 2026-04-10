@@ -15,6 +15,7 @@ public record NoteListItem(
         String authorName,
         boolean isEncrypted,
         OffsetDateTime createdAt,
+        List<String> tags,
         List<NoteAttachmentResponse> attachments
 ) {
 }

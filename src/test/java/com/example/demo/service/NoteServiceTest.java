@@ -91,7 +91,9 @@ class NoteServiceTest {
                 "오늘 정말 즐거운 하루였어!",
                 LocalDate.of(2026, 3, 31),
                 "서울",
-                List.of()
+                List.of(),
+                List.of("여행", "행복", "사랑")
+
         );
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
@@ -110,6 +112,7 @@ class NoteServiceTest {
                 .isEncrypted(false)
                 .noteDate(request.noteDate())
                 .location(request.location())
+                .tags(List.of("여행", "행복", "사랑"))
                 .build();
 
         setNoteFields(savedNote, 100L,
@@ -132,7 +135,7 @@ class NoteServiceTest {
         assertThat(capturedNote.isEncrypted()).isFalse();
         assertThat(capturedNote.getNoteDate()).isEqualTo(LocalDate.of(2026, 3, 31));
         assertThat(capturedNote.getLocation()).isEqualTo("서울");
-
+        assertThat(capturedNote.getTags()).containsExactly("여행", "행복", "사랑");
         assertThat(response.noteId()).isEqualTo(100L);
         assertThat(response.jarId()).isEqualTo(10L);
         assertThat(response.authorId()).isEqualTo(1L);
@@ -152,6 +155,7 @@ class NoteServiceTest {
                 "내용",
                 LocalDate.of(2026, 3, 31),
                 "서울",
+                List.of(),
                 List.of()
         );
 
@@ -180,6 +184,7 @@ class NoteServiceTest {
                 "내용",
                 LocalDate.of(2026, 3, 31),
                 "서울",
+                List.of(),
                 List.of()
         );
 
@@ -211,6 +216,7 @@ class NoteServiceTest {
                 "내용",
                 LocalDate.of(2026, 3, 31),
                 "서울",
+                List.of(),
                 List.of()
         );
 

@@ -71,7 +71,8 @@ class NoteControllerTest {
                 "오늘도 화이팅!",
                 LocalDate.of(2026, 3, 31),
                 "서울",
-                List.of()
+                List.of(),
+                List.of("행복", "대박!")
         );
 
         NoteCreateResponse response = new NoteCreateResponse(
@@ -83,6 +84,7 @@ class NoteControllerTest {
                 false,
                 LocalDate.of(2026, 3, 31),
                 "서울",
+                List.of("행복", "대박!"),
                 OffsetDateTime.parse("2026-03-31T12:00:00+09:00")
         );
 
@@ -119,7 +121,8 @@ class NoteControllerTest {
                 "오늘도 화이팅!",
                 LocalDate.of(2026, 3, 31),
                 "서울",
-                List.of()
+                List.of(),
+                List.of("행복", "대박!")
         );
 
         // when & then
@@ -141,7 +144,8 @@ class NoteControllerTest {
                 "잘 변환되는지 확인",
                 LocalDate.of(2026, 3, 31),
                 "부산",
-                List.of()
+                List.of(),
+                List.of("행복", "대박!")
         );
 
         NoteCreateResponse response = new NoteCreateResponse(
@@ -153,6 +157,7 @@ class NoteControllerTest {
                 false,
                 LocalDate.of(2026, 3, 31),
                 "부산",
+                List.of("행복", "대박!"),
                 OffsetDateTime.parse("2026-03-31T13:00:00+09:00")
         );
 
@@ -181,8 +186,9 @@ class NoteControllerTest {
                 "이상한 userId",
                 "내용",
                 LocalDate.of(2026, 3, 31),
-                "서울"
-                ,List.of()
+                "서울",
+                List.of(),
+                List.of("행복", "대박!")
         );
 
         // when & then
@@ -211,7 +217,8 @@ class NoteControllerTest {
                                 "image/png",
                                 13345L
                         )
-                )
+                ),
+                List.of("행복", "대박!")
         );
 
         NoteCreateResponse response = new NoteCreateResponse(
@@ -223,6 +230,7 @@ class NoteControllerTest {
                 false,
                 LocalDate.of(2026, 3, 31),
                 "서울",
+                List.of("행복", "대박!"),
                 OffsetDateTime.parse("2026-03-31T12:30:00+09:00")
         );
 
@@ -257,6 +265,7 @@ class NoteControllerTest {
                 "현수",
                 false,
                 OffsetDateTime.parse("2026-03-30T10:00:00+09:00"),
+                List.of("행복", "대박!"),
                 List.of()
         );
 
@@ -310,6 +319,7 @@ class NoteControllerTest {
                 "제주",
                 OffsetDateTime.parse("2026-03-29T09:00:00+09:00"),
                 OffsetDateTime.parse("2026-03-29T09:10:00+09:00"),
+                List.of("행복", "대박!"),
                 List.of()
         );
 

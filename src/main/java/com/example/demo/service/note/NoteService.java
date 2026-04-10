@@ -22,8 +22,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -73,6 +75,8 @@ public class NoteService {
         // 3. 현재 사용자가 이 저금통의 active 멤버인지 검사
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 쪽지를 작성할 수 있어.");
 
+        List<String> normalizedTags = normalizeTags(request.tags());
+
         // 4. Note 엔티티 만들기
         Note note = Note.builder()
                 .jar(jar)
@@ -82,6 +86,7 @@ public class NoteService {
                 .isEncrypted(false) // 지금 Phase 3에서는 아직 AES 안 쓰니까 false
                 .noteDate(request.noteDate())
                 .location(request.location())
+                .tags(normalizedTags)
                 .build();
 
         // 5. 저장
@@ -101,6 +106,7 @@ public class NoteService {
                 savedNote.isEncrypted(),
                 savedNote.getNoteDate(),
                 savedNote.getLocation(),
+                safeTags(savedNote.getTags()),
                 toOffsetDateTime(savedNote.getCreatedAt())
         );
     }
@@ -111,6 +117,25 @@ public class NoteService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "사용자를 찾을 수 없어."
+                ));
+    }
+
+    // 태그를 예쁘게 정리하는 함수
+    // 예:
+    // [" 여행 ", "", "봄", "여행"] -> ["여행", "봄"]
+    private List<String> normalizeTags(List<String> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return List.of();
+        }
+
+        return tags.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(tag -> !tag.isBlank())
+                .map(tag -> tag.length() > 30 ? tag.substring(0, 30) : tag)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toCollection(LinkedHashSet::new),
+                        List::copyOf
                 ));
     }
 
@@ -253,6 +278,7 @@ public class NoteService {
                     note.getAuthor().getName(),
                     note.isEncrypted(),
                     toOffsetDateTime(note.getCreatedAt()),
+                    safeTags(note.getTags()),
                     attachmentMap.getOrDefault(note.getNoteId(), List.of())
             );
         }
@@ -278,6 +304,7 @@ public class NoteService {
                     note.getLocation(),
                     toOffsetDateTime(note.getCreatedAt()),
                     toOffsetDateTime(note.getUpdatedAt()),
+                    safeTags(note.getTags()),
                     toAttachmentResponses(note.getNoteId())
             );
         }
@@ -301,6 +328,7 @@ public class NoteService {
                     null,
                     note.isEncrypted(),
                     null,
+                    List.of(),
                     List.of()
             );
 
@@ -315,6 +343,7 @@ public class NoteService {
                     null,
                     note.isEncrypted(),
                     toOffsetDateTime(note.getCreatedAt()),
+                    List.of(),
                     List.of()
             );
 
@@ -329,6 +358,7 @@ public class NoteService {
                     null,
                     note.isEncrypted(),
                     toOffsetDateTime(note.getCreatedAt()),
+                    List.of(),
                     List.of()
             );
         };
@@ -384,6 +414,7 @@ public class NoteService {
                     null,
                     null,
                     null,
+                    List.of(),
                     List.of()
             );
 
@@ -400,6 +431,7 @@ public class NoteService {
                     note.getLocation(),
                     toOffsetDateTime(note.getCreatedAt()),
                     toOffsetDateTime(note.getUpdatedAt()),
+                    List.of(),
                     List.of()
             );
 
@@ -416,8 +448,14 @@ public class NoteService {
                     note.getLocation(),
                     toOffsetDateTime(note.getCreatedAt()),
                     toOffsetDateTime(note.getUpdatedAt()),
+                    List.of(),
                     List.of()
             );
         };
+    }
+
+    // null 방지용
+    private List<String> safeTags(List<String> tags) {
+        return tags == null ? List.of() : tags;
     }
 }
