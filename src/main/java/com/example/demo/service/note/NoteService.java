@@ -75,9 +75,10 @@ public class NoteService {
         // 3. 현재 사용자가 이 저금통의 active 멤버인지 검사
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 쪽지를 작성할 수 있어.");
 
+        // 4. 태그 정리(중복 제거, 공백 제거, 너무 긴 글자 자르기 등을 해줌)
         List<String> normalizedTags = normalizeTags(request.tags());
 
-        // 4. Note 엔티티 만들기
+        // 5. Note 엔티티 만들기
         Note note = Note.builder()
                 .jar(jar)
                 .author(currentUser)
@@ -89,14 +90,18 @@ public class NoteService {
                 .tags(normalizedTags)
                 .build();
 
-        // 5. 저장
+        // 6. 저장
         Note savedNote = noteRepository.save(note);
 
-        if (request.attachments() != null && !request.attachments().isEmpty()) {
-            noteAttachmentService.createAttachments(savedNote.getNoteId(), request.attachments());
-        }
+        // 7. 첨부가 있으면 "complete 끝난 내 파일"만 연결
+        // 이제는 currentUserId + s3Key를 바탕으로 file_uploads에서 검증된 파일만 붙임
+        noteAttachmentService.createAttachments(
+                currentUserId,
+                savedNote.getNoteId(),
+                request.attachments()
+        );
 
-        // 6. 응답 반환
+        // 8. 응답 반환
         return new NoteCreateResponse(
                 savedNote.getNoteId(),
                 savedNote.getJar().getJarId(),
@@ -111,7 +116,7 @@ public class NoteService {
         );
     }
 
-    // 현재 사용자 찾기
+    // 현재 사용자 찾기, 없으면 404
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -119,6 +124,8 @@ public class NoteService {
                         "사용자를 찾을 수 없어."
                 ));
     }
+
+
 
     // 태그를 예쁘게 정리하는 함수
     // 예:
@@ -156,15 +163,17 @@ public class NoteService {
         // 3. 페이지 조회
         Pageable pageable = PageRequest.of(page, size);
         Page<Note> notePage = noteRepository.findByJarId(jar.getJarId(), pageable);
-
         List<Note> notes = notePage.getContent();
 
+        boolean jarOpen = isJarOpen(jar);
+
         // 4. 첨부파일을 한 번에 조회해서 noteId별로 묶어둠
-        Map<Long, List<NoteAttachmentResponse>> attachmentMap =
-                getAttachmentResponseMap(notes);
+        Map<Long, List<NoteAttachmentResponse>> attachmentMap = jarOpen
+                ? getAttachmentResponseMap(notes)
+                : Map.of();
 
         List<NoteListItem> items = notes.stream()
-                .map(note -> toNoteListItem(note, jar, attachmentMap))
+                .map(note -> toNoteListItem(note, jar, jarOpen, attachmentMap))
                 .toList();
 
         // 5. 응답 반환
@@ -243,7 +252,7 @@ public class NoteService {
                 ));
     }
 
-    // 현재 사용자가 저금통 active 멤버인지 검사
+    // 현재 사용자가 저금통 active 멤버인지 검사, 아니면 403
     private void validateActiveMember(Long jarId, Long currentUserId, String message) {
         boolean isActiveMember = jarMemberRepository
                 .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId);
@@ -256,15 +265,13 @@ public class NoteService {
         }
     }
 
-
-
     // 저금통이 열렸는지 확인
     private boolean isJarOpen(Jar jar) {
         return jarOpenService.ensureOpenedIfDue(jar.getJarId());
     }
 
     // 목록 응답 만들기
-    private NoteListItem toNoteListItem(Note note, Jar jar, Map<Long, List<NoteAttachmentResponse>> attachmentMap) {
+    private NoteListItem toNoteListItem(Note note, Jar jar, boolean jarOpen, Map<Long, List<NoteAttachmentResponse>> attachmentMap) {
 
         // 이미 오픈된 저금통이면 진짜 내용 그대로 보여주기
         if (isJarOpen(jar)) {

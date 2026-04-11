@@ -2,8 +2,12 @@ package com.example.demo.service.note;
 
 import com.example.demo.dto.note.request.NoteAttachmentCreateRequest;
 import com.example.demo.dto.note.request.NoteAttachmentSortUpdateRequest;
+import com.example.demo.entity.file.FileUpload;
 import com.example.demo.entity.note.Note;
 import com.example.demo.entity.note.NoteAttachment;
+import com.example.demo.enums.file.FilePurpose;
+import com.example.demo.enums.file.FileUploadStatus;
+import com.example.demo.repository.file.FileUploadRepository;
 import com.example.demo.repository.note.NoteAttachmentRepository;
 import com.example.demo.repository.note.NoteRepository;
 import org.springframework.http.HttpStatus;
@@ -11,8 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,80 +29,58 @@ public class NoteAttachmentService {
 
     private final NoteRepository noteRepository;
     private final NoteAttachmentRepository noteAttachmentRepository;
+    private final FileUploadRepository fileUploadRepository;
 
     public NoteAttachmentService(
             NoteRepository noteRepository,
-            NoteAttachmentRepository noteAttachmentRepository
+            NoteAttachmentRepository noteAttachmentRepository,
+            FileUploadRepository fileUploadRepository
     ) {
         this.noteRepository = noteRepository;
         this.noteAttachmentRepository = noteAttachmentRepository;
+        this.fileUploadRepository = fileUploadRepository;
     }
 
-    // 첨부파일 1개 저장
-    @Transactional
-    public NoteAttachment createAttachment(
-            Long noteId,
-            String s3Key,
-            String url,
-            String thumbnailUrl,
-            String contentType,
-            Long size
-    ) {
-
-        // 1. 쪽지가 존재하는지 확인
-        Note note = getNoteOrThrow(noteId);
-
-        // 2. 같은 s3Key가 이미 있으면 중복 저장 방지
-        validateDuplicateS3Key(s3Key);
-
-        // 3. 첨부 개수 제한 확인
-        validateAttachmentCount(noteId, 1);
-
-        // 4. 다음 순서 번호 계산
-        int nextSortOrder = getNextSortOrder(noteId);
-
-        // 5. 엔티티 생성
-        NoteAttachment attachment = NoteAttachment.builder()
-                .note(note)
-                .sortOrder(nextSortOrder)
-                .s3Key(s3Key)
-                .url(url)
-                .thumbnailUrl(thumbnailUrl)
-                .contentType(contentType)
-                .size(size)
-                .build();
-
-        // 6. 저장 후 반환
-        return noteAttachmentRepository.save(attachment);
-    }
-
-    private void validateDuplicateS3KeysInRequest(List<NoteAttachmentCreateRequest> requests) {
-        long distinctCount = requests.stream()
+    // 요청에서 s3Key를 꺼내고 기본 검증하는 함수
+    private List<String> extractAndValidateS3Keys(List<NoteAttachmentCreateRequest> requests) {
+        List<String> s3Keys = requests.stream()
                 .map(NoteAttachmentCreateRequest::s3Key)
-                .distinct()
-                .count();
+                .map(s3Key -> s3Key == null ? null : s3Key.trim())
+                .toList();
 
-        if (distinctCount != requests.size()) {
+        boolean hasBlank = s3Keys.stream().anyMatch(s3Key -> s3Key == null || s3Key.isBlank());
+        if (hasBlank) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "요청 안에 중복된 s3Key가 있어."
+                    "s3Key는 비어 있을 수 없어."
             );
         }
+
+        long distinctCount = s3Keys.stream().distinct().count();
+        if (distinctCount != s3Keys.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "같은 첨부 파일을 중복으로 보낼 수 없어."
+            );
+        }
+
+        return s3Keys;
     }
 
-    // 첨부파일 여러 개 저장
+    // 이 메서드는 complete까지 끝난 내 업로드 파일 여러 개를 실제 note_attachments 로 저장하는 역할
+    @Transactional
     public List<NoteAttachment> createAttachments(
+            Long currentUserId,
             Long noteId,
             List<NoteAttachmentCreateRequest> requests
     ) {
-
-        // 0. 요청이 비어 있으면 바로 종료
+        // 0. 요청이 없으면 바로 끝
         if (requests == null || requests.isEmpty()) {
             return List.of();
         }
 
-        // 🔥 1. 요청 안에서 s3Key 중복 검사 (여기에 넣기)
-        validateDuplicateS3KeysInRequest(requests);
+        // 1. 요청 안에서 같은 s3Key를 중복으로 보냈는지 검사
+        extractAndValidateS3Keys(requests);
 
         // 2. 쪽지 존재 확인
         Note note = getNoteOrThrow(noteId);
@@ -105,26 +88,65 @@ public class NoteAttachmentService {
         // 3. 개수 제한 확인
         validateAttachmentCount(noteId, requests.size());
 
-        // 4. 현재 마지막 순서 번호 찾기
+        // 4. 요청에서 s3Key 목록만 꺼내기
+        List<String> requestedS3Keys = requests.stream()
+                .map(NoteAttachmentCreateRequest::s3Key)
+                .toList();
+
+        // 5. 현재 사용자 + NOTE 목적 + COMPLETED 상태 업로드만 조회
+        List<FileUpload> uploads = fileUploadRepository
+                .findAllByUser_IdAndPurposeAndStatusAndS3KeyIn(
+                        currentUserId,
+                        FilePurpose.NOTE,
+                        FileUploadStatus.COMPLETED,
+                        requestedS3Keys
+                );
+
+        // 6. 조회 개수가 다르면 잘못된 파일이 섞인 것
+        if (uploads.size() != requestedS3Keys.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "complete가 끝난 내 NOTE 첨부만 연결할 수 있어."
+            );
+        }
+
+        // 7. 찾기 쉽게 Map으로 바꾸기
+        Map<String, FileUpload> uploadMap = uploads.stream()
+                .collect(Collectors.toMap(FileUpload::getS3Key, Function.identity()));
+
+        // 8. 마지막 정렬 순서 찾기
         int nextSortOrder = getNextSortOrder(noteId);
 
-        // 5. 저장할 엔티티 목록 만들기
         List<NoteAttachment> attachments = new ArrayList<>();
 
-        for (NoteAttachmentCreateRequest request : requests) {
-            validateDuplicateS3Key(request.s3Key());
+        for (String s3Key : requestedS3Keys) {
+            FileUpload upload = uploadMap.get(s3Key);
 
+            if (upload == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "유효하지 않은 첨부 파일이 포함되어 있어."
+                );
+            }
+
+            // 이미 다른 note에 붙은 s3Key인지 확인
+            validateDuplicateS3Key(upload.getS3Key());
+
+            // 이제는 file_uploads 값을 믿고 저장
             NoteAttachment attachment = NoteAttachment.builder()
                     .note(note)
                     .sortOrder(nextSortOrder++)
-                    .s3Key(request.s3Key())
-                    .url(request.url())
-                    .thumbnailUrl(request.thumbnailUrl())
-                    .contentType(request.contentType())
-                    .size(request.size())
+                    .s3Key(upload.getS3Key())
+                    .url(upload.getPublicUrl())
+                    .thumbnailUrl(null)
+                    .contentType(upload.getContentType())
+                    .size(upload.getSize())
                     .build();
 
             attachments.add(attachment);
+
+            // 한 번 연결된 파일은 다시 못 쓰게 처리
+            upload.markConsumed();
         }
 
         return noteAttachmentRepository.saveAll(attachments);

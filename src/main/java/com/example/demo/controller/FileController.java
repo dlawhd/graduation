@@ -1,14 +1,24 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.file.request.FileCompleteRequest;
 import com.example.demo.dto.file.request.FilePresignRequest;
+import com.example.demo.dto.file.response.FileCompleteResponse;
 import com.example.demo.dto.file.response.FilePresignResponse;
+import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.service.file.FileService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
+
+// 이 컨트롤러는 파일 업로드 관련 요청을 받는 역할을 해.
+// presign: 업로드 티켓 발급
+// complete: 실제 업로드 완료 확인
 @RestController
 @RequestMapping("/api/v1/files")
 public class FileController {
@@ -19,40 +29,51 @@ public class FileController {
         this.fileService = fileService;
     }
 
-    /**
-     * presigned URL 생성 API
-     *
-     * 요청 예시:
-     * {
-     *   "purpose": "NOTE",
-     *   "fileName": "photo.png",
-     *   "contentType": "image/png",
-     *   "size": 12345
-     * }
-     *
-     * 응답 예시:
-     * {
-     *   "data": {
-     *     "uploadUrl": "...",
-     *     "s3Key": "...",
-     *     "publicUrl": "...",
-     *     "expiresAt": "..."
-     *   }
-     * }
-     *
-     * @Valid:
-     * DTO에 적어둔 @NotNull, @NotBlank 같은 검증을 자동으로 실행해 줌
-     */
     @PostMapping("/presign")
-    public ResponseEntity<Map<String, FilePresignResponse>> createPresignedUrl(
-            @Valid
-            @RequestBody FilePresignRequest request
+    public ApiResponse<FilePresignResponse> createPresignedUrl(
+            Authentication authentication,
+            @Valid @RequestBody FilePresignRequest request
     ) {
+        Long currentUserId = extractCurrentUserId(authentication);
+        FilePresignResponse response = fileService.createPresignedUrl(currentUserId, request);
+        return ApiResponse.of(response);
+    }
 
-        // 1. 서비스에게 presigned URL 생성 맡기기
-        FilePresignResponse response = fileService.createPresignedUrl(request);
+    @PostMapping("/complete")
+    public ApiResponse<FileCompleteResponse> completeUpload(
+            Authentication authentication,
+            @Valid @RequestBody FileCompleteRequest request
+    ) {
+        Long currentUserId = extractCurrentUserId(authentication);
+        FileCompleteResponse response = fileService.completeUpload(currentUserId, request);
+        return ApiResponse.of(response);
+    }
 
-        // 2. 프로젝트 공통 응답 형식 { "data": ... } 으로 감싸서 반환
-        return ResponseEntity.ok(Map.of("data", response));
+    private Long extractCurrentUserId(Authentication authentication) {
+        if (authentication == null) {
+            throw new ResponseStatusException(UNAUTHORIZED, "인증이 필요합니다.");
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof Map<?, ?> map) {
+            Object userIdValue = map.get("userId");
+
+            if (userIdValue instanceof Long userId) {
+                return userId;
+            }
+            if (userIdValue instanceof Integer userId) {
+                return userId.longValue();
+            }
+            if (userIdValue instanceof String userId) {
+                try {
+                    return Long.parseLong(userId);
+                } catch (NumberFormatException e) {
+                    throw new ResponseStatusException(UNAUTHORIZED, "userId 형식이 올바르지 않습니다.");
+                }
+            }
+        }
+
+        throw new ResponseStatusException(UNAUTHORIZED, "인증 사용자 정보를 읽을 수 없습니다.");
     }
 }

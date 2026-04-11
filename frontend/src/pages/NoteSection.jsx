@@ -159,6 +159,8 @@ function getCardSummary(note, jar) {
 }
 
 // 작성 요청용 payload 만들기
+// 이 함수는 "서버에 보낼 최종 note 생성 데이터"를 만드는 역할을 함
+// 화면 미리보기에 필요한 정보는 form.attachments 안에 그대로 두고, 서버에는 s3Key만 보내도록 바꾼다.
 function buildCreatePayload(form) {
   const title = toSafeText(form.title);
   const content = toSafeText(form.content);
@@ -168,7 +170,13 @@ function buildCreatePayload(form) {
   const payload = {
     title,
     content,
-    attachments: Array.isArray(form.attachments) ? form.attachments : [],
+    attachments: Array.isArray(form.attachments)
+      ? form.attachments
+          .filter((attachment) => toSafeText(attachment?.s3Key))
+          .map((attachment) => ({
+            s3Key: attachment.s3Key,
+          }))
+      : [],
   };
 
   if (form.noteDate) payload.noteDate = form.noteDate;
@@ -1218,8 +1226,11 @@ async function handleCreateNote() {
   }
 }
 
-   // 파일을 고른다 ->서버한테 “올릴 주소 하나 주세요” 한다 -> 받은 주소로 S3에 파일을 올린다
-   // note 생성할 때 쓸 첨부 정보만 form에 저장한다
+   // 파일을 고르면
+   // 1) presign 요청
+   // 2) S3 업로드
+   // 3) complete 요청
+   // 4) 미리보기용 첨부 상태 저장
    async function handleAttachFiles(e) {
      const files = Array.from(e.target.files || []);
      if (files.length === 0) return;
@@ -1231,19 +1242,26 @@ async function handleCreateNote() {
        const uploadedAttachments = [];
 
        for (const file of files) {
+         // 1. presign 받기
          const presignData = await fileApi.presignNoteFile({
-           jarId: jar.jarId,
            fileName: file.name,
            contentType: file.type,
            size: file.size,
          });
 
+         // 2. S3에 실제 업로드
          await fileApi.uploadFileToS3(
            presignData.uploadUrl,
            file,
            file.type
          );
 
+         // 3. 업로드 완료 확인
+         await fileApi.completeNoteFile({
+           s3Key: presignData.s3Key,
+         });
+
+         // 4. 화면 미리보기용 정보 저장
          const attachmentPayload = fileApi.toNoteAttachmentPayload(presignData, file);
 
          uploadedAttachments.push({
