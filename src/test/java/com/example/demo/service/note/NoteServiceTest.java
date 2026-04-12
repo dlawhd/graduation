@@ -64,6 +64,9 @@ class NoteServiceTest {
     @Mock
     private NoteAttachmentService noteAttachmentService;
 
+    @Mock
+    private NoteReactionService noteReactionService;
+
     @BeforeEach
     void setUp() {
         // 가짜 Repository들을 넣어서 NoteService만 단독으로 테스트
@@ -73,8 +76,8 @@ class NoteServiceTest {
                 jarMemberRepository,
                 userRepository,
                 jarOpenService,
-                noteAttachmentService
-
+                noteAttachmentService,
+                noteReactionService
         );
     }
 

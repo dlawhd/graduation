@@ -80,15 +80,6 @@ export async function getNoteDetail(jarId, noteId) {
  *
  * POST 요청은 CSRF 토큰이 필요하니까
  * 먼저 fetchCsrf()를 한 번 호출해줘.
- *
- * payload 예시:
- * {
- *   title: "우리 첫 여행",
- *   content: "정말 즐거웠어!",
- *   noteDate: "2026-03-20",
- *   location: "부산",
- *   tags: ["여행", "추억"]
- * }
  */
 export async function createNote(jarId, payload) {
   await fetchCsrf();
@@ -102,16 +93,69 @@ export async function createNote(jarId, payload) {
 }
 
 /**
- * 한 곳에서 가져다 쓰기 쉽게 묶어서도 export
+ * 리액션 등록 / 변경 / 같은 값이면 취소
  *
- * 사용 예시:
- * import noteApi from "../api/noteApi";
- * noteApi.getNotes(...)
+ * 백엔드가 알아서 처리해줘:
+ * - 아직 없으면 새로 저장
+ * - 같은 이모지를 다시 누르면 취소
+ * - 다른 이모지를 누르면 변경
+ *
+ * payload 예시:
+ * { emoji: "LOVE" }
+ */
+export async function reactToNote(jarId, noteId, emoji) {
+  await fetchCsrf();
+
+  const response = await apiClient.post(
+    `/api/v1/jars/${jarId}/notes/${noteId}/reactions`,
+    { emoji }
+  );
+
+  return extractData(response);
+}
+
+/**
+ * 내가 누른 리액션 삭제
+ *
+ * 지금 구조에서는
+ * "한 사람이 한 쪽지에 리액션 1개"
+ * 규칙이라 body 없이도 삭제할 수 있어.
+ */
+export async function deleteNoteReaction(jarId, noteId) {
+  await fetchCsrf();
+
+  const response = await apiClient.delete(
+    `/api/v1/jars/${jarId}/notes/${noteId}/reactions`
+  );
+
+  return extractData(response);
+}
+
+/**
+ * 쪽지 1개의 리액션 요약 조회
+ *
+ * 응답 안에는 보통 이런 정보가 들어 있어:
+ * - myReaction: 내가 누른 리액션
+ * - counts: 각 리액션 개수
+ */
+export async function getNoteReactionSummary(jarId, noteId) {
+  const response = await apiClient.get(
+    `/api/v1/jars/${jarId}/notes/${noteId}/reactions`
+  );
+
+  return extractData(response);
+}
+
+/**
+ * 한 곳에서 가져다 쓰기 쉽게 묶어서 export
  */
 const noteApi = {
   getNotes,
   getNoteDetail,
   createNote,
+  reactToNote,
+  deleteNoteReaction,
+  getNoteReactionSummary,
 };
 
 export default noteApi;

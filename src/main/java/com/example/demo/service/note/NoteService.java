@@ -7,6 +7,7 @@ import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.note.Note;
 import com.example.demo.entity.note.NoteAttachment;
 import com.example.demo.enums.jar.JarLockLevel;
+import com.example.demo.enums.note.NoteReactionEmoji;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
@@ -41,6 +42,7 @@ public class NoteService {
     private final JarMemberRepository jarMemberRepository;
     private final UserRepository userRepository;
     private final NoteAttachmentService noteAttachmentService;
+    private final NoteReactionService noteReactionService;
 
     public NoteService(
             NoteRepository noteRepository,
@@ -48,7 +50,8 @@ public class NoteService {
             JarMemberRepository jarMemberRepository,
             UserRepository userRepository,
             JarOpenService jarOpenService,
-            NoteAttachmentService noteAttachmentService
+            NoteAttachmentService noteAttachmentService,
+            NoteReactionService noteReactionService
     ) {
         this.noteRepository = noteRepository;
         this.jarRepository = jarRepository;
@@ -56,6 +59,7 @@ public class NoteService {
         this.userRepository = userRepository;
         this.jarOpenService = jarOpenService;
         this.noteAttachmentService = noteAttachmentService;
+        this.noteReactionService = noteReactionService;
     }
 
     // 쪽지를 새로 작성하는 기능
@@ -172,11 +176,30 @@ public class NoteService {
                 ? getAttachmentResponseMap(notes)
                 : Map.of();
 
+        // 5. 리액션 개수도 noteId별로 한 번에 조회해서 묶어둠
+        Map<Long, List<NoteReactionCountItem>> reactionMap = jarOpen
+                ? noteReactionService.getCountMapByNoteIds(
+                notes.stream()
+                        .map(Note::getNoteId)
+                        .toList()
+        )
+                : Map.of();
+
+        // 6. 내가 각 쪽지에 누른 리액션도 noteId별로 한 번에 조회해서 묶어둠
+        Map<Long, NoteReactionEmoji> myReactionMap = jarOpen
+                ? noteReactionService.getMyReactionMapByNoteIds(
+                currentUserId,
+                notes.stream()
+                        .map(Note::getNoteId)
+                        .toList()
+        )
+                : Map.of();
+
         List<NoteListItem> items = notes.stream()
-                .map(note -> toNoteListItem(note, jar, jarOpen, attachmentMap))
+                .map(note -> toNoteListItem(note, jar, jarOpen, attachmentMap, reactionMap, myReactionMap))
                 .toList();
 
-        // 5. 응답 반환
+        // 7. 응답 반환
         return new NoteListResponse(
                 items,
                 notePage.getNumber(),
@@ -235,7 +258,7 @@ public class NoteService {
                 ));
 
         // 4. 응답 DTO로 변환
-        return toNoteDetailResponse(note, jar);
+        return toNoteDetailResponse(currentUserId, note, jar);
     }
 
     // LocalDateTime -> OffsetDateTime(+09:00) 변환
@@ -275,7 +298,9 @@ public class NoteService {
             Note note,
             Jar jar,
             boolean jarOpen,
-            Map<Long, List<NoteAttachmentResponse>> attachmentMap
+            Map<Long, List<NoteAttachmentResponse>> attachmentMap,
+            Map<Long, List<NoteReactionCountItem>> reactionMap,
+            Map<Long, NoteReactionEmoji> myReactionMap
     ) {
         // 이미 계산한 jarOpen 값을 그대로 사용
         if (jarOpen) {
@@ -290,7 +315,9 @@ public class NoteService {
                     note.isEncrypted(),
                     toOffsetDateTime(note.getCreatedAt()),
                     safeTags(note.getTags()),
-                    attachmentMap.getOrDefault(note.getNoteId(), List.of())
+                    attachmentMap.getOrDefault(note.getNoteId(), List.of()),
+                    myReactionMap.get(note.getNoteId()),
+                    reactionMap.getOrDefault(note.getNoteId(), List.of())
             );
         }
 
@@ -298,10 +325,17 @@ public class NoteService {
     }
 
     // 상세 응답 만들기
-    private NoteDetailResponse toNoteDetailResponse(Note note, Jar jar) {
+    private NoteDetailResponse toNoteDetailResponse(Long currentUserId, Note note, Jar jar) {
 
         // 이미 오픈된 저금통이면 진짜 내용 그대로 보여주기
         if (isJarOpen(jar)) {
+            NoteReactionSummaryResponse reactionSummary =
+                    noteReactionService.getSummary(
+                            currentUserId,
+                            jar.getJarId(),
+                            note.getNoteId()
+                    );
+
             return new NoteDetailResponse(
                     note.getNoteId(),
                     note.getJar().getJarId(),
@@ -315,7 +349,9 @@ public class NoteService {
                     toOffsetDateTime(note.getCreatedAt()),
                     toOffsetDateTime(note.getUpdatedAt()),
                     safeTags(note.getTags()),
-                    toAttachmentResponses(note.getNoteId())
+                    toAttachmentResponses(note.getNoteId()),
+                    reactionSummary.myReaction(),
+                    reactionSummary.counts()
             );
         }
 
@@ -339,6 +375,8 @@ public class NoteService {
                     note.isEncrypted(),
                     null,
                     List.of(),
+                    List.of(),
+                    null,
                     List.of()
             );
 
@@ -354,6 +392,8 @@ public class NoteService {
                     note.isEncrypted(),
                     toOffsetDateTime(note.getCreatedAt()),
                     List.of(),
+                    List.of(),
+                    null,
                     List.of()
             );
 
@@ -369,6 +409,8 @@ public class NoteService {
                     note.isEncrypted(),
                     toOffsetDateTime(note.getCreatedAt()),
                     List.of(),
+                    List.of(),
+                    null,
                     List.of()
             );
         };
@@ -425,6 +467,8 @@ public class NoteService {
                     null,
                     null,
                     List.of(),
+                    List.of(),
+                    null,
                     List.of()
             );
 
@@ -442,6 +486,8 @@ public class NoteService {
                     toOffsetDateTime(note.getCreatedAt()),
                     toOffsetDateTime(note.getUpdatedAt()),
                     List.of(),
+                    List.of(),
+                    null,
                     List.of()
             );
 
@@ -459,6 +505,8 @@ public class NoteService {
                     toOffsetDateTime(note.getCreatedAt()),
                     toOffsetDateTime(note.getUpdatedAt()),
                     List.of(),
+                    List.of(),
+                    null,
                     List.of()
             );
         };

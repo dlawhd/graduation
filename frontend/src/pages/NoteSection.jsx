@@ -11,6 +11,30 @@ const LOCK_LEVEL_LABEL = {
   TITLE_ONLY: "제목만 공개",
 };
 
+// 리액션 enum 값을 화면용 이모지/이름으로 바꿔주는 표
+const REACTION_META = {
+  LOVE: { emoji: "❤️", label: "사랑해" },
+  SMILE: { emoji: "😊", label: "좋아" },
+  LAUGH: { emoji: "😂", label: "웃겨" },
+  TOUCHING: { emoji: "🥹", label: "감동" },
+  MISS_YOU: { emoji: "🫶", label: "보고 싶어" },
+  PROUD: { emoji: "🥰", label: "뿌듯해" },
+  CHEER: { emoji: "👏", label: "응원해" },
+  THANKFUL: { emoji: "🙏", label: "고마워" },
+};
+
+// 버튼 보여줄 순서
+const REACTION_ORDER = [
+  "LOVE",
+  "SMILE",
+  "LAUGH",
+  "TOUCHING",
+  "MISS_YOU",
+  "PROUD",
+  "CHEER",
+  "THANKFUL",
+];
+
 // 입력값이 문자열이면 앞뒤 공백을 정리해줘.
 function toSafeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -157,6 +181,38 @@ function getCardSummary(note, jar) {
 
   return "오픈 전이라 아직 내용은 볼 수 없어요.";
 }
+
+
+
+// reactionCounts 배열을 안전하게 정리
+function normalizeReactionCounts(counts) {
+  if (!Array.isArray(counts)) return [];
+  return counts.filter((item) => item && item.emoji);
+}
+
+// 특정 리액션 개수 찾기
+function getReactionCount(note, emoji) {
+  const counts = normalizeReactionCounts(note?.reactionCounts);
+  const found = counts.find((item) => item.emoji === emoji);
+  return found?.count ?? 0;
+}
+
+// 리액션 응답을 기존 note 객체에 합쳐주는 함수
+function mergeReactionSummary(note, summary) {
+  if (!note) return note;
+
+  return {
+    ...note,
+    myReaction: summary?.myReaction ?? null,
+    reactionCounts: Array.isArray(summary?.counts)
+      ? summary.counts
+      : Array.isArray(summary?.reactionCounts)
+      ? summary.reactionCounts
+      : [],
+  };
+}
+
+
 
 // 작성 요청용 payload 만들기
 // 이 함수는 "서버에 보낼 최종 note 생성 데이터"를 만드는 역할을 함
@@ -665,6 +721,60 @@ function PaperComposeModal({
   );
 }
 
+/*
+ * 이 컴포넌트는 리액션 버튼들을 한 줄로 보여주는 역할을 해.
+ * - 현재 내가 누른 리액션은 강조해서 보여주고
+ * - 각 리액션 개수도 같이 보여줘.
+ */
+function ReactionBar({
+  note,
+  palette,
+  disabled = false,
+  loading = false,
+  onReact,
+}) {
+  const currentReaction = note?.myReaction ?? null;
+
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+        리액션
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        {REACTION_ORDER.map((reactionKey) => {
+          const meta = REACTION_META[reactionKey];
+          const isActive = currentReaction === reactionKey;
+          const count = getReactionCount(note, reactionKey);
+
+          return (
+            <button
+              key={reactionKey}
+              type="button"
+              disabled={disabled || loading}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReact?.(reactionKey);
+              }}
+              title={meta.label}
+              className={`rounded-2xl border px-3 py-2 text-sm font-bold transition ${
+                isActive ? palette.primaryButton : palette.outlineButton
+              } ${
+                disabled || loading
+                  ? "cursor-not-allowed opacity-60"
+                  : "hover:scale-[1.02]"
+              }`}
+            >
+              <span className="mr-1">{meta.emoji}</span>
+              <span>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function NoteDetailModal({
   open,
   note,
@@ -675,6 +785,8 @@ function NoteDetailModal({
   formatDate,
   onClose,
   onRetry,
+  onReact,
+  reacting,
 }) {
   if (!open) return null;
 
@@ -773,6 +885,14 @@ function NoteDetailModal({
                   : "오픈 전이라 내용이 잠겨 있거나, 아직 공개되지 않은 정보예요."}
               </div>
             </div>
+
+            <ReactionBar
+              note={note}
+              palette={palette}
+              disabled={!jar?.isOpen}
+              loading={reacting}
+              onReact={onReact}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className={`rounded-2xl border px-4 py-4 ${palette.infoBox}`}>
@@ -915,6 +1035,9 @@ export default function NoteSection({
   const [detailNote, setDetailNote] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+
+  // 지금 어떤 note에 리액션 요청이 진행 중인지 저장
+  const [reactingNoteId, setReactingNoteId] = useState(null);
 
 const [paperVisible, setPaperVisible] = useState(false);
 const [composerPhase, setComposerPhase] = useState("closed");
@@ -1082,6 +1205,58 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
     setDetailNote(null);
     setDetailError("");
     setDetailLoading(false);
+  }
+
+  // 목록 카드 중 딱 1개만 리액션 정보 갱신
+  function patchNoteInList(noteId, summary) {
+    setListData((prev) => ({
+      ...prev,
+      items: (prev.items || []).map((item) =>
+        getNoteId(item) === noteId ? mergeReactionSummary(item, summary) : item
+      ),
+    }));
+  }
+
+  // 상세 모달에 열려 있는 note도 같이 갱신
+  function patchDetailNote(noteId, summary) {
+    setDetailNote((prev) => {
+      if (!prev) return prev;
+      if (getNoteId(prev) !== noteId) return prev;
+      return mergeReactionSummary(prev, summary);
+    });
+  }
+
+  // 사용자가 리액션 버튼을 눌렀을 때 호출되는 함수
+  async function handleReactToNote(noteId, emoji) {
+    if (!jar?.jarId || !noteId) return;
+
+    if (!jar?.isOpen) {
+      showToast("error", "저금통이 열린 뒤에 리액션을 남길 수 있어요.");
+      return;
+    }
+
+    setReactingNoteId(noteId);
+
+    try {
+      // 백엔드가 알아서 생성 / 취소 / 변경을 처리해 줘
+      const summary = await noteApi.reactToNote(jar.jarId, noteId, emoji);
+
+      // 상세 모달이 열려 있으면 상세도 갱신
+      patchDetailNote(noteId, summary);
+
+      // 목록 카드도 해당 note만 부분 갱신
+      patchNoteInList(noteId, summary);
+    } catch (e) {
+      const serverMessage =
+        e?.response?.data?.error?.message ||
+        e?.response?.data?.message ||
+        e?.message ||
+        "리액션 처리에 실패했어요.";
+
+      showToast("error", serverMessage);
+    } finally {
+      setReactingNoteId(null);
+    }
   }
 
 function resetWriteForm() {
@@ -1623,6 +1798,8 @@ async function handleCreateNote() {
         formatDate={formatDate}
         onClose={closeDetail}
         onRetry={() => openDetail(detailNoteId)}
+        reacting={reactingNoteId === detailNoteId}
+        onReact={(emoji) => handleReactToNote(detailNoteId, emoji)}
       />
       {flyingNote && (
         <div

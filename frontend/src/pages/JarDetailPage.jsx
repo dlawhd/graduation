@@ -30,6 +30,97 @@ const THEME_LABEL = {
   CUSTOM: "직접 만든 저금통",
 };
 
+// 리액션 enum 값을 화면용 이모지/이름으로 바꿔주는 표
+const REACTION_META = {
+  LOVE: { emoji: "❤️", label: "사랑해" },
+  SMILE: { emoji: "😊", label: "좋아" },
+  LAUGH: { emoji: "😂", label: "웃겨" },
+  TOUCHING: { emoji: "🥹", label: "감동" },
+  MISS_YOU: { emoji: "🫶", label: "보고 싶어" },
+  PROUD: { emoji: "🥰", label: "뿌듯해" },
+  CHEER: { emoji: "👏", label: "응원해" },
+  THANKFUL: { emoji: "🙏", label: "고마워" },
+};
+
+// 버튼 보여줄 순서
+const REACTION_ORDER = [
+  "LOVE",
+  "SMILE",
+  "LAUGH",
+  "TOUCHING",
+  "MISS_YOU",
+  "PROUD",
+  "CHEER",
+  "THANKFUL",
+];
+
+// reactionCounts 배열을 안전하게 정리
+function normalizeReactionCounts(counts) {
+  if (!Array.isArray(counts)) return [];
+  return counts.filter((item) => item && item.emoji);
+}
+
+// 특정 리액션 개수 찾기
+function getReactionCount(note, emoji) {
+  const counts = normalizeReactionCounts(note?.reactionCounts);
+  const found = counts.find((item) => item.emoji === emoji);
+  return found?.count ?? 0;
+}
+
+/*
+ * 이 컴포넌트는 리액션 버튼들을 한 줄로 보여주는 역할을 해.
+ * - 현재 내가 누른 리액션은 강조해서 보여주고
+ * - 각 리액션 개수도 같이 보여줘.
+ */
+function ReactionBar({
+  note,
+  palette,
+  disabled = false,
+  loading = false,
+  onReact,
+}) {
+  const currentReaction = note?.myReaction ?? null;
+
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+        리액션
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        {REACTION_ORDER.map((reactionKey) => {
+          const meta = REACTION_META[reactionKey];
+          const isActive = currentReaction === reactionKey;
+          const count = getReactionCount(note, reactionKey);
+
+          return (
+            <button
+              key={reactionKey}
+              type="button"
+              disabled={disabled || loading}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReact?.(reactionKey);
+              }}
+              title={meta.label}
+              className={`rounded-2xl border px-3 py-2 text-sm font-bold transition ${
+                isActive ? palette.primaryButton : palette.outlineButton
+              } ${
+                disabled || loading
+                  ? "cursor-not-allowed opacity-60"
+                  : "hover:scale-[1.02]"
+              }`}
+            >
+              <span className="mr-1">{meta.emoji}</span>
+              <span>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // 초대코드는 한 번에 2개씩만 보여줄 거야.
 const INVITES_PER_PAGE = 2;
 
@@ -408,17 +499,17 @@ function getJarZoomNotePreview(note, jar) {
 }
 
 function JarZoomNoteDetailModal({
-    open,
-    note,
-    loading,
-    error,
-    jar,
-    palette,
-    onClose,
-    onRetry,
-  }) {
-    if (!open) return null;
-
+  open,
+  note,
+  loading,
+  error,
+  jar,
+  palette,
+  onClose,
+  onRetry,
+  onReact,
+  reacting,
+}) {
     const tags = normalizeJarZoomTags(note?.tags);
     const hasContent = toSafeNoteText(note?.content).length > 0;
 
@@ -646,6 +737,14 @@ function JarZoomNoteDetailModal({
                 </div>
               </div>
 
+              <ReactionBar
+                note={note}
+                palette={palette}
+                disabled={!jar?.isOpen}
+                loading={reacting}
+                onReact={onReact}
+              />
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className={`rounded-2xl border px-4 py-4 ${palette.infoBox}`}>
                   <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -791,9 +890,9 @@ function JarZoomModal({
   onClose,
   onRetry,
   onOpenNoteDetail,
+  onReactNote,
+  reactingNoteId,
 }) {
-
-
   if (!open) return null;
 
   const NOTES_PER_PAGE = 2;
@@ -1208,6 +1307,14 @@ function JarZoomModal({
                         {getJarZoomNotePreview(note, jar)}
                       </p>
 
+                      <ReactionBar
+                        note={note}
+                        palette={palette}
+                        disabled={!jar?.isOpen}
+                        loading={reactingNoteId === (note.noteId ?? note.id)}
+                        onReact={(emoji) => onReactNote?.(note.noteId ?? note.id, emoji)}
+                      />
+
                       {/* ✅ 여기 추가 */}
                       {Array.isArray(note.attachments) && note.attachments.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -1349,6 +1456,8 @@ function getInviteStatus(invite, palette) {
 }
 
 export default function JarDetailPage() {
+
+
   // 주소에서 jarId 꺼내기
   const { jarId } = useParams();
 
@@ -1404,6 +1513,8 @@ export default function JarDetailPage() {
   const [jarZoomNotes, setJarZoomNotes] = useState([]);
   const [jarZoomLoading, setJarZoomLoading] = useState(false);
   const [jarZoomError, setJarZoomError] = useState("");
+
+  const [jarZoomReactingNoteId, setJarZoomReactingNoteId] = useState(null);
 
   // 초대코드 목록은 2개씩 페이지처럼 보여줄 거야.
   const [invitePage, setInvitePage] = useState(1);
@@ -1584,12 +1695,6 @@ export default function JarDetailPage() {
 
     useEffect(() => {
       if (!jar) return;
-
-      console.log("=== [DETAIL RESPONSE] ===");
-      console.log("jar.openAt =", jar.openAt); // 서버가 내려준 원본 문자열
-      console.log("new Date(jar.openAt) =", new Date(jar.openAt).toString());
-      console.log("formatDate(jar.openAt) =", formatDate(jar.openAt));
-      console.log("formatDateTimeLocalValue(jar.openAt) =", formatDateTimeLocalValue(jar.openAt));
     }, [jar]);
 
   // 삭제 버튼 클릭
@@ -1798,6 +1903,78 @@ function handleCloseJarZoomNoteDetail() {
   setJarZoomDetailNote(null);
   setJarZoomDetailError("");
   setJarZoomDetailLoading(false);
+}
+
+async function handleReactInJarZoomDetail(noteId, emoji) {
+  if (!jar?.jarId || !noteId) return;
+
+  if (!jar?.isOpen) {
+    window.alert("저금통이 열린 뒤에 리액션을 남길 수 있어요.");
+    return;
+  }
+
+  setJarZoomReactingNoteId(noteId);
+
+  try {
+    await fetchCsrf();
+
+    const res = await apiClient.post(
+      `/api/v1/jars/${jarId}/notes/${noteId}/reactions`,
+      { emoji }
+    );
+
+    const summary = res.data?.data;
+
+    patchJarZoomDetailNote(noteId, summary);
+    patchJarZoomNoteInList(noteId, summary);
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "리액션 처리에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setJarZoomReactingNoteId(null);
+  }
+}
+
+
+
+function patchJarZoomNoteInList(noteId, summary) {
+  setJarZoomNotes((prev) =>
+    (prev || []).map((item) =>
+      (item?.noteId ?? item?.id) === noteId
+        ? {
+            ...item,
+            myReaction: summary?.myReaction ?? null,
+            reactionCounts: Array.isArray(summary?.counts)
+              ? summary.counts
+              : Array.isArray(summary?.reactionCounts)
+              ? summary.reactionCounts
+              : [],
+          }
+        : item
+    )
+  );
+}
+
+function patchJarZoomDetailNote(noteId, summary) {
+  setJarZoomDetailNote((prev) => {
+    if (!prev) return prev;
+    if ((prev?.noteId ?? prev?.id) !== noteId) return prev;
+
+    return {
+      ...prev,
+      myReaction: summary?.myReaction ?? null,
+      reactionCounts: Array.isArray(summary?.counts)
+        ? summary.counts
+        : Array.isArray(summary?.reactionCounts)
+        ? summary.reactionCounts
+        : [],
+    };
+  });
 }
 
 // 저금통 클릭 시 확대 모달 열기
@@ -2371,6 +2548,8 @@ function handleRestoreHiddenInvites() {
           onClose={handleCloseJarZoom}
           onRetry={loadJarZoomNotes}
           onOpenNoteDetail={handleOpenJarZoomNoteDetail}
+          onReactNote={handleReactInJarZoomDetail}
+          reactingNoteId={jarZoomReactingNoteId}
         />
         <JarZoomNoteDetailModal
           open={jarZoomDetailOpen}
@@ -2381,6 +2560,8 @@ function handleRestoreHiddenInvites() {
           palette={palette}
           onClose={handleCloseJarZoomNoteDetail}
           onRetry={() => handleOpenJarZoomNoteDetail(jarZoomDetailNoteId)}
+          reacting={jarZoomReactingNoteId === jarZoomDetailNoteId}
+          onReact={(emoji) => handleReactInJarZoomDetail(jarZoomDetailNoteId, emoji)}
         />
         <div className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                             {/* 멤버 목록 */}

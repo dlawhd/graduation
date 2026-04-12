@@ -95,14 +95,7 @@ public class JarService {
         JarMember ownerMember = JarMember.createOwner(savedJar, currentUser);
         jarMemberRepository.save(ownerMember);
 
-        // 6. 로그 찍기
-        System.out.println("=== [BACKEND CREATE] ===");
-        System.out.println("request.openAt = " + request.openAt());
-        System.out.println("converted openAt = " + openAt);
-        System.out.println("savedJar.openAt = " + savedJar.getOpenAt());
-        System.out.println("response.openAt = " + toOffsetDateTime(savedJar.getOpenAt()));
-
-        // 7. 응답 만들기
+        // 6. 응답 만들기
         return new JarCreateResponse(
                 savedJar.getJarId(),
                 savedJar.getName(),
