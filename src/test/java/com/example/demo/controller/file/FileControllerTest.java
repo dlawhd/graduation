@@ -1,5 +1,6 @@
-package com.example.demo.controller;
+package com.example.demo.controller.file;
 
+import com.example.demo.controller.FileController;
 import com.example.demo.dto.file.request.FileCompleteRequest;
 import com.example.demo.dto.file.request.FilePresignRequest;
 import com.example.demo.dto.file.response.FileCompleteResponse;
@@ -24,8 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -200,10 +200,183 @@ class FileControllerTest {
         verify(fileService).completeUpload(anyLong(), any(FileCompleteRequest.class));
     }
 
+    @Test
+    @DisplayName("complete 요청 실패 - purpose가 없으면 400")
+    void completeUpload_fail_purposeIsNull() throws Exception {
+        String invalidRequest = """
+            {
+              "purpose": null,
+              "s3Key": "notes/2026/04/05/uuid.png"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/files/complete")
+                        .principal(authenticationWithUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequest))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("complete 요청 실패 - s3Key가 비어 있으면 400")
+    void completeUpload_fail_s3KeyIsBlank() throws Exception {
+        String invalidRequest = """
+            {
+              "purpose": "NOTE",
+              "s3Key": ""
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/files/complete")
+                        .principal(authenticationWithUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequest))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("presign 요청 실패 - 인증이 없으면 401")
+    void createPresignedUrl_fail_unauthorized() throws Exception {
+        FilePresignRequest request = new FilePresignRequest(
+                FilePurpose.NOTE,
+                "photo.png",
+                "image/png",
+                12345L
+        );
+
+        mockMvc.perform(post("/api/v1/files/presign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("complete 요청 실패 - 인증이 없으면 401")
+    void completeUpload_fail_unauthorized() throws Exception {
+        String request = """
+            {
+              "purpose": "NOTE",
+              "s3Key": "notes/2026/04/05/uuid.png"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/files/complete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("presign 요청 성공 - principal의 userId가 Integer여도 처리한다")
+    void createPresignedUrl_success_userIdInteger() throws Exception {
+        FilePresignRequest request = new FilePresignRequest(
+                FilePurpose.NOTE,
+                "photo.png",
+                "image/png",
+                12345L
+        );
+
+        FilePresignResponse response = new FilePresignResponse(
+                "https://presigned-upload-url",
+                "notes/2026/04/05/uuid.png",
+                "https://cdn.esjh.shop/notes/2026/04/05/uuid.png",
+                OffsetDateTime.parse("2026-04-05T12:00:00+09:00")
+        );
+
+        given(fileService.createPresignedUrl(anyLong(), any(FilePresignRequest.class)))
+                .willReturn(response);
+
+        mockMvc.perform(post("/api/v1/files/presign")
+                        .principal(authenticationWithUserIdInteger(1))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(fileService).createPresignedUrl(eq(1L), any(FilePresignRequest.class));
+    }
+
+    @Test
+    @DisplayName("complete 요청 성공 - principal의 userId가 String이어도 처리한다")
+    void completeUpload_success_userIdString() throws Exception {
+        FileCompleteResponse response = new FileCompleteResponse(
+                "notes/2026/04/05/uuid.png",
+                FilePurpose.NOTE,
+                "https://cdn.esjh.shop/notes/2026/04/05/uuid.png",
+                "image/png",
+                12345L,
+                OffsetDateTime.parse("2026-04-05T12:10:00+09:00")
+        );
+
+        given(fileService.completeUpload(anyLong(), any(FileCompleteRequest.class)))
+                .willReturn(response);
+
+        String request = """
+            {
+              "purpose": "NOTE",
+              "s3Key": "notes/2026/04/05/uuid.png"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/files/complete")
+                        .principal(authenticationWithUserIdString("1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isOk());
+
+        verify(fileService).completeUpload(eq(1L), any(FileCompleteRequest.class));
+    }
+
+    @Test
+    @DisplayName("presign 요청 실패 - principal의 userId 문자열 형식이 잘못되면 401")
+    void createPresignedUrl_fail_invalidUserIdString() throws Exception {
+        FilePresignRequest request = new FilePresignRequest(
+                FilePurpose.NOTE,
+                "photo.png",
+                "image/png",
+                12345L
+        );
+
+        mockMvc.perform(post("/api/v1/files/presign")
+                        .principal(authenticationWithUserIdString("abc"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("complete 요청 실패 - principal에 userId가 없으면 401")
+    void completeUpload_fail_userIdMissingInPrincipal() throws Exception {
+        String request = """
+            {
+              "purpose": "NOTE",
+              "s3Key": "notes/2026/04/05/uuid.png"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/files/complete")
+                        .principal(new TestingAuthenticationToken(Map.of("name", "eunseo"), null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isUnauthorized());
+    }
     // 테스트용 로그인 사용자 만들기
     // 컨트롤러가 principal 안에서 userId를 꺼내기 때문에
     // Map 형태로 넣어주는 게 중요해.
     private Authentication authenticationWithUserId(Long userId) {
+        return new TestingAuthenticationToken(
+                Map.of("userId", userId),
+                null
+        );
+    }
+
+    private Authentication authenticationWithUserIdInteger(Integer userId) {
+        return new TestingAuthenticationToken(
+                Map.of("userId", userId),
+                null
+        );
+    }
+
+    private Authentication authenticationWithUserIdString(String userId) {
         return new TestingAuthenticationToken(
                 Map.of("userId", userId),
                 null

@@ -271,10 +271,14 @@ public class NoteService {
     }
 
     // 목록 응답 만들기
-    private NoteListItem toNoteListItem(Note note, Jar jar, boolean jarOpen, Map<Long, List<NoteAttachmentResponse>> attachmentMap) {
-
-        // 이미 오픈된 저금통이면 진짜 내용 그대로 보여주기
-        if (isJarOpen(jar)) {
+    private NoteListItem toNoteListItem(
+            Note note,
+            Jar jar,
+            boolean jarOpen,
+            Map<Long, List<NoteAttachmentResponse>> attachmentMap
+    ) {
+        // 이미 계산한 jarOpen 값을 그대로 사용
+        if (jarOpen) {
             return new NoteListItem(
                     note.getNoteId(),
                     note.getTitle(),
@@ -290,7 +294,6 @@ public class NoteService {
             );
         }
 
-        // 아직 오픈 전이면 lockLevel에 맞게 마스킹
         return toMaskedNoteListItem(note, jar.getLockLevel());
     }
 

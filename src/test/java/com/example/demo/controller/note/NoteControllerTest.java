@@ -1,6 +1,7 @@
-package com.example.demo.controller;
+package com.example.demo.controller.note;
 
 import com.example.demo.auth.OAuth2SuccessHandler;
+import com.example.demo.controller.NoteController;
 import com.example.demo.dto.note.request.NoteAttachmentCreateRequest;
 import com.example.demo.dto.note.request.NoteCreateRequest;
 import com.example.demo.dto.note.response.NoteCreateResponse;
@@ -198,6 +199,72 @@ class NoteControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    @DisplayName("쪽지 작성 실패 - title이 비어 있으면 400")
+    void createNote_fail_whenTitleIsBlank() throws Exception {
+        String invalidRequest = """
+            {
+              "title": "",
+              "content": "내용",
+              "noteDate": "2026-03-31",
+              "location": "서울",
+              "attachments": [],
+              "tags": ["행복"]
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/jars/{jarId}/notes", 10L)
+                        .principal(authWithUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequest))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("쪽지 작성 실패 - content가 비어 있으면 400")
+    void createNote_fail_whenContentIsBlank() throws Exception {
+        String invalidRequest = """
+            {
+              "title": "제목",
+              "content": "",
+              "noteDate": "2026-03-31",
+              "location": "서울",
+              "attachments": [],
+              "tags": ["행복"]
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/jars/{jarId}/notes", 10L)
+                        .principal(authWithUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequest))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("쪽지 작성 실패 - attachment의 s3Key가 비어 있으면 400")
+    void createNote_fail_whenAttachmentS3KeyIsBlank() throws Exception {
+        String invalidRequest = """
+            {
+              "title": "제목",
+              "content": "내용",
+              "noteDate": "2026-03-31",
+              "location": "서울",
+              "attachments": [
+                { "s3Key": "" }
+              ],
+              "tags": ["행복"]
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/jars/{jarId}/notes", 10L)
+                        .principal(authWithUserId(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequest))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test
     @DisplayName("쪽지 작성 성공 - 첨부파일 포함 요청")
     void createNote_success_withAttachments() throws Exception {
@@ -211,11 +278,7 @@ class NoteControllerTest {
                 "서울",
                 List.of(
                         new NoteAttachmentCreateRequest(
-                                "notes/2026/04/08/test.png",
-                                "https://esjh-files.s3.ap-northeast-2.amazonaws.com/notes/2026/04/08/test.png",
-                                null,
-                                "image/png",
-                                13345L
+                                "notes/2026/04/08/test.png"
                         )
                 ),
                 List.of("행복", "대박!")
@@ -300,6 +363,55 @@ class NoteControllerTest {
     }
 
     @Test
+    @DisplayName("쪽지 목록 조회 성공 - page와 size를 요청값대로 전달")
+    void listNotes_success_withPagingParams() throws Exception {
+        Long jarId = 10L;
+        Long currentUserId = 1L;
+
+        NoteListResponse response = new NoteListResponse(
+                List.of(),
+                2,
+                5,
+                0L,
+                0
+        );
+
+        when(noteService.listNotes(currentUserId, jarId, 2, 5)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/jars/{jarId}/notes", jarId)
+                        .param("page", "2")
+                        .param("size", "5")
+                        .principal(authWithUserId(currentUserId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.size").value(5));
+
+        verify(noteService).listNotes(currentUserId, jarId, 2, 5);
+    }
+
+    @Test
+    @DisplayName("쪽지 목록 조회 성공 - principal의 userId가 Integer여도 처리")
+    void listNotes_success_whenUserIdIsInteger() throws Exception {
+        Long jarId = 10L;
+
+        NoteListResponse response = new NoteListResponse(
+                List.of(),
+                0,
+                20,
+                0L,
+                0
+        );
+
+        when(noteService.listNotes(1L, jarId, 0, 20)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/jars/{jarId}/notes", jarId)
+                        .principal(authWithUserId(1)))
+                .andExpect(status().isOk());
+
+        verify(noteService).listNotes(1L, jarId, 0, 20);
+    }
+
+    @Test
     @DisplayName("쪽지 상세 조회 성공 - 200 OK")
     void getNoteDetail_success() throws Exception {
         // given
@@ -342,6 +454,36 @@ class NoteControllerTest {
                 .andExpect(jsonPath("$.data.attachments.length()").value(0));
 
         verify(noteService).getNoteDetail(currentUserId, jarId, noteId);
+    }
+
+    @Test
+    @DisplayName("쪽지 목록 조회 실패 - 인증 정보 없으면 401")
+    void listNotes_unauthorized_whenAuthenticationIsNull() throws Exception {
+        mockMvc.perform(get("/api/v1/jars/{jarId}/notes", 10L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("쪽지 상세 조회 실패 - 인증 정보 없으면 401")
+    void getNoteDetail_unauthorized_whenAuthenticationIsNull() throws Exception {
+        mockMvc.perform(get("/api/v1/jars/{jarId}/notes/{noteId}", 10L, 300L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("쪽지 목록 조회 실패 - principal의 userId 형식이 이상하면 401")
+    void listNotes_unauthorized_whenUserIdFormatIsInvalid() throws Exception {
+        mockMvc.perform(get("/api/v1/jars/{jarId}/notes", 10L)
+                        .with(authentication(authWithUserId("abc"))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("쪽지 상세 조회 실패 - principal의 userId 형식이 이상하면 401")
+    void getNoteDetail_unauthorized_whenUserIdFormatIsInvalid() throws Exception {
+        mockMvc.perform(get("/api/v1/jars/{jarId}/notes/{noteId}", 10L, 300L)
+                        .with(authentication(authWithUserId("abc"))))
+                .andExpect(status().isUnauthorized());
     }
 
     private Authentication authWithUserId(Object userIdValue) {

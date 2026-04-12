@@ -1,4 +1,4 @@
-package com.example.demo.service;
+package com.example.demo.service.jar;
 
 import com.example.demo.dto.jar.request.*;
 import com.example.demo.dto.jar.response.*;
@@ -14,8 +14,6 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarInviteRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
-import com.example.demo.service.jar.JarOpenService;
-import com.example.demo.service.jar.JarService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,8 +24,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 

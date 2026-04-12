@@ -1,5 +1,6 @@
-package com.example.demo.service;
+package com.example.demo.service.note;
 
+import com.example.demo.dto.note.request.NoteAttachmentCreateRequest;
 import com.example.demo.dto.note.request.NoteCreateRequest;
 import com.example.demo.dto.note.response.NoteCreateResponse;
 import com.example.demo.dto.note.response.NoteDetailResponse;
@@ -16,9 +17,8 @@ import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
 import com.example.demo.repository.note.NoteRepository;
 import com.example.demo.service.jar.JarOpenService;
-import com.example.demo.service.note.NoteAttachmentService;
-import com.example.demo.service.note.NoteService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -605,6 +606,137 @@ class NoteServiceTest {
         // then
         assertThat(ex.getStatusCode().value()).isEqualTo(404);
         assertThat(ex.getReason()).contains("쪽지를 찾을 수 없어");
+    }
+
+    @Test
+    @DisplayName("잠금 상태 목록 조회 - 첨부를 불필요하게 조회하지 않는다")
+    void listNotes_lockedJar_doesNotLoadAttachments() {
+        // given
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+
+        Jar jar = mock(Jar.class);
+        when(jar.getJarId()).thenReturn(jarId);
+        when(jar.getLockLevel()).thenReturn(JarLockLevel.HIDDEN);
+
+        Note note = mock(Note.class);
+        when(note.getNoteId()).thenReturn(100L);
+        when(note.isEncrypted()).thenReturn(false);
+
+        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
+                .thenReturn(true);
+
+        when(noteRepository.findByJarId(eq(jarId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+
+        // 잠금 상태
+        when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(false);
+
+        // when
+        NoteListResponse response = noteService.listNotes(currentUserId, jarId, 0, 10);
+
+        // then
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().get(0).attachments()).isEmpty();
+
+        verify(noteAttachmentService, never()).getAttachmentsByNoteIds(anyList());
+    }
+
+    @Test
+    @DisplayName("쪽지 작성 성공 - 첨부가 있으면 첨부 연결 서비스를 호출한다")
+    void createNote_withAttachments_callsAttachmentService() {
+        // given
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+
+        User user = createUser(1L, "은서");
+        Jar jar = createJar(10L, LocalDateTime.now().plusDays(10), JarLockLevel.META_ONLY);
+
+        List<NoteAttachmentCreateRequest> attachments = List.of(
+                new NoteAttachmentCreateRequest("notes/10/file1.png"),
+                new NoteAttachmentCreateRequest("notes/10/file2.png")
+        );
+
+        NoteCreateRequest request = new NoteCreateRequest(
+                "첨부 있는 제목",
+                "첨부 있는 내용",
+                LocalDate.of(2026, 3, 31),
+                "서울",
+                attachments,
+                List.of("여행")
+        );
+
+        when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
+        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
+                .thenReturn(true);
+
+        Note savedNote = Note.builder()
+                .jar(jar)
+                .author(user)
+                .title(request.title())
+                .content(request.content())
+                .isEncrypted(false)
+                .noteDate(request.noteDate())
+                .location(request.location())
+                .tags(List.of("여행"))
+                .build();
+
+        setNoteFields(savedNote, 555L,
+                LocalDateTime.of(2026, 3, 31, 14, 0),
+                LocalDateTime.of(2026, 3, 31, 14, 0));
+
+        when(noteRepository.save(any(Note.class))).thenReturn(savedNote);
+
+        // when
+        noteService.createNote(currentUserId, jarId, request);
+
+        // then
+        verify(noteAttachmentService).createAttachments(
+                currentUserId,
+                555L,
+                attachments
+        );
+    }
+
+    @Test
+    @DisplayName("오픈된 목록 조회 - 첨부를 한 번에 조회한다")
+    void listNotes_openJar_loadsAttachments() {
+        // given
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+
+        Jar openJar = createJar(10L, LocalDateTime.now().minusDays(1), JarLockLevel.HIDDEN);
+        User author = createUser(2L, "현수");
+
+        Note note = Note.builder()
+                .jar(openJar)
+                .author(author)
+                .title("진짜 제목")
+                .content("진짜 내용")
+                .isEncrypted(false)
+                .noteDate(LocalDate.of(2026, 3, 20))
+                .location("부산")
+                .build();
+
+        setNoteFields(note, 101L,
+                LocalDateTime.of(2026, 3, 20, 9, 0),
+                LocalDateTime.of(2026, 3, 20, 9, 5));
+
+        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(openJar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
+                .thenReturn(true);
+        when(noteRepository.findByJarId(eq(jarId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
+        when(noteAttachmentService.getAttachmentsByNoteIds(List.of(101L))).thenReturn(List.of());
+
+        // when
+        noteService.listNotes(currentUserId, jarId, 0, 10);
+
+        // then
+        verify(noteAttachmentService).getAttachmentsByNoteIds(List.of(101L));
     }
 
     private User createUser(Long id, String name) {

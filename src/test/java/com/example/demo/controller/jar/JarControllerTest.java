@@ -1,5 +1,6 @@
-package com.example.demo.controller;
+package com.example.demo.controller.jar;
 
+import com.example.demo.controller.JarController;
 import com.example.demo.dto.jar.request.*;
 import com.example.demo.dto.jar.response.*;
 import com.example.demo.enums.jar.JarLockLevel;
