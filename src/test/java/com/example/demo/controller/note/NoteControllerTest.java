@@ -329,7 +329,10 @@ class NoteControllerTest {
                 false,
                 OffsetDateTime.parse("2026-03-30T10:00:00+09:00"),
                 List.of("행복", "대박!"),
-                List.of()
+                List.of(),
+                null,
+                List.of(),
+                0L
         );
 
         NoteListResponse response = new NoteListResponse(
@@ -432,7 +435,10 @@ class NoteControllerTest {
                 OffsetDateTime.parse("2026-03-29T09:00:00+09:00"),
                 OffsetDateTime.parse("2026-03-29T09:10:00+09:00"),
                 List.of("행복", "대박!"),
-                List.of()
+                List.of(),
+                null,
+                List.of(),
+                0L
         );
 
         when(noteService.getNoteDetail(currentUserId, jarId, noteId))

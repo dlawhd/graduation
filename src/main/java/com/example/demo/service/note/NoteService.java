@@ -11,6 +11,7 @@ import com.example.demo.enums.note.NoteReactionEmoji;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.repository.note.NoteCommentRepository;
 import com.example.demo.repository.note.NoteRepository;
 import com.example.demo.service.jar.JarOpenService;
 import org.springframework.data.domain.Page;
@@ -43,6 +44,7 @@ public class NoteService {
     private final UserRepository userRepository;
     private final NoteAttachmentService noteAttachmentService;
     private final NoteReactionService noteReactionService;
+    private final NoteCommentService noteCommentService;
 
     public NoteService(
             NoteRepository noteRepository,
@@ -51,7 +53,8 @@ public class NoteService {
             UserRepository userRepository,
             JarOpenService jarOpenService,
             NoteAttachmentService noteAttachmentService,
-            NoteReactionService noteReactionService
+            NoteReactionService noteReactionService,
+            NoteCommentService noteCommentService
     ) {
         this.noteRepository = noteRepository;
         this.jarRepository = jarRepository;
@@ -60,6 +63,7 @@ public class NoteService {
         this.jarOpenService = jarOpenService;
         this.noteAttachmentService = noteAttachmentService;
         this.noteReactionService = noteReactionService;
+        this.noteCommentService = noteCommentService;
     }
 
     // 쪽지를 새로 작성하는 기능
@@ -195,11 +199,27 @@ public class NoteService {
         )
                 : Map.of();
 
+        // 7. 댓글 개수도 noteId별로 한 번에 조회해서 묶어둠
+        Map<Long, Long> commentCountMap = noteCommentService.getCommentCountMapByNoteIds(
+                notes.stream()
+                        .map(Note::getNoteId)
+                        .toList()
+        );
+
+        // 8. 쪽지 목록을 화면용 DTO로 변환
         List<NoteListItem> items = notes.stream()
-                .map(note -> toNoteListItem(note, jar, jarOpen, attachmentMap, reactionMap, myReactionMap))
+                .map(note -> toNoteListItem(
+                        note,
+                        jar,
+                        jarOpen,
+                        attachmentMap,
+                        reactionMap,
+                        myReactionMap,
+                        commentCountMap))
                 .toList();
 
-        // 7. 응답 반환
+
+        // 9. 응답 반환
         return new NoteListResponse(
                 items,
                 notePage.getNumber(),
@@ -300,7 +320,8 @@ public class NoteService {
             boolean jarOpen,
             Map<Long, List<NoteAttachmentResponse>> attachmentMap,
             Map<Long, List<NoteReactionCountItem>> reactionMap,
-            Map<Long, NoteReactionEmoji> myReactionMap
+            Map<Long, NoteReactionEmoji> myReactionMap,
+            Map<Long, Long> commentCountMap
     ) {
         // 이미 계산한 jarOpen 값을 그대로 사용
         if (jarOpen) {
@@ -317,15 +338,21 @@ public class NoteService {
                     safeTags(note.getTags()),
                     attachmentMap.getOrDefault(note.getNoteId(), List.of()),
                     myReactionMap.get(note.getNoteId()),
-                    reactionMap.getOrDefault(note.getNoteId(), List.of())
+                    reactionMap.getOrDefault(note.getNoteId(), List.of()),
+                    commentCountMap.getOrDefault(note.getNoteId(), 0L)
             );
         }
 
-        return toMaskedNoteListItem(note, jar.getLockLevel());
+        return toMaskedNoteListItem(note, jar.getLockLevel(), commentCountMap);
     }
 
     // 상세 응답 만들기
-    private NoteDetailResponse toNoteDetailResponse(Long currentUserId, Note note, Jar jar) {
+    private NoteDetailResponse toNoteDetailResponse(
+            Long currentUserId,
+            Note note,
+            Jar jar) {
+
+        long commentCount = noteCommentService.countComments(note.getNoteId());
 
         // 이미 오픈된 저금통이면 진짜 내용 그대로 보여주기
         if (isJarOpen(jar)) {
@@ -351,16 +378,22 @@ public class NoteService {
                     safeTags(note.getTags()),
                     toAttachmentResponses(note.getNoteId()),
                     reactionSummary.myReaction(),
-                    reactionSummary.counts()
+                    reactionSummary.counts(),
+                    commentCount
             );
         }
 
         // 아직 오픈 전이면 lockLevel에 맞게 마스킹
-        return toMaskedNoteDetailResponse(note, jar.getLockLevel());
+        return toMaskedNoteDetailResponse(note, jar.getLockLevel(), commentCount);
     }
 
     // 목록용 마스킹
-    private NoteListItem toMaskedNoteListItem(Note note, JarLockLevel lockLevel) {
+    private NoteListItem toMaskedNoteListItem(
+            Note note,
+            JarLockLevel lockLevel,
+            Map<Long, Long> commentCountMap) {
+        long commentCount = commentCountMap.getOrDefault(note.getNoteId(), 0L);
+
         return switch (lockLevel) {
 
             // 완전 숨김: 제목/내용/날짜/장소 거의 다 숨김
@@ -377,7 +410,8 @@ public class NoteService {
                     List.of(),
                     List.of(),
                     null,
-                    List.of()
+                    List.of(),
+                    commentCount
             );
 
             // 메타만 공개: 날짜/장소는 보여주고 제목/내용은 숨김
@@ -394,7 +428,8 @@ public class NoteService {
                     List.of(),
                     List.of(),
                     null,
-                    List.of()
+                    List.of(),
+                    commentCount
             );
 
             // 제목만 공개: 제목은 보이고 내용은 숨김
@@ -411,7 +446,8 @@ public class NoteService {
                     List.of(),
                     List.of(),
                     null,
-                    List.of()
+                    List.of(),
+                    commentCount
             );
         };
     }
@@ -450,7 +486,10 @@ public class NoteService {
     }
 
     // 상세용 마스킹
-    private NoteDetailResponse toMaskedNoteDetailResponse(Note note, JarLockLevel lockLevel) {
+    private NoteDetailResponse toMaskedNoteDetailResponse(
+            Note note,
+            JarLockLevel lockLevel,
+            long commentCount) {
         return switch (lockLevel) {
 
             // 완전 숨김: 제목, 내용, 날짜, 장소, 작성자 정보까지 다 숨김
@@ -469,7 +508,8 @@ public class NoteService {
                     List.of(),
                     List.of(),
                     null,
-                    List.of()
+                    List.of(),
+                    commentCount
             );
 
             // 메타만 공개: 날짜, 장소 정도만 보여주고 나머지는 숨김
@@ -488,7 +528,8 @@ public class NoteService {
                     List.of(),
                     List.of(),
                     null,
-                    List.of()
+                    List.of(),
+                    commentCount
             );
 
             // 제목만 공개: 제목은 보여주고 내용은 숨김
@@ -507,7 +548,8 @@ public class NoteService {
                     List.of(),
                     List.of(),
                     null,
-                    List.of()
+                    List.of(),
+                    commentCount
             );
         };
     }

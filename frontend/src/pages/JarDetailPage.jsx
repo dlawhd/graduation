@@ -67,6 +67,20 @@ function getReactionCount(note, emoji) {
   return found?.count ?? 0;
 }
 
+// 댓글 목록 응답이 배열일 수도 있고, items 형태일 수도 있어서 맞춰주는 함수
+function normalizeCommentItems(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
+
+// 댓글 내용을 안전하게 정리하는 함수
+function normalizeCommentContent(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 /*
  * 이 컴포넌트는 리액션 버튼들을 한 줄로 보여주는 역할을 해.
  * - 현재 내가 누른 리액션은 강조해서 보여주고
@@ -120,6 +134,187 @@ function ReactionBar({
     </div>
   );
 }
+
+/*
+ * 이 컴포넌트는 쪽지 상세 모달 아래에서
+ * 댓글 목록 / 댓글 작성 / 댓글 수정 / 댓글 삭제 UI를 보여주는 역할
+ *
+ * 댓글 규칙
+ * - 저금통 active 멤버만 가능
+ * - 오픈 전에도 댓글 가능
+ * - 작성자 본인만 수정/삭제 가능
+ * - 오래된 댓글이 위, 새 댓글이 아래
+ */
+function CommentSection({
+  palette,
+  comments,
+  loading,
+  error,
+  currentUserId,
+  draft,
+  onDraftChange,
+  onCreate,
+  submitting,
+  editingCommentId,
+  editingContent,
+  onStartEdit,
+  onEditChange,
+  onCancelEdit,
+  onUpdate,
+  deletingCommentId,
+  onDelete,
+}) {
+  return (
+    <div className="mt-5">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+          댓글
+        </p>
+
+        <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}>
+          {comments.length}개
+        </span>
+      </div>
+
+      {/* 댓글 작성 입력창 */}
+      <div className={`rounded-[24px] border p-4 ${palette.panel}`}>
+        <textarea
+          rows={3}
+          value={draft}
+          onChange={(e) => onDraftChange(e.target.value)}
+          placeholder="이 쪽지에 댓글을 남겨보세요."
+          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+        />
+
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={onCreate}
+            disabled={submitting}
+            className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+          >
+            {submitting ? "등록 중..." : "댓글 등록"}
+          </button>
+        </div>
+      </div>
+
+      {/* 댓글 로딩 */}
+      {loading && (
+        <div className="mt-4 space-y-3">
+          {[1, 2].map((item) => (
+            <div
+              key={item}
+              className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
+            >
+              <div className="mb-2 h-4 w-24 rounded-full bg-slate-200" />
+              <div className="h-3 w-full rounded-full bg-slate-100" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 댓글 에러 */}
+      {!loading && error && (
+        <div className={`mt-4 rounded-2xl border border-dashed px-4 py-4 text-sm ${palette.emptyBox}`}>
+          {error}
+        </div>
+      )}
+
+      {/* 댓글 비어 있음 */}
+      {!loading && !error && comments.length === 0 && (
+        <div className={`mt-4 rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
+          아직 댓글이 없어요.
+        </div>
+      )}
+
+      {/* 댓글 목록 */}
+      {!loading && !error && comments.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {comments.map((comment) => {
+            const isMine = Number(comment.userId) === Number(currentUserId);
+            const isEditing = editingCommentId === comment.commentId;
+
+            return (
+              <div
+                key={comment.commentId}
+                className={`rounded-2xl border p-4 ${palette.softCard}`}
+              >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-slate-800">
+                      {comment.authorName || `사용자 ${comment.userId}`}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-400">
+                      {formatDate(comment.createdAt)}
+                    </p>
+                  </div>
+
+                  {isMine && !isEditing && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onStartEdit(comment)}
+                        className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
+                      >
+                        수정
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onDelete(comment.commentId)}
+                        disabled={deletingCommentId === comment.commentId}
+                        className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
+                      >
+                        {deletingCommentId === comment.commentId ? "삭제 중..." : "삭제"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {!isEditing && (
+                  <p className="text-sm leading-7 text-slate-700">
+                    {comment.content}
+                  </p>
+                )}
+
+                {isEditing && (
+                  <div className="space-y-3">
+                    <textarea
+                      rows={3}
+                      value={editingContent}
+                      onChange={(e) => onEditChange(e.target.value)}
+                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                    />
+
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={onCancelEdit}
+                        className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+                      >
+                        취소
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onUpdate(comment.commentId)}
+                        disabled={submitting}
+                        className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+                      >
+                        {submitting ? "저장 중..." : "수정 저장"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 // 초대코드는 한 번에 2개씩만 보여줄 거야.
 const INVITES_PER_PAGE = 2;
@@ -509,6 +704,22 @@ function JarZoomNoteDetailModal({
   onRetry,
   onReact,
   reacting,
+  comments,
+  commentsLoading,
+  commentsError,
+  currentUserId,
+  commentDraft,
+  onCommentDraftChange,
+  onCreateComment,
+  commentSubmitting,
+  editingCommentId,
+  editingContent,
+  onStartEditComment,
+  onEditCommentChange,
+  onCancelEditComment,
+  onUpdateComment,
+  deletingCommentId,
+  onDeleteComment,
 }) {
     const tags = normalizeJarZoomTags(note?.tags);
     const hasContent = toSafeNoteText(note?.content).length > 0;
@@ -668,6 +879,10 @@ function JarZoomNoteDetailModal({
                     {note.location}
                   </span>
                 )}
+
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                    댓글 {note?.commentCount ?? comments.length ?? 0}개
+                  </span>
               </div>
 
               <div>
@@ -743,6 +958,25 @@ function JarZoomNoteDetailModal({
                 disabled={!jar?.isOpen}
                 loading={reacting}
                 onReact={onReact}
+              />
+              <CommentSection
+                palette={palette}
+                comments={comments}
+                loading={commentsLoading}
+                error={commentsError}
+                currentUserId={currentUserId}
+                draft={commentDraft}
+                onDraftChange={onCommentDraftChange}
+                onCreate={onCreateComment}
+                submitting={commentSubmitting}
+                editingCommentId={editingCommentId}
+                editingContent={editingContent}
+                onStartEdit={onStartEditComment}
+                onEditChange={onEditCommentChange}
+                onCancelEdit={onCancelEditComment}
+                onUpdate={onUpdateComment}
+                deletingCommentId={deletingCommentId}
+                onDelete={onDeleteComment}
               />
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1315,7 +1549,12 @@ function JarZoomModal({
                         onReact={(emoji) => onReactNote?.(note.noteId ?? note.id, emoji)}
                       />
 
-                      {/* ✅ 여기 추가 */}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}>
+                          💬 댓글 {note?.commentCount ?? 0}
+                        </span>
+                      </div>
+
                       {Array.isArray(note.attachments) && note.attachments.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
                           {note.attachments.slice(0, 3).map((attachment, index) => (
@@ -1458,6 +1697,31 @@ function getInviteStatus(invite, palette) {
 export default function JarDetailPage() {
 
 
+  // 현재 로그인 사용자 정보
+  const [me, setMe] = useState(null);
+
+  // 현재 상세 모달에서 보고 있는 댓글 목록
+  const [jarZoomComments, setJarZoomComments] = useState([]);
+
+  // 댓글 로딩 / 에러
+  const [jarZoomCommentsLoading, setJarZoomCommentsLoading] = useState(false);
+  const [jarZoomCommentsError, setJarZoomCommentsError] = useState("");
+
+  // 새 댓글 입력창 값
+  const [commentDraft, setCommentDraft] = useState("");
+
+  // 댓글 등록 / 수정 공통 저장 로딩
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+  // 지금 수정 중인 댓글 id
+  const [editingCommentId, setEditingCommentId] = useState(null);
+
+  // 수정 textarea 값
+  const [editingContent, setEditingContent] = useState("");
+
+  // 삭제 중인 댓글 id
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
+
   // 주소에서 jarId 꺼내기
   const { jarId } = useParams();
 
@@ -1590,6 +1854,15 @@ export default function JarDetailPage() {
     }
   }
 
+  async function loadMe() {
+    try {
+      const res = await apiClient.get("/api/v1/me");
+      setMe(res.data?.data || null);
+    } catch {
+      setMe(null);
+    }
+  }
+
   // 초대 목록 불러오기
   async function loadInvites() {
     setInvitesLoading(true);
@@ -1626,6 +1899,7 @@ export default function JarDetailPage() {
   useEffect(() => {
     loadJarDetail();
     loadMembers();
+    loadMe();
   }, [jarId]);
 
   // 상세 정보를 받아온 뒤, OWNER / ADMIN 이면 초대 목록도 로드
@@ -1872,6 +2146,31 @@ async function loadJarZoomNotes() {
   }
 }
 
+async function loadJarZoomComments(noteId) {
+  if (!noteId) return;
+
+  setJarZoomCommentsLoading(true);
+  setJarZoomCommentsError("");
+
+  try {
+    const res = await apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}/comments`);
+    const items = normalizeCommentItems(res.data?.data);
+    setJarZoomComments(items);
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "댓글을 불러오지 못했어요.";
+
+    setJarZoomCommentsError(serverMessage);
+    setJarZoomComments([]);
+  } finally {
+    setJarZoomCommentsLoading(false);
+  }
+}
+
+
 async function handleOpenJarZoomNoteDetail(noteId) {
   if (!noteId) return;
 
@@ -1881,9 +2180,21 @@ async function handleOpenJarZoomNoteDetail(noteId) {
   setJarZoomDetailError("");
   setJarZoomDetailNote(null);
 
+  // 댓글 관련 상태도 초기화
+  setJarZoomComments([]);
+  setJarZoomCommentsError("");
+  setCommentDraft("");
+  setEditingCommentId(null);
+  setEditingContent("");
+
   try {
-    const res = await apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}`);
-    setJarZoomDetailNote(res.data?.data || null);
+    const [noteRes, commentRes] = await Promise.all([
+      apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}`),
+      apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}/comments`),
+    ]);
+
+    setJarZoomDetailNote(noteRes.data?.data || null);
+    setJarZoomComments(normalizeCommentItems(commentRes.data?.data));
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -1894,6 +2205,7 @@ async function handleOpenJarZoomNoteDetail(noteId) {
     setJarZoomDetailError(serverMessage);
   } finally {
     setJarZoomDetailLoading(false);
+    setJarZoomCommentsLoading(false);
   }
 }
 
@@ -1976,6 +2288,169 @@ function patchJarZoomDetailNote(noteId, summary) {
     };
   });
 }
+
+function patchCommentCountEverywhere(noteId, nextCount) {
+  setJarZoomNotes((prev) =>
+    (prev || []).map((item) =>
+      (item?.noteId ?? item?.id) === noteId
+        ? {
+            ...item,
+            commentCount: nextCount,
+          }
+        : item
+    )
+  );
+
+  setJarZoomDetailNote((prev) => {
+    if (!prev) return prev;
+    if ((prev?.noteId ?? prev?.id) !== noteId) return prev;
+
+    return {
+      ...prev,
+      commentCount: nextCount,
+    };
+  });
+}
+
+async function handleCreateComment() {
+  const noteId = jarZoomDetailNoteId;
+  const content = normalizeCommentContent(commentDraft);
+
+  if (!noteId) return;
+
+  if (!content) {
+    window.alert("댓글 내용을 입력해 주세요.");
+    return;
+  }
+
+  setCommentSubmitting(true);
+
+  try {
+    await fetchCsrf();
+
+    const res = await apiClient.post(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments`,
+      { content }
+    );
+
+    const createdComment = res.data?.data;
+
+    setJarZoomComments((prev) => [...prev, createdComment]);
+    setCommentDraft("");
+
+    const nextCount = (jarZoomDetailNote?.commentCount ?? jarZoomComments.length) + 1;
+    patchCommentCountEverywhere(noteId, nextCount);
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "댓글 등록에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setCommentSubmitting(false);
+  }
+}
+
+function handleStartEditComment(comment) {
+  setEditingCommentId(comment.commentId);
+  setEditingContent(comment.content || "");
+}
+
+function handleCancelEditComment() {
+  setEditingCommentId(null);
+  setEditingContent("");
+}
+
+async function handleUpdateComment(commentId) {
+  const noteId = jarZoomDetailNoteId;
+  const content = normalizeCommentContent(editingContent);
+
+  if (!noteId || !commentId) return;
+
+  if (!content) {
+    window.alert("댓글 내용을 입력해 주세요.");
+    return;
+  }
+
+  setCommentSubmitting(true);
+
+  try {
+    await fetchCsrf();
+
+    const res = await apiClient.patch(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments/${commentId}`,
+      { content }
+    );
+
+    const updatedComment = res.data?.data;
+
+    setJarZoomComments((prev) =>
+      prev.map((item) =>
+        item.commentId === commentId ? updatedComment : item
+      )
+    );
+
+    setEditingCommentId(null);
+    setEditingContent("");
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "댓글 수정에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setCommentSubmitting(false);
+  }
+}
+
+async function handleDeleteComment(commentId) {
+  const noteId = jarZoomDetailNoteId;
+
+  if (!noteId || !commentId) return;
+
+  const ok = window.confirm("이 댓글을 삭제할까요?");
+  if (!ok) return;
+
+  setDeletingCommentId(commentId);
+
+  try {
+    await fetchCsrf();
+
+    await apiClient.delete(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments/${commentId}`
+    );
+
+    setJarZoomComments((prev) =>
+      prev.filter((item) => item.commentId !== commentId)
+    );
+
+    const nextCount = Math.max(
+      0,
+      (jarZoomDetailNote?.commentCount ?? jarZoomComments.length) - 1
+    );
+    patchCommentCountEverywhere(noteId, nextCount);
+
+    if (editingCommentId === commentId) {
+      setEditingCommentId(null);
+      setEditingContent("");
+    }
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "댓글 삭제에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setDeletingCommentId(null);
+  }
+}
+
 
 // 저금통 클릭 시 확대 모달 열기
 async function handleOpenJarZoom() {
@@ -2562,6 +3037,23 @@ function handleRestoreHiddenInvites() {
           onRetry={() => handleOpenJarZoomNoteDetail(jarZoomDetailNoteId)}
           reacting={jarZoomReactingNoteId === jarZoomDetailNoteId}
           onReact={(emoji) => handleReactInJarZoomDetail(jarZoomDetailNoteId, emoji)}
+
+          comments={jarZoomComments}
+          commentsLoading={jarZoomCommentsLoading}
+          commentsError={jarZoomCommentsError}
+          currentUserId={me?.userId}
+          commentDraft={commentDraft}
+          onCommentDraftChange={setCommentDraft}
+          onCreateComment={handleCreateComment}
+          commentSubmitting={commentSubmitting}
+          editingCommentId={editingCommentId}
+          editingContent={editingContent}
+          onStartEditComment={handleStartEditComment}
+          onEditCommentChange={setEditingContent}
+          onCancelEditComment={handleCancelEditComment}
+          onUpdateComment={handleUpdateComment}
+          deletingCommentId={deletingCommentId}
+          onDeleteComment={handleDeleteComment}
         />
         <div className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                             {/* 멤버 목록 */}

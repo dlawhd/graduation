@@ -6,6 +6,7 @@ import com.example.demo.dto.note.response.NoteCreateResponse;
 import com.example.demo.dto.note.response.NoteDetailResponse;
 import com.example.demo.dto.note.response.NoteListItem;
 import com.example.demo.dto.note.response.NoteListResponse;
+import com.example.demo.dto.note.response.NoteReactionSummaryResponse;
 import com.example.demo.entity.User;
 import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.note.Note;
@@ -15,6 +16,7 @@ import com.example.demo.enums.jar.JarTheme;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.repository.note.NoteCommentRepository;
 import com.example.demo.repository.note.NoteRepository;
 import com.example.demo.service.jar.JarOpenService;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -67,6 +71,12 @@ class NoteServiceTest {
     @Mock
     private NoteReactionService noteReactionService;
 
+    @Mock
+    private NoteCommentService noteCommentService;
+
+    @Mock
+    private NoteCommentRepository noteCommentRepository;
+
     @BeforeEach
     void setUp() {
         // 가짜 Repository들을 넣어서 NoteService만 단독으로 테스트
@@ -77,8 +87,17 @@ class NoteServiceTest {
                 userRepository,
                 jarOpenService,
                 noteAttachmentService,
-                noteReactionService
+                noteReactionService,
+                noteCommentService
         );
+
+        // 댓글/리액션을 사용하지 않는 기존 테스트도 기본값으로 안전하게 동작하도록 둔다.
+        lenient().when(noteReactionService.getCountMapByNoteIds(anyList())).thenReturn(java.util.Map.of());
+        lenient().when(noteReactionService.getMyReactionMapByNoteIds(anyLong(), anyList())).thenReturn(java.util.Map.of());
+        lenient().when(noteReactionService.getSummary(anyLong(), anyLong(), anyLong()))
+                .thenReturn(new NoteReactionSummaryResponse(null, null, List.of()));
+        lenient().when(noteCommentService.getCommentCountMapByNoteIds(anyList())).thenReturn(java.util.Map.of());
+        lenient().when(noteCommentService.countComments(anyLong())).thenReturn(0L);
     }
 
     @Test

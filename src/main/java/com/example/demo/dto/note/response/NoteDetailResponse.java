@@ -28,6 +28,9 @@ public record NoteDetailResponse(
 
         // 리액션 종류별 개수 목록
         // 예: LOVE 2개, SMILE 1개
-        List<NoteReactionCountItem> reactionCounts
+        List<NoteReactionCountItem> reactionCounts,
+
+        // 댓글 총 개수
+        long commentCount
 ) {
 }
