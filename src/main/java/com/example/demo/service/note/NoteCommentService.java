@@ -83,18 +83,41 @@ public class NoteCommentService {
         // 5. 입력값 정리
         String normalizedContent = normalizeContent(request.content());
 
-        // 6. 댓글 엔티티 만들기
+        // 6. 부모 댓글이 있으면 대댓글 처리
+        NoteComment parentComment = null;
+        if (request.parentCommentId() != null) {
+            parentComment = getCommentOrThrow(noteId, request.parentCommentId());
+
+            // 부모 댓글도 같은 note 안에 있는지 한 번 더 확인
+            if (!parentComment.isNote(noteId)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "같은 쪽지의 댓글에만 답글을 달 수 있어."
+                );
+            }
+
+            // 이번 버전은 대댓글의 대댓글은 막기
+            if (parentComment.isReply()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "대댓글 아래에 또 답글을 달 수 없어."
+                );
+            }
+        }
+
+        // 7. 댓글 엔티티 만들기
         NoteComment comment = NoteComment.builder()
                 .note(note)
                 .user(currentUser)
                 .content(normalizedContent)
+                .parentComment(parentComment)
                 .build();
 
-        // 7. 저장
+        // 8. 저장
         NoteComment savedComment = noteCommentRepository.save(comment);
 
-        // 8. 응답 DTO 반환
-        return toItem(savedComment);
+        // 9. 응답 DTO 반환
+        return toItem(savedComment, List.of());
     }
 
     // 댓글 목록 조회
@@ -115,14 +138,12 @@ public class NoteCommentService {
         // 4. 이 저금통 안의 쪽지인지 확인
         getNoteOrThrow(jarId, noteId);
 
-        // 5. 오래된 댓글부터 가져오기
-        List<NoteCommentItem> items = noteCommentRepository
-                .findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(noteId)
-                .stream()
-                .map(this::toItem)
-                .toList();
+        List<NoteComment> comments =
+                noteCommentRepository.findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(noteId);
 
-        // 6. 응답 반환
+        List<NoteCommentItem> items = buildCommentTree(comments);
+
+        // 5. 응답 반환
         return new NoteCommentListResponse(items);
     }
 
@@ -166,7 +187,7 @@ public class NoteCommentService {
         comment.updateContent(normalizedContent);
 
         // 9. 응답 DTO 반환
-        return toItem(comment);
+        return toItem(comment, List.of());
     }
 
     /*
@@ -204,7 +225,16 @@ public class NoteCommentService {
         // 6. 댓글 작성자 본인인지 확인
         validateCommentOwner(comment, currentUserId, "작성자 본인만 댓글을 삭제할 수 있어.");
 
-        // 7. soft delete
+        // 7. 부모 댓글인데 답글이 달려 있으면 삭제 막기
+        if (comment.isRootComment() &&
+                noteCommentRepository.existsByParentComment_CommentId(commentId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "답글이 달린 댓글은 삭제할 수 없어."
+            );
+        }
+
+        // 8. soft delete
         noteCommentRepository.delete(comment);
     }
 
@@ -304,14 +334,16 @@ public class NoteCommentService {
     /*
      * Entity -> 화면용 DTO 변환
      */
-    private NoteCommentItem toItem(NoteComment comment) {
+    private NoteCommentItem toItem(NoteComment comment, List<NoteCommentItem> replies) {
         return new NoteCommentItem(
                 comment.getCommentId(),
                 comment.getUser().getId(),
                 comment.getUser().getName(),
+                comment.getParentComment() != null ? comment.getParentComment().getCommentId() : null,
                 comment.getContent(),
                 toOffsetDateTime(comment.getCreatedAt()),
-                toOffsetDateTime(comment.getUpdatedAt())
+                toOffsetDateTime(comment.getUpdatedAt()),
+                replies
         );
     }
 
@@ -342,5 +374,42 @@ public class NoteCommentService {
                         noteId -> noteId,
                         noteCommentRepository::countByNote_NoteId
                 ));
+    }
+
+    private List<NoteCommentItem> buildCommentTree(List<NoteComment> comments) {
+        Map<Long, List<NoteComment>> childrenMap = comments.stream()
+                .filter(NoteComment::isReply)
+                .collect(Collectors.groupingBy(comment -> comment.getParentComment().getCommentId()));
+
+        return comments.stream()
+                .filter(NoteComment::isRootComment)
+                .map(parent -> {
+                    List<NoteCommentItem> replies = childrenMap
+                            .getOrDefault(parent.getCommentId(), List.of())
+                            .stream()
+                            .map(reply -> toItem(reply, List.of()))
+                            .toList();
+
+                    return toItem(parent, replies);
+                })
+                .toList();
+    }
+
+    private void validateReplyDepth(NoteComment parentComment) {
+        if (parentComment != null && parentComment.isReply()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "대댓글 아래에 또 답글을 달 수 없어."
+            );
+        }
+    }
+
+    private void validateParentCommentBelongsToNote(NoteComment parentComment, Long noteId) {
+        if (parentComment != null && !parentComment.isNote(noteId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "같은 쪽지의 댓글에만 답글을 달 수 있어."
+            );
+        }
     }
 }

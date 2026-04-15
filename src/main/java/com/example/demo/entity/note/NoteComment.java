@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -40,6 +43,32 @@ public class NoteComment extends BaseEntity {
     private String content;
 
     /*
+     * 이 댓글의 부모 댓글
+
+     * - null 이면 일반 댓글
+     * - 값이 있으면 대댓글
+     *
+     * 예:
+     * 댓글 A
+     *   └ 대댓글 B
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    private NoteComment parentComment;
+
+    /*
+     * 이 댓글 아래에 달린 대댓글 목록
+
+     * 예:
+     * 댓글 A
+     *   ├ 대댓글 B
+     *   └ 대댓글 C
+     */
+    @OrderBy("createdAt ASC, commentId ASC")
+    @OneToMany(mappedBy = "parentComment")
+    private List<NoteComment> children = new ArrayList<>();
+
+    /*
      * Builder 생성자
      *
      * 새 댓글을 만들 때 사용
@@ -49,10 +78,11 @@ public class NoteComment extends BaseEntity {
      * - content = "이 날 진짜 너무 좋았다"
      */
     @Builder
-    private NoteComment(Note note, User user, String content) {
+    private NoteComment(Note note, User user, String content, NoteComment parentComment) {
         this.note = note;
         this.user = user;
         this.content = content;
+        this.parentComment = parentComment;
     }
 
     // 댓글 내용을 수정하는 메서드
@@ -86,5 +116,33 @@ public class NoteComment extends BaseEntity {
      */
     public boolean isNote(Long noteId) {
         return note != null && note.getNoteId().equals(noteId);
+    }
+
+    /*
+     * 이 댓글이 대댓글인지 확인하는 메서드
+
+     * - parentComment가 있으면 대댓글
+     * - 없으면 일반 댓글
+     */
+    public boolean isReply() {
+        return parentComment != null;
+    }
+
+    /*
+     * 이 댓글이 최상위 댓글(일반 댓글)인지 확인하는 메서드
+     *
+     * - parentComment가 없으면 일반 댓글
+     */
+    public boolean isRootComment() {
+        return parentComment == null;
+    }
+
+    /*
+     * 이 댓글에 대댓글이 하나라도 있는지 확인하는 메서드
+
+     * 삭제 정책에서 "답글이 있는 부모 댓글은 삭제 막기"같은 규칙을 둘 때 사용
+     */
+    public boolean hasChildren() {
+        return children != null && !children.isEmpty();
     }
 }

@@ -60,20 +60,69 @@ function normalizeReactionCounts(counts) {
   return counts.filter((item) => item && item.emoji);
 }
 
+
+/*
+ * 이 함수는 댓글 응답을 "항상 트리 형태"로 안전하게 맞춰주는 역할을 해.
+ *
+ * 백엔드가
+ * - 배열로 줄 수도 있고
+ * - { items: [...] } 형태로 줄 수도 있어서
+ * 먼저 items를 꺼내고,
+ * replies도 항상 배열로 맞춰줘.
+ */
+function normalizeCommentItems(payload) {
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+    ? payload.items
+    : [];
+
+  return rawItems.map(normalizeCommentNode);
+}
+
+/*
+ * 댓글 1개를 안전한 모양으로 바꿔줘.
+ * replies가 없으면 빈 배열로 맞춰줘.
+ */
+function normalizeCommentNode(comment) {
+  if (!comment || typeof comment !== "object") {
+    return {
+      commentId: null,
+      userId: null,
+      authorName: "",
+      content: "",
+      parentCommentId: null,
+      createdAt: null,
+      updatedAt: null,
+      replies: [],
+    };
+  }
+
+  return {
+    ...comment,
+    replies: Array.isArray(comment.replies)
+      ? comment.replies.map(normalizeCommentNode)
+      : [],
+  };
+}
+
+/*
+ * 댓글 총 개수를 세는 함수야.
+ * 부모 댓글 + 대댓글까지 전부 더해줘.
+ */
+function getTotalCommentCount(comments) {
+  if (!Array.isArray(comments) || comments.length === 0) return 0;
+
+  return comments.reduce((total, comment) => {
+    return total + 1 + getTotalCommentCount(comment.replies || []);
+  }, 0);
+}
+
 // 특정 리액션 개수 찾기
 function getReactionCount(note, emoji) {
   const counts = normalizeReactionCounts(note?.reactionCounts);
   const found = counts.find((item) => item.emoji === emoji);
   return found?.count ?? 0;
-}
-
-// 댓글 목록 응답이 배열일 수도 있고, items 형태일 수도 있어서 맞춰주는 함수
-function normalizeCommentItems(payload) {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  return Array.isArray(payload?.items) ? payload.items : [];
 }
 
 // 댓글 내용을 안전하게 정리하는 함수
@@ -163,157 +212,315 @@ function CommentSection({
   onUpdate,
   deletingCommentId,
   onDelete,
+  replyTargetCommentId,
+  replyDraftMap,
+  onToggleReply,
+  onReplyDraftChange,
+  onCreateReply,
+  replyExpandedMap,
+  onToggleReplies,
 }) {
+
+    const totalCommentCount = getTotalCommentCount(comments);
+
   return (
-    <div className="mt-5">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-          댓글
-        </p>
+      <div className="mt-5">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            댓글
+          </p>
 
-        <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}>
-          {comments.length}개
-        </span>
-      </div>
-
-      {/* 댓글 작성 입력창 */}
-      <div className={`rounded-[24px] border p-4 ${palette.panel}`}>
-        <textarea
-          rows={3}
-          value={draft}
-          onChange={(e) => onDraftChange(e.target.value)}
-          placeholder="이 쪽지에 댓글을 남겨보세요."
-          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-        />
-
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={onCreate}
-            disabled={submitting}
-            className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-          >
-            {submitting ? "등록 중..." : "댓글 등록"}
-          </button>
+          <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}>
+            {totalCommentCount}개
+          </span>
         </div>
-      </div>
 
-      {/* 댓글 로딩 */}
-      {loading && (
-        <div className="mt-4 space-y-3">
-          {[1, 2].map((item) => (
-            <div
-              key={item}
-              className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
+        {/* 최상위 댓글 작성창 */}
+        <div className={`rounded-[24px] border p-4 ${palette.panel}`}>
+          <textarea
+            rows={3}
+            value={draft}
+            onChange={(e) => onDraftChange(e.target.value)}
+            placeholder="이 쪽지에 댓글을 남겨보세요."
+            className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+          />
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={onCreate}
+              disabled={submitting}
+              className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
             >
-              <div className="mb-2 h-4 w-24 rounded-full bg-slate-200" />
-              <div className="h-3 w-full rounded-full bg-slate-100" />
-            </div>
-          ))}
+              {submitting ? "등록 중..." : "댓글 등록"}
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* 댓글 에러 */}
-      {!loading && error && (
-        <div className={`mt-4 rounded-2xl border border-dashed px-4 py-4 text-sm ${palette.emptyBox}`}>
-          {error}
-        </div>
-      )}
-
-      {/* 댓글 비어 있음 */}
-      {!loading && !error && comments.length === 0 && (
-        <div className={`mt-4 rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
-          아직 댓글이 없어요.
-        </div>
-      )}
-
-      {/* 댓글 목록 */}
-      {!loading && !error && comments.length > 0 && (
-        <div className="mt-4 space-y-3">
-          {comments.map((comment) => {
-            const isMine = Number(comment.userId) === Number(currentUserId);
-            const isEditing = editingCommentId === comment.commentId;
-
-            return (
+        {loading && (
+          <div className="mt-4 space-y-3">
+            {[1, 2].map((item) => (
               <div
-                key={comment.commentId}
-                className={`rounded-2xl border p-4 ${palette.softCard}`}
+                key={item}
+                className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
               >
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-slate-800">
-                      {comment.authorName || `사용자 ${comment.userId}`}
-                    </p>
-                    <p className="text-[11px] font-semibold text-slate-400">
-                      {formatDate(comment.createdAt)}
-                    </p>
+                <div className="mb-2 h-4 w-24 rounded-full bg-slate-200" />
+                <div className="h-3 w-full rounded-full bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className={`mt-4 rounded-2xl border border-dashed px-4 py-4 text-sm ${palette.emptyBox}`}>
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && comments.length === 0 && (
+          <div className={`mt-4 rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
+            아직 댓글이 없어요.
+          </div>
+        )}
+
+        {!loading && !error && comments.length > 0 && (
+          <div className="mt-4 space-y-4">
+            {comments.map((comment) => {
+              const isMine = Number(comment.userId) === Number(currentUserId);
+              const isEditing = editingCommentId === comment.commentId;
+              const replies = Array.isArray(comment.replies) ? comment.replies : [];
+              const replyCount = replies.length;
+              const isReplyExpanded = !!replyExpandedMap[comment.commentId];
+
+              return (
+                <div key={comment.commentId} className="space-y-3">
+                  {/* 부모 댓글 */}
+                  <div className={`rounded-2xl border p-4 ${palette.softCard}`}>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-slate-800">
+                          {comment.authorName || `사용자 ${comment.userId}`}
+                        </p>
+                        <p className="text-[11px] font-semibold text-slate-400">
+                          {formatDate(comment.createdAt)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onToggleReply(comment.commentId)}
+                          className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
+                        >
+                          답글
+                        </button>
+
+                        {isMine && !isEditing && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onStartEdit(comment)}
+                              className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
+                            >
+                              수정
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => onDelete(comment.commentId)}
+                              disabled={deletingCommentId === comment.commentId}
+                              className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
+                            >
+                              {deletingCommentId === comment.commentId ? "삭제 중..." : "삭제"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {!isEditing && (
+                      <p className="text-sm leading-7 text-slate-700">
+                        {comment.content}
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => onToggleReply(comment.commentId)}
+                        className="text-xs font-bold text-slate-500 transition hover:text-slate-700"
+                      >
+                        {replyTargetCommentId === comment.commentId ? "답글 닫기" : "답글 달기"}
+                      </button>
+
+                      {replyCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleReplies(comment.commentId)}
+                          className="text-xs font-bold text-slate-500 transition hover:text-slate-700"
+                        >
+                          {isReplyExpanded ? "답글 숨기기" : `답글 ${replyCount}개 더 보기`}
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditing && (
+                      <div className="space-y-3">
+                        <textarea
+                          rows={3}
+                          value={editingContent}
+                          onChange={(e) => onEditChange(e.target.value)}
+                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                        />
+
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={onCancelEdit}
+                            className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+                          >
+                            취소
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onUpdate(comment.commentId)}
+                            disabled={submitting}
+                            className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+                          >
+                            {submitting ? "저장 중..." : "수정 저장"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 답글 작성창 */}
+                    {replyTargetCommentId === comment.commentId && (
+                      <div className="mt-4 rounded-2xl border border-dashed p-3">
+                        <textarea
+                          rows={2}
+                          value={replyDraftMap[comment.commentId] || ""}
+                          onChange={(e) =>
+                            onReplyDraftChange(comment.commentId, e.target.value)
+                          }
+                          placeholder="이 댓글에 답글을 남겨보세요."
+                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                        />
+
+                        <div className="mt-3 flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onToggleReply(comment.commentId)}
+                            className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+                          >
+                            답글 닫기
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onCreateReply(comment.commentId)}
+                            disabled={submitting}
+                            className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+                          >
+                            {submitting ? "등록 중..." : "답글 등록"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {isMine && !isEditing && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onStartEdit(comment)}
-                        className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
-                      >
-                        수정
-                      </button>
+                  {/* 대댓글 목록 */}
+                  {replyCount > 0 && isReplyExpanded && (
+                    <div className="ml-6 space-y-2 border-l-2 border-slate-200 pl-4">
+                      {replies.map((reply) => {
+                        const isReplyMine = Number(reply.userId) === Number(currentUserId);
+                        const isReplyEditing = editingCommentId === reply.commentId;
 
-                      <button
-                        type="button"
-                        onClick={() => onDelete(comment.commentId)}
-                        disabled={deletingCommentId === comment.commentId}
-                        className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
-                      >
-                        {deletingCommentId === comment.commentId ? "삭제 중..." : "삭제"}
-                      </button>
+                        return (
+                          <div
+                            key={reply.commentId}
+                            className={`rounded-2xl border p-4 ${palette.panelSoft}`}
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-black text-slate-800">
+                                  {reply.authorName || `사용자 ${reply.userId}`}
+                                </p>
+                                <p className="text-[11px] font-semibold text-slate-400">
+                                  {formatDate(reply.createdAt)}
+                                </p>
+                              </div>
+
+                              {isReplyMine && !isReplyEditing && (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => onStartEdit(reply)}
+                                    className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
+                                  >
+                                    수정
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => onDelete(reply.commentId)}
+                                    disabled={deletingCommentId === reply.commentId}
+                                    className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
+                                  >
+                                    {deletingCommentId === reply.commentId ? "삭제 중..." : "삭제"}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {!isReplyEditing && (
+                              <p className="text-sm leading-7 text-slate-700">
+                                {reply.content}
+                              </p>
+                            )}
+
+                            {isReplyEditing && (
+                              <div className="space-y-3">
+                                <textarea
+                                  rows={3}
+                                  value={editingContent}
+                                  onChange={(e) => onEditChange(e.target.value)}
+                                  className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                                />
+
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={onCancelEdit}
+                                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+                                  >
+                                    취소
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdate(reply.commentId)}
+                                    disabled={submitting}
+                                    className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+                                  >
+                                    {submitting ? "저장 중..." : "수정 저장"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-
-                {!isEditing && (
-                  <p className="text-sm leading-7 text-slate-700">
-                    {comment.content}
-                  </p>
-                )}
-
-                {isEditing && (
-                  <div className="space-y-3">
-                    <textarea
-                      rows={3}
-                      value={editingContent}
-                      onChange={(e) => onEditChange(e.target.value)}
-                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                    />
-
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={onCancelEdit}
-                        className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
-                      >
-                        취소
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onUpdate(comment.commentId)}
-                        disabled={submitting}
-                        className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-                      >
-                        {submitting ? "저장 중..." : "수정 저장"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
 
 // 초대코드는 한 번에 2개씩만 보여줄 거야.
@@ -720,6 +927,13 @@ function JarZoomNoteDetailModal({
   onUpdateComment,
   deletingCommentId,
   onDeleteComment,
+  replyTargetCommentId,
+  replyDraftMap,
+  onToggleReply,
+  onReplyDraftChange,
+  onCreateReply,
+  replyExpandedMap,
+  onToggleReplies,
 }) {
     const tags = normalizeJarZoomTags(note?.tags);
     const hasContent = toSafeNoteText(note?.content).length > 0;
@@ -881,7 +1095,7 @@ function JarZoomNoteDetailModal({
                 )}
 
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                    댓글 {note?.commentCount ?? comments.length ?? 0}개
+                    댓글 {note?.commentCount ?? getTotalCommentCount(comments)}개
                   </span>
               </div>
 
@@ -977,6 +1191,13 @@ function JarZoomNoteDetailModal({
                 onUpdate={onUpdateComment}
                 deletingCommentId={deletingCommentId}
                 onDelete={onDeleteComment}
+                replyTargetCommentId={replyTargetCommentId}
+                replyDraftMap={replyDraftMap}
+                onToggleReply={onToggleReply}
+                onReplyDraftChange={onReplyDraftChange}
+                onCreateReply={onCreateReply}
+                replyExpandedMap={replyExpandedMap}
+                onToggleReplies={onToggleReplies}
               />
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1697,6 +1918,20 @@ function getInviteStatus(invite, palette) {
 export default function JarDetailPage() {
 
 
+  // 지금 어떤 댓글 아래에 답글 입력창을 열었는지 저장
+  const [replyTargetCommentId, setReplyTargetCommentId] = useState(null);
+
+  // 댓글별 답글 입력값 저장
+  // 예:
+  // {
+  //   10: "첫 번째 댓글에 쓰는 답글",
+  //   20: "두 번째 댓글에 쓰는 답글"
+  // }
+  const [replyDraftMap, setReplyDraftMap] = useState({});
+
+  // 어떤 댓글의 답글 목록을 펼쳐서 보고 있는지 저장
+  const [replyExpandedMap, setReplyExpandedMap] = useState({});
+
   // 현재 로그인 사용자 정보
   const [me, setMe] = useState(null);
 
@@ -2187,6 +2422,10 @@ async function handleOpenJarZoomNoteDetail(noteId) {
   setEditingCommentId(null);
   setEditingContent("");
 
+  setReplyTargetCommentId(null);
+  setReplyDraftMap({});
+  setReplyExpandedMap({});
+
   try {
     const [noteRes, commentRes] = await Promise.all([
       apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}`),
@@ -2215,6 +2454,10 @@ function handleCloseJarZoomNoteDetail() {
   setJarZoomDetailNote(null);
   setJarZoomDetailError("");
   setJarZoomDetailLoading(false);
+
+  setReplyTargetCommentId(null);
+  setReplyDraftMap({});
+  setReplyExpandedMap({});
 }
 
 async function handleReactInJarZoomDetail(noteId, emoji) {
@@ -2312,6 +2555,143 @@ function patchCommentCountEverywhere(noteId, nextCount) {
   });
 }
 
+/*
+ * 어떤 댓글 아래에 답글 입력창을 열지 정하는 함수야.
+ *
+ * UX 규칙
+ * - 같은 댓글을 다시 누르면 닫기
+ * - 다른 댓글로 이동할 때
+ *   입력 중인 답글이 비어 있으면 바로 이동
+ *   입력 중인 답글이 있으면 한 번 물어보고 이동
+ */
+function handleToggleReply(commentId) {
+  // 지금 열려 있는 답글창이 없으면 그냥 열기
+  if (!replyTargetCommentId) {
+    setReplyTargetCommentId(commentId);
+    return;
+  }
+
+  // 같은 댓글을 다시 누르면 닫기
+  if (replyTargetCommentId === commentId) {
+    const currentDraft = normalizeCommentContent(
+      replyDraftMap[replyTargetCommentId]
+    );
+
+    if (currentDraft) {
+      const ok = window.confirm("작성 중인 답글이 있어요. 닫을까요?");
+      if (!ok) return;
+    }
+
+    setReplyTargetCommentId(null);
+    return;
+  }
+
+  // 다른 댓글로 이동하려는 경우
+  const currentDraft = normalizeCommentContent(
+    replyDraftMap[replyTargetCommentId]
+  );
+
+  // 작성 중인 내용이 있으면 확인
+  if (currentDraft) {
+    const ok = window.confirm(
+      "작성 중인 답글이 있어요.\n다른 댓글로 이동하면 지금 내용은 그대로 두고 입력창만 바뀌어요. 이동할까요?"
+    );
+
+    if (!ok) return;
+  }
+
+  setReplyTargetCommentId(commentId);
+}
+
+/*
+ * 특정 댓글의 답글 목록을 펼치거나 숨기는 함수야.
+ *
+ * - true면 답글 목록 보여주기
+ * - false면 답글 목록 숨기기
+ */
+function handleToggleReplies(commentId) {
+  setReplyExpandedMap((prev) => ({
+    ...prev,
+    [commentId]: !prev[commentId],
+  }));
+}
+
+/*
+ * 특정 댓글 아래 답글 입력값을 저장하는 함수야.
+ */
+function handleReplyDraftChange(commentId, value) {
+  setReplyDraftMap((prev) => ({
+    ...prev,
+    [commentId]: value,
+  }));
+}
+
+/*
+ * 이 함수는 특정 댓글 아래에 대댓글을 등록하는 역할을 해.
+ */
+async function handleCreateReply(parentCommentId) {
+  const noteId = jarZoomDetailNoteId;
+  const content = normalizeCommentContent(replyDraftMap[parentCommentId]);
+
+  if (!noteId || !parentCommentId) return;
+
+  if (!content) {
+    window.alert("답글 내용을 입력해 주세요.");
+    return;
+  }
+
+  setCommentSubmitting(true);
+
+  try {
+    await fetchCsrf();
+
+    await apiClient.post(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments`,
+      {
+        content,
+        parentCommentId,
+      }
+    );
+
+    // 댓글 전체 다시 불러오기
+    await loadJarZoomComments(noteId);
+
+    // 입력창 값 비우기
+    setReplyDraftMap((prev) => ({
+      ...prev,
+      [parentCommentId]: "",
+    }));
+
+    // 답글 입력창 닫기
+    setReplyTargetCommentId(null);
+
+    // 방금 답글 단 댓글의 답글 목록 펼치기
+    setReplyExpandedMap((prev) => ({
+      ...prev,
+      [parentCommentId]: true,
+    }));
+
+    // 총 댓글 수 다시 계산
+    const refreshedCommentsRes = await apiClient.get(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
+    );
+    const refreshedItems = normalizeCommentItems(refreshedCommentsRes.data?.data);
+
+    setJarZoomComments(refreshedItems);
+    patchCommentCountEverywhere(noteId, getTotalCommentCount(refreshedItems));
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "답글 등록에 실패했어요.";
+
+    window.alert(serverMessage);
+  } finally {
+    setCommentSubmitting(false);
+  }
+}
+
 async function handleCreateComment() {
   const noteId = jarZoomDetailNoteId;
   const content = normalizeCommentContent(commentDraft);
@@ -2328,18 +2708,19 @@ async function handleCreateComment() {
   try {
     await fetchCsrf();
 
-    const res = await apiClient.post(
+    await apiClient.post(
       `/api/v1/jars/${jarId}/notes/${noteId}/comments`,
       { content }
     );
 
-    const createdComment = res.data?.data;
+    const commentRes = await apiClient.get(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
+    );
+    const items = normalizeCommentItems(commentRes.data?.data);
 
-    setJarZoomComments((prev) => [...prev, createdComment]);
+    setJarZoomComments(items);
     setCommentDraft("");
-
-    const nextCount = (jarZoomDetailNote?.commentCount ?? jarZoomComments.length) + 1;
-    patchCommentCountEverywhere(noteId, nextCount);
+    patchCommentCountEverywhere(noteId, getTotalCommentCount(items));
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -2351,16 +2732,6 @@ async function handleCreateComment() {
   } finally {
     setCommentSubmitting(false);
   }
-}
-
-function handleStartEditComment(comment) {
-  setEditingCommentId(comment.commentId);
-  setEditingContent(comment.content || "");
-}
-
-function handleCancelEditComment() {
-  setEditingCommentId(null);
-  setEditingContent("");
 }
 
 async function handleUpdateComment(commentId) {
@@ -2379,21 +2750,20 @@ async function handleUpdateComment(commentId) {
   try {
     await fetchCsrf();
 
-    const res = await apiClient.patch(
+    await apiClient.patch(
       `/api/v1/jars/${jarId}/notes/${noteId}/comments/${commentId}`,
       { content }
     );
 
-    const updatedComment = res.data?.data;
-
-    setJarZoomComments((prev) =>
-      prev.map((item) =>
-        item.commentId === commentId ? updatedComment : item
-      )
+    const commentRes = await apiClient.get(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
     );
+    const items = normalizeCommentItems(commentRes.data?.data);
 
+    setJarZoomComments(items);
     setEditingCommentId(null);
     setEditingContent("");
+    patchCommentCountEverywhere(noteId, getTotalCommentCount(items));
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -2424,15 +2794,13 @@ async function handleDeleteComment(commentId) {
       `/api/v1/jars/${jarId}/notes/${noteId}/comments/${commentId}`
     );
 
-    setJarZoomComments((prev) =>
-      prev.filter((item) => item.commentId !== commentId)
+    const commentRes = await apiClient.get(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
     );
+    const items = normalizeCommentItems(commentRes.data?.data);
 
-    const nextCount = Math.max(
-      0,
-      (jarZoomDetailNote?.commentCount ?? jarZoomComments.length) - 1
-    );
-    patchCommentCountEverywhere(noteId, nextCount);
+    setJarZoomComments(items);
+    patchCommentCountEverywhere(noteId, getTotalCommentCount(items));
 
     if (editingCommentId === commentId) {
       setEditingCommentId(null);
@@ -2451,6 +2819,16 @@ async function handleDeleteComment(commentId) {
   }
 }
 
+
+function handleStartEditComment(comment) {
+  setEditingCommentId(comment.commentId);
+  setEditingContent(comment.content || "");
+}
+
+function handleCancelEditComment() {
+  setEditingCommentId(null);
+  setEditingContent("");
+}
 
 // 저금통 클릭 시 확대 모달 열기
 async function handleOpenJarZoom() {
@@ -3054,6 +3432,14 @@ function handleRestoreHiddenInvites() {
           onUpdateComment={handleUpdateComment}
           deletingCommentId={deletingCommentId}
           onDeleteComment={handleDeleteComment}
+
+          replyTargetCommentId={replyTargetCommentId}
+          replyDraftMap={replyDraftMap}
+          onToggleReply={handleToggleReply}
+          onReplyDraftChange={handleReplyDraftChange}
+          onCreateReply={handleCreateReply}
+          replyExpandedMap={replyExpandedMap}
+          onToggleReplies={handleToggleReplies}
         />
         <div className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                             {/* 멤버 목록 */}
