@@ -1,7 +1,6 @@
 package com.example.demo.controller.note;
 
 import com.example.demo.auth.OAuth2SuccessHandler;
-import com.example.demo.controller.NoteCommentController;
 import com.example.demo.dto.note.request.NoteCommentCreateRequest;
 import com.example.demo.dto.note.request.NoteCommentUpdateRequest;
 import com.example.demo.dto.note.response.NoteCommentItem;
@@ -69,14 +68,16 @@ class NoteCommentControllerTest {
         Long jarId = 10L;
         Long noteId = 100L;
 
-        NoteCommentCreateRequest request = new NoteCommentCreateRequest("첫 댓글");
+        NoteCommentCreateRequest request = new NoteCommentCreateRequest("첫 댓글", null);
         NoteCommentItem response = new NoteCommentItem(
                 300L,
                 currentUserId,
                 "테스트유저",
+                null,
                 "첫 댓글",
                 OffsetDateTime.parse("2026-04-15T10:00:00+09:00"),
-                OffsetDateTime.parse("2026-04-15T10:00:00+09:00")
+                OffsetDateTime.parse("2026-04-15T10:00:00+09:00"),
+                List.of()
         );
 
         when(noteCommentService.createComment(eq(currentUserId), eq(jarId), eq(noteId), eq(request)))
@@ -90,7 +91,9 @@ class NoteCommentControllerTest {
                 .andExpect(jsonPath("$.data.commentId").value(300L))
                 .andExpect(jsonPath("$.data.userId").value(1L))
                 .andExpect(jsonPath("$.data.authorName").value("테스트유저"))
-                .andExpect(jsonPath("$.data.content").value("첫 댓글"));
+                .andExpect(jsonPath("$.data.parentCommentId").doesNotExist())
+                .andExpect(jsonPath("$.data.content").value("첫 댓글"))
+                .andExpect(jsonPath("$.data.replies").isArray());
 
         verify(noteCommentService).createComment(currentUserId, jarId, noteId, request);
     }
@@ -107,9 +110,20 @@ class NoteCommentControllerTest {
                         300L,
                         1L,
                         "테스트유저",
+                        null,
                         "첫 댓글",
                         OffsetDateTime.parse("2026-04-15T10:00:00+09:00"),
-                        OffsetDateTime.parse("2026-04-15T10:00:00+09:00")
+                        OffsetDateTime.parse("2026-04-15T10:00:00+09:00"),
+                        List.of(new NoteCommentItem(
+                                301L,
+                                2L,
+                                "답글유저",
+                                300L,
+                                "첫 답글",
+                                OffsetDateTime.parse("2026-04-15T10:10:00+09:00"),
+                                OffsetDateTime.parse("2026-04-15T10:10:00+09:00"),
+                                List.of()
+                        ))
                 )
         ));
 
@@ -119,7 +133,9 @@ class NoteCommentControllerTest {
                         .principal(authWithUserId(currentUserId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].commentId").value(300L))
-                .andExpect(jsonPath("$.data.items[0].content").value("첫 댓글"));
+                .andExpect(jsonPath("$.data.items[0].content").value("첫 댓글"))
+                .andExpect(jsonPath("$.data.items[0].replies[0].commentId").value(301L))
+                .andExpect(jsonPath("$.data.items[0].replies[0].parentCommentId").value(300L));
 
         verify(noteCommentService).getCommentList(currentUserId, jarId, noteId);
     }
@@ -137,9 +153,11 @@ class NoteCommentControllerTest {
                 commentId,
                 currentUserId,
                 "테스트유저",
+                null,
                 "수정 댓글",
                 OffsetDateTime.parse("2026-04-15T10:00:00+09:00"),
-                OffsetDateTime.parse("2026-04-15T10:30:00+09:00")
+                OffsetDateTime.parse("2026-04-15T10:30:00+09:00"),
+                List.of()
         );
 
         when(noteCommentService.updateComment(eq(currentUserId), eq(jarId), eq(noteId), eq(commentId), eq(request)))
@@ -224,14 +242,16 @@ class NoteCommentControllerTest {
     void createComment_success_whenUserIdIsString() throws Exception {
         Long jarId = 10L;
         Long noteId = 100L;
-        NoteCommentCreateRequest request = new NoteCommentCreateRequest("문자열 userId 댓글");
+        NoteCommentCreateRequest request = new NoteCommentCreateRequest("문자열 userId 댓글", null);
         NoteCommentItem response = new NoteCommentItem(
                 301L,
                 1L,
                 "테스트유저",
+                null,
                 "문자열 userId 댓글",
                 OffsetDateTime.parse("2026-04-15T11:00:00+09:00"),
-                OffsetDateTime.parse("2026-04-15T11:00:00+09:00")
+                OffsetDateTime.parse("2026-04-15T11:00:00+09:00"),
+                List.of()
         );
 
         when(noteCommentService.createComment(eq(1L), eq(jarId), eq(noteId), eq(request)))

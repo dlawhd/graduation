@@ -1,4 +1,4 @@
-package com.example.demo.controller;
+package com.example.demo.controller.file;
 
 import com.example.demo.dto.file.request.FileCompleteRequest;
 import com.example.demo.dto.file.request.FilePresignRequest;
@@ -7,7 +7,6 @@ import com.example.demo.dto.file.response.FilePresignResponse;
 import com.example.demo.dto.response.ApiResponse;
 import com.example.demo.service.file.FileService;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;

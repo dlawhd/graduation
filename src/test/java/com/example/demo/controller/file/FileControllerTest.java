@@ -1,6 +1,5 @@
 package com.example.demo.controller.file;
 
-import com.example.demo.controller.FileController;
 import com.example.demo.dto.file.request.FileCompleteRequest;
 import com.example.demo.dto.file.request.FilePresignRequest;
 import com.example.demo.dto.file.response.FileCompleteResponse;

@@ -97,7 +97,7 @@ class NoteCommentServiceTest {
                 currentUserId,
                 jarId,
                 noteId,
-                new NoteCommentCreateRequest("  댓글입니다  ")
+                new NoteCommentCreateRequest("  댓글입니다  ", null)
         );
 
         ArgumentCaptor<NoteComment> captor = ArgumentCaptor.forClass(NoteComment.class);
@@ -132,6 +132,87 @@ class NoteCommentServiceTest {
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).content()).isEqualTo("첫 댓글");
+    }
+
+    @Test
+    @DisplayName("대댓글 생성 성공")
+    void createComment_success_whenParentCommentExists() {
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+        Long noteId = 100L;
+        Long parentCommentId = 300L;
+
+        User user = createUser(currentUserId, "댓글러");
+        Jar jar = createJar(jarId);
+        Note note = createNote(noteId, jar, user);
+        NoteComment parentComment = createComment(parentCommentId, note, user, "부모 댓글");
+
+        when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
+        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
+                .thenReturn(true);
+        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteCommentRepository.findByCommentIdAndNote_NoteId(parentCommentId, noteId))
+                .thenReturn(Optional.of(parentComment));
+        when(noteCommentRepository.save(any(NoteComment.class))).thenAnswer(invocation -> {
+            NoteComment comment = invocation.getArgument(0);
+            ReflectionTestUtils.setField(comment, "commentId", 301L);
+            ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.of(2026, 4, 15, 10, 10));
+            ReflectionTestUtils.setField(comment, "updatedAt", LocalDateTime.of(2026, 4, 15, 10, 10));
+            return comment;
+        });
+
+        NoteCommentItem response = noteCommentService.createComment(
+                currentUserId,
+                jarId,
+                noteId,
+                new NoteCommentCreateRequest("  답글입니다  ", parentCommentId)
+        );
+
+        ArgumentCaptor<NoteComment> captor = ArgumentCaptor.forClass(NoteComment.class);
+        verify(noteCommentRepository).save(captor.capture());
+
+        assertThat(captor.getValue().getParentComment()).isEqualTo(parentComment);
+        assertThat(response.parentCommentId()).isEqualTo(parentCommentId);
+        assertThat(response.content()).isEqualTo("답글입니다");
+        assertThat(response.replies()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("대댓글 아래 대댓글 생성 차단")
+    void createComment_badRequest_whenParentCommentIsReply() {
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+        Long noteId = 100L;
+        Long rootCommentId = 300L;
+        Long replyCommentId = 301L;
+
+        User user = createUser(currentUserId, "댓글러");
+        Jar jar = createJar(jarId);
+        Note note = createNote(noteId, jar, user);
+        NoteComment rootComment = createComment(rootCommentId, note, user, "부모 댓글");
+        NoteComment replyComment = createReply(replyCommentId, note, user, "대댓글", rootComment);
+
+        when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
+        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
+                .thenReturn(true);
+        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteCommentRepository.findByCommentIdAndNote_NoteId(replyCommentId, noteId))
+                .thenReturn(Optional.of(replyComment));
+
+        ResponseStatusException exception = catchThrowableOfType(
+                () -> noteCommentService.createComment(
+                        currentUserId,
+                        jarId,
+                        noteId,
+                        new NoteCommentCreateRequest("막힌 답글", replyCommentId)
+                ),
+                ResponseStatusException.class
+        );
+
+        assertThat(exception.getStatusCode().value()).isEqualTo(400);
+        verify(noteCommentRepository, never()).save(any());
     }
 
     @Test
@@ -262,6 +343,26 @@ class NoteCommentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", commentId);
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.of(2026, 4, 15, 10, 0));
         ReflectionTestUtils.setField(comment, "updatedAt", LocalDateTime.of(2026, 4, 15, 10, 0));
+        return comment;
+    }
+
+    private NoteComment createReply(
+            Long commentId,
+            Note note,
+            User user,
+            String content,
+            NoteComment parentComment
+    ) {
+        NoteComment comment = NoteComment.builder()
+                .note(note)
+                .user(user)
+                .content(content)
+                .parentComment(parentComment)
+                .build();
+
+        ReflectionTestUtils.setField(comment, "commentId", commentId);
+        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.of(2026, 4, 15, 10, 10));
+        ReflectionTestUtils.setField(comment, "updatedAt", LocalDateTime.of(2026, 4, 15, 10, 10));
         return comment;
     }
 }

@@ -1,7 +1,6 @@
 package com.example.demo.controller.note;
 
 import com.example.demo.auth.OAuth2SuccessHandler;
-import com.example.demo.controller.NoteReactionController;
 import com.example.demo.dto.note.request.NoteReactionCreateRequest;
 import com.example.demo.dto.note.response.NoteReactionCountItem;
 import com.example.demo.dto.note.response.NoteReactionSummaryResponse;

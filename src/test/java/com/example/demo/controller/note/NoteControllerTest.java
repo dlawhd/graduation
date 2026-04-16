@@ -1,7 +1,6 @@
 package com.example.demo.controller.note;
 
 import com.example.demo.auth.OAuth2SuccessHandler;
-import com.example.demo.controller.NoteController;
 import com.example.demo.dto.note.request.NoteAttachmentCreateRequest;
 import com.example.demo.dto.note.request.NoteCreateRequest;
 import com.example.demo.dto.note.response.NoteCreateResponse;

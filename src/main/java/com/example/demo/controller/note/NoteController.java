@@ -1,4 +1,4 @@
-package com.example.demo.controller;
+package com.example.demo.controller.note;
 
 import com.example.demo.dto.note.request.NoteCreateRequest;
 import com.example.demo.dto.note.response.NoteCreateResponse;

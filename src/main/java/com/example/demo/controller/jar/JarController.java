@@ -1,4 +1,4 @@
-package com.example.demo.controller;
+package com.example.demo.controller.jar;
 
 import com.example.demo.dto.jar.request.*;
 import com.example.demo.dto.jar.response.*;
