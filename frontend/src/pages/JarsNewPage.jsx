@@ -849,9 +849,10 @@ export default function JarsNewPage() {
                 />
               </div>
 
+
               <div>
                 <label className="mb-2 block text-sm font-bold text-slate-700">
-                  오픈 날짜
+                 오픈 날짜
                 </label>
                 <input
                   type="datetime-local"
