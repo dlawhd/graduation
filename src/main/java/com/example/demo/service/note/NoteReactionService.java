@@ -7,12 +7,14 @@ import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.note.Note;
 import com.example.demo.entity.note.NoteReaction;
 import com.example.demo.enums.note.NoteReactionEmoji;
+import com.example.demo.model.notification.NotificationPayload;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
 import com.example.demo.repository.note.NoteReactionRepository;
 import com.example.demo.repository.note.NoteRepository;
 import com.example.demo.service.jar.JarOpenService;
+import com.example.demo.service.notification.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,7 @@ public class NoteReactionService {
     private final JarMemberRepository jarMemberRepository;
     private final UserRepository userRepository;
     private final JarOpenService jarOpenService;
+    private final NotificationService notificationService;
 
     public NoteReactionService(
             NoteReactionRepository noteReactionRepository,
@@ -54,7 +57,8 @@ public class NoteReactionService {
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
             UserRepository userRepository,
-            JarOpenService jarOpenService
+            JarOpenService jarOpenService,
+            NotificationService notificationService
     ) {
         this.noteReactionRepository = noteReactionRepository;
         this.noteRepository = noteRepository;
@@ -62,6 +66,7 @@ public class NoteReactionService {
         this.jarMemberRepository = jarMemberRepository;
         this.userRepository = userRepository;
         this.jarOpenService = jarOpenService;
+        this.notificationService = notificationService;
     }
 
     /*
@@ -95,6 +100,16 @@ public class NoteReactionService {
         // 5. 이 저금통 안의 쪽지인지 확인
         Note note = getNoteOrThrow(jarId, noteId);
 
+        // 5-1. 알림에 담아둘 추가 정보 만들기
+        NotificationPayload payload = new NotificationPayload(
+                jarId,
+                noteId,
+                null,
+                currentUser.getId(),
+                currentUser.getName(),
+                emoji.name()
+        );
+
         // 6. 내가 이미 이 쪽지에 남긴 리액션이 있는지 확인
         NoteReaction existingReaction = noteReactionRepository
                 .findByNote_NoteIdAndUser_Id(noteId, currentUserId)
@@ -111,6 +126,15 @@ public class NoteReactionService {
             noteReactionRepository.save(newReaction);
             noteReactionRepository.flush();
 
+            // 내가 내 글에 반응한 건 알림 보내지 않기
+            if (!note.getAuthor().getId().equals(currentUser.getId())) {
+                notificationService.notifyNoteReacted(
+                        note.getAuthor(),
+                        jar,
+                        payload
+                );
+            }
+
             return buildSummary(noteId, emoji);
         }
 
@@ -125,6 +149,15 @@ public class NoteReactionService {
         // 9. 다른 리액션이면 기존 값을 새 값으로 변경
         existingReaction.changeEmoji(emoji);
         noteReactionRepository.flush();
+
+        // 내가 내 글에 반응한 건 알림 보내지 않기
+        if (!note.getAuthor().getId().equals(currentUser.getId())) {
+            notificationService.notifyNoteReacted(
+                    note.getAuthor(),
+                    jar,
+                    payload
+            );
+        }
 
         return buildSummary(noteId, emoji);
     }

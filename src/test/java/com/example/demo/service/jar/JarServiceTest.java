@@ -14,6 +14,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarInviteRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,8 @@ class JarServiceTest {
 
     private JarService jarService;
 
+    private NotificationService notificationService;
+
     @BeforeEach
     void setUp() {
         jarService = new JarService(
@@ -58,7 +61,8 @@ class JarServiceTest {
                 jarMemberRepository,
                 jarInviteRepository,
                 userRepository,
-                jarOpenService
+                jarOpenService,
+                notificationService
         );
     }
 

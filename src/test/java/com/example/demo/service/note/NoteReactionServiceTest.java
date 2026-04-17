@@ -16,6 +16,7 @@ import com.example.demo.repository.jar.JarRepository;
 import com.example.demo.repository.note.NoteReactionRepository;
 import com.example.demo.repository.note.NoteRepository;
 import com.example.demo.service.jar.JarOpenService;
+import com.example.demo.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,6 +68,8 @@ class NoteReactionServiceTest {
 
     private NoteReactionService noteReactionService;
 
+    private NotificationService notificationService;
+
     @BeforeEach
     void setUp() {
         // 다른 계층 없이 서비스 규칙만 보기 위해 mock repository로 서비스를 만든다.
@@ -76,7 +79,8 @@ class NoteReactionServiceTest {
                 jarRepository,
                 jarMemberRepository,
                 userRepository,
-                jarOpenService
+                jarOpenService,
+                notificationService
         );
     }
 

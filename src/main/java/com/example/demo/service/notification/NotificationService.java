@@ -35,6 +35,7 @@ public class NotificationService {
         this.notificationRepository = notificationRepository;
     }
 
+    // 내 알림 목록을 페이지 형태로 조회하는 메서드
     public NotificationListResponse getMyNotifications(Long currentUserId, int page, int size) {
         PageRequest pageRequest = PageRequest.of(
                 page,
@@ -62,11 +63,13 @@ public class NotificationService {
         );
     }
 
+    // 안 읽은 알림 개수를 조회하는 메서드
     public NotificationUnreadCountResponse getUnreadCount(Long currentUserId) {
         long unreadCount = notificationRepository.countByUser_IdAndIsReadFalseAndDeletedAtIsNull(currentUserId);
         return new NotificationUnreadCountResponse(unreadCount);
     }
 
+    // 알림 1개를 읽음 처리하는 메서드
     @Transactional
     public NotificationReadResponse markAsRead(Long currentUserId, Long notificationId) {
         Notification notification = notificationRepository
@@ -83,6 +86,7 @@ public class NotificationService {
         );
     }
 
+    // 안 읽은 알림을 한 번에 전부 읽음 처리하는 메서드
     @Transactional
     public NotificationReadAllResponse markAllAsRead(Long currentUserId) {
         LocalDateTime now = LocalDateTime.now();
@@ -91,26 +95,35 @@ public class NotificationService {
         return new NotificationReadAllResponse(updatedCount, now);
     }
 
+    // 내 쪽지에 일반 댓글이 달렸을 때 알림을 만드는 메서드
+    // 단, 내가 내 쪽지에 내가 댓글 단 경우는 알림 만들지 않기
     @Transactional
     public void notifyNoteCommented(User receiver, Jar jar, NotificationPayload payload) {
         createNotificationIfNeeded(receiver, jar, NotificationType.NOTE_COMMENTED, payload);
     }
 
+    // 내 댓글에 대댓글이 달렸을 때 알림을 만드는 메서드, 자기 자신은 제외
     @Transactional
     public void notifyCommentReplied(Collection<User> candidateReceivers, Jar jar, NotificationPayload payload) {
         createNotificationsForMany(candidateReceivers, jar, NotificationType.COMMENT_REPLIED, payload);
     }
 
+    // 내 쪽지에 리액션이 달렸을 때 알림을 만드는 메서드
+    // 내가 내 쪽지에 리액션 누른 경우는 알림 만들지 않기, 리액션 변경은 최종 이모지 기준 payload로 이 메서드를 호출
     @Transactional
     public void notifyNoteReacted(User receiver, Jar jar, NotificationPayload payload) {
         createNotificationIfNeeded(receiver, jar, NotificationType.NOTE_REACTED, payload);
     }
 
+    // 내 저금통에 새 멤버가 입장했을 때 알림을 만드는 메서드
+    // 새로 들어온 본인은 제외
     @Transactional
     public void notifyJarMemberJoined(Collection<User> candidateReceivers, Jar jar, NotificationPayload payload) {
         createNotificationsForMany(candidateReceivers, jar, NotificationType.JAR_MEMBER_JOINED, payload);
     }
 
+    // 알림 1개를 실제로 저장할지 판단하는 공통 메서드
+    // receiver가 null이면 중단, payload가 null이면 중단, actorUserId와 receiver의 id가 같으면(자기 자신이면) 중단
     private void createNotificationIfNeeded(User receiver,
                                             Jar jar,
                                             NotificationType type,
@@ -126,6 +139,7 @@ public class NotificationService {
             return;
         }
 
+        // 내가 내 글/내 댓글/내 저금통에 한 행동이면 알림 만들지 않기
         if (actorUserId != null && receiverId.equals(actorUserId)) {
             return;
         }
@@ -134,6 +148,7 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
+    // 여러 명에게 알림을 보낼 때 사용하는 공통 메서드
     private void createNotificationsForMany(Collection<User> candidateReceivers,
                                             Jar jar,
                                             NotificationType type,
@@ -149,6 +164,7 @@ public class NotificationService {
                 continue;
             }
 
+            // 이미 처리한 사용자는 중복 저장하지 않기
             if (!processedReceiverIds.add(receiver.getId())) {
                 continue;
             }
@@ -157,6 +173,8 @@ public class NotificationService {
         }
     }
 
+    // Notification 엔티티를 화면에 보여줄 응답 DTO로 바꾸는 메서드
+    // 여기서 message도 같이 만들어서 내려주면 프론트가 훨씬 편하게 화면에 그릴 수 있음
     private NotificationItemResponse toNotificationItemResponse(Notification notification) {
         NotificationPayload payload = notification.getPayload();
 
@@ -183,6 +201,7 @@ public class NotificationService {
         );
     }
 
+    // 알림 종류에 따라 사용자에게 보여줄 문구를 만드는 메서드
     private String buildMessage(NotificationType type, String actorName, String emoji) {
         String safeActorName = (actorName == null || actorName.isBlank()) ? "알 수 없는 사용자" : actorName;
 

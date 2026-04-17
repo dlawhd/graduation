@@ -8,11 +8,13 @@ import com.example.demo.entity.User;
 import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.note.Note;
 import com.example.demo.entity.note.NoteComment;
+import com.example.demo.model.notification.NotificationPayload;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
 import com.example.demo.repository.note.NoteCommentRepository;
 import com.example.demo.repository.note.NoteRepository;
+import com.example.demo.service.notification.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,19 +47,22 @@ public class NoteCommentService {
     private final JarRepository jarRepository;
     private final JarMemberRepository jarMemberRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public NoteCommentService(
             NoteCommentRepository noteCommentRepository,
             NoteRepository noteRepository,
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            NotificationService notificationService
     ) {
         this.noteCommentRepository = noteCommentRepository;
         this.noteRepository = noteRepository;
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     // 댓글 작성
@@ -115,6 +120,32 @@ public class NoteCommentService {
 
         // 8. 저장
         NoteComment savedComment = noteCommentRepository.save(comment);
+
+        // 8-1. 알림 payload 만들기
+        NotificationPayload payload = new NotificationPayload(
+                jarId,                       // 어느 저금통인지
+                noteId,                      // 어느 쪽지인지
+                savedComment.getCommentId(), // 어느 댓글인지
+                currentUser.getId(),         // 누가 행동했는지
+                currentUser.getName(),       // 행동한 사람 이름
+                null                         // 댓글 알림은 이모지 없음
+        );
+
+        // 8-2. 부모 댓글이 없으면 "내 쪽지에 댓글"
+        if (parentComment == null) {
+            notificationService.notifyNoteCommented(
+                    note.getAuthor(),   // Note 엔티티 getter 이름에 맞게 확인
+                    note.getJar(),
+                    payload
+            );
+        } else {
+            // 답글이면 "내 댓글에 답글"
+            notificationService.notifyCommentReplied(
+                    List.of(parentComment.getUser()),
+                    note.getJar(),
+                    payload
+            );
+        }
 
         // 9. 응답 DTO 반환
         return toItem(savedComment, List.of());

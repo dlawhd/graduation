@@ -10,10 +10,12 @@ import com.example.demo.enums.jar.JarLockLevel;
 import com.example.demo.enums.jar.JarOpenMode;
 import com.example.demo.enums.jar.JarRole;
 import com.example.demo.enums.jar.JarTheme;
+import com.example.demo.model.notification.NotificationPayload;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarInviteRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.service.notification.NotificationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -50,19 +52,22 @@ public class JarService {
     private final JarMemberRepository jarMemberRepository;
     private final JarInviteRepository jarInviteRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public JarService(
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
             JarInviteRepository jarInviteRepository,
             UserRepository userRepository,
-            JarOpenService jarOpenService
+            JarOpenService jarOpenService,
+            NotificationService notificationService
     ) {
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
         this.jarInviteRepository = jarInviteRepository;
         this.userRepository = userRepository;
         this.jarOpenService = jarOpenService;
+        this.notificationService = notificationService;
     }
 
     // 저금통을 새로 만드는 메서드야.
@@ -375,6 +380,26 @@ public class JarService {
 
         // 9. 초대코드 사용 횟수 증가
         invite.increaseUsedCount();
+
+        // 9-1. 저금통 입장 알림에 담을 정보 만들기
+        NotificationPayload payload = new NotificationPayload(
+                jar.getJarId(),
+                null,
+                null,
+                currentUser.getId(),
+                currentUser.getName(),
+                null
+        );
+
+        // 9-2. 현재 저금통 멤버들 중 "방금 들어온 사람 제외" 하고 알림 보내기
+        List<User> receivers = jarMemberRepository.findActiveMembersWithUserByJarId(jarId)
+                .stream()
+                .map(JarMember::getUser)
+                .filter(user -> !user.getId().equals(currentUserId))
+                .toList();
+
+        // 9-3. 알림 저장
+        notificationService.notifyJarMemberJoined(receivers, jar, payload);
 
         // 10. 참여 성공 응답
         return new JarInviteJoinResponse(

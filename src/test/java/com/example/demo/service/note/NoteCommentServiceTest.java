@@ -16,6 +16,7 @@ import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
 import com.example.demo.repository.note.NoteCommentRepository;
 import com.example.demo.repository.note.NoteRepository;
+import com.example.demo.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,8 @@ class NoteCommentServiceTest {
 
     private NoteCommentService noteCommentService;
 
+    private NotificationService notificationService;
+
     @BeforeEach
     void setUp() {
         noteCommentService = new NoteCommentService(
@@ -65,7 +68,8 @@ class NoteCommentServiceTest {
                 noteRepository,
                 jarRepository,
                 jarMemberRepository,
-                userRepository
+                userRepository,
+                notificationService
         );
     }
 
