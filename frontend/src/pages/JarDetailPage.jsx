@@ -1,7 +1,7 @@
 // src/pages/JarDetailPage.jsx
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import NoteSection from "./NoteSection";
 
@@ -130,6 +130,40 @@ function normalizeCommentContent(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+// 특정 댓글이 댓글 트리 어디에 있는지 "길"을 찾아주는 함수
+// 예:
+// 부모 댓글 10 아래 답글 21 이 있으면 [10, 21] 반환
+function findCommentPath(comments, targetCommentId, parents = []) {
+  if (!Array.isArray(comments) || !targetCommentId) return null;
+
+  for (const comment of comments) {
+    const currentId = Number(comment?.commentId);
+    const nextPath = [...parents, currentId];
+
+    if (currentId === Number(targetCommentId)) {
+      return nextPath;
+    }
+
+    const childPath = findCommentPath(
+      Array.isArray(comment?.replies) ? comment.replies : [],
+      targetCommentId,
+      nextPath
+    );
+
+    if (childPath) {
+      return childPath;
+    }
+  }
+
+  return null;
+}
+
+// 댓글 강조 효과에 쓸 클래스 문자열
+function getFocusedCommentClass(isFocused) {
+  if (!isFocused) return "";
+  return "ring-2 ring-emerald-300 bg-emerald-50/70";
+}
+
 /*
  * 이 컴포넌트는 리액션 버튼들을 한 줄로 보여주는 역할을 해.
  * - 현재 내가 누른 리액션은 강조해서 보여주고
@@ -219,6 +253,7 @@ function CommentSection({
   onCreateReply,
   replyExpandedMap,
   onToggleReplies,
+  focusedCommentId,
 }) {
 
     const totalCommentCount = getTotalCommentCount(comments);
@@ -295,7 +330,12 @@ function CommentSection({
               return (
                 <div key={comment.commentId} className="space-y-3">
                   {/* 부모 댓글 */}
-                  <div className={`rounded-2xl border p-4 ${palette.softCard}`}>
+                  <div
+                    id={`jar-comment-${comment.commentId}`}
+                    className={`rounded-2xl border p-4 ${palette.softCard} ${getFocusedCommentClass(
+                      Number(focusedCommentId) === Number(comment.commentId)
+                    )}`}
+                  >
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-black text-slate-800">
@@ -439,7 +479,10 @@ function CommentSection({
                         return (
                           <div
                             key={reply.commentId}
-                            className={`rounded-2xl border p-4 ${palette.panelSoft}`}
+                            id={`jar-comment-${reply.commentId}`}
+                            className={`rounded-2xl border p-4 ${palette.panelSoft} ${getFocusedCommentClass(
+                              Number(focusedCommentId) === Number(reply.commentId)
+                            )}`}
                           >
                             <div className="mb-2 flex items-center justify-between gap-3">
                               <div>
@@ -934,6 +977,7 @@ function JarZoomNoteDetailModal({
   onCreateReply,
   replyExpandedMap,
   onToggleReplies,
+  focusedCommentId,
 }) {
     const tags = normalizeJarZoomTags(note?.tags);
     const hasContent = toSafeNoteText(note?.content).length > 0;
@@ -1198,6 +1242,7 @@ function JarZoomNoteDetailModal({
                 onCreateReply={onCreateReply}
                 replyExpandedMap={replyExpandedMap}
                 onToggleReplies={onToggleReplies}
+                focusedCommentId={focusedCommentId}
               />
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1960,6 +2005,9 @@ export default function JarDetailPage() {
   // 주소에서 jarId 꺼내기
   const { jarId } = useParams();
 
+  // 현재 페이지로 넘어올 때 함께 전달된 state 읽기
+    const location = useLocation();
+
   // 페이지 이동용
   const navigate = useNavigate();
 
@@ -1969,6 +2017,15 @@ export default function JarDetailPage() {
   // 상세 로딩 / 에러
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+    // 알림에서 들어왔을 때 어느 댓글을 강조할지 저장
+    const [focusedCommentId, setFocusedCommentId] = useState(null);
+
+    // 아직 스크롤/강조 처리 전인 댓글 id
+    const [pendingFocusCommentId, setPendingFocusCommentId] = useState(null);
+
+    // 같은 location state를 여러 번 처리하지 않도록 막는 ref
+    const handledNotificationLocationKeyRef = useRef(null);
 
   // 삭제 버튼 눌렀을 때 따로 로딩 표시
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -2136,6 +2193,114 @@ export default function JarDetailPage() {
     loadMembers();
     loadMe();
   }, [jarId]);
+
+  // 알림에서 /jars/:jarId 로 들어왔을 때
+  // 1) 저금통 확대 모달 열고
+  // 2) 해당 쪽지 상세 모달 열고
+  // 3) 필요하면 특정 댓글까지 찾는 흐름
+  useEffect(() => {
+    const fromNotification = !!location.state?.fromNotification;
+    const focusNoteId = location.state?.focusNoteId
+      ? Number(location.state.focusNoteId)
+      : null;
+    const focusCommentId = location.state?.focusCommentId
+      ? Number(location.state.focusCommentId)
+      : null;
+
+    if (!jar) return;
+    if (!fromNotification) return;
+    if (!focusNoteId) return;
+
+    // 같은 navigation entry는 한 번만 처리
+    if (handledNotificationLocationKeyRef.current === location.key) {
+      return;
+    }
+
+    handledNotificationLocationKeyRef.current = location.key;
+
+    async function openFromNotification() {
+      // 저금통 확대 모달 먼저 열기
+      setJarZoomOpen(true);
+
+      // 오른쪽 목록도 같이 채워두면 화면이 자연스러워
+      await loadJarZoomNotes();
+
+      // 쪽지 상세 열기 + 필요하면 댓글 포커스 정보도 같이 넘기기
+      await handleOpenJarZoomNoteDetail(focusNoteId, {
+        focusCommentId,
+      });
+    }
+
+    openFromNotification();
+  }, [jar, location.key, location.state]);
+
+  // 댓글 목록이 준비되면
+  // - 목표 댓글이 대댓글인지 찾아서 부모 답글 목록을 펼치고
+  // - 그 댓글 위치로 스크롤하고
+  // - 잠깐 강조해줘
+  useEffect(() => {
+    if (!jarZoomDetailOpen) return;
+    if (!pendingFocusCommentId) return;
+    if (jarZoomCommentsLoading) return;
+    if (!Array.isArray(jarZoomComments) || jarZoomComments.length === 0) return;
+
+    const path = findCommentPath(jarZoomComments, pendingFocusCommentId);
+
+    // 못 찾았으면 무한 대기하지 않게 정리
+    if (!path) {
+      setPendingFocusCommentId(null);
+      return;
+    }
+
+    // 마지막은 진짜 target 댓글이고,
+    // 앞쪽 id들은 "이 댓글을 보려면 펼쳐야 하는 부모 댓글"이야.
+    const parentIdsToExpand = path.slice(0, -1);
+
+    if (parentIdsToExpand.length > 0) {
+      setReplyExpandedMap((prev) => {
+        const next = { ...prev };
+
+        parentIdsToExpand.forEach((commentId) => {
+          next[commentId] = true;
+        });
+
+        return next;
+      });
+    }
+
+    const targetId = Number(pendingFocusCommentId);
+
+    const scrollTimer = window.setTimeout(() => {
+      const targetElement = document.getElementById(`jar-comment-${targetId}`);
+
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+
+      setFocusedCommentId(targetId);
+    }, 180);
+
+    const clearHighlightTimer = window.setTimeout(() => {
+      setFocusedCommentId((prev) =>
+        Number(prev) === targetId ? null : prev
+      );
+    }, 2600);
+
+    setPendingFocusCommentId(null);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearHighlightTimer);
+    };
+  }, [
+    jarZoomDetailOpen,
+    jarZoomComments,
+    jarZoomCommentsLoading,
+    pendingFocusCommentId,
+  ]);
 
   // 상세 정보를 받아온 뒤, OWNER / ADMIN 이면 초대 목록도 로드
   useEffect(() => {
@@ -2406,8 +2571,16 @@ async function loadJarZoomComments(noteId) {
 }
 
 
-async function handleOpenJarZoomNoteDetail(noteId) {
-  if (!noteId) return;
+async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
+    if (!noteId) return;
+
+      const focusCommentId = options?.focusCommentId ?? null;
+
+      // 이번에 특정 댓글로 들어온 경우 나중에 스크롤할 수 있게 저장
+      setPendingFocusCommentId(focusCommentId ? Number(focusCommentId) : null);
+
+      // 예전 강조 흔적은 먼저 지워줘
+      setFocusedCommentId(null);
 
   setJarZoomDetailOpen(true);
   setJarZoomDetailNoteId(noteId);
@@ -2458,6 +2631,8 @@ function handleCloseJarZoomNoteDetail() {
   setReplyTargetCommentId(null);
   setReplyDraftMap({});
   setReplyExpandedMap({});
+  setPendingFocusCommentId(null);
+  setFocusedCommentId(null);
 }
 
 async function handleReactInJarZoomDetail(noteId, emoji) {
@@ -3440,6 +3615,7 @@ function handleRestoreHiddenInvites() {
           onCreateReply={handleCreateReply}
           replyExpandedMap={replyExpandedMap}
           onToggleReplies={handleToggleReplies}
+          focusedCommentId={focusedCommentId}
         />
         <div className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                             {/* 멤버 목록 */}
