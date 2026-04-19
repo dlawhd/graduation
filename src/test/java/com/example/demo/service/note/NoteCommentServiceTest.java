@@ -59,6 +59,7 @@ class NoteCommentServiceTest {
 
     private NoteCommentService noteCommentService;
 
+    @Mock
     private NotificationService notificationService;
 
     @BeforeEach
