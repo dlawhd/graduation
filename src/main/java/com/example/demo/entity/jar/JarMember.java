@@ -12,6 +12,7 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -28,6 +29,9 @@ import java.time.LocalDateTime;
 @SQLDelete(sql = "UPDATE jar_members SET deleted_at = NOW(), updated_at = NOW(), left_at = NOW() WHERE jar_member_id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class JarMember extends BaseEntity {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -71,7 +75,7 @@ public class JarMember extends BaseEntity {
                 .jar(jar)
                 .user(user)
                 .role(JarRole.OWNER)
-                .joinedAt(LocalDateTime.now())
+                .joinedAt(LocalDateTime.now(ZoneId.of("Asia/Seoul")))
                 .build();
     }
 
@@ -80,7 +84,7 @@ public class JarMember extends BaseEntity {
                 .jar(jar)
                 .user(user)
                 .role(JarRole.MEMBER)
-                .joinedAt(LocalDateTime.now())
+                .joinedAt(LocalDateTime.now(ZoneId.of("Asia/Seoul")))
                 .build();
     }
 
@@ -89,12 +93,12 @@ public class JarMember extends BaseEntity {
     }
 
     public void leave() {
-        this.leftAt = LocalDateTime.now();
+        this.joinedAt = LocalDateTime.now(KST);
         this.softDelete();
     }
 
     public void rejoin() {
-        this.joinedAt = LocalDateTime.now();
+        this.joinedAt = LocalDateTime.now(KST);
         this.leftAt = null;
         this.restore();
     }

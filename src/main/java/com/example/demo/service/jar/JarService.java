@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -47,13 +48,13 @@ public class JarService {
     // 요청값이 비어 있으면 이 기본값을 사용
     private static final int DEFAULT_EXPIRES_HOURS = 24;
     private static final int DEFAULT_MAX_USES = 1;
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final JarRepository jarRepository;
     private final JarMemberRepository jarMemberRepository;
     private final JarInviteRepository jarInviteRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
-
     public JarService(
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
@@ -104,11 +105,11 @@ public class JarService {
         return new JarCreateResponse(
                 savedJar.getJarId(),
                 savedJar.getName(),
-                toOffsetDateTime(savedJar.getOpenAt()),
+                toKstOffsetDateTime(savedJar.getOpenAt()),
                 savedJar.getOpenMode(),
                 savedJar.getLockLevel(),
                 JarRole.OWNER,
-                toOffsetDateTime(savedJar.getCreatedAt())
+                toKstOffsetDateTime(savedJar.getCreatedAt())
         );
     }
 
@@ -144,12 +145,12 @@ public class JarService {
                             jar.getDescription(),
                             (int) memberCount,
                             jar.getMaxMembers(),
-                            toOffsetDateTime(jar.getOpenAt()),
+                            toKstOffsetDateTime(jar.getOpenAt()),
                             jar.getOpenMode(),
                             jar.getLockLevel(),
                             isOpen(jar),
                             myMember.getRole(),
-                            toOffsetDateTime(jar.getUpdatedAt())
+                            toKstOffsetDateTime(jar.getOpenAt())
                     );
                 })
                 .toList();
@@ -188,13 +189,13 @@ public class JarService {
                 jar.getOwner().getId(),
                 (int) memberCount,
                 jar.getMaxMembers(),
-                toOffsetDateTime(jar.getOpenAt()),
+                toKstOffsetDateTime(jar.getOpenAt()),
                 jar.getOpenMode(),
                 jar.getLockLevel(),
                 isOpen(jar),
                 myMember.getRole(),
-                toOffsetDateTime(jar.getCreatedAt()),
-                toOffsetDateTime(jar.getUpdatedAt())
+                toKstOffsetDateTime(jar.getCreatedAt()),
+                toKstOffsetDateTime(jar.getUpdatedAt())
         );
     }
 
@@ -217,7 +218,7 @@ public class JarService {
                         null,
 
                         member.getRole(),
-                        toOffsetDateTime(member.getJoinedAt())
+                        toKstOffsetDateTime(member.getJoinedAt())
                 ))
                 .toList();
 
@@ -285,11 +286,11 @@ public class JarService {
                 // 지금은 예시 링크 형태만 넣어둘게.
                 "/invite/" + savedInvite.getCode(),
 
-                toOffsetDateTime(savedInvite.getExpiresAt()),
+                toKstOffsetDateTime(savedInvite.getExpiresAt()),
                 savedInvite.getMaxUses(),
                 savedInvite.getUsedCount(),
                 savedInvite.isAvailable(LocalDateTime.now()),
-                toOffsetDateTime(savedInvite.getCreatedAt())
+                toKstOffsetDateTime(savedInvite.getCreatedAt())
         );
     }
 
@@ -406,7 +407,7 @@ public class JarService {
                 jar.getJarId(),
                 jar.getName(),
                 joinedMember.getRole(),
-                toOffsetDateTime(joinedMember.getJoinedAt())
+                toKstOffsetDateTime(joinedMember.getJoinedAt())
         );
     }
 
@@ -432,7 +433,7 @@ public class JarService {
         // 4. 응답 반환
         return new JarLeaveResponse(
                 jarId,
-                toOffsetDateTime(myMember.getLeftAt())
+                toKstOffsetDateTime(myMember.getLeftAt())
         );
     }
 
@@ -457,13 +458,13 @@ public class JarService {
                 .map(invite -> new JarInviteItem(
                         invite.getInviteId(),
                         invite.getCode(),
-                        toOffsetDateTime(invite.getExpiresAt()),
-                        invite.getRevokedAt() == null ? null : toOffsetDateTime(invite.getRevokedAt()),
+                        toKstOffsetDateTime(invite.getExpiresAt()),
+                        invite.getRevokedAt() == null ? null : toKstOffsetDateTime(invite.getRevokedAt()),
                         invite.getMaxUses(),
                         invite.getUsedCount(),
                         invite.isAvailable(LocalDateTime.now()),
                         invite.getCreatedBy().getId(),
-                        toOffsetDateTime(invite.getCreatedAt())
+                        toKstOffsetDateTime(invite.getCreatedAt())
                 ))
                 .toList();
 
@@ -505,7 +506,7 @@ public class JarService {
         // 5. 응답 반환
         return new JarInviteRevokeResponse(
                 invite.getInviteId(),
-                toOffsetDateTime(invite.getRevokedAt())
+                toKstOffsetDateTime(invite.getRevokedAt())
         );
     }
 
@@ -555,7 +556,7 @@ public class JarService {
                 jarId,
                 targetUserId,
                 targetMember.getRole(),
-                toOffsetDateTime(targetMember.getUpdatedAt())
+                toKstOffsetDateTime(targetMember.getUpdatedAt())
         );
     }
 
@@ -600,7 +601,7 @@ public class JarService {
         return new JarKickResponse(
                 jarId,
                 targetUserId,
-                toOffsetDateTime(targetMember.getLeftAt())
+                toKstOffsetDateTime(targetMember.getLeftAt())
         );
     }
 
@@ -716,7 +717,7 @@ public class JarService {
         // 7. 응답 반환
         return new JarUpdateResponse(
                 savedJar.getJarId(),
-                toOffsetDateTime(savedJar.getUpdatedAt())
+                toKstOffsetDateTime(savedJar.getUpdatedAt())
         );
     }
 
@@ -791,14 +792,15 @@ public class JarService {
                 "초대코드 생성에 실패했어. 다시 시도해줘."
         );
     }
-
-    // DTO는 OffsetDateTime, 엔티티는 LocalDateTime 으로 쓰고 있어서 변환 메서드를 따로 둠
-    private LocalDateTime toLocalDateTime(OffsetDateTime offsetDateTime) {
-        return offsetDateTime.toLocalDateTime();
-    }
-
-    private OffsetDateTime toOffsetDateTime(LocalDateTime localDateTime) {
-        return localDateTime.atOffset(KST_OFFSET);
+    /*
+     * DB에 저장된 LocalDateTime은 한국 시간 벽시계값이라고 가정하고
+     * 응답용 OffsetDateTime(+09:00)으로 감싸주는 함수
+     */
+    private OffsetDateTime toKstOffsetDateTime(LocalDateTime localDateTime) {
+        if (localDateTime == null) {
+            return null;
+        }
+        return localDateTime.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime();
     }
     
     // 이제: 기록형 오픈 기준으로 판단
