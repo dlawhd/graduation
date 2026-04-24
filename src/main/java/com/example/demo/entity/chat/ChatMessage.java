@@ -127,16 +127,12 @@ public class ChatMessage extends BaseEntity {
         return sender != null && sender.getId().equals(userId);
     }
 
-    /*
-     * 시스템 메시지인지 확인
-     */
+    // 시스템 메시지인지 확인
     public boolean isSystemMessage() {
         return this.type == ChatMessageType.SYSTEM;
     }
 
-    /*
-     * 일반 텍스트 메시지인지 확인
-     */
+    //  일반 텍스트 메시지인지 확인
     public boolean isTextMessage() {
         return this.type == ChatMessageType.TEXT;
     }

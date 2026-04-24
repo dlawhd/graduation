@@ -111,30 +111,22 @@ public class ChatReadState extends BaseEntity {
         }
     }
 
-    /*
-     * 이 읽음 상태가 특정 사용자의 것인지 확인
-     */
+    // 이 읽음 상태가 특정 사용자의 것인지 확인
     public boolean isUser(Long userId) {
         return user != null && user.getId().equals(userId);
     }
 
-    /*
-     * 이 읽음 상태가 특정 저금통의 것인지 확인
-     */
+    // 이 읽음 상태가 특정 저금통의 것인지 확인
     public boolean isJar(Long jarId) {
         return jar != null && jar.getJarId().equals(jarId);
     }
 
-    /*
-     * 마지막 읽은 메시지가 있는지 확인
-     */
+    // 마지막 읽은 메시지가 있는지 확인
     public boolean hasLastReadMessage() {
         return lastReadMessage != null;
     }
 
-    /*
-     * 서비스/DTO에서 lastReadMessageId만 꺼내 쓰기 편하게 만든 메서드
-     */
+    // 서비스/DTO에서 lastReadMessageId만 꺼내 쓰기 편하게 만든 메서드
     public Long getLastReadMessageId() {
         return lastReadMessage == null ? null : lastReadMessage.getMessageId();
     }

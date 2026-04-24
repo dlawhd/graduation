@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import NoteSection from "./NoteSection";
+import JarChatPanel from "./JarChatPanel";
 
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
 const OPEN_MODE_LABEL = {
@@ -3557,6 +3558,8 @@ function handleRestoreHiddenInvites() {
             </aside>
           </div>
         </div>
+        <JarChatPanel jarId={jarId} />
+
         <NoteSection
           jar={jar}
           palette={palette}
