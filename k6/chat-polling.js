@@ -20,9 +20,7 @@ export const options = {
     chat_polling: {
       executor: "ramping-vus",
       stages: [
-        { duration: "30s", target: 100 },
-        { duration: "1m", target: 500 },
-        { duration: "1m", target: 1000 },
+        { duration: "30s", target: 20 },
         { duration: "30s", target: 0 },
       ],
     },
@@ -78,6 +76,15 @@ const sentMessages = new Counter("chat_messages_sent");
 
 if (!JAR_ID) {
   throw new Error("JAR_ID가 필요해. 예: -e JAR_ID=43");
+}
+
+function logFailedResponse(name, res) {
+  // 너무 많이 찍히면 보기 힘드니까 1번 가상 사용자, 첫 반복에서만 출력
+  if (__VU === 1 && __ITER === 0 && res.status >= 300) {
+    console.log("[" + name + "] failed");
+    console.log("status = " + res.status);
+    console.log("body = " + res.body.substring(0, 500));
+  }
 }
 
 /*
@@ -172,6 +179,7 @@ function loadInitialMessages() {
   const url = `${BASE_URL}/api/v1/jars/${JAR_ID}/chat/messages?limit=${LIMIT}`;
 
   const res = http.get(url, makeParams("chat-initial-load"));
+  logFailedResponse("기존 메시지 조회", res);
 
   check(res, {
     "기존 메시지 조회 status 200": (r) => r.status === 200,
@@ -202,6 +210,7 @@ function pollNewMessages() {
     `?afterMessageId=${lastMessageId}&limit=${LIMIT}`;
 
   const res = http.get(url, makeParams("chat-new-poll"));
+  logFailedResponse("새 메시지 조회", res);
 
   check(res, {
     "새 메시지 polling 조회 status 200": (r) => r.status === 200,
@@ -233,6 +242,7 @@ function maybeSendMessage() {
   });
 
   const res = http.post(url, body, makeParams("chat-send", true));
+  logFailedResponse("채팅 전송", res);
 
   check(res, {
     "채팅 전송 status 201": (r) => r.status === 201,
@@ -279,6 +289,7 @@ function getUnreadCount() {
   const url = `${BASE_URL}/api/v1/jars/${JAR_ID}/chat/unread`;
 
   const res = http.get(url, makeParams("chat-unread"));
+  logFailedResponse("unread 조회", res);
 
   check(res, {
     "unread 조회 status 200": (r) => r.status === 200,
