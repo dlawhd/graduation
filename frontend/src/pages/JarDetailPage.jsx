@@ -1903,6 +1903,88 @@ function JarZoomModal({
   );
 }
 
+/*
+ * JarChatModal은 저금통 채팅을 모달로 보여주는 컴포넌트야.
+ *
+ * 역할:
+ * - 평소에는 채팅창을 숨김
+ * - "저금통 채팅" 버튼을 눌렀을 때만 채팅방을 크게 보여줌
+ * - 모달을 닫으면 JarChatPanel도 사라져서 polling도 같이 멈출 수 있음
+ *
+ * 쉽게 말하면:
+ * 화면 아래에 채팅창을 계속 펼쳐두지 않고,
+ * 필요할 때만 채팅방을 꺼내 보는 구조야.
+ */
+function JarChatModal({ open, jar, palette, onClose }) {
+  // open이 false면 모달을 아예 만들지 않음
+  // 그래서 닫혀 있을 때는 채팅 polling도 돌지 않게 만들 수 있어
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-900/55 px-4 py-6"
+      onMouseDown={onClose}
+    >
+      <style>
+        {`
+          @keyframes jarChatPop {
+            0% {
+              opacity: 0;
+              transform: translateY(18px) scale(0.9);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+
+          .jar-chat-pop {
+            animation: jarChatPop 260ms cubic-bezier(0.22, 1, 0.36, 1);
+          }
+        `}
+      </style>
+
+      {/* 모달 본체 */}
+      <div
+        className="jar-chat-pop flex max-h-[88vh] w-full max-w-4xl flex-col rounded-[34px] border border-white/70 bg-white/95 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* 모달 상단 */}
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-lg font-black text-slate-800">
+              저금통 채팅방
+            </p>
+
+            <p className="mt-1 text-sm text-slate-500">
+              {jar?.name
+                ? `${jar.name} 멤버들과 대화할 수 있어요.`
+                : "저금통 멤버들과 대화할 수 있어요."}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+          >
+            닫기
+          </button>
+        </div>
+
+        {/* 채팅 영역 */}
+        <section
+          className={`min-h-0 flex-1 overflow-hidden rounded-[30px] border p-4 shadow-sm ${palette.panel}`}
+        >
+          <div className="max-h-[68vh] overflow-y-auto rounded-[24px] bg-white/70">
+            <JarChatPanel jarId={jar?.jarId} />
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function InfoItem({ label, value, className = "" }) {
   return (
     <div className={`rounded-2xl border px-4 py-3 ${className}`}>
@@ -2070,6 +2152,10 @@ export default function JarDetailPage() {
   const [jarZoomNotes, setJarZoomNotes] = useState([]);
   const [jarZoomLoading, setJarZoomLoading] = useState(false);
   const [jarZoomError, setJarZoomError] = useState("");
+
+  // 저금통 채팅 모달 상태
+  // false면 닫힘, true면 열림
+  const [jarChatOpen, setJarChatOpen] = useState(false);
 
   const [jarZoomReactingNoteId, setJarZoomReactingNoteId] = useState(null);
 
@@ -3017,6 +3103,16 @@ function handleCloseJarZoom() {
   setJarZoomOpen(false);
 }
 
+// 저금통 채팅 모달 열기
+function handleOpenJarChat() {
+  setJarChatOpen(true);
+}
+
+// 저금통 채팅 모달 닫기
+function handleCloseJarChat() {
+  setJarChatOpen(false);
+}
+
 async function handleChangeMemberRole(targetUserId, nextRole) {
   if (!canChangeMemberRole) {
     window.alert("멤버 역할 변경은 방장만 할 수 있어요.");
@@ -3442,13 +3538,23 @@ function handleRestoreHiddenInvites() {
                   interactive
                 />
 
-                <div className="mt-4 flex justify-center lg:absolute lg:right-0 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2">
+                <div className="mt-4 flex flex-col items-center justify-center gap-3 lg:absolute lg:right-0 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2">
+                  {/* 새 쪽지 작성 버튼 */}
                   <button
                     type="button"
                     onClick={handleOpenNoteComposer}
-                    className={`rounded-2xl px-5 py-3 text-sm font-bold shadow-[0_16px_36px_rgba(15,23,42,0.16)] transition hover:scale-[1.02] ${palette.primaryButton}`}
+                    className={`w-[152px] rounded-2xl px-5 py-3 text-sm font-bold shadow-[0_16px_36px_rgba(15,23,42,0.16)] transition hover:scale-[1.02] ${palette.primaryButton}`}
                   >
                     새 쪽지 쓰기
+                  </button>
+
+                  {/* 저금통 채팅 모달 열기 버튼 */}
+                  <button
+                    type="button"
+                    onClick={handleOpenJarChat}
+                    className={`w-[152px] rounded-2xl border px-5 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
+                  >
+                    💬 저금통 채팅
                   </button>
                 </div>
               </div>
@@ -3558,7 +3664,6 @@ function handleRestoreHiddenInvites() {
             </aside>
           </div>
         </div>
-        <JarChatPanel jarId={jarId} />
 
         <NoteSection
           jar={jar}
@@ -3581,6 +3686,12 @@ function handleRestoreHiddenInvites() {
           onOpenNoteDetail={handleOpenJarZoomNoteDetail}
           onReactNote={handleReactInJarZoomDetail}
           reactingNoteId={jarZoomReactingNoteId}
+        />
+        <JarChatModal
+          open={jarChatOpen}
+          jar={jar}
+          palette={palette}
+          onClose={handleCloseJarChat}
         />
         <JarZoomNoteDetailModal
           open={jarZoomDetailOpen}
