@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import { getChatUnreadCount } from "../api/chatApi";
 import NoteSection from "./NoteSection";
 import JarChatPanel from "./JarChatPanel";
 
@@ -2157,6 +2158,9 @@ export default function JarDetailPage() {
   // false면 닫힘, true면 열림
   const [jarChatOpen, setJarChatOpen] = useState(false);
 
+  // 채팅방 밖에서 보여줄 안 읽은 채팅 개수
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+
   const [jarZoomReactingNoteId, setJarZoomReactingNoteId] = useState(null);
 
   // 초대코드 목록은 2개씩 페이지처럼 보여줄 거야.
@@ -2388,6 +2392,32 @@ export default function JarDetailPage() {
     jarZoomCommentsLoading,
     pendingFocusCommentId,
   ]);
+
+  /*
+   * 채팅 모달이 닫혀 있을 때도
+   * 채팅 버튼 옆 숫자는 계속 갱신되어야 해.
+   *
+   * 그래서 JarChatPanel이 사라져 있어도
+   * JarDetailPage에서 unread count만 가볍게 polling 해준다.
+   */
+  useEffect(() => {
+    if (!jarId) return;
+
+    // 처음 들어왔을 때 1번 바로 조회
+    loadChatUnreadCount();
+
+    // 채팅 모달이 열려 있으면 JarChatPanel이 직접 메시지를 보고 읽음 처리하므로
+    // 바깥 badge polling은 잠깐 멈춰도 괜찮아.
+    if (jarChatOpen) return;
+
+    const timerId = window.setInterval(() => {
+      loadChatUnreadCount();
+    }, 3000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [jarId, jarChatOpen]);
 
   // 상세 정보를 받아온 뒤, OWNER / ADMIN 이면 초대 목록도 로드
   useEffect(() => {
@@ -3103,14 +3133,47 @@ function handleCloseJarZoom() {
   setJarZoomOpen(false);
 }
 
-// 저금통 채팅 모달 열기
-function handleOpenJarChat() {
-  setJarChatOpen(true);
+/*
+ * 채팅 버튼 옆에 보여줄 안 읽은 메시지 개수를 불러오는 함수야.
+ *
+ * 쉽게 말하면:
+ * - 서버에 "내가 안 본 채팅 몇 개야?"라고 물어봄
+ * - 그 숫자를 버튼 빨간 뱃지에 보여줌
+ */
+async function loadChatUnreadCount() {
+  if (!jarId) return;
+
+  try {
+    const data = await getChatUnreadCount(jarId);
+    setChatUnreadCount(Number(data?.unreadCount || 0));
+  } catch {
+    // unread count는 보조 기능이라 실패해도 화면을 깨지 않게 0으로 둠
+    setChatUnreadCount(0);
+  }
 }
 
-// 저금통 채팅 모달 닫기
-function handleCloseJarChat() {
+/*
+ * 채팅 모달 열기
+ *
+ * 사용자가 채팅방을 열었다는 건
+ * 이제 메시지를 보러 들어간다는 뜻이므로
+ * 버튼의 unread badge는 우선 0으로 숨겨준다.
+ *
+ * 실제 서버 읽음 처리는 JarChatPanel 안에서 마지막 메시지 기준으로 처리된다.
+ */
+function handleOpenJarChat() {
+  setJarChatOpen(true);
+  setChatUnreadCount(0);
+}
+
+/*
+ * 채팅 모달 닫기
+ *
+ * 모달을 닫은 뒤 서버 기준 unread count를 다시 한 번 맞춰준다.
+ */
+async function handleCloseJarChat() {
   setJarChatOpen(false);
+  await loadChatUnreadCount();
 }
 
 async function handleChangeMemberRole(targetUserId, nextRole) {
@@ -3552,9 +3615,15 @@ function handleRestoreHiddenInvites() {
                   <button
                     type="button"
                     onClick={handleOpenJarChat}
-                    className={`w-[152px] rounded-2xl border px-5 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
+                    className={`relative w-[152px] rounded-2xl border px-5 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
                   >
                     💬 저금통 채팅
+
+                    {chatUnreadCount > 0 && (
+                      <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-[11px] font-black text-white shadow-md">
+                        {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
