@@ -29,6 +29,11 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")
+
+	// ✅ WebSocket + STOMP 채팅을 사용하기 위한 의존성
+	// - WebSocket: 브라우저와 서버가 계속 연결된 상태로 메시지를 주고받게 해줌
+	// - STOMP: WebSocket 위에서 "/topic", "/app" 같은 주소 규칙을 쉽게 쓰게 해줌
+	implementation("org.springframework.boot:spring-boot-starter-websocket")
 	implementation("org.mariadb.jdbc:mariadb-java-client")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.flywaydb:flyway-core")
