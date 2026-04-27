@@ -1916,7 +1916,7 @@ function JarZoomModal({
  * 화면 아래에 채팅창을 계속 펼쳐두지 않고,
  * 필요할 때만 채팅방을 꺼내 보는 구조야.
  */
-function JarChatModal({ open, jar, palette, onClose }) {
+function JarChatModal({ open, jar, palette, currentUserId, onClose }) {
   // open이 false면 모달을 아예 만들지 않음
   // 그래서 닫혀 있을 때는 채팅 polling도 돌지 않게 만들 수 있어
   if (!open) return null;
@@ -1978,7 +1978,10 @@ function JarChatModal({ open, jar, palette, onClose }) {
           className={`min-h-0 flex-1 overflow-hidden rounded-[30px] border p-4 shadow-sm ${palette.panel}`}
         >
           <div className="max-h-[68vh] overflow-y-auto rounded-[24px] bg-white/70">
-            <JarChatPanel jarId={jar?.jarId} />
+            <JarChatPanel
+              jarId={jar?.jarId}
+              currentUserId={currentUserId}
+            />
           </div>
         </section>
       </div>
@@ -3760,6 +3763,7 @@ function handleRestoreHiddenInvites() {
           open={jarChatOpen}
           jar={jar}
           palette={palette}
+          currentUserId={me?.userId}
           onClose={handleCloseJarChat}
         />
         <JarZoomNoteDetailModal
