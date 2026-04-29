@@ -15,13 +15,27 @@ import { Counter } from "k6/metrics";
  * - 서버가 잘 버티는지 확인한다.
  */
 
+// 테스트 최대 VU 수
+// 예: -e MAX_VUS=50
+const MAX_VUS = Number(__ENV.MAX_VUS || 20);
+
+// 올라가는 시간
+const RAMP_UP = __ENV.RAMP_UP || "30s";
+
+// 최대 VU를 유지하는 시간
+const HOLD = __ENV.HOLD || "60s";
+
+// 내려가는 시간
+const RAMP_DOWN = __ENV.RAMP_DOWN || "30s";
+
 export const options = {
   scenarios: {
     chat_polling: {
       executor: "ramping-vus",
       stages: [
-        { duration: "30s", target: 20 },
-        { duration: "30s", target: 0 },
+        { duration: RAMP_UP, target: MAX_VUS },
+        { duration: HOLD, target: MAX_VUS },
+        { duration: RAMP_DOWN, target: 0 },
       ],
     },
   },
