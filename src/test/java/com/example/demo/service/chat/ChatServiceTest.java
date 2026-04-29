@@ -18,7 +18,6 @@ import com.example.demo.repository.chat.ChatMessageRepository;
 import com.example.demo.repository.chat.ChatReadStateRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
-import com.example.demo.service.redis.RedisChatPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,8 +62,6 @@ class ChatServiceTest {
 
     private ChatService chatService;
 
-    private RedisChatPublisher redisChatPublisher;
-
     private User currentUser;
     private User otherUser;
     private Jar jar;
@@ -89,8 +86,7 @@ class ChatServiceTest {
                 chatReadStateRepository,
                 jarRepository,
                 jarMemberRepository,
-                userRepository,
-                redisChatPublisher
+                userRepository
         );
     }
 

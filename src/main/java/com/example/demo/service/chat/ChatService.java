@@ -4,9 +4,7 @@ import com.example.demo.dto.chat.request.ChatMessageSendRequest;
 import com.example.demo.dto.chat.request.ChatReadRequest;
 import com.example.demo.dto.chat.response.ChatMessageListResponse;
 import com.example.demo.dto.chat.response.ChatMessageResponse;
-import com.example.demo.dto.chat.response.ChatSocketMessageResponse;
 import com.example.demo.dto.chat.response.ChatUnreadResponse;
-import com.example.demo.dto.redis.RedisChatMessageEvent;
 import com.example.demo.entity.User;
 import com.example.demo.entity.chat.ChatMessage;
 import com.example.demo.entity.chat.ChatReadState;
@@ -16,7 +14,6 @@ import com.example.demo.repository.chat.ChatMessageRepository;
 import com.example.demo.repository.chat.ChatReadStateRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
-import com.example.demo.service.redis.RedisChatPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,22 +39,19 @@ public class ChatService {
     private final JarRepository jarRepository;
     private final JarMemberRepository jarMemberRepository;
     private final UserRepository userRepository;
-    private final RedisChatPublisher redisChatPublisher;
 
     public ChatService(
             ChatMessageRepository chatMessageRepository,
             ChatReadStateRepository chatReadStateRepository,
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
-            UserRepository userRepository,
-            RedisChatPublisher redisChatPublisher
+            UserRepository userRepository
     ) {
         this.chatMessageRepository = chatMessageRepository;
         this.chatReadStateRepository = chatReadStateRepository;
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
         this.userRepository = userRepository;
-        this.redisChatPublisher = redisChatPublisher;
     }
 
     // 채팅 메시지 보내기
@@ -102,55 +96,6 @@ public class ChatService {
 
         // 8. 화면에 내려줄 응답 DTO로 변환
         return toChatMessageResponse(savedMessage, currentUserId);
-    }
-
-    /*
-     * WebSocket 채팅 메시지 보내기
-     *
-     * 사용 상황:
-     * /app/jars/{jarId}/chat.send
-     *
-     * 쉽게 말하면:
-     * - WebSocket으로 들어온 채팅을 DB에 저장하고
-     * - Redis 방송국에 "새 채팅 왔어!"라고 발행한다.
-     *
-     * 주의:
-     * - 여기서는 직접 WebSocket으로 뿌리지 않는다.
-     * - RedisChatSubscriber가 Redis 메시지를 받아서 WebSocket으로 뿌린다.
-     */
-    @Transactional
-    public ChatSocketMessageResponse sendSocketMessage(
-            Long currentUserId,
-            Long jarId,
-            ChatMessageSendRequest request
-    ) {
-        // 1. 기존 REST 채팅 저장 로직 재사용
-        ChatMessageResponse savedMessage = sendTextMessage(
-                currentUserId,
-                jarId,
-                request
-        );
-
-        // 2. WebSocket 전송용 DTO로 변환
-        ChatSocketMessageResponse socketMessage =
-                ChatSocketMessageResponse.from(savedMessage);
-
-        // 3. Redis로 보낼 이벤트 생성
-        RedisChatMessageEvent event = new RedisChatMessageEvent(
-                socketMessage.messageId(),
-                socketMessage.jarId(),
-                socketMessage.senderId(),
-                socketMessage.senderName(),
-                socketMessage.type(),
-                socketMessage.content(),
-                socketMessage.createdAt()
-        );
-
-        // 4. Redis 채널로 발행
-        redisChatPublisher.publish(event);
-
-        // 5. 테스트나 추후 확장을 위해 저장된 메시지 반환
-        return socketMessage;
     }
 
     /*

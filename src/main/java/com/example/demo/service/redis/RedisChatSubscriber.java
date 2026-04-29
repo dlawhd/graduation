@@ -1,3 +1,4 @@
+/*
 package com.example.demo.service.redis;
 
 import com.example.demo.dto.redis.RedisChatMessageEvent;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 
+*/
 /*
  * RedisChatSubscriber 역할
  *
@@ -18,7 +20,8 @@ import java.nio.charset.StandardCharsets;
  * 쉽게 말하면:
  * - Redis 방송국에서 "새 채팅 왔어!" 메시지를 듣고
  * - 실제 WebSocket 채팅방으로 다시 뿌려주는 역할이다.
- */
+ *//*
+
 @Component
 public class RedisChatSubscriber implements MessageListener {
 
@@ -33,9 +36,11 @@ public class RedisChatSubscriber implements MessageListener {
         this.messagingTemplate = messagingTemplate;
     }
 
-    /*
+    */
+/*
      * Redis에서 메시지를 받으면 자동으로 실행된다.
-     */
+     *//*
+
     @Override
     public void onMessage(Message message, byte[] pattern) {
         try {
@@ -66,4 +71,4 @@ public class RedisChatSubscriber implements MessageListener {
             throw new IllegalStateException("Redis 채팅 메시지 처리에 실패했어요.", e);
         }
     }
-}
+}*/

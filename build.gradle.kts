@@ -43,7 +43,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
 
 	// Redis
-	implementation("org.springframework.boot:spring-boot-starter-data-redis")
+	// implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
 	// ✅ S3 업로드용
 	implementation(platform("software.amazon.awssdk:bom:2.31.67"))
