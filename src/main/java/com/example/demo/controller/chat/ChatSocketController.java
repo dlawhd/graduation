@@ -37,15 +37,10 @@ public class ChatSocketController {
     // 기존 채팅 저장/검증 로직을 그대로 사용하기 위한 서비스
     private final ChatService chatService;
 
-    // 특정 topic을 구독 중인 사용자들에게 메시지를 보내기 위한 도구
-    private final SimpMessagingTemplate messagingTemplate;
-
     public ChatSocketController(
-            ChatService chatService,
-            SimpMessagingTemplate messagingTemplate
+            ChatService chatService
     ) {
         this.chatService = chatService;
-        this.messagingTemplate = messagingTemplate;
     }
 
     /*
@@ -65,42 +60,14 @@ public class ChatSocketController {
      */
     @MessageMapping("/jars/{jarId}/chat.send")
     public void sendMessage(
-
-            // WebSocket 주소 안에 들어있는 jarId를 꺼낸다.
-            @DestinationVariable
-            Long jarId,
-
-            // 프론트가 보낸 채팅 메시지 본문을 받는다.
-            // ChatMessageSendRequest 안의 content 검증도 함께 실행된다.
-            @Valid
-            @Payload
-            ChatMessageSendRequest request,
-
-            // WebSocket 연결 시점에 인증된 사용자 정보다.
+            @DestinationVariable Long jarId,
+            @Valid @Payload ChatMessageSendRequest request,
             Principal principal
     ) {
-
-        // 1. 현재 로그인한 사용자 ID를 꺼낸다.
         Long currentUserId = extractCurrentUserId(principal);
 
-        // 2. 기존 ChatService로 메시지를 저장한다.
-        // 여기서 멤버 검증, 빈 메시지 검증, DB 저장이 모두 처리된다.
-        ChatMessageResponse savedMessage = chatService.sendTextMessage(
-                currentUserId,
-                jarId,
-                request
-        );
-
-        // 3. WebSocket 전송용 응답으로 바꾼다.
-        // mine 값은 빼고 보낸다.
-        ChatSocketMessageResponse socketMessage =
-                ChatSocketMessageResponse.from(savedMessage);
-
-        // 4. 같은 저금통 채팅방을 보고 있는 사람들에게 메시지를 뿌린다.
-        messagingTemplate.convertAndSend(
-                "/topic/jars/" + jarId + "/chat",
-                socketMessage
-        );
+        // DB 저장 + Redis 발행까지 Service에서 처리
+        chatService.sendSocketMessage(currentUserId, jarId, request);
     }
 
     /*

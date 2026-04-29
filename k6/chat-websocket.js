@@ -13,7 +13,25 @@
 
 import ws from "k6/ws";
 import { check, sleep } from "k6";
-import { Counter, Rate } from "k6/metrics";
+import { Counter, Rate, Trend } from "k6/metrics";
+
+// 최대 가상 사용자 수
+// 예: -e MAX_VUS=100
+const MAX_VUS = Number(__ENV.MAX_VUS || 20);
+
+// 올라가는 시간
+// 예: -e RAMP_UP=30s
+const RAMP_UP = __ENV.RAMP_UP || "30s";
+
+// 최대 VU를 유지하는 시간
+// 예: -e HOLD=60s
+const HOLD = __ENV.HOLD || "0s";
+
+// 내려가는 시간
+// 예: -e RAMP_DOWN=30s
+const RAMP_DOWN = __ENV.RAMP_DOWN || "30s";
+
+const messageLatency = new Trend("websocket_message_latency_ms");
 
 /*
  * 테스트 조건
@@ -27,8 +45,9 @@ export const options = {
     chat_websocket: {
       executor: "ramping-vus",
       stages: [
-        { duration: "30s", target: 20 },
-        { duration: "30s", target: 0 },
+        { duration: RAMP_UP, target: MAX_VUS },
+        { duration: HOLD, target: MAX_VUS },
+        { duration: RAMP_DOWN, target: 0 },
       ],
     },
   },
@@ -41,6 +60,10 @@ export const options = {
 
     // 서버 MESSAGE 수신 성공률
     stomp_message_received: ["rate>0.95"],
+
+    // WebSocket 메시지 왕복 지연시간 p95가 1000ms(1초) 미만인지 확인
+    // 쉽게 말하면, 메시지 100개 중 95개는 1초 안에 다시 받아야 통과
+    websocket_message_latency_ms: ["p(95)<1000"],
 
     // 전체 check 성공률
     checks: ["rate>0.95"],
@@ -62,14 +85,42 @@ export const options = {
  * - WebSocket도 로그인 사용자를 알아야 하므로 쿠키가 필요하다.
  */
 const WS_URL = __ENV.WS_URL || "ws://localhost:8080/ws";
-const JAR_ID = __ENV.JAR_ID;
+
+// 여러 저금통 방을 테스트할 때 사용
+// 예: -e JAR_IDS=45,46,47,48,49,50,51,52,53,54
+// JAR_IDS가 없으면 기존처럼 JAR_ID 하나만 사용
+const JAR_IDS = (__ENV.JAR_IDS || __ENV.JAR_ID).split(",");
+
+/*
+ * VU 번호 기준으로 채팅방을 나눈다.
+ *
+ * 예:
+ * JAR_IDS=45,46,47,48,49,50,51,52,53,54
+ *
+ * VU 1  -> 45
+ * VU 2  -> 46
+ * VU 10 -> 54
+ * VU 11 -> 다시 45
+ */
+function pickJarId() {
+  return JAR_IDS[(__VU - 1) % JAR_IDS.length];
+}
+
 const COOKIE = __ENV.COOKIE || "";
 
-// 메시지를 몇 초마다 보낼지
+// 메시지를 몇 ms마다 보낼지
+// 예: 5000이면 5초마다 메시지 1개 전송
 const SEND_INTERVAL_MS = Number(__ENV.SEND_INTERVAL_MS || 3000);
 
 // 연결을 몇 초 동안 유지할지
 const SESSION_SECONDS = Number(__ENV.SESSION_SECONDS || 30);
+
+// SEND_RATE=0이면 메시지를 보내지 않고 연결/구독만 테스트
+// SEND_RATE=1이면 메시지 전송까지 테스트
+const SEND_RATE = __ENV.SEND_RATE === undefined
+  ? 1
+  : Number(__ENV.SEND_RATE);
+const SHOULD_SEND = SEND_RATE > 0;
 
 /*
  * 커스텀 지표
@@ -83,10 +134,9 @@ const stompMessageReceived = new Rate("stomp_message_received");
 const sentMessages = new Counter("websocket_messages_sent");
 const receivedMessages = new Counter("websocket_messages_received");
 
-if (!JAR_ID) {
-  throw new Error("JAR_ID가 필요해. 예: -e JAR_ID=36");
+if (!__ENV.JAR_IDS && !__ENV.JAR_ID) {
+  throw new Error("JAR_IDS 또는 JAR_ID가 필요해. 예: -e JAR_IDS=45,46,47");
 }
-
 /*
  * STOMP 프레임 끝에는 반드시 \x00(NULL 문자)이 붙어야 한다.
  *
@@ -131,10 +181,10 @@ function connectFrame() {
  * 의미:
  * 36번 저금통 채팅방 메시지를 받을 준비를 한다.
  */
-function subscribeFrame() {
+function subscribeFrame(jarId) {
   return frame("SUBSCRIBE", {
     id: `sub-${__VU}`,
-    destination: `/topic/jars/${JAR_ID}/chat`,
+    destination: `/topic/jars/${jarId}/chat`,
   });
 }
 
@@ -149,15 +199,19 @@ function subscribeFrame() {
  * 의미:
  * 서버의 @MessageMapping 쪽으로 채팅 메시지를 보낸다.
  */
-function sendChatFrame() {
+function sendChatFrame(jarId) {
+  // 메시지를 보낸 시각
+  // 나중에 서버가 다시 내려준 메시지를 받으면 이 값으로 지연 시간을 계산한다.
+  const sentAt = Date.now();
+
   const body = JSON.stringify({
-    content: `k6 websocket test message - vu=${__VU}, iter=${__ITER}, time=${Date.now()}`,
+    content: `k6 websocket latency test - vu=${__VU}, iter=${__ITER}, sentAt=${sentAt}`,
   });
 
   return frame(
     "SEND",
     {
-      destination: `/app/jars/${JAR_ID}/chat.send`,
+      destination: `/app/jars/${jarId}/chat.send`,
       "content-type": "application/json",
       "content-length": body.length,
     },
@@ -169,6 +223,10 @@ function sendChatFrame() {
  * k6가 반복 실행하는 메인 함수
  */
 export default function () {
+
+  // 이번 VU가 들어갈 저금통 채팅방 선택
+  const selectedJarId = pickJarId();
+
   const params = {
     headers: {
       Origin: "https://www.esjh.shop",
@@ -206,28 +264,46 @@ export default function () {
         stompConnected.add(true);
 
         // 연결 성공 후 채팅방 구독
-        socket.send(subscribeFrame());
+        socket.send(subscribeFrame(selectedJarId));
 
-        // SEND_RATE=0이면 메시지를 보내지 않고, 연결/구독만 테스트한다.
+        // 메시지 전송 테스트 모드일 때만 첫 메시지를 보낸다.
+        // 아주 짧게 기다리는 이유:
+        // SUBSCRIBE 프레임이 서버에 먼저 처리된 뒤 SEND가 가도록 하기 위해서다.
         if (SHOULD_SEND) {
-          socket.send(sendChatFrame());
-          sentMessages.add(1);
+          socket.setTimeout(function () {
+            socket.send(sendChatFrame(selectedJarId));
+            sentMessages.add(1);
+          }, 300);
         }
       }
 
       // 서버가 채팅 메시지를 다시 내려준 경우
-      if (text.includes("MESSAGE") && text.includes(`/topic/jars/${JAR_ID}/chat`)) {
+      if (text.includes("MESSAGE") && text.includes(`/topic/jars/${selectedJarId}/chat`)) {
         receivedMessageCount += 1;
         receivedMessages.add(1);
-        stompMessageReceived.add(true);
+
+        // 서버가 다시 내려준 메시지 안에서 sentAt 값을 찾는다.
+        // 예: content 안에 sentAt=1777429... 형태로 들어 있음
+        const match = text.match(/sentAt=(\d+)/);
+
+        if (match && match[1]) {
+          const sentAt = Number(match[1]);
+          const latencyMs = Date.now() - sentAt;
+
+          // 메시지 왕복 지연 시간 기록
+          messageLatency.add(latencyMs);
+        }
       }
     });
 
     /*
      * 연결 중 일정 시간마다 메시지 전송
+     *
+     * SEND_RATE=0이면 메시지를 보내지 않고,
+     * SEND_RATE=1이면 SEND_INTERVAL_MS 간격으로 메시지를 보낸다.
      */
     socket.setInterval(function () {
-      // STOMP 연결이 안 됐으면 메시지를 보내지 않는다.
+      // STOMP 연결이 아직 안 됐으면 메시지를 보내지 않는다.
       if (!isStompConnected) {
         return;
       }
@@ -237,7 +313,7 @@ export default function () {
         return;
       }
 
-      socket.send(sendChatFrame());
+      socket.send(sendChatFrame(selectedJarId));
       sentMessages.add(1);
     }, SEND_INTERVAL_MS);
 
@@ -249,9 +325,15 @@ export default function () {
         "STOMP CONNECTED 수신 성공": (value) => value === true,
       });
 
-      check(receivedMessageCount, {
-        "WebSocket MESSAGE 1개 이상 수신": (value) => value > 0,
-      });
+      // 메시지를 보내는 테스트일 때만 MESSAGE 수신 여부를 검사한다.
+      // SEND_RATE=0이면 아무도 메시지를 안 보낼 수 있으므로 이 체크를 하지 않는다.
+      if (SHOULD_SEND) {
+        check(receivedMessageCount, {
+          "WebSocket MESSAGE 1개 이상 수신": (value) => value > 0,
+        });
+
+        stompMessageReceived.add(receivedMessageCount > 0);
+      }
 
       socket.close();
     }, SESSION_SECONDS * 1000);
