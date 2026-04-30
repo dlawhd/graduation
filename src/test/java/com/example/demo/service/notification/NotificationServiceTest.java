@@ -24,6 +24,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -49,9 +51,12 @@ class NotificationServiceTest {
 
     private NotificationService notificationService;
 
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
+
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationService(notificationRepository);
+        notificationService = new NotificationService(notificationRepository, messagingTemplate);
     }
 
     @Test
@@ -210,12 +215,14 @@ class NotificationServiceTest {
         Jar jar = createJar(10L, receiver);
         NotificationPayload payload = payload(jar.getJarId(), 100L, 1000L, actor, null);
 
+        mockSaveAndFlush();
+
         // when
         notificationService.notifyNoteCommented(receiver, jar, payload);
 
         // then
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(captor.capture());
+        verify(notificationRepository).saveAndFlush(captor.capture());
 
         Notification savedNotification = captor.getValue();
         assertThat(savedNotification.getUser()).isEqualTo(receiver);
@@ -238,7 +245,7 @@ class NotificationServiceTest {
         notificationService.notifyNoteCommented(actor, jar, payload);
 
         // then
-        verify(notificationRepository, never()).save(any(Notification.class));
+        verify(notificationRepository, never()).saveAndFlush(any(Notification.class));
     }
 
     @Test
@@ -252,6 +259,8 @@ class NotificationServiceTest {
         Jar jar = createJar(10L, receiverOne);
         NotificationPayload payload = payload(jar.getJarId(), 100L, 1000L, actor, null);
 
+        mockSaveAndFlush();
+
         // when
         notificationService.notifyCommentReplied(
                 List.of(receiverOne, receiverTwo, receiverOne, actor, unsavedUser),
@@ -261,7 +270,7 @@ class NotificationServiceTest {
 
         // then
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository, times(2)).save(captor.capture());
+        verify(notificationRepository, times(2)).saveAndFlush(captor.capture());
 
         assertThat(captor.getAllValues())
                 .extracting(Notification::getUser)
@@ -343,5 +352,40 @@ class NotificationServiceTest {
                 .build();
         ReflectionTestUtils.setField(jar, "jarId", jarId);
         return jar;
+    }
+
+    /*
+     * saveAndFlush mock 설정 메서드
+     *
+     * NotificationService는 알림을 저장한 직후
+     * notificationId, createdAt 같은 값을 이용해서 WebSocket 응답을 만든다.
+     *
+     * 그런데 단위 테스트에서는 진짜 DB가 없어서
+     * Mockito가 saveAndFlush 결과를 자동으로 만들어주지 않는다.
+     *
+     * 그래서 테스트용으로:
+     * - 저장된 알림에 notificationId를 넣어주고
+     * - createdAt / updatedAt도 넣어준 뒤
+     * - 그 알림을 그대로 반환하게 만든다.
+     */
+    private void mockSaveAndFlush() {
+        when(notificationRepository.saveAndFlush(any(Notification.class)))
+                .thenAnswer(invocation -> {
+                    Notification notification = invocation.getArgument(0);
+
+                    ReflectionTestUtils.setField(notification, "notificationId", 999L);
+                    ReflectionTestUtils.setField(
+                            notification,
+                            "createdAt",
+                            LocalDateTime.of(2026, 4, 30, 12, 0)
+                    );
+                    ReflectionTestUtils.setField(
+                            notification,
+                            "updatedAt",
+                            LocalDateTime.of(2026, 4, 30, 12, 0)
+                    );
+
+                    return notification;
+                });
     }
 }

@@ -24,6 +24,10 @@ import {
   readAllNotifications,
   readNotification,
 } from "./api/notificationApi";
+import {
+  createNotificationSocketClient,
+  disconnectNotificationSocket,
+} from "./api/notificationSocketApi";
 
 // 작은 enum 한글화
 const ROLE_LABEL = {
@@ -37,6 +41,16 @@ function formatNotificationBadge(count) {
   if (!count || count <= 0) return "";
   if (count > 99) return "99+";
   return String(count);
+}
+
+/*
+ * 로그인 사용자 정보에서 userId만 안전하게 꺼내는 함수
+ *
+ * 현재 /api/v1/me 응답은 userId라는 이름으로 사용자 번호를 내려준다.
+ * 혹시 나중에 id로 바뀌어도 깨지지 않도록 같이 대비한다.
+ */
+function getCurrentUserId(me) {
+  return me?.userId ?? me?.id ?? null;
 }
 
 // 알림 종류에 맞는 작은 아이콘(이모지) 고르기
@@ -308,6 +322,82 @@ export default function App() {
         }
 
         loadUnreadCount();
+      }, [me, loadUnreadCount]);
+
+      // --------------------------------------------------------
+      // 알림 WebSocket 연결
+      // - 로그인한 사용자에게 새 알림이 오면 헤더 뱃지와 목록을 즉시 갱신
+      // --------------------------------------------------------
+      useEffect(() => {
+        const currentUserId = getCurrentUserId(me);
+
+        // 로그인하지 않았거나 userId가 없으면 WebSocket 연결을 만들지 않는다.
+        if (!currentUserId) {
+          return;
+        }
+
+        /*
+         * 알림 WebSocket 클라이언트를 만든다.
+         * 서버가 /topic/users/{userId}/notifications 로 보내는 알림을 받는다.
+         */
+        const client = createNotificationSocketClient({
+          userId: currentUserId,
+
+          /*
+           * 새 알림을 받았을 때 실행된다.
+           *
+           * 하는 일:
+           * 1. unreadCount를 1 올린다.
+           * 2. 알림 목록 맨 앞에 새 알림을 추가한다.
+           * 3. 같은 알림이 이미 있으면 중복 추가하지 않는다.
+           */
+          onNotificationReceived: (newNotification) => {
+            if (!newNotification?.notificationId) {
+              loadUnreadCount();
+              return;
+            }
+
+            // 새 알림은 기본적으로 안 읽은 알림이므로 뱃지 숫자를 1 올린다.
+            setUnreadCount((prev) => Number(prev || 0) + 1);
+
+            // 드롭다운 목록 맨 앞에 새 알림을 꽂는다.
+            setNotifications((prev) => {
+              const alreadyExists = prev.some(
+                (item) => item.notificationId === newNotification.notificationId
+              );
+
+              if (alreadyExists) {
+                return prev;
+              }
+
+              // 헤더 드롭다운은 너무 길 필요 없으니 최근 10개만 유지한다.
+              return [newNotification, ...prev].slice(0, 10);
+            });
+          },
+
+          onConnect: () => {
+            console.log("헤더 알림 WebSocket 연결 완료");
+          },
+
+          /*
+           * WebSocket 오류가 나도 화면이 완전히 망가지면 안 된다.
+           * 그래서 오류가 나면 REST API로 unread count를 한 번 다시 맞춘다.
+           */
+          onError: () => {
+            loadUnreadCount();
+          },
+        });
+
+        // 실제 연결 시작
+        client.activate();
+
+        /*
+         * App이 정리되거나 로그아웃되어 me가 바뀌면 연결을 끊는다.
+         * 연결을 안 끊으면 같은 알림을 여러 번 받을 수 있다.
+         */
+        return () => {
+          disconnectNotificationSocket(client);
+        };
       }, [me, loadUnreadCount]);
 
       // --------------------------------------------------------
