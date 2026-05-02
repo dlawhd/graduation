@@ -10,6 +10,11 @@ import {
   createJarMemberSocketClient,
   disconnectJarMemberSocket,
 } from "../api/jarMemberSocketApi";
+import {
+  createNoteSocketClient,
+  disconnectNoteSocket,
+} from "../api/noteSocketApi";
+
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
 const OPEN_MODE_LABEL = {
   ALL_AT_ONCE: "한 번에 전체 공개",
@@ -2381,6 +2386,98 @@ export default function JarDetailPage() {
     };
   }, [jarId, me?.userId, me?.id, navigate]);
 
+  /*
+   * 쪽지 상세 모달 WebSocket 연결
+   *
+   * 언제 연결하냐면?
+   * - 저금통 확대 모달에서 특정 쪽지 상세 모달을 열었을 때만 연결한다.
+   *
+   * 왜 항상 연결하지 않냐면?
+   * - 모든 쪽지를 전부 구독하면 연결이 너무 많아진다.
+   * - 지금 보고 있는 쪽지 하나만 구독하는 게 깔끔하다.
+   */
+  useEffect(() => {
+    // 쪽지 상세 모달이 닫혀 있으면 연결하지 않는다.
+    if (!jarZoomDetailOpen) return;
+
+    // 어떤 쪽지를 보고 있는지 없으면 연결하지 않는다.
+    if (!jarId || !jarZoomDetailNoteId) return;
+
+    const client = createNoteSocketClient({
+      jarId,
+      noteId: jarZoomDetailNoteId,
+
+      onNoteEventReceived: async (event) => {
+        const eventType = event?.type;
+        const eventNoteId = Number(event?.noteId);
+
+        // 혹시 다른 쪽지 이벤트가 들어오면 무시한다.
+        if (!eventNoteId || eventNoteId !== Number(jarZoomDetailNoteId)) {
+          return;
+        }
+
+        /*
+         * 댓글/답글/수정/삭제 이벤트
+         *
+         * 처음 버전에서는 event 내용으로 직접 화면을 조작하지 않고,
+         * 댓글 목록을 다시 조회한다.
+         *
+         * 이유:
+         * - 부모 댓글/답글 트리 구조를 안전하게 맞출 수 있다.
+         * - 삭제/수정 후 정렬도 서버 기준과 정확히 맞는다.
+         */
+        if (
+          eventType === "COMMENT_CREATED" ||
+          eventType === "COMMENT_REPLIED" ||
+          eventType === "COMMENT_UPDATED" ||
+          eventType === "COMMENT_DELETED"
+        ) {
+          const refreshedComments = await loadJarZoomComments(eventNoteId);
+          patchCommentCountEverywhere(
+            eventNoteId,
+            getTotalCommentCount(refreshedComments)
+          );
+          return;
+        }
+
+        /*
+         * 리액션 이벤트
+         *
+         * 주의:
+         * WebSocket 이벤트에 들어있는 actorUserId는 "누가 눌렀는지"이고,
+         * myReaction은 사용자마다 다르다.
+         *
+         * 그래서 이벤트를 받으면 각 사용자가 자기 기준으로
+         * GET /reactions를 다시 조회해야 한다.
+         */
+        if (eventType === "REACTION_CHANGED") {
+          const res = await apiClient.get(
+            `/api/v1/jars/${jarId}/notes/${eventNoteId}/reactions`
+          );
+
+          const summary = res.data?.data;
+
+          patchJarZoomDetailNote(eventNoteId, summary);
+          patchJarZoomNoteInList(eventNoteId, summary);
+        }
+      },
+
+      onConnect: () => {
+        console.log("쪽지 상세 변화 구독 시작");
+      },
+
+      onError: (error) => {
+        console.error("쪽지 상세 WebSocket 오류", error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      disconnectNoteSocket(client);
+    };
+  }, [jarId, jarZoomDetailOpen, jarZoomDetailNoteId]);
+
   // 알림에서 /jars/:jarId 로 들어왔을 때
   // 1) 저금통 확대 모달 열고
   // 2) 해당 쪽지 상세 모달 열고
@@ -2760,15 +2857,21 @@ async function loadJarZoomNotes() {
 }
 
 async function loadJarZoomComments(noteId) {
-  if (!noteId) return;
+  if (!noteId) return [];
 
   setJarZoomCommentsLoading(true);
   setJarZoomCommentsError("");
 
   try {
-    const res = await apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}/comments`);
+    const res = await apiClient.get(
+      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
+    );
+
     const items = normalizeCommentItems(res.data?.data);
     setJarZoomComments(items);
+
+    // WebSocket 이벤트 처리 쪽에서 댓글 개수 계산할 수 있게 반환
+    return items;
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -2778,6 +2881,8 @@ async function loadJarZoomComments(noteId) {
 
     setJarZoomCommentsError(serverMessage);
     setJarZoomComments([]);
+
+    return [];
   } finally {
     setJarZoomCommentsLoading(false);
   }

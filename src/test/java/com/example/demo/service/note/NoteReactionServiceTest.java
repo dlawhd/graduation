@@ -66,9 +66,14 @@ class NoteReactionServiceTest {
     @Mock
     private JarOpenService jarOpenService;
 
+    @Mock
     private NoteReactionService noteReactionService;
 
+    @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private NoteRealtimeService noteRealtimeService;
 
     @BeforeEach
     void setUp() {
@@ -80,7 +85,8 @@ class NoteReactionServiceTest {
                 jarMemberRepository,
                 userRepository,
                 jarOpenService,
-                notificationService
+                notificationService,
+                noteRealtimeService
         );
     }
 

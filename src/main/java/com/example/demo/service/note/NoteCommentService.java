@@ -4,6 +4,7 @@ import com.example.demo.dto.note.request.NoteCommentCreateRequest;
 import com.example.demo.dto.note.request.NoteCommentUpdateRequest;
 import com.example.demo.dto.note.response.NoteCommentItem;
 import com.example.demo.dto.note.response.NoteCommentListResponse;
+import com.example.demo.dto.note.response.NoteRealtimeEventResponse;
 import com.example.demo.entity.User;
 import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.note.Note;
@@ -48,6 +49,7 @@ public class NoteCommentService {
     private final JarMemberRepository jarMemberRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final NoteRealtimeService noteRealtimeService;
 
     public NoteCommentService(
             NoteCommentRepository noteCommentRepository,
@@ -55,7 +57,8 @@ public class NoteCommentService {
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
             UserRepository userRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            NoteRealtimeService noteRealtimeService
     ) {
         this.noteCommentRepository = noteCommentRepository;
         this.noteRepository = noteRepository;
@@ -63,6 +66,7 @@ public class NoteCommentService {
         this.jarMemberRepository = jarMemberRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.noteRealtimeService = noteRealtimeService;
     }
 
     // 댓글 작성
@@ -147,8 +151,38 @@ public class NoteCommentService {
             );
         }
 
-        // 9. 응답 DTO 반환
-        return toItem(savedComment, List.of());
+        // 9. 응답 DTO 만들기
+        NoteCommentItem response = toItem(savedComment, List.of());
+
+        // 10. 댓글/답글 작성 이벤트 만들기
+        NoteRealtimeEventResponse realtimeEvent;
+
+        if (parentComment == null) {
+            // 일반 댓글이면 COMMENT_CREATED 이벤트
+            realtimeEvent = NoteRealtimeEventResponse.commentCreated(
+                    jarId,
+                    noteId,
+                    currentUser.getId(),
+                    currentUser.getName(),
+                    savedComment.getCommentId()
+            );
+        } else {
+            // 답글이면 COMMENT_REPLIED 이벤트
+            realtimeEvent = NoteRealtimeEventResponse.commentReplied(
+                    jarId,
+                    noteId,
+                    currentUser.getId(),
+                    currentUser.getName(),
+                    savedComment.getCommentId(),
+                    parentComment.getCommentId()
+            );
+        }
+
+        // 11. DB 커밋 성공 후 WebSocket으로 쪽지 상세 화면에 알려주기
+        noteRealtimeService.sendNoteEventAfterCommit(jarId, noteId, realtimeEvent);
+
+        // 12. 기존 REST 응답은 그대로 반환
+        return response;
     }
 
     // 댓글 목록 조회
@@ -217,8 +251,30 @@ public class NoteCommentService {
         // 8. 내용 수정
         comment.updateContent(normalizedContent);
 
-        // 9. 응답 DTO 반환
-        return toItem(comment, List.of());
+        // 9. 응답 DTO 만들기
+        NoteCommentItem response = toItem(comment, List.of());
+
+        // 10. 부모 댓글 id 꺼내기
+        Long parentCommentId = comment.getParentComment() != null
+                ? comment.getParentComment().getCommentId()
+                : null;
+
+        // 11. 댓글 수정 이벤트 보내기
+        noteRealtimeService.sendNoteEventAfterCommit(
+                jarId,
+                noteId,
+                NoteRealtimeEventResponse.commentUpdated(
+                        jarId,
+                        noteId,
+                        currentUserId,
+                        comment.getUser().getName(),
+                        comment.getCommentId(),
+                        parentCommentId
+                )
+        );
+
+        // 12. 기존 REST 응답 반환
+        return response;
     }
 
     /*
@@ -265,8 +321,30 @@ public class NoteCommentService {
             );
         }
 
-        // 8. soft delete
+        // 8. 삭제 전에 WebSocket 이벤트에 필요한 값 미리 꺼내두기
+        Long parentCommentId = comment.getParentComment() != null
+                ? comment.getParentComment().getCommentId()
+                : null;
+
+        Long deletedCommentId = comment.getCommentId();
+        String actorName = comment.getUser().getName();
+
+        // 9. soft delete
         noteCommentRepository.delete(comment);
+
+        // 10. 댓글 삭제 이벤트 보내기
+        noteRealtimeService.sendNoteEventAfterCommit(
+                jarId,
+                noteId,
+                NoteRealtimeEventResponse.commentDeleted(
+                        jarId,
+                        noteId,
+                        currentUserId,
+                        actorName,
+                        deletedCommentId,
+                        parentCommentId
+                )
+        );
     }
 
     /*

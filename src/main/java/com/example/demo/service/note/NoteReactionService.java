@@ -2,6 +2,7 @@ package com.example.demo.service.note;
 
 import com.example.demo.dto.note.response.NoteReactionCountItem;
 import com.example.demo.dto.note.response.NoteReactionSummaryResponse;
+import com.example.demo.dto.note.response.NoteRealtimeEventResponse;
 import com.example.demo.entity.User;
 import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.note.Note;
@@ -50,6 +51,7 @@ public class NoteReactionService {
     private final UserRepository userRepository;
     private final JarOpenService jarOpenService;
     private final NotificationService notificationService;
+    private final NoteRealtimeService noteRealtimeService;
 
     public NoteReactionService(
             NoteReactionRepository noteReactionRepository,
@@ -58,7 +60,8 @@ public class NoteReactionService {
             JarMemberRepository jarMemberRepository,
             UserRepository userRepository,
             JarOpenService jarOpenService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            NoteRealtimeService noteRealtimeService
     ) {
         this.noteReactionRepository = noteReactionRepository;
         this.noteRepository = noteRepository;
@@ -67,6 +70,7 @@ public class NoteReactionService {
         this.userRepository = userRepository;
         this.jarOpenService = jarOpenService;
         this.notificationService = notificationService;
+        this.noteRealtimeService = noteRealtimeService;
     }
 
     /*
@@ -135,15 +139,47 @@ public class NoteReactionService {
                 );
             }
 
-            return buildSummary(noteId, emoji);
+            NoteReactionSummaryResponse summary = buildSummary(noteId, emoji);
+
+            noteRealtimeService.sendNoteEventAfterCommit(
+                    jarId,
+                    noteId,
+                    NoteRealtimeEventResponse.reactionChanged(
+                            jarId,
+                            noteId,
+                            currentUser.getId(),
+                            currentUser.getName()
+                    )
+            );
+
+            return summary;
         }
 
         // 8. 같은 리액션을 다시 누르면 취소(삭제)
         if (existingReaction.getEmoji() == emoji) {
+            // 8-1. 기존 리액션 삭제
             noteReactionRepository.delete(existingReaction);
-            noteReactionRepository.flush(); // flush() -> 변경 내용 db 저장
 
-            return buildSummary(noteId, null);
+            // 8-2. DB에 삭제 내용을 바로 반영
+            noteReactionRepository.flush();
+
+            // 8-3.  삭제 후 최신 리액션 요약 만들기
+            NoteReactionSummaryResponse summary = buildSummary(noteId, null);
+
+            // 8-4. 다른 사용자 화면에도 "리액션 상태가 바뀌었어!"라고 알려주기
+            noteRealtimeService.sendNoteEventAfterCommit(
+                    jarId,
+                    noteId,
+                    NoteRealtimeEventResponse.reactionChanged(
+                            jarId,
+                            noteId,
+                            currentUser.getId(),
+                            currentUser.getName()
+                    )
+            );
+
+            // 8-5. 요청한 사용자에게도 최신 요약 반환
+            return summary;
         }
 
         // 9. 다른 리액션이면 기존 값을 새 값으로 변경
@@ -159,14 +195,27 @@ public class NoteReactionService {
             );
         }
 
-        return buildSummary(noteId, emoji);
+        NoteReactionSummaryResponse summary = buildSummary(noteId, emoji);
+
+        noteRealtimeService.sendNoteEventAfterCommit(
+                jarId,
+                noteId,
+                NoteRealtimeEventResponse.reactionChanged(
+                        jarId,
+                        noteId,
+                        currentUser.getId(),
+                        currentUser.getName()
+                )
+        );
+
+        return summary;
     }
 
     /*
      * 내가 누른 리액션을 삭제하는 메서드
-
-     * DELETE API에서 사용할 수 있음
-     * 이미 리액션이 없어도 에러를 내지 않고 현재 상태를 그대로 돌려줌
+     *
+     * DELETE API에서 사용할 수 있음.
+     * 이미 리액션이 없어도 에러를 내지 않고 현재 상태를 그대로 돌려준다.
      */
     @Transactional
     public NoteReactionSummaryResponse deleteMyReaction(
@@ -174,21 +223,45 @@ public class NoteReactionService {
             Long jarId,
             Long noteId
     ) {
+        // 1. 현재 사용자 확인
+        User currentUser = getUserOrThrow(currentUserId);
 
-        // 1. 접근 가능한 사용자 / 저금통 / 멤버 / 쪽지인지 확인
-        getUserOrThrow(currentUserId);
+        // 2. 저금통 확인
         Jar jar = getJarOrThrow(jarId);
+
+        // 3. 현재 사용자가 이 저금통의 active 멤버인지 확인
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 리액션을 삭제할 수 있어.");
+
+        // 4. 저금통이 오픈됐는지 확인
         validateJarOpen(jar);
+
+        // 5. 이 저금통 안의 쪽지인지 확인
         getNoteOrThrow(jarId, noteId);
 
-        // 2. 내가 누른 리액션이 있으면 삭제
-        noteReactionRepository.findByNote_NoteIdAndUser_Id(noteId, currentUserId)
-                .ifPresent(noteReactionRepository::delete);
+        // 6. 내가 누른 리액션 조회
+        NoteReaction existingReaction = noteReactionRepository
+                .findByNote_NoteIdAndUser_Id(noteId, currentUserId)
+                .orElse(null);
 
-        noteReactionRepository.flush();
+        // 7. 리액션이 있으면 삭제
+        if (existingReaction != null) {
+            noteReactionRepository.delete(existingReaction);
+            noteReactionRepository.flush();
 
-        // 3. 삭제 후 최신 요약 반환
+            // 8. 실제로 삭제가 일어났을 때만 WebSocket 이벤트 보내기
+            noteRealtimeService.sendNoteEventAfterCommit(
+                    jarId,
+                    noteId,
+                    NoteRealtimeEventResponse.reactionChanged(
+                            jarId,
+                            noteId,
+                            currentUser.getId(),
+                            currentUser.getName()
+                    )
+            );
+        }
+
+        // 9. 최신 리액션 요약 반환
         return buildSummary(noteId, null);
     }
 

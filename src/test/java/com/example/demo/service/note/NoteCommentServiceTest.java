@@ -57,11 +57,14 @@ class NoteCommentServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
     private NoteCommentService noteCommentService;
 
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private NoteRealtimeService noteRealtimeService;
     @BeforeEach
     void setUp() {
         noteCommentService = new NoteCommentService(
@@ -70,7 +73,8 @@ class NoteCommentServiceTest {
                 jarRepository,
                 jarMemberRepository,
                 userRepository,
-                notificationService
+                notificationService,
+                noteRealtimeService
         );
     }
 
