@@ -55,13 +55,16 @@ public class JarService {
     private final JarInviteRepository jarInviteRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final JarMemberRealtimeService jarMemberRealtimeService;
+
     public JarService(
             JarRepository jarRepository,
             JarMemberRepository jarMemberRepository,
             JarInviteRepository jarInviteRepository,
             UserRepository userRepository,
             JarOpenService jarOpenService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            JarMemberRealtimeService jarMemberRealtimeService
     ) {
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
@@ -69,6 +72,7 @@ public class JarService {
         this.userRepository = userRepository;
         this.jarOpenService = jarOpenService;
         this.notificationService = notificationService;
+        this.jarMemberRealtimeService = jarMemberRealtimeService;
     }
 
     // 저금통을 새로 만드는 메서드야.
@@ -402,6 +406,17 @@ public class JarService {
         // 9-3. 알림 저장
         notificationService.notifyJarMemberJoined(receivers, jar, payload);
 
+        // 9-4. 저금통 상세 화면을 보고 있는 사람들에게 "새 멤버가 들어왔어!" 실시간 이벤트 보내기
+        jarMemberRealtimeService.sendMemberEventAfterCommit(
+                jarId,
+                JarMemberSocketEventResponse.memberJoined(
+                        jar.getJarId(),
+                        currentUser.getId(),
+                        currentUser.getName(),
+                        joinedMember.getRole()
+                )
+        );
+
         // 10. 참여 성공 응답
         return new JarInviteJoinResponse(
                 jar.getJarId(),
@@ -415,7 +430,6 @@ public class JarService {
     // 현재 active 멤버만 나갈 수 있음, OWNER는 그냥 나가면 안 됌(owner_id 와 OWNER 멤버 정합성이 깨지기 때문)
     @Transactional
     public JarLeaveResponse leaveJar(Long currentUserId, Long jarId) {
-
         // 1. 현재 사용자가 이 저금통의 active 멤버인지 확인
         JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
 
@@ -427,10 +441,26 @@ public class JarService {
             );
         }
 
-        // 3. 나가기 처리
+        // 3. WebSocket 이벤트에 사용할 정보를 먼저 꺼내둔다.
+        // leave()를 해도 user/role 정보는 남아 있지만, 초보자가 봤을 때 안전하게 먼저 변수로 빼두는 게 이해하기 쉽다.
+        User leavingUser = myMember.getUser();
+        JarRole leavingRole = myMember.getRole();
+
+        // 4. 나가기 처리
         myMember.leave();
 
-        // 4. 응답 반환
+        // 5. 저금통 상세 화면을 보고 있는 사람들에게 "누가 나갔어!" 실시간 이벤트 보내기
+        jarMemberRealtimeService.sendMemberEventAfterCommit(
+                jarId,
+                JarMemberSocketEventResponse.memberLeft(
+                        jarId,
+                        leavingUser.getId(),
+                        leavingUser.getName(),
+                        leavingRole
+                )
+        );
+
+        // 6. 응답 반환
         return new JarLeaveResponse(
                 jarId,
                 toKstOffsetDateTime(myMember.getLeftAt())
@@ -520,7 +550,6 @@ public class JarService {
             Long targetUserId,
             JarMemberRoleUpdateRequest request
     ) {
-
         // 1. 요청한 사람이 OWNER인지 확인
         JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
         if (!myMember.isOwner()) {
@@ -548,10 +577,27 @@ public class JarService {
             );
         }
 
-        // 4. 역할 변경
+        // 4. WebSocket 이벤트에 사용할 사람 정보 꺼내기
+        User actorUser = myMember.getUser();
+        User targetUser = targetMember.getUser();
+
+        // 5. 역할 변경
         targetMember.changeRole(request.role());
 
-        // 5. 응답 반환
+        // 6. 저금통 상세 화면을 보고 있는 사람들에게 "역할이 바뀌었어!" 실시간 이벤트 보내기
+        jarMemberRealtimeService.sendMemberEventAfterCommit(
+                jarId,
+                JarMemberSocketEventResponse.memberRoleChanged(
+                        jarId,
+                        actorUser.getId(),
+                        actorUser.getName(),
+                        targetUser.getId(),
+                        targetUser.getName(),
+                        targetMember.getRole()
+                )
+        );
+
+        // 7. 응답 반환
         return new JarMemberRoleUpdateResponse(
                 jarId,
                 targetUserId,
@@ -560,12 +606,11 @@ public class JarService {
         );
     }
 
-    // 저금통 멤버를 강퇴하는 기능이야.
+    // 저금통 멤버를 강퇴하는 기능
     // ADMIN 이상 가능, 대상은 현재 active 멤버여야 함
     // OWNER는 강퇴할 수 없음, 자기 자신은 강퇴할 수 없음
     @Transactional
     public JarKickResponse kickMember(Long currentUserId, Long jarId, Long targetUserId) {
-
         // 1. 요청한 사람이 ADMIN 이상인지 확인
         JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
         if (!myMember.isAdminOrOwner()) {
@@ -594,10 +639,28 @@ public class JarService {
             );
         }
 
-        // 5. 강퇴 처리
+        // 5. WebSocket 이벤트에 사용할 정보 먼저 꺼내기
+        User actorUser = myMember.getUser();
+        User targetUser = targetMember.getUser();
+        JarRole targetRole = targetMember.getRole();
+
+        // 6. 강퇴 처리
         targetMember.leave();
 
-        // 6. 응답 반환
+        // 7. 저금통 상세 화면을 보고 있는 사람들에게 "누가 강퇴됐어!" 실시간 이벤트 보내기
+        jarMemberRealtimeService.sendMemberEventAfterCommit(
+                jarId,
+                JarMemberSocketEventResponse.memberKicked(
+                        jarId,
+                        actorUser.getId(),
+                        actorUser.getName(),
+                        targetUser.getId(),
+                        targetUser.getName(),
+                        targetRole
+                )
+        );
+
+        // 8. 응답 반환
         return new JarKickResponse(
                 jarId,
                 targetUserId,

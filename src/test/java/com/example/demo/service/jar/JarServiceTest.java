@@ -54,6 +54,7 @@ class JarServiceTest {
 
     private NotificationService notificationService;
 
+    private JarMemberRealtimeService jarMemberRealtimeService;
     @BeforeEach
     void setUp() {
         jarService = new JarService(
@@ -62,7 +63,8 @@ class JarServiceTest {
                 jarInviteRepository,
                 userRepository,
                 jarOpenService,
-                notificationService
+                notificationService,
+                jarMemberRealtimeService
         );
     }
 

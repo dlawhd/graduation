@@ -6,7 +6,10 @@ import apiClient, { fetchCsrf } from "../api/apiClient";
 import { getChatUnreadCount } from "../api/chatApi";
 import NoteSection from "./NoteSection";
 import JarChatPanel from "./JarChatPanel";
-
+import {
+  createJarMemberSocketClient,
+  disconnectJarMemberSocket,
+} from "../api/jarMemberSocketApi";
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
 const OPEN_MODE_LABEL = {
   ALL_AT_ONCE: "한 번에 전체 공개",
@@ -582,6 +585,23 @@ function formatDate(dateTime) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/*
+ * me 응답에서 현재 로그인한 사용자 id를 안전하게 꺼내는 함수야.
+ *
+ * 백엔드 응답이 userId일 수도 있고 id일 수도 있으니 둘 다 대응해.
+ */
+function getCurrentUserIdFromMe(me) {
+  const value = me?.userId ?? me?.id;
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : null;
 }
 
 // input type="datetime-local"에 넣기 좋은 형태로 바꿔줘.
@@ -2195,8 +2215,13 @@ export default function JarDetailPage() {
   const hiddenInviteStorageKey = `jar-detail-hidden-revoked-invites:${jarId}`;
 
   // 상세 데이터 불러오기
-  async function loadJarDetail() {
-    setLoading(true);
+  async function loadJarDetail({ silent = false } = {}) {
+    // silent가 false일 때만 전체 화면 로딩을 켠다.
+    // 실시간 이벤트로 조용히 갱신할 때는 화면 전체를 깜빡이게 하지 않기 위해서다.
+    if (!silent) {
+      setLoading(true);
+    }
+
     setError("");
 
     try {
@@ -2213,7 +2238,9 @@ export default function JarDetailPage() {
       setError(serverMessage);
       setJar(null);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
@@ -2287,6 +2314,72 @@ export default function JarDetailPage() {
     loadMembers();
     loadMe();
   }, [jarId]);
+
+  /*
+   * 저금통 멤버 변화 WebSocket 연결
+   *
+   * 누가 들어오거나, 나가거나, 강퇴되거나, 역할이 바뀌면
+   * 현재 저금통 상세 화면을 보고 있는 사람들의 멤버 목록/상세 정보를 자동 갱신한다.
+   */
+  useEffect(() => {
+    if (!jarId) return;
+
+    const currentUserId = getCurrentUserIdFromMe(me);
+
+    // 아직 내 정보가 없으면 WebSocket 연결을 만들지 않는다.
+    // 이유: 내가 강퇴/나가기 대상인지 정확히 판단하려면 내 userId가 필요하기 때문.
+    if (!currentUserId) return;
+
+    const client = createJarMemberSocketClient({
+      jarId,
+
+      onMemberEventReceived: async (event) => {
+        const eventType = event?.type;
+        const targetUserId = Number(event?.targetUserId);
+
+        /*
+         * 내가 강퇴된 경우:
+         * - 더 이상 이 저금통을 볼 권한이 없으니
+         * - 상세 정보를 다시 불러오지 말고 바로 목록으로 보낸다.
+         */
+        if (
+          (eventType === "MEMBER_KICKED" || eventType === "MEMBER_LEFT") &&
+          targetUserId === currentUserId
+        ) {
+          if (eventType === "MEMBER_KICKED") {
+            window.alert("이 저금통에서 내보내졌어요.");
+          }
+
+          navigate("/jars", { replace: true });
+          return;
+        }
+
+        /*
+         * 다른 사람이 들어오거나, 나가거나, 역할이 바뀐 경우:
+         * - 멤버 목록 갱신
+         * - 인원 수, 내 역할 등 상세 정보 갱신
+         */
+        await Promise.allSettled([
+          loadMembers(),
+          loadJarDetail({ silent: true }),
+        ]);
+      },
+
+      onConnect: () => {
+        console.log("저금통 멤버 변화 구독 시작");
+      },
+
+      onError: (error) => {
+        console.error("저금통 멤버 WebSocket 오류", error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      disconnectJarMemberSocket(client);
+    };
+  }, [jarId, me?.userId, me?.id, navigate]);
 
   // 알림에서 /jars/:jarId 로 들어왔을 때
   // 1) 저금통 확대 모달 열고
