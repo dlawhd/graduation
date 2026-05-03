@@ -14,6 +14,10 @@ import {
   createNoteSocketClient,
   disconnectNoteSocket,
 } from "../api/noteSocketApi";
+import {
+  createJarOpenSocketClient,
+  disconnectJarOpenSocket,
+} from "../api/jarOpenSocketApi";
 
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
 const OPEN_MODE_LABEL = {
@@ -2014,6 +2018,317 @@ function JarChatModal({ open, jar, palette, currentUserId, onClose }) {
   );
 }
 
+/*
+ * JarOpenCelebrationModal 역할
+ *
+ * 이 컴포넌트는 저금통이 열리는 순간 보여주는 "오픈 축하 연출"이야.
+ *
+ * 쉽게 말하면:
+ * - 화면 주변을 어둡게 만들고
+ * - 저금통을 가운데 크게 보여주고
+ * - 뚜껑이 열리는 모션을 보여주고
+ * - 쪽지와 반짝이가 터지는 느낌을 준다.
+ *
+ * 이건 실제 데이터를 바꾸는 기능이 아니라,
+ * 사용자가 "오! 저금통 열렸다!" 하고 바로 느끼게 만드는 화면 효과야.
+ */
+function JarOpenCelebrationModal({
+  open,
+  jar,
+  palette,
+  event,
+  onClose,
+  onViewNotes,
+}) {
+  // open이 false면 화면에 아무것도 만들지 않는다.
+  if (!open) return null;
+
+  const themeEmoji = getThemeEmoji(jar?.theme);
+
+  return (
+    <div className="fixed inset-0 z-[240] flex items-center justify-center overflow-hidden bg-slate-950/75 px-4 py-6 backdrop-blur-sm">
+      <style>
+        {`
+          @keyframes jarOpenBackdropFade {
+            0% {
+              opacity: 0;
+            }
+            100% {
+              opacity: 1;
+            }
+          }
+
+          @keyframes jarOpenStagePop {
+            0% {
+              opacity: 0;
+              transform: translateY(28px) scale(0.72);
+              filter: blur(6px);
+            }
+            55% {
+              opacity: 1;
+              transform: translateY(-8px) scale(1.05);
+              filter: blur(0);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+              filter: blur(0);
+            }
+          }
+
+          @keyframes jarOpenLidFly {
+            0% {
+              transform: translateY(0) rotate(0deg);
+            }
+            35% {
+              transform: translateY(-12px) rotate(-4deg);
+            }
+            100% {
+              transform: translateY(-95px) translateX(34px) rotate(28deg);
+            }
+          }
+
+          @keyframes jarOpenBodyBounce {
+            0%, 100% {
+              transform: translateY(0) scale(1);
+            }
+            45% {
+              transform: translateY(8px) scale(0.98);
+            }
+            70% {
+              transform: translateY(-10px) scale(1.03);
+            }
+          }
+
+          @keyframes jarOpenGlowPulse {
+            0% {
+              opacity: 0;
+              transform: scale(0.75);
+            }
+            40% {
+              opacity: 1;
+              transform: scale(1.08);
+            }
+            100% {
+              opacity: 0.72;
+              transform: scale(1);
+            }
+          }
+
+          @keyframes jarOpenNoteBurst {
+            0% {
+              opacity: 0;
+              transform: translate(0, 40px) rotate(0deg) scale(0.4);
+            }
+            35% {
+              opacity: 1;
+            }
+            100% {
+              opacity: 1;
+              transform:
+                translate(var(--note-x), var(--note-y))
+                rotate(var(--note-rotate))
+                scale(1);
+            }
+          }
+
+          @keyframes jarOpenSparkleBurst {
+            0% {
+              opacity: 0;
+              transform: translate(0, 0) scale(0.3);
+            }
+            45% {
+              opacity: 1;
+            }
+            100% {
+              opacity: 0.95;
+              transform:
+                translate(var(--sparkle-x), var(--sparkle-y))
+                scale(1);
+            }
+          }
+
+          @keyframes jarOpenTextUp {
+            0% {
+              opacity: 0;
+              transform: translateY(16px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .jar-open-backdrop {
+            animation: jarOpenBackdropFade 220ms ease-out both;
+          }
+
+          .jar-open-stage {
+            animation: jarOpenStagePop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+
+          .jar-open-lid {
+            animation: jarOpenLidFly 900ms 520ms cubic-bezier(0.2, 1, 0.22, 1) both;
+            transform-origin: center;
+          }
+
+          .jar-open-body {
+            animation: jarOpenBodyBounce 900ms 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+
+          .jar-open-glow {
+            animation: jarOpenGlowPulse 1100ms 420ms ease-out both;
+          }
+
+          .jar-open-note {
+            animation: jarOpenNoteBurst 950ms 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          }
+
+          .jar-open-sparkle {
+            animation: jarOpenSparkleBurst 900ms 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          }
+
+          .jar-open-text {
+            animation: jarOpenTextUp 500ms 1100ms ease-out both;
+          }
+        `}
+      </style>
+
+      {/* 배경 반짝이 */}
+      <div className="jar-open-backdrop pointer-events-none absolute inset-0">
+        <div className="absolute left-[12%] top-[18%] h-32 w-32 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute right-[14%] top-[22%] h-40 w-40 rounded-full bg-yellow-200/20 blur-3xl" />
+        <div className="absolute bottom-[12%] left-[28%] h-44 w-44 rounded-full bg-emerald-200/15 blur-3xl" />
+      </div>
+
+      {/* 가운데 무대 */}
+      <div className="jar-open-stage relative w-full max-w-2xl rounded-[38px] border border-white/30 bg-white/95 px-6 py-8 text-center shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-5 top-5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm font-black text-slate-500 transition hover:bg-slate-50"
+        >
+          ✕
+        </button>
+
+        <div className="relative mx-auto mb-6 flex h-[360px] max-w-[420px] items-center justify-center">
+          {/* 열릴 때 나오는 빛 */}
+          <div className={`jar-open-glow absolute h-72 w-72 rounded-full blur-3xl ${palette.floating}`} />
+          <div className="jar-open-glow absolute h-52 w-52 rounded-full bg-yellow-200/50 blur-2xl" />
+
+          {/* 터지는 쪽지들 */}
+          {[
+            { x: "-145px", y: "-120px", r: "-18deg", t: "추억" },
+            { x: "-95px", y: "-185px", r: "14deg", t: "사진" },
+            { x: "120px", y: "-150px", r: "18deg", t: "쪽지" },
+            { x: "155px", y: "-70px", r: "-12deg", t: "기억" },
+            { x: "-165px", y: "-25px", r: "10deg", t: "마음" },
+            { x: "55px", y: "-215px", r: "-8deg", t: "우리" },
+          ].map((note, index) => (
+            <div
+              key={`${note.t}-${index}`}
+              className="jar-open-note absolute left-1/2 top-1/2 z-30 flex h-[70px] w-[88px] items-center justify-center rounded-[18px] border-2 border-sky-300 bg-white/95 text-xs font-black text-slate-700 shadow-[0_14px_30px_rgba(15,23,42,0.22)]"
+              style={{
+                "--note-x": note.x,
+                "--note-y": note.y,
+                "--note-rotate": note.r,
+              }}
+            >
+              <span>{note.t}</span>
+              <span className="absolute right-0 top-0 h-4 w-4 rounded-bl-[10px] border-b-2 border-l-2 border-sky-300 bg-white" />
+            </div>
+          ))}
+
+          {/* 터지는 반짝이들 */}
+          {[
+            { x: "-190px", y: "-160px", icon: "✨" },
+            { x: "190px", y: "-145px", icon: "💫" },
+            { x: "-210px", y: "10px", icon: "🌟" },
+            { x: "205px", y: "20px", icon: "✨" },
+            { x: "-50px", y: "-235px", icon: "💛" },
+            { x: "75px", y: "-240px", icon: "🌿" },
+          ].map((sparkle, index) => (
+            <div
+              key={`${sparkle.icon}-${index}`}
+              className="jar-open-sparkle absolute left-1/2 top-1/2 z-40 text-3xl"
+              style={{
+                "--sparkle-x": sparkle.x,
+                "--sparkle-y": sparkle.y,
+              }}
+            >
+              {sparkle.icon}
+            </div>
+          ))}
+
+          {/* 저금통 */}
+          <div className="relative z-20 mt-16 h-[250px] w-[210px]">
+            {/* 뚜껑 */}
+            <div
+              className={`jar-open-lid absolute left-1/2 top-0 z-30 h-12 w-44 -translate-x-1/2 rounded-full ${palette.lid} shadow-[0_18px_34px_rgba(15,23,42,0.22)]`}
+            />
+            <div className="jar-open-lid absolute left-1/2 top-[16px] z-40 h-2.5 w-20 -translate-x-1/2 rounded-full bg-slate-700/80" />
+
+            {/* 몸통 */}
+            <div
+              className={`jar-open-body absolute bottom-0 left-1/2 h-[220px] w-[190px] -translate-x-1/2 rounded-[42%_42%_28%_28%] border-[5px] ${palette.jarBody} shadow-[0_28px_70px_rgba(15,23,42,0.22)]`}
+            >
+              <div className="absolute left-7 top-8 h-28 w-9 rounded-full bg-white/60 blur-sm" />
+              <div className="absolute right-8 top-12 h-20 w-5 rounded-full bg-white/40 blur-sm" />
+
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div className="text-6xl">{themeEmoji}</div>
+                <div className="rounded-full bg-white/85 px-4 py-2 text-sm font-black text-emerald-700 shadow">
+                  OPEN
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 안내 문구 */}
+        <div className="jar-open-text">
+          <p className="text-sm font-black uppercase tracking-[0.28em] text-emerald-500">
+            Jar Opened
+          </p>
+
+          <h2 className="mt-3 text-3xl font-black text-slate-900 md:text-4xl">
+            저금통이 열렸어요!
+          </h2>
+
+          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-slate-500">
+            이제 잠겨 있던 추억을 확인할 수 있어요.
+            쪽지 목록이 자동으로 새로고침되고, 채팅방에도 오픈 메시지가 남아요.
+          </p>
+
+          {event?.openedAt && (
+            <p className="mt-3 text-xs font-bold text-slate-400">
+              열린 시간: {formatDate(event.openedAt)}
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onViewNotes}
+              className={`rounded-2xl px-5 py-3 text-sm font-black shadow-lg transition hover:scale-[1.03] ${palette.primaryButton}`}
+            >
+              추억 보러가기
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className={`rounded-2xl border px-5 py-3 text-sm font-black transition ${palette.outlineButton}`}
+            >
+              조금 있다 보기
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InfoItem({ label, value, className = "" }) {
   return (
     <div className={`rounded-2xl border px-4 py-3 ${className}`}>
@@ -2185,6 +2500,21 @@ export default function JarDetailPage() {
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
   const [jarChatOpen, setJarChatOpen] = useState(false);
+
+  // 저금통 오픈 축하 모달 상태
+  // 서버에서 JAR_OPENED 이벤트가 오면 true로 바뀌고, 화면 가운데 오픈 연출이 뜬다.
+  const [jarOpenCelebrationOpen, setJarOpenCelebrationOpen] = useState(false);
+
+  // 방금 받은 저금통 오픈 이벤트 정보를 저장한다.
+  // 예: { jarId, eventType: "JAR_OPENED", isOpen: true, openedAt, message }
+  const [jarOpenCelebrationEvent, setJarOpenCelebrationEvent] = useState(null);
+
+  // NoteSection을 강제로 다시 그리기 위한 숫자다.
+  // 저금통이 열리면 오픈 전 마스킹된 쪽지 목록을 새로 불러오게 하려고 사용한다.
+  const [noteSectionRefreshKey, setNoteSectionRefreshKey] = useState(0);
+
+  // 오픈 축하 모달을 몇 초 뒤 자동으로 닫을 때 사용할 타이머 보관함이다.
+  const jarOpenCelebrationTimerRef = useRef(null);
 
   // 채팅방 밖에서 보여줄 안 읽은 채팅 개수
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
@@ -2385,6 +2715,85 @@ export default function JarDetailPage() {
       disconnectJarMemberSocket(client);
     };
   }, [jarId, me?.userId, me?.id, navigate]);
+
+
+  /*
+   * 저금통 오픈 WebSocket 연결
+   *
+   * 역할:
+   * - 서버가 /topic/jars/{jarId}/open 으로 보내는 JAR_OPENED 이벤트를 받는다.
+   * - 이벤트를 받으면 화면을 새로고침하지 않고 OPEN 상태로 바꾼다.
+   * - 쪽지 목록을 다시 불러와서 오픈 전 마스킹을 풀 준비를 한다.
+   * - 가운데에 저금통 오픈 축하 모달을 띄운다.
+   */
+  useEffect(() => {
+    // jarId가 없으면 어떤 저금통을 구독할지 모르니까 연결하지 않는다.
+    if (!jarId) return;
+
+    const client = createJarOpenSocketClient({
+      jarId,
+
+      onJarOpened: async (event) => {
+        console.log("저금통 오픈 이벤트 수신", event);
+
+        // 1. 기존 자동 닫힘 타이머가 있으면 먼저 정리한다.
+        // 같은 이벤트가 아주 드물게 중복으로 와도 타이머가 꼬이지 않게 하기 위함이다.
+        if (jarOpenCelebrationTimerRef.current) {
+          window.clearTimeout(jarOpenCelebrationTimerRef.current);
+        }
+
+        // 2. 화면의 저금통 상태를 즉시 OPEN으로 바꾼다.
+        // API 재조회가 끝나기 전에도 상단 뱃지와 상태 문구가 바로 바뀐다.
+        setJar((prev) => {
+          if (!prev) return prev;
+
+          return {
+            ...prev,
+            isOpen: true,
+          };
+        });
+
+        // 3. NoteSection을 다시 마운트해서 쪽지 목록을 새로 불러오게 한다.
+        // 오픈 전에는 잠겨 있던 내용이 오픈 후에는 보여야 하기 때문이다.
+        setNoteSectionRefreshKey((prev) => prev + 1);
+
+        // 4. 오픈 축하 모달을 띄운다.
+        setJarOpenCelebrationEvent(event);
+        setJarOpenCelebrationOpen(true);
+
+        // 5. 서버 기준 최신 상세/쪽지 정보를 다시 맞춘다.
+        // 실패해도 화면 전체를 깨지 않도록 Promise.allSettled를 사용한다.
+        await Promise.allSettled([
+          loadJarDetail({ silent: true }),
+          loadJarZoomNotes(),
+        ]);
+
+        // 6. 만약 사용자가 이미 쪽지 상세 모달을 보고 있었다면
+        // 해당 쪽지도 다시 불러와서 잠금 상태를 최신으로 맞춘다.
+        if (jarZoomDetailOpen && jarZoomDetailNoteId) {
+          await handleOpenJarZoomNoteDetail(jarZoomDetailNoteId);
+        }
+      },
+
+      onConnect: () => {
+        console.log("저금통 오픈 이벤트 구독 시작");
+      },
+
+      onError: (error) => {
+        console.error("저금통 오픈 WebSocket 오류", error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      disconnectJarOpenSocket(client);
+
+      if (jarOpenCelebrationTimerRef.current) {
+        window.clearTimeout(jarOpenCelebrationTimerRef.current);
+      }
+    };
+  }, [jarId, jarZoomDetailOpen, jarZoomDetailNoteId]);
 
   /*
    * 쪽지 상세 모달 WebSocket 연결
@@ -3377,6 +3786,30 @@ async function handleCloseJarChat() {
   await loadChatUnreadCount();
 }
 
+/*
+ * 저금통 오픈 축하 모달 닫기
+ * 사용자가 X 버튼을 누르거나 "조금 있다 보기"를 누르면 실행된다.
+ */
+function handleCloseJarOpenCelebration() {
+  setJarOpenCelebrationOpen(false);
+
+  if (jarOpenCelebrationTimerRef.current) {
+    window.clearTimeout(jarOpenCelebrationTimerRef.current);
+  }
+}
+
+/*
+ * 저금통 오픈 축하 모달에서 "추억 보러가기"를 눌렀을 때 실행된다.
+ *
+ * 역할:
+ * - 축하 모달을 닫고
+ * - 기존에 만들어둔 저금통 확대 모달을 연다.
+ */
+async function handleViewOpenedJarNotes() {
+  handleCloseJarOpenCelebration();
+  await handleOpenJarZoom();
+}
+
 async function handleChangeMemberRole(targetUserId, nextRole) {
   if (!canChangeMemberRole) {
     window.alert("멤버 역할 변경은 방장만 할 수 있어요.");
@@ -3936,6 +4369,7 @@ function handleRestoreHiddenInvites() {
         </div>
 
         <NoteSection
+          key={`note-section-${jarId}-${noteSectionRefreshKey}`}
           jar={jar}
           palette={palette}
           formatDate={formatDate}
@@ -3963,6 +4397,14 @@ function handleRestoreHiddenInvites() {
           palette={palette}
           currentUserId={me?.userId}
           onClose={handleCloseJarChat}
+        />
+        <JarOpenCelebrationModal
+          open={jarOpenCelebrationOpen}
+          jar={jar}
+          palette={palette}
+          event={jarOpenCelebrationEvent}
+          onClose={handleCloseJarOpenCelebration}
+          onViewNotes={handleViewOpenedJarNotes}
         />
         <JarZoomNoteDetailModal
           open={jarZoomDetailOpen}

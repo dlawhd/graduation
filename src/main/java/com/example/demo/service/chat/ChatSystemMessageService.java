@@ -89,6 +89,12 @@ public class ChatSystemMessageService {
         return createAndSendSystemMessage(jar, content);
     }
 
+    // 저금통이 열렸을 때 남길 시스템 메시지
+    public ChatSocketMessageResponse createAndSendJarOpenedMessage(Jar jar) {
+        String content = "저금통이 열렸어요. 이제 추억을 확인할 수 있어요!";
+        return createAndSendSystemMessage(jar, content);
+    }
+
     /*
      * 실제 시스템 메시지를 저장하고 WebSocket으로 보내는 공통 메서드
      * 모든 시스템 메시지는 결국 여기로 모인다.
