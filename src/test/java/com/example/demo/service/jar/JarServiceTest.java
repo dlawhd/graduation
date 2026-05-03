@@ -14,6 +14,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarInviteRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.service.chat.ChatSystemMessageService;
 import com.example.demo.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,11 +51,18 @@ class JarServiceTest {
     @Mock
     private JarOpenService  jarOpenService;
 
+    @Mock
     private JarService jarService;
 
+    @Mock
     private NotificationService notificationService;
 
+    @Mock
     private JarMemberRealtimeService jarMemberRealtimeService;
+
+    @Mock
+    private ChatSystemMessageService chatSystemMessageService;
+
     @BeforeEach
     void setUp() {
         jarService = new JarService(
@@ -64,7 +72,8 @@ class JarServiceTest {
                 userRepository,
                 jarOpenService,
                 notificationService,
-                jarMemberRealtimeService
+                jarMemberRealtimeService,
+                chatSystemMessageService
         );
     }
 

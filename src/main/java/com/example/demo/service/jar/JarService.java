@@ -15,6 +15,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.jar.JarInviteRepository;
 import com.example.demo.repository.jar.JarMemberRepository;
 import com.example.demo.repository.jar.JarRepository;
+import com.example.demo.service.chat.ChatSystemMessageService;
 import com.example.demo.service.notification.NotificationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -56,6 +57,7 @@ public class JarService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final JarMemberRealtimeService jarMemberRealtimeService;
+    private final ChatSystemMessageService chatSystemMessageService;
 
     public JarService(
             JarRepository jarRepository,
@@ -64,7 +66,8 @@ public class JarService {
             UserRepository userRepository,
             JarOpenService jarOpenService,
             NotificationService notificationService,
-            JarMemberRealtimeService jarMemberRealtimeService
+            JarMemberRealtimeService jarMemberRealtimeService,
+            ChatSystemMessageService chatSystemMessageService
     ) {
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
@@ -73,6 +76,7 @@ public class JarService {
         this.jarOpenService = jarOpenService;
         this.notificationService = notificationService;
         this.jarMemberRealtimeService = jarMemberRealtimeService;
+        this.chatSystemMessageService = chatSystemMessageService;
     }
 
     // 저금통을 새로 만드는 메서드야.
@@ -154,7 +158,7 @@ public class JarService {
                             jar.getLockLevel(),
                             isOpen(jar),
                             myMember.getRole(),
-                            toKstOffsetDateTime(jar.getOpenAt())
+                            toKstOffsetDateTime(jar.getUpdatedAt())
                     );
                 })
                 .toList();
@@ -417,6 +421,13 @@ public class JarService {
                 )
         );
 
+        // 9-5. 채팅방에도 "누가 들어왔어요" 시스템 메시지를 남긴다.
+        // 이 메시지는 chat_messages 테이블에 SYSTEM 타입으로 저장되고, /topic/jars/{jarId}/chat 으로 실시간 전송된다.
+        chatSystemMessageService.createAndSendMemberJoinedMessage(
+                jar,
+                currentUser.getName()
+        );
+
         // 10. 참여 성공 응답
         return new JarInviteJoinResponse(
                 jar.getJarId(),
@@ -460,7 +471,13 @@ public class JarService {
                 )
         );
 
-        // 6. 응답 반환
+        // 6. 채팅방에도 "누가 나갔어요" 시스템 메시지를 남긴다.
+        chatSystemMessageService.createAndSendMemberLeftMessage(
+                myMember.getJar(),
+                leavingUser.getName()
+        );
+
+        // 7. 응답 반환
         return new JarLeaveResponse(
                 jarId,
                 toKstOffsetDateTime(myMember.getLeftAt())
@@ -597,7 +614,14 @@ public class JarService {
                 )
         );
 
-        // 7. 응답 반환
+        // 7. 채팅방에도 "역할이 바뀌었어요" 시스템 메시지를 남긴다.
+        chatSystemMessageService.createAndSendMemberRoleChangedMessage(
+                targetMember.getJar(),
+                targetUser.getName(),
+                targetMember.getRole()
+        );
+
+        // 8. 응답 반환
         return new JarMemberRoleUpdateResponse(
                 jarId,
                 targetUserId,
@@ -660,7 +684,13 @@ public class JarService {
                 )
         );
 
-        // 8. 응답 반환
+        // 8. 채팅방에도 "누가 내보내졌어요" 시스템 메시지를 남긴다.
+        chatSystemMessageService.createAndSendMemberKickedMessage(
+                targetMember.getJar(),
+                targetUser.getName()
+        );
+
+        // 9. 응답 반환
         return new JarKickResponse(
                 jarId,
                 targetUserId,
