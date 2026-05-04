@@ -18,6 +18,11 @@ import {
   createJarOpenSocketClient,
   disconnectJarOpenSocket,
 } from "../api/jarOpenSocketApi";
+import {
+  drawDailyDrawToday,
+  getDailyDrawToday,
+  getDailyDrawHistory,
+} from "../api/dailyDrawApi";
 
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
 const OPEN_MODE_LABEL = {
@@ -2329,6 +2334,272 @@ function JarOpenCelebrationModal({
   );
 }
 
+/*
+ * DailyDrawSection
+ *
+ * 이 컴포넌트는 "오늘의 추억 한 장" UI를 보여주는 역할을 해.
+ *
+ * 쉽게 말하면:
+ * - DAILY_DRAW 방식 저금통에서만 보이고
+ * - 저금통이 아직 안 열렸으면 안내문만 보여주고
+ * - 열렸는데 오늘 카드가 없으면 "오늘 카드 뽑기" 버튼을 보여주고
+ * - 오늘 카드가 있으면 카드 내용과 히스토리를 보여줘.
+ */
+function DailyDrawSection({
+  jar,
+  palette,
+  today,
+  history,
+  loading,
+  drawing,
+  error,
+  onDraw,
+  onReload,
+  onOpenNoteDetail,
+}) {
+  // DAILY_DRAW 방식 저금통이 아니면 이 섹션은 아예 보여주지 않는다.
+  if (jar?.openMode !== "DAILY_DRAW") {
+    return null;
+  }
+
+  // 오늘 카드 응답에서 실제 Daily Draw 결과만 꺼낸다.
+  const dailyDraw = today?.dailyDraw ?? null;
+
+  // 오늘 뽑힌 쪽지 정보
+  const note = dailyDraw?.note ?? null;
+
+  // 오늘 카드에 이미지 첨부가 있으면 대표 이미지로 보여준다.
+  const coverImage = Array.isArray(note?.attachments)
+    ? note.attachments.find((attachment) =>
+        attachment?.contentType?.startsWith("image/")
+      )
+    : null;
+
+  return (
+    <section
+      className={`mt-8 rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}
+    >
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+            Daily Draw
+          </p>
+
+          <h2 className="mt-2 text-2xl font-black text-slate-800">
+            오늘의 추억 한 장
+          </h2>
+
+          <p className="mt-2 text-sm leading-7 text-slate-500">
+            저금통이 열린 뒤, 하루에 한 장씩 아직 뽑히지 않은 추억을 랜덤으로 공개해요.
+          </p>
+        </div>
+
+        <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+          {jar?.isOpen ? "오늘 카드 확인 가능" : "오픈 전"}
+        </span>
+      </div>
+
+      {/* 아직 저금통이 열리지 않았을 때 */}
+      {!jar?.isOpen && (
+        <div className={`rounded-[28px] border border-dashed px-5 py-6 text-sm leading-7 ${palette.emptyBox}`}>
+          아직 저금통이 열리지 않았어요.
+          오픈 이후부터 하루에 한 장씩 추억 카드를 뽑을 수 있어요.
+        </div>
+      )}
+
+      {/* 열린 저금통인데 로딩 중일 때 */}
+      {jar?.isOpen && loading && (
+        <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+          <div className={`animate-pulse rounded-[28px] border p-5 ${palette.softCard}`}>
+            <div className="mb-4 h-5 w-40 rounded-full bg-slate-200" />
+            <div className="h-32 rounded-[24px] bg-slate-100" />
+          </div>
+
+          <div className={`animate-pulse rounded-[28px] border p-5 ${palette.softCard}`}>
+            <div className="mb-4 h-5 w-32 rounded-full bg-slate-200" />
+            <div className="space-y-3">
+              <div className="h-12 rounded-2xl bg-slate-100" />
+              <div className="h-12 rounded-2xl bg-slate-100" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 에러 */}
+      {jar?.isOpen && !loading && error && (
+        <div className={`rounded-[28px] border border-dashed px-5 py-6 text-sm ${palette.emptyBox}`}>
+          <p>{error}</p>
+
+          <button
+            type="button"
+            onClick={onReload}
+            className={`mt-4 rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+          >
+            다시 불러오기
+          </button>
+        </div>
+      )}
+
+      {/* 열린 저금통 + 오늘 카드 없음 */}
+      {jar?.isOpen && !loading && !error && !note && (
+        <div className={`rounded-[28px] border p-6 text-center ${palette.panel}`}>
+          <div className="mb-4 text-5xl">🎁</div>
+
+          <h3 className="text-xl font-black text-slate-800">
+            아직 오늘의 추억 한 장이 없어요
+          </h3>
+
+          <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
+            버튼을 누르면 아직 한 번도 뽑히지 않은 쪽지 중에서 오늘의 카드 1장이 랜덤으로 공개돼요.
+          </p>
+
+          <button
+            type="button"
+            onClick={onDraw}
+            disabled={drawing}
+            className={`mt-5 rounded-2xl px-5 py-3 text-sm font-black shadow-md transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+          >
+            {drawing ? "오늘 카드 뽑는 중..." : "오늘의 추억 한 장 뽑기"}
+          </button>
+        </div>
+      )}
+
+      {/* 열린 저금통 + 오늘 카드 있음 */}
+      {jar?.isOpen && !loading && !error && note && (
+        <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+          {/* 오늘 카드 */}
+          <article className={`overflow-hidden rounded-[30px] border ${palette.panel}`}>
+            {coverImage ? (
+              <img
+                src={coverImage.thumbnailUrl || coverImage.url}
+                alt={note.title || "오늘의 추억 이미지"}
+                className="h-56 w-full object-cover"
+              />
+            ) : (
+              <div className={`flex h-56 items-center justify-center ${palette.infoBox}`}>
+                <div className="text-center">
+                  <div className="mb-3 text-5xl">💌</div>
+                  <p className="text-sm font-bold text-slate-500">
+                    이미지 없이 공개된 추억이에요
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="p-5">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                  {dailyDraw.drawDate}
+                </span>
+
+                {note.noteDate && (
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
+                    추억 날짜 {formatNoteDateOnly(note.noteDate)}
+                  </span>
+                )}
+
+                {note.location && (
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                    {note.location}
+                  </span>
+                )}
+              </div>
+
+              <h3 className="text-2xl font-black text-slate-800">
+                {note.title || "제목 없는 추억"}
+              </h3>
+
+              <p className="mt-3 line-clamp-4 text-sm leading-7 text-slate-600">
+                {note.content || "내용이 없는 추억이에요."}
+              </p>
+
+              <p className="mt-3 text-xs font-bold text-slate-400">
+                작성자: {note.authorName || `사용자 ${note.authorId}`}
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenNoteDetail?.(note.noteId)}
+                  className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-sm transition hover:scale-[1.01] ${palette.primaryButton}`}
+                >
+                  오늘 카드 자세히 보기
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onReload}
+                  className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                >
+                  새로고침
+                </button>
+              </div>
+            </div>
+          </article>
+
+          {/* 히스토리 */}
+          <aside className={`rounded-[30px] border p-5 ${palette.panel}`}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-black text-slate-800">
+                  공개 기록
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  지금까지 뽑힌 추억 카드들이에요.
+                </p>
+              </div>
+
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                {history.length}개
+              </span>
+            </div>
+
+            {history.length === 0 && (
+              <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
+                아직 공개 기록이 없어요.
+              </div>
+            )}
+
+            {history.length > 0 && (
+              <div className="space-y-3">
+                {history.slice(0, 5).map((item) => (
+                  <button
+                    key={item.drawId}
+                    type="button"
+                    onClick={() => onOpenNoteDetail?.(item.noteId)}
+                    className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${palette.softCard}`}
+                  >
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.activeChip}`}>
+                        {item.drawDate}
+                      </span>
+
+                      {item.noteDate && (
+                        <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}>
+                          {formatNoteDateOnly(item.noteDate)}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-black text-slate-800">
+                      {item.title || "제목 없는 추억"}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      {item.authorName || `사용자 ${item.authorId}`}
+                      {item.location ? ` · ${item.location}` : ""}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function InfoItem({ label, value, className = "" }) {
   return (
     <div className={`rounded-2xl border px-4 py-3 ${className}`}>
@@ -2496,6 +2767,12 @@ export default function JarDetailPage() {
   const [jarZoomNotes, setJarZoomNotes] = useState([]);
   const [jarZoomLoading, setJarZoomLoading] = useState(false);
   const [jarZoomError, setJarZoomError] = useState("");
+
+  const [dailyDrawToday, setDailyDrawToday] = useState(null);
+  const [dailyDrawHistory, setDailyDrawHistory] = useState([]);
+  const [dailyDrawLoading, setDailyDrawLoading] = useState(false);
+  const [dailyDrawDrawing, setDailyDrawDrawing] = useState(false);
+  const [dailyDrawError, setDailyDrawError] = useState("");
 
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
@@ -3020,6 +3297,40 @@ export default function JarDetailPage() {
       window.clearInterval(timerId);
     };
   }, [jarId, jarChatOpen]);
+
+  /*
+   * Daily Draw 자동 조회
+   *
+   * 역할:
+   * - 저금통 상세 정보가 로드된 뒤
+   * - openMode가 DAILY_DRAW이고
+   * - 저금통이 열린 상태라면
+   * 오늘 카드와 히스토리를 자동으로 불러온다.
+   */
+  useEffect(() => {
+    if (!jarId || !jar) return;
+
+    // DAILY_DRAW 방식이 아니면 Daily Draw 상태를 비운다.
+    if (jar.openMode !== "DAILY_DRAW") {
+      setDailyDrawToday(null);
+      setDailyDrawHistory([]);
+      setDailyDrawError("");
+      setDailyDrawLoading(false);
+      return;
+    }
+
+    // DAILY_DRAW이지만 아직 열리지 않았다면 API를 호출하지 않는다.
+    // 백엔드가 "아직 열리지 않음"으로 막을 것이기 때문이다.
+    if (!jar.isOpen) {
+      setDailyDrawToday(null);
+      setDailyDrawHistory([]);
+      setDailyDrawError("");
+      setDailyDrawLoading(false);
+      return;
+    }
+
+    refreshDailyDraw();
+  }, [jarId, jar?.openMode, jar?.isOpen]);
 
   // 상세 정보를 받아온 뒤, OWNER / ADMIN 이면 초대 목록도 로드
   useEffect(() => {
@@ -3763,6 +4074,173 @@ async function loadChatUnreadCount() {
 }
 
 /*
+ * Daily Draw 오늘 카드 조회
+ *
+ * 역할:
+ * - 서버에 "오늘 뽑힌 카드가 있어?"라고 물어본다.
+ * - 있으면 dailyDrawToday에 저장한다.
+ * - 없으면 hasTodayDraw=false 상태가 저장된다.
+ */
+async function loadDailyDrawToday({ silent = false } = {}) {
+  if (!jarId) return;
+
+  if (!silent) {
+    setDailyDrawLoading(true);
+  }
+
+  setDailyDrawError("");
+
+  try {
+    const data = await getDailyDrawToday(jarId);
+    setDailyDrawToday(data || null);
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "오늘의 추억 한 장을 불러오지 못했어요.";
+
+    setDailyDrawError(serverMessage);
+    setDailyDrawToday(null);
+  } finally {
+    if (!silent) {
+      setDailyDrawLoading(false);
+    }
+  }
+}
+
+/*
+ * Daily Draw 히스토리 조회
+ *
+ * 역할:
+ * - 지금까지 어떤 날짜에 어떤 쪽지가 뽑혔는지 서버에서 가져온다.
+ */
+async function loadDailyDrawHistory({ silent = false } = {}) {
+  if (!jarId) return;
+
+  if (!silent) {
+    setDailyDrawLoading(true);
+  }
+
+  setDailyDrawError("");
+
+  try {
+    const data = await getDailyDrawHistory(jarId, 0, 20);
+    const items = Array.isArray(data?.items) ? data.items : [];
+
+    setDailyDrawHistory(items);
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "Daily Draw 기록을 불러오지 못했어요.";
+
+    setDailyDrawError(serverMessage);
+    setDailyDrawHistory([]);
+  } finally {
+    if (!silent) {
+      setDailyDrawLoading(false);
+    }
+  }
+}
+
+/*
+ * Daily Draw 전체 새로고침
+ *
+ * 역할:
+ * - 오늘 카드와 히스토리를 한 번에 다시 맞춘다.
+ */
+async function refreshDailyDraw() {
+  setDailyDrawLoading(true);
+  setDailyDrawError("");
+
+  try {
+    await Promise.all([
+      loadDailyDrawToday({ silent: true }),
+      loadDailyDrawHistory({ silent: true }),
+    ]);
+  } finally {
+    setDailyDrawLoading(false);
+  }
+}
+
+/*
+ * 오늘의 추억 한 장 뽑기
+ *
+ * 역할:
+ * - 사용자가 "오늘의 추억 한 장 뽑기" 버튼을 누르면 실행된다.
+ * - 서버가 아직 안 뽑힌 쪽지 중 랜덤 1장을 골라 저장한다.
+ * - 이미 오늘 카드가 있으면 기존 카드를 그대로 돌려준다.
+ */
+async function handleDrawDailyDrawToday() {
+  if (!jarId) return;
+
+  if (jar?.openMode !== "DAILY_DRAW") {
+    window.alert("하루 1장 랜덤 공개 방식 저금통에서만 사용할 수 있어요.");
+    return;
+  }
+
+  if (!jar?.isOpen) {
+    window.alert("저금통이 열린 뒤에 오늘의 추억 한 장을 뽑을 수 있어요.");
+    return;
+  }
+
+  setDailyDrawDrawing(true);
+  setDailyDrawError("");
+
+  try {
+    const data = await drawDailyDrawToday(jarId);
+
+    /*
+     * POST 응답은 DailyDrawResponse 하나다.
+     * 그런데 화면 상태는 GET /today 응답처럼
+     * { hasTodayDraw, dailyDraw, message } 모양으로 들고 있으면 편하다.
+     */
+    setDailyDrawToday({
+      hasTodayDraw: true,
+      dailyDraw: data,
+      message: data?.newlyDrawn
+        ? "오늘의 추억 한 장이 공개되었어요."
+        : "이미 공개된 오늘의 추억 한 장을 보여드려요.",
+    });
+
+    // 히스토리도 같이 최신화한다.
+    await loadDailyDrawHistory({ silent: true });
+
+    // 저금통 확대 모달의 쪽지 목록도 최신화한다.
+    await loadJarZoomNotes();
+  } catch (e) {
+    const serverMessage =
+      e?.response?.data?.error?.message ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "오늘의 추억 한 장 뽑기에 실패했어요.";
+
+    setDailyDrawError(serverMessage);
+  } finally {
+    setDailyDrawDrawing(false);
+  }
+}
+
+/*
+ * Daily Draw 카드에서 쪽지 상세 열기
+ *
+ * 역할:
+ * - 오늘 카드나 히스토리에서 쪽지를 누르면
+ * - 기존에 만들어둔 JarZoomNoteDetailModal을 재사용해서 상세를 보여준다.
+ */
+async function handleOpenDailyDrawNoteDetail(noteId) {
+  if (!noteId) return;
+
+  // 오른쪽 확대 목록도 자연스럽게 채워두기 위해 확대 모달을 같이 열어둔다.
+  setJarZoomOpen(true);
+
+  await loadJarZoomNotes();
+  await handleOpenJarZoomNoteDetail(noteId);
+}
+
+/*
  * 채팅 모달 열기
  *
  * 사용자가 채팅방을 열었다는 건
@@ -4367,6 +4845,19 @@ function handleRestoreHiddenInvites() {
             </aside>
           </div>
         </div>
+
+        <DailyDrawSection
+          jar={jar}
+          palette={palette}
+          today={dailyDrawToday}
+          history={dailyDrawHistory}
+          loading={dailyDrawLoading}
+          drawing={dailyDrawDrawing}
+          error={dailyDrawError}
+          onDraw={handleDrawDailyDrawToday}
+          onReload={refreshDailyDraw}
+          onOpenNoteDetail={handleOpenDailyDrawNoteDetail}
+        />
 
         <NoteSection
           key={`note-section-${jarId}-${noteSectionRefreshKey}`}
