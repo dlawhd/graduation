@@ -23,6 +23,11 @@ import {
   getDailyDrawToday,
   getDailyDrawHistory,
 } from "../api/dailyDrawApi";
+import {
+  drawDailyDrawToday,
+  getDailyDrawToday,
+  getDailyDrawHistory,
+} from "../api/dailyDrawApi";
 
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
 const OPEN_MODE_LABEL = {
@@ -2356,6 +2361,7 @@ function DailyDrawSection({
   onDraw,
   onReload,
   onOpenNoteDetail,
+  realtimeMessage,
 }) {
   // DAILY_DRAW 방식 저금통이 아니면 이 섹션은 아예 보여주지 않는다.
   if (jar?.openMode !== "DAILY_DRAW") {
@@ -2398,6 +2404,13 @@ function DailyDrawSection({
           {jar?.isOpen ? "오늘 카드 확인 가능" : "오픈 전"}
         </span>
       </div>
+
+      {/* Daily Draw 실시간 이벤트 안내 문구 */}
+      {jar?.isOpen && realtimeMessage && (
+        <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-bold ${palette.hintBox}`}>
+          ✨ {realtimeMessage}
+        </div>
+      )}
 
       {/* 아직 저금통이 열리지 않았을 때 */}
       {!jar?.isOpen && (
@@ -2773,6 +2786,12 @@ export default function JarDetailPage() {
   const [dailyDrawLoading, setDailyDrawLoading] = useState(false);
   const [dailyDrawDrawing, setDailyDrawDrawing] = useState(false);
   const [dailyDrawError, setDailyDrawError] = useState("");
+
+  // Daily Draw WebSocket 이벤트를 받았을 때 잠깐 보여줄 안내 문구
+  const [dailyDrawRealtimeMessage, setDailyDrawRealtimeMessage] = useState("");
+
+  // 안내 문구를 몇 초 뒤 자동으로 지울 때 사용할 타이머 보관함
+  const dailyDrawRealtimeMessageTimerRef = useRef(null);
 
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
@@ -3330,6 +3349,103 @@ export default function JarDetailPage() {
     }
 
     refreshDailyDraw();
+  }, [jarId, jar?.openMode, jar?.isOpen]);
+
+  /*
+   * Daily Draw WebSocket 연결
+   *
+   * 역할:
+   * - 같은 저금통을 보고 있는 다른 멤버가 "오늘의 추억 한 장"을 뽑으면
+   * - 서버가 /topic/jars/{jarId}/daily-draw 로 이벤트를 보내준다.
+   * - 프론트는 그 이벤트를 받고 오늘 카드/히스토리를 다시 조회해서
+   *   새로고침 없이 화면을 최신 상태로 맞춘다.
+   *
+   * 중요한 점:
+   * - WebSocket 이벤트에는 "오늘 카드가 공개됐다"는 소식만 담는다.
+   * - 실제 카드 내용은 기존 REST API로 다시 가져온다.
+   * - 그래야 기존 권한 검증 로직을 그대로 재사용할 수 있어서 더 안전하다.
+   */
+  useEffect(() => {
+    // jarId가 없으면 어떤 저금통을 구독할지 모르니까 연결하지 않는다.
+    if (!jarId) return;
+
+    // 저금통 상세 정보가 아직 없으면 연결하지 않는다.
+    if (!jar) return;
+
+    // DAILY_DRAW 방식 저금통에서만 Daily Draw 이벤트를 구독한다.
+    if (jar.openMode !== "DAILY_DRAW") return;
+
+    // 아직 열리지 않은 저금통이면 오늘 카드를 뽑을 수 없으므로 구독하지 않는다.
+    if (!jar.isOpen) return;
+
+    const client = createDailyDrawSocketClient({
+      jarId,
+
+      onDailyDrawRevealed: async (event) => {
+        console.log("Daily Draw 공개 이벤트 수신", event);
+
+        /*
+         * 1. 안내 문구를 잠깐 보여준다.
+         *
+         * A 사용자가 뽑은 경우에도 A 화면에 이벤트가 다시 올 수 있고,
+         * B/C 같은 다른 멤버 화면에도 이벤트가 온다.
+         *
+         * 그래서 문구는 너무 강한 alert가 아니라
+         * 화면 안의 작은 안내 박스로만 보여준다.
+         */
+        setDailyDrawRealtimeMessage(
+          event?.message || "오늘의 추억 한 장이 공개되어 화면을 최신으로 맞췄어요."
+        );
+
+        // 기존 타이머가 있으면 먼저 정리한다.
+        if (dailyDrawRealtimeMessageTimerRef.current) {
+          window.clearTimeout(dailyDrawRealtimeMessageTimerRef.current);
+        }
+
+        // 4초 뒤 안내 문구를 자동으로 지운다.
+        dailyDrawRealtimeMessageTimerRef.current = window.setTimeout(() => {
+          setDailyDrawRealtimeMessage("");
+        }, 4000);
+
+        /*
+         * 2. 오늘 카드와 히스토리를 다시 조회한다.
+         *
+         * WebSocket 이벤트 payload에 카드 본문을 담지 않았기 때문에
+         * 기존 REST API를 다시 호출해서 서버 기준 최신 데이터를 가져온다.
+         */
+        await Promise.allSettled([
+          loadDailyDrawToday({ silent: true }),
+          loadDailyDrawHistory({ silent: true }),
+        ]);
+
+        /*
+         * 3. 저금통 확대 모달의 쪽지 목록도 최신화한다.
+         *
+         * 이미 모달을 열어둔 상태라면 오른쪽 쪽지 목록도 자연스럽게 최신 상태가 된다.
+         * 모달이 닫혀 있어도 큰 문제는 없지만, 다음에 열었을 때 더 최신 상태가 될 수 있다.
+         */
+        await loadJarZoomNotes();
+      },
+
+      onConnect: () => {
+        console.log("Daily Draw 이벤트 구독 시작");
+      },
+
+      onError: (error) => {
+        console.error("Daily Draw WebSocket 오류", error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      disconnectDailyDrawSocket(client);
+
+      // 페이지를 벗어나거나 구독 조건이 바뀌면 안내 문구 타이머도 정리한다.
+      if (dailyDrawRealtimeMessageTimerRef.current) {
+        window.clearTimeout(dailyDrawRealtimeMessageTimerRef.current);
+      }
+    };
   }, [jarId, jar?.openMode, jar?.isOpen]);
 
   // 상세 정보를 받아온 뒤, OWNER / ADMIN 이면 초대 목록도 로드
@@ -4840,8 +4956,6 @@ function handleRestoreHiddenInvites() {
                   )}
                 </div>
               </div>
-
-
             </aside>
           </div>
         </div>
@@ -4857,6 +4971,7 @@ function handleRestoreHiddenInvites() {
           onDraw={handleDrawDailyDrawToday}
           onReload={refreshDailyDraw}
           onOpenNoteDetail={handleOpenDailyDrawNoteDetail}
+          realtimeMessage={dailyDrawRealtimeMessage}
         />
 
         <NoteSection
@@ -4869,6 +4984,7 @@ function handleRestoreHiddenInvites() {
           createRequestId={noteCreateRequestId}
           getJarDropTargetRect={getJarDropTargetRect}
         />
+
         <JarZoomModal
           open={jarZoomOpen}
           jar={jar}

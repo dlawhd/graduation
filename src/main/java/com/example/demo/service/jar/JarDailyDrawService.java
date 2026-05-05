@@ -1,10 +1,6 @@
 package com.example.demo.service.jar;
 
-import com.example.demo.dto.dailydraw.response.DailyDrawHistoryItem;
-import com.example.demo.dto.dailydraw.response.DailyDrawHistoryResponse;
-import com.example.demo.dto.dailydraw.response.DailyDrawNoteResponse;
-import com.example.demo.dto.dailydraw.response.DailyDrawResponse;
-import com.example.demo.dto.dailydraw.response.DailyDrawTodayResponse;
+import com.example.demo.dto.dailydraw.response.*;
 import com.example.demo.dto.note.response.NoteAttachmentResponse;
 import com.example.demo.entity.jar.Jar;
 import com.example.demo.entity.jar.JarDailyDraw;
@@ -41,12 +37,16 @@ public class JarDailyDrawService {
     // 한 페이지에서 너무 많은 히스토리를 가져오지 못하게 제한한다.
     private static final int MAX_HISTORY_SIZE = 100;
 
+    // 프론트가 "오늘의 추억 한 장이 공개됐구나!" 하고 구분할 이벤트 이름
+    private static final String DAILY_DRAW_REVEALED = "DAILY_DRAW_REVEALED";
+
     private final JarRepository jarRepository;
     private final JarMemberRepository jarMemberRepository;
     private final JarDailyDrawRepository jarDailyDrawRepository;
     private final NoteRepository noteRepository;
     private final NoteAttachmentRepository noteAttachmentRepository;
     private final JarOpenService jarOpenService;
+    private final JarDailyDrawRealtimeService jarDailyDrawRealtimeService;
 
     public JarDailyDrawService(
             JarRepository jarRepository,
@@ -54,7 +54,8 @@ public class JarDailyDrawService {
             JarDailyDrawRepository jarDailyDrawRepository,
             NoteRepository noteRepository,
             NoteAttachmentRepository noteAttachmentRepository,
-            JarOpenService jarOpenService
+            JarOpenService jarOpenService,
+            JarDailyDrawRealtimeService jarDailyDrawRealtimeService
     ) {
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
@@ -62,6 +63,7 @@ public class JarDailyDrawService {
         this.noteRepository = noteRepository;
         this.noteAttachmentRepository = noteAttachmentRepository;
         this.jarOpenService = jarOpenService;
+        this.jarDailyDrawRealtimeService = jarDailyDrawRealtimeService;
     }
 
     // 오늘의 추억 한 장 뽑기
@@ -248,8 +250,28 @@ public class JarDailyDrawService {
          */
         JarDailyDraw savedDraw = jarDailyDrawRepository.saveAndFlush(dailyDraw);
 
-        // 6. 새로 뽑힌 카드이므로 newlyDrawn = true
-        return toDailyDrawResponse(savedDraw, true);
+        // 6. 새로 뽑힌 카드이므로 newlyDrawn = true 응답을 만든다.
+        DailyDrawResponse response = toDailyDrawResponse(savedDraw, true);
+
+        /*
+         * 7. 오늘 처음 뽑힌 경우에만 WebSocket 이벤트를 보낸다.
+         *
+         * 이 메서드(createNewDailyDraw)는
+         * "오늘 카드가 아직 없어서 새로 저장할 때만" 호출된다.
+         *
+         * 그래서 여기서 이벤트를 보내면:
+         * - 오늘 이미 뽑힌 카드 조회: 이벤트 안 보냄
+         * - 오늘 처음 뽑힌 카드 저장: 이벤트 보냄
+         *
+         * 즉, 다른 멤버 화면에 "오늘의 추억 한 장이 공개됐어!"를
+         * 새로고침 없이 알려줄 수 있다.
+         */
+        jarDailyDrawRealtimeService.sendDailyDrawEventAfterCommit(
+                jarId,
+                toDailyDrawSocketEventResponse(savedDraw)
+        );
+
+        return response;
     }
 
     // 저금통 조회 공통 메서드
@@ -404,4 +426,26 @@ public class JarDailyDrawService {
                 .atZone(KST)
                 .toOffsetDateTime();
     }
+
+    /*
+     * Daily Draw 엔티티를 WebSocket 이벤트 응답 DTO로 바꾼다.
+     *
+     * 여기서는 쪽지 본문(content)을 바로 보내지 않는다.
+     * 이유:
+     * - WebSocket 이벤트는 "오늘 카드가 뽑혔어!"라는 알림 역할만 한다.
+     * - 실제 카드 내용은 프론트가 기존 REST API로 다시 조회한다.
+     *
+     * 이렇게 하면 기존 권한 검증 로직을 그대로 재사용할 수 있어서 더 안전하다.
+     */
+    private DailyDrawSocketEventResponse toDailyDrawSocketEventResponse(JarDailyDraw dailyDraw) {
+        return new DailyDrawSocketEventResponse(
+                dailyDraw.getJar().getJarId(),
+                DAILY_DRAW_REVEALED,
+                dailyDraw.getDrawId(),
+                dailyDraw.getDrawDate(),
+                dailyDraw.getNote().getNoteId(),
+                "오늘의 추억 한 장이 공개되었어요."
+        );
+    }
+
 }
