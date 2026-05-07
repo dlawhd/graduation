@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 
 // 저금통을 새로 만들 때 클라이언트가 보내는 요청
 // 어떤 이름으로 만들지, 어떤 분위기의 저금통인지, 몇 명까지 들어갈지, 언제 열릴지

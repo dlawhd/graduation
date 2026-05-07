@@ -57,7 +57,6 @@ public enum JarTheme {
      */
     SUNSET,
 
-
     // 아래 4개는 예전 테마 값. 일단 대기
     // 커플용 저금통
     COUPLE,

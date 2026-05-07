@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import apiClient, { fetchCsrf } from "../api/apiClient";
@@ -7,10 +7,18 @@ import apiClient, { fetchCsrf } from "../api/apiClient";
 // 화면에 보여줄 한글 라벨
 // ==============================
 const THEME_LABEL = {
-  COUPLE: "커플",
-  FRIEND: "친구",
-  FAMILY: "가족",
-  CUSTOM: "커스텀",
+  // 새 테마 값
+  SPRING: "봄",
+  SUMMER: "여름",
+  LAVENDER: "라벤더",
+  WINTER: "겨울",
+
+  // 예전 값 호환용
+  // 혹시 기존 데이터가 잠깐 들어와도 화면이 깨지지 않게 남겨둔다.
+  COUPLE: "봄",
+  FRIEND: "겨울",
+  FAMILY: "여름",
+  CUSTOM: "라벤더",
 };
 
 const OPEN_MODE_LABEL = {
@@ -27,19 +35,24 @@ const LOCK_LEVEL_LABEL = {
 // ==============================
 // 4가지 저금통 템플릿
 // ==============================
+// 지금 화면에서는 먼저 4개만 보여준다.
+// SPRING  = 기존 커플 추억
+// WINTER  = 기존 친구 우정
+// SUMMER  = 기존 가족 추억
+// LAVENDER = 기존 직접 만들기
 const JAR_TEMPLATES = [
   {
     id: 1,
-    type: "COUPLE",
-    emoji: "💞",
-    title: "커플 추억 저금통",
-    summary: "둘만의 사진, 메모, 기념일 이야기를 담아둘 수 있어요.",
-    previewTitle: "우리의 추억 저금통",
-    previewDesc: "함께한 소중한 순간을 하나씩 모아둘래요.",
+    type: "SPRING",
+    emoji: "🌸",
+    title: "봄 저금통",
+    summary: "분홍빛 봄처럼 따뜻한 추억을 담아둘 수 있어요.",
+    previewTitle: "우리의 봄 저금통",
+    previewDesc: "함께한 소중한 순간을 벚꽃처럼 하나씩 모아둘래요.",
     values: {
-      name: "우리의 추억 저금통",
-      description: "함께한 소중한 순간을 하나씩 모아둘래요.",
-      theme: "COUPLE",
+      name: "우리의 봄 저금통",
+      description: "함께한 소중한 순간을 벚꽃처럼 하나씩 모아둘래요.",
+      theme: "SPRING",
       maxMembers: 2,
       openAt: "",
       openMode: "ALL_AT_ONCE",
@@ -48,16 +61,16 @@ const JAR_TEMPLATES = [
   },
   {
     id: 2,
-    type: "FRIEND",
-    emoji: "🎉",
-    title: "친구 우정 저금통",
-    summary: "친구들과 메시지와 추억을 모으는 공간이에요.",
-    previewTitle: "우리 우정 타임캡슐",
-    previewDesc: "별, 말풍선, 축하 느낌이 살아있는 신나는 저금통",
+    type: "WINTER",
+    emoji: "❄️",
+    title: "겨울 저금통",
+    summary: "친구들과의 반짝이는 우정과 메시지를 모으는 공간이에요.",
+    previewTitle: "우리 겨울 우정 타임캡슐",
+    previewDesc: "눈, 별, 말풍선 느낌이 살아있는 시원한 우정 저금통",
     values: {
-      name: "우정 저금통",
-      description: "서로에게 남기고 싶은 말들을 모아보자.",
-      theme: "FRIEND",
+      name: "겨울 우정 저금통",
+      description: "서로에게 남기고 싶은 말들을 차곡차곡 모아보자.",
+      theme: "WINTER",
       maxMembers: 4,
       openAt: "",
       openMode: "DAILY_DRAW",
@@ -66,16 +79,16 @@ const JAR_TEMPLATES = [
   },
   {
     id: 3,
-    type: "FAMILY",
-    emoji: "🏡",
-    title: "가족 추억 저금통",
-    summary: "가족 여행, 생일, 특별한 날들을 기록해요.",
-    previewTitle: "우리 가족 보물상자",
-    previewDesc: "집, 잎사귀, 햇살 느낌이 담긴 포근한 저금통",
+    type: "SUMMER",
+    emoji: "🌿",
+    title: "여름 저금통",
+    summary: "가족 여행, 생일, 특별한 날들을 싱그럽게 기록해요.",
+    previewTitle: "우리 가족 여름 보물상자",
+    previewDesc: "잎사귀, 햇살, 집의 포근함이 담긴 가족 저금통",
     values: {
-      name: "가족 추억 저금통",
-      description: "우리 가족의 특별한 이야기를 담아둘 공간이에요.",
-      theme: "FAMILY",
+      name: "여름 가족 추억 저금통",
+      description: "우리 가족의 특별한 이야기를 싱그럽게 담아둘 공간이에요.",
+      theme: "SUMMER",
       maxMembers: 5,
       openAt: "",
       openMode: "ALL_AT_ONCE",
@@ -84,16 +97,16 @@ const JAR_TEMPLATES = [
   },
   {
     id: 4,
-    type: "CUSTOM",
-    emoji: "✨",
-    title: "직접 만들기",
-    summary: "내가 원하는 방식으로 처음부터 직접 설정할 수 있어요.",
-    previewTitle: "나만의 커스텀 저금통",
-    previewDesc: "반짝임과 자유로운 분위기의 커스텀 저금통",
+    type: "LAVENDER",
+    emoji: "💜",
+    title: "라벤더 저금통",
+    summary: "차분한 라벤더 분위기로 원하는 방식의 저금통을 만들 수 있어요.",
+    previewTitle: "나만의 라벤더 저금통",
+    previewDesc: "보라빛 반짝임과 자유로운 분위기의 직접 만들기 저금통",
     values: {
       name: "",
       description: "",
-      theme: "CUSTOM",
+      theme: "LAVENDER",
       maxMembers: 2,
       openAt: "",
       openMode: "ALL_AT_ONCE",
@@ -126,7 +139,7 @@ function getVisualPreset(theme) {
   // =========================
   // 1) 커플 저금통
   // =========================
-  if (theme === "COUPLE") {
+  if (theme === "SPRING" || theme === "COUPLE") {
     return {
       // 바깥 큰 미리보기 카드 배경
       previewCardStyle: {
@@ -172,14 +185,11 @@ function getVisualPreset(theme) {
       },
 
       // 가운데 대표 이모지
-      centerEmoji: "💞",
+      centerEmoji: "🌸",
 
       // 주변 장식 이모지
       decor: [
-        { left: 55, top: 95, emoji: "💌", delay: 0 },
-        { left: 300, top: 105, emoji: "💖", delay: 0.2 },
-        { left: 70, top: 300, emoji: "✨", delay: 0.4 },
-        { left: 305, top: 285, emoji: "🌷", delay: 0.3 },
+
       ],
 
       // 포인트 선 색
@@ -190,7 +200,7 @@ function getVisualPreset(theme) {
   // =========================
   // 2) 친구 저금통
   // =========================
-  if (theme === "FRIEND") {
+  if (theme === "WINTER" || theme === "FRIEND") {
     return {
       previewCardStyle: {
         background:
@@ -228,13 +238,10 @@ function getVisualPreset(theme) {
         color: "#4b5f77",
       },
 
-      centerEmoji: "🎊",
+      centerEmoji: "❄️",
 
       decor: [
-        { left: 55, top: 95, emoji: "⭐", delay: 0 },
-        { left: 300, top: 105, emoji: "💬", delay: 0.2 },
-        { left: 70, top: 300, emoji: "🎈", delay: 0.4 },
-        { left: 300, top: 285, emoji: "🎉", delay: 0.3 },
+
       ],
 
       accentLine: "#5cb9ff",
@@ -244,7 +251,7 @@ function getVisualPreset(theme) {
   // =========================
   // 3) 가족 저금통
   // =========================
-  if (theme === "FAMILY") {
+  if (theme === "SUMMER" || theme === "FAMILY") {
     return {
       previewCardStyle: {
         background:
@@ -282,13 +289,10 @@ function getVisualPreset(theme) {
         color: "#4f5b4e",
       },
 
-      centerEmoji: "🏠",
+      centerEmoji: "🌿",
 
       decor: [
-        { left: 50, top: 100, emoji: "🌿", delay: 0 },
-        { left: 302, top: 100, emoji: "💛", delay: 0.2 },
-        { left: 72, top: 300, emoji: "☀️", delay: 0.4 },
-        { left: 300, top: 285, emoji: "📖", delay: 0.3 },
+
       ],
 
       accentLine: "#4fc26d",
@@ -296,7 +300,8 @@ function getVisualPreset(theme) {
   }
 
   // =========================
-  // 4) 직접 만들기(CUSTOM)
+  // 4) 라벤더 저금통
+  // - 기존 직접 만들기(CUSTOM) 역할
   // =========================
   return {
     previewCardStyle: {
@@ -335,13 +340,9 @@ function getVisualPreset(theme) {
       color: "#605177",
     },
 
-    centerEmoji: "✨",
+    centerEmoji: "💜",
 
     decor: [
-      { left: 55, top: 95, emoji: "✨", delay: 0 },
-      { left: 300, top: 105, emoji: "🎨", delay: 0.2 },
-      { left: 70, top: 300, emoji: "🌈", delay: 0.4 },
-      { left: 300, top: 285, emoji: "🪄", delay: 0.3 },
     ],
 
     accentLine: "#8d69ff",
@@ -354,8 +355,8 @@ function getVisualPreset(theme) {
 // 선택된 카드가 어떤 저금통인지에 따라
 // 배경색 / 테두리색 / 그림자 / 선택 배지 색을 바꿔주는 함수야.
 function getTemplateCardStyle(theme) {
-  // 커플 저금통
-  if (theme === "COUPLE") {
+  // 봄 저금통
+  if (theme === "SPRING" || theme === "COUPLE") {
     return {
       cardStyle: {
         borderColor: "#ff7ea8",
@@ -369,8 +370,8 @@ function getTemplateCardStyle(theme) {
     };
   }
 
-  // 친구 저금통
-  if (theme === "FRIEND") {
+  // 겨울 저금통
+  if (theme === "WINTER" || theme === "FRIEND") {
     return {
       cardStyle: {
         borderColor: "#5cb9ff",
@@ -384,8 +385,8 @@ function getTemplateCardStyle(theme) {
     };
   }
 
-  // 가족 저금통
-  if (theme === "FAMILY") {
+  // 여름 저금통
+  if (theme === "SUMMER" || theme === "FAMILY") {
     return {
       cardStyle: {
         borderColor: "#4fc26d",
@@ -399,7 +400,7 @@ function getTemplateCardStyle(theme) {
     };
   }
 
-  // 직접 만들기(CUSTOM)
+  // 라벤더 저금통
   return {
     cardStyle: {
       borderColor: "#8d69ff",
@@ -411,6 +412,91 @@ function getTemplateCardStyle(theme) {
       color: "#7b55e8",
     },
   };
+}
+
+/*
+ * getPreviewSnowballTheme 역할
+ *
+ * 저금통 만들기 미리보기 화면에서
+ * 테마별로 어떤 장식이 떨어질지 정해주는 함수야.
+ *
+ * 쉽게 말하면:
+ * - 봄이면 벚꽃
+ * - 겨울이면 눈
+ * - 여름이면 잎사귀
+ * - 라벤더면 보라빛 반짝이
+ * 를 골라주는 작은 사전이야.
+ */
+function getPreviewSnowballTheme(theme) {
+  if (theme === "SPRING" || theme === "COUPLE") {
+    return {
+      icons: ["🌸", "🌸", "💮", "🩷"],
+    };
+  }
+
+  if (theme === "WINTER" || theme === "FRIEND") {
+    return {
+      icons: ["❄️", "❄️", "🤍", "❅"],
+    };
+  }
+
+  if (theme === "SUMMER" || theme === "FAMILY") {
+    return {
+      icons: ["🌿", "🍃", "☘️", "💚"],
+    };
+  }
+
+  return {
+    icons: ["💜", "🔮", "🪻", "🟣"],
+  };
+}
+
+/*
+ * createPreviewSnowballParticles 역할
+ *
+ * 저금통 미리보기 안에서 자연스럽게 떨어질 장식 2~3개를 만든다.
+ *
+ * 중요한 점:
+ * - 한 번에 많이 만들지 않는다.
+ * - 조금씩 계속 추가해서 끊기지 않게 보이게 한다.
+ */
+function createPreviewSnowballParticles(theme, count = 2) {
+  const snowballTheme = getPreviewSnowballTheme(theme);
+
+  return Array.from({ length: count }, (_, index) => {
+    const icon =
+      snowballTheme.icons[
+        Math.floor(Math.random() * snowballTheme.icons.length)
+      ];
+
+    const duration = 3.2 + Math.random() * 1.4;
+    const delay = Math.random() * 0.35;
+
+    return {
+      id: `${Date.now()}-${index}-${Math.random()}`,
+      icon,
+
+      // 저금통 몸통 안쪽 위에서 시작
+      left: 22 + Math.random() * 56,
+      top: 8 + Math.random() * 18,
+
+      // 너무 크지 않게 은은하게
+      size: 14 + Math.random() * 7,
+
+      // 좌우로 살짝 흔들리면서 아래로 떨어짐
+      fallX: -26 + Math.random() * 52,
+      fallY: 120 + Math.random() * 70,
+
+      // 떨어지며 살짝 회전
+      rotate: -100 + Math.random() * 200,
+
+      duration,
+      delay,
+
+      // 이 시간이 지나면 이 파티클만 삭제
+      lifetime: duration + delay + 0.35,
+    };
+  });
 }
 
 // ==============================
@@ -437,11 +523,141 @@ function FloatingIcon({ left, top, delay, children }) {
 // ==============================
 // 실제 저금통 그림
 // ==============================
+/*
+ * JarIllustration 역할
+ *
+ * 저금통 만들기 화면 오른쪽에 보이는
+ * "미리보기 저금통 그림"을 담당하는 컴포넌트야.
+ *
+ * 이번에 추가한 기능:
+ * - 사용자가 저금통을 만들기 전에
+ * - 선택한 테마에 맞는 효과를 미리 볼 수 있다.
+ * - 봄은 벚꽃, 겨울은 눈, 여름은 잎사귀, 라벤더는 보라빛 장식이 계속 살짝 떨어진다.
+ *
+ * 쉽게 말하면:
+ * 상세 페이지에서 보던 스노우볼 효과를
+ * 저금통 만들기 미리보기에도 살짝 보여주는 거야.
+ */
 function JarIllustration({ template, form }) {
   const preset = getVisualPreset(form.theme);
 
+  // 미리보기 저금통 안에 현재 보이는 파티클 목록
+  const [particles, setParticles] = useState([]);
+
+  // 2~3개씩 계속 추가하는 interval 저장소
+  const snowballIntervalRef = useRef(null);
+
+  // 각각의 파티클을 나중에 삭제하는 타이머 저장소
+  const particleRemoveTimerRefs = useRef([]);
+
+  /*
+   * 파티클을 2~3개씩 자연스럽게 추가하는 함수
+   *
+   * 한 번에 전부 지웠다가 다시 만드는 방식이 아니라,
+   * 기존 파티클은 그대로 두고 새 파티클만 조금씩 추가한다.
+   */
+  function playPreviewSnowballEffect() {
+    // 이번에 추가할 개수: 2개 또는 3개
+    const nextCount = Math.random() > 0.55 ? 3 : 2;
+
+    // 새 파티클 만들기
+    const nextParticles = createPreviewSnowballParticles(
+      form.theme,
+      nextCount
+    );
+
+    // 기존 파티클에 새 파티클을 이어 붙인다.
+    setParticles((prev) => {
+      const merged = [...prev, ...nextParticles];
+
+      // 너무 많이 쌓이면 복잡해지니까 최대 16개 정도만 유지한다.
+      return merged.slice(-16);
+    });
+
+    // 각 파티클은 자기 애니메이션이 끝나면 혼자 사라진다.
+    nextParticles.forEach((particle) => {
+      const timerId = window.setTimeout(() => {
+        setParticles((prev) =>
+          prev.filter((item) => item.id !== particle.id)
+        );
+      }, particle.lifetime * 1000);
+
+      particleRemoveTimerRefs.current.push(timerId);
+    });
+  }
+
+  /*
+   * 선택한 테마가 보이는 동안 계속 파티클을 흩날리게 한다.
+   *
+   * form.theme이 바뀌면:
+   * - 기존 타이머를 정리하고
+   * - 파티클도 비운 다음
+   * - 새 테마에 맞는 장식으로 다시 시작한다.
+   */
+  useEffect(() => {
+    // 테마가 바뀔 때 기존 파티클 먼저 비우기
+    setParticles([]);
+
+    // 처음 화면에 들어왔을 때 바로 한 번 보여주기
+    playPreviewSnowballEffect();
+
+    // 이후 계속 2~3개씩 자연스럽게 추가
+    snowballIntervalRef.current = window.setInterval(() => {
+      playPreviewSnowballEffect();
+    }, 650);
+
+    return () => {
+      if (snowballIntervalRef.current) {
+        window.clearInterval(snowballIntervalRef.current);
+      }
+
+      particleRemoveTimerRefs.current.forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+
+      particleRemoveTimerRefs.current = [];
+    };
+  }, [form.theme]);
+
   return (
     <div className="relative mx-auto mt-4 h-[390px] w-full max-w-[430px]">
+      {/* 미리보기 저금통 안에서만 쓰는 파티클 애니메이션 */}
+      <style>
+        {`
+          @keyframes previewJarParticleFall {
+            0% {
+              opacity: 0;
+              transform: translate(0, -10px) rotate(0deg) scale(0.75);
+            }
+
+            12% {
+              opacity: 0.9;
+            }
+
+            55% {
+              opacity: 0.9;
+            }
+
+            100% {
+              opacity: 0;
+              transform:
+                translate(var(--fall-x), var(--fall-y))
+                rotate(var(--fall-rotate))
+                scale(1);
+            }
+          }
+
+          .preview-jar-particle {
+            animation-name: previewJarParticleFall;
+            animation-duration: var(--fall-duration);
+            animation-delay: var(--fall-delay);
+            animation-timing-function: ease-in-out;
+            animation-fill-mode: forwards;
+            will-change: transform, opacity;
+          }
+        `}
+      </style>
+
       {/* 뒤쪽 빛 */}
       <motion.div
         className="absolute left-1/2 top-[110px] h-[220px] w-[220px] -translate-x-1/2 rounded-full blur-3xl"
@@ -481,7 +697,7 @@ function JarIllustration({ template, form }) {
 
           {/* 몸통 */}
           <div
-            className="absolute left-1/2 top-[36px] z-10 h-[240px] w-[195px] -translate-x-1/2"
+            className="absolute left-1/2 top-[36px] z-10 h-[240px] w-[195px] -translate-x-1/2 overflow-hidden"
             style={{
               ...preset.jarBodyStyle,
               borderRadius: "42% 42% 28% 28%",
@@ -489,44 +705,43 @@ function JarIllustration({ template, form }) {
           >
             {/* 유리 반짝임 */}
             <div
-              className="absolute left-[20px] top-[24px] h-[130px] w-[14px] rounded-full"
+              className="absolute left-[20px] top-[24px] z-30 h-[130px] w-[14px] rounded-full"
               style={{
                 background: "rgba(255,255,255,0.72)",
                 filter: "blur(2px)",
               }}
             />
             <div
-              className="absolute right-[18px] top-[36px] h-[80px] w-[8px] rounded-full"
+              className="absolute right-[18px] top-[36px] z-30 h-[80px] w-[8px] rounded-full"
               style={{
                 background: "rgba(255,255,255,0.45)",
                 filter: "blur(2px)",
               }}
             />
 
+            {/* 자동으로 흩날리는 장식 */}
+            {particles.map((particle) => (
+              <span
+                key={particle.id}
+                className="preview-jar-particle absolute z-20 select-none"
+                style={{
+                  left: `${particle.left}%`,
+                  top: `${particle.top}%`,
+                  fontSize: `${particle.size}px`,
+                  "--fall-x": `${particle.fallX}px`,
+                  "--fall-y": `${particle.fallY}px`,
+                  "--fall-rotate": `${particle.rotate}deg`,
+                  "--fall-duration": `${particle.duration}s`,
+                  "--fall-delay": `${particle.delay}s`,
+                }}
+              >
+                {particle.icon}
+              </span>
+            ))}
+
             {/* 안쪽 내용 */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3">
               <div className="text-[52px]">{preset.centerEmoji}</div>
-
-              <div
-                className="rounded-full px-4 py-2 text-xs font-bold shadow"
-                style={preset.labelPillStyle}
-              >
-                {LOCK_LEVEL_LABEL[form.lockLevel]}
-              </div>
-
-              <div
-                className="rounded-full px-4 py-2 text-xs font-bold shadow"
-                style={preset.labelPillStyle}
-              >
-                {OPEN_MODE_LABEL[form.openMode]}
-              </div>
-
-              <div
-                className="rounded-full px-4 py-2 text-xs font-bold shadow"
-                style={preset.labelPillStyle}
-              >
-                최대 {form.maxMembers}명
-              </div>
             </div>
           </div>
 
@@ -721,7 +936,7 @@ export default function JarsNewPage() {
               어떤 저금통을 만들고 싶어?
             </h2>
             <p className="mt-2 text-base text-slate-500">
-              4가지 중 하나를 고르면 그에 맞는 저금통이 바로 보여.
+              4가지 테마 중 하나를 고르면 그에 맞는 저금통이 바로 보여.
             </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-1">
@@ -826,10 +1041,10 @@ export default function JarsNewPage() {
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
                 >
-                  <option value="COUPLE">{THEME_LABEL.COUPLE}</option>
-                  <option value="FRIEND">{THEME_LABEL.FRIEND}</option>
-                  <option value="FAMILY">{THEME_LABEL.FAMILY}</option>
-                  <option value="CUSTOM">{THEME_LABEL.CUSTOM}</option>
+                  <option value="SPRING">{THEME_LABEL.SPRING}</option>
+                  <option value="SUMMER">{THEME_LABEL.SUMMER}</option>
+                  <option value="LAVENDER">{THEME_LABEL.LAVENDER}</option>
+                  <option value="WINTER">{THEME_LABEL.WINTER}</option>
                 </select>
               </div>
 

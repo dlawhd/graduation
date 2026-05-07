@@ -29,10 +29,18 @@ const ROLE_LABEL = {
 };
 
 const THEME_LABEL = {
-  COUPLE: "커플 추억",
-  FRIEND: "친구 우정",
-  FAMILY: "가족 추억",
-  CUSTOM: "직접 만든 저금통",
+  // 새 테마 값
+  SPRING: "봄",
+  WINTER: "겨울",
+  SUMMER: "여름",
+  LAVENDER: "라벤더",
+
+  // 예전 값 호환용
+  // 기존 DB/화면에 잠깐 예전 값이 남아 있어도 깨지지 않게 둔다.
+  COUPLE: "봄",
+  FRIEND: "겨울",
+  FAMILY: "여름",
+  CUSTOM: "라벤더",
 };
 
 // 한 페이지에서 보여줄 저금통 개수
@@ -105,7 +113,10 @@ function getOpenProgressWidth(jar) {
 // 테마별 색상 묶음
 // 상세 페이지처럼 각 저금통이 자기 색을 가지게 해주는 부분이야.
 function getThemePalette(theme) {
-  if (theme === "COUPLE") {
+
+  // 봄 테마
+  // 새 값 SPRING과 예전 값 COUPLE을 같은 색으로 보여준다.
+  if (theme === "SPRING" || theme === "COUPLE") {
     return {
       pageGlow: "from-rose-100/40 via-orange-100/30 to-transparent",
       heroRing: "ring-rose-100",
@@ -122,12 +133,14 @@ function getThemePalette(theme) {
       previewLid: "bg-gradient-to-r from-rose-500 to-orange-500",
       glow: "bg-rose-300/40",
       progress: "from-rose-500 to-orange-500",
-      icon: "💗",
-      sparkles: ["✨", "💛"],
+      icon: "🌸",
+      sparkles: [],
     };
   }
 
-  if (theme === "FRIEND") {
+  // 겨울 테마
+  // 새 값 WINTER와 예전 값 FRIEND를 같은 색으로 보여준다.
+  if (theme === "WINTER" || theme === "FRIEND") {
     return {
       pageGlow: "from-sky-100/40 via-indigo-100/30 to-transparent",
       heroRing: "ring-sky-100",
@@ -144,12 +157,14 @@ function getThemePalette(theme) {
       previewLid: "bg-gradient-to-r from-sky-500 to-indigo-500",
       glow: "bg-sky-300/40",
       progress: "from-sky-500 to-indigo-500",
-      icon: "⭐",
-      sparkles: ["✨", "💙"],
+      icon: "❄️",
+      sparkles: [],
     };
   }
 
-  if (theme === "FAMILY") {
+  // 여름 테마
+  // 새 값 SUMMER와 예전 값 FAMILY를 같은 색으로 보여준다.
+  if (theme === "SUMMER" || theme === "FAMILY") {
     return {
       pageGlow: "from-emerald-100/40 via-lime-100/30 to-transparent",
       heroRing: "ring-emerald-100",
@@ -167,10 +182,12 @@ function getThemePalette(theme) {
       glow: "bg-emerald-300/40",
       progress: "from-emerald-500 to-lime-500",
       icon: "🌿",
-      sparkles: ["✨", "💚"],
+      sparkles: [],
     };
   }
 
+  // 라벤더 테마
+  // 새 값 LAVENDER와 예전 값 CUSTOM은 여기 기본 보라색 스타일을 사용한다.
   return {
     pageGlow: "from-violet-100/40 via-fuchsia-100/30 to-transparent",
     heroRing: "ring-violet-100",
@@ -187,8 +204,8 @@ function getThemePalette(theme) {
     previewLid: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
     glow: "bg-violet-300/40",
     progress: "from-violet-500 to-fuchsia-500",
-    icon: "✨",
-    sparkles: ["✨", "💜"],
+    icon: "💜",
+    sparkles: [],
   };
 }
 
@@ -197,7 +214,7 @@ function JarListVisual({ jar }) {
   const palette = getThemePalette(jar?.theme);
 
   return (
-    <div className="relative mx-auto flex h-44 w-36 items-center justify-center">
+    <div className="relative mx-auto flex h-49 w-36 items-center justify-center">
       {/* 뒤에 은은하게 퍼지는 빛 */}
       <div className={`absolute inset-4 rounded-full blur-3xl ${palette.glow}`} />
 
@@ -354,8 +371,8 @@ export default function JarsPage() {
   }, []);
 
   // 대표 테마 하나를 골라서 상단 헤더 색감을 정해줘요.
-  // 목록 첫 번째 카드의 테마를 따라가면 화면 전체가 더 통일감 있어 보여요.
-  const primaryTheme = items?.[0]?.theme || "COUPLE";
+  // 목록이 비어 있을 때는 기본으로 봄 테마 색감을 사용한다.
+  const primaryTheme = items?.[0]?.theme || "SPRING";
   const primaryPalette = getThemePalette(primaryTheme);
 
   return (

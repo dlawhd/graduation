@@ -47,10 +47,18 @@ const ROLE_LABEL = {
 };
 
 const THEME_LABEL = {
-  COUPLE: "커플 추억",
-  FRIEND: "친구 우정",
-  FAMILY: "가족 추억",
-  CUSTOM: "직접 만든 저금통",
+  // 새 테마 값
+  SPRING: "봄",
+  WINTER: "겨울",
+  SUMMER: "여름",
+  LAVENDER: "라벤더",
+
+  // 예전 값 호환용
+  // 기존 데이터가 잠깐 남아 있어도 상세 화면이 깨지지 않게 둔다.
+  COUPLE: "봄",
+  FRIEND: "겨울",
+  FAMILY: "여름",
+  CUSTOM: "라벤더",
 };
 
 // 리액션 enum 값을 화면용 이모지/이름으로 바꿔주는 표
@@ -671,7 +679,9 @@ function getOpenStatus(jar) {
 
 // 저금통 종류(theme)에 따라 큰 카드 + 아래 멤버/초대 카드 색까지 같이 정해줘.
 function getThemePalette(theme) {
-  if (theme === "COUPLE") {
+  // 봄 테마
+  // 새 값 SPRING과 예전 값 COUPLE을 같은 분홍/주황 색감으로 보여준다.
+  if (theme === "SPRING" || theme === "COUPLE") {
     return {
       hero: "from-rose-100 via-pink-50 to-orange-50 border-rose-200",
       badge: "bg-gradient-to-r from-rose-400 to-orange-400 text-white",
@@ -709,7 +719,9 @@ function getThemePalette(theme) {
     };
   }
 
-  if (theme === "FRIEND") {
+  // 겨울 테마
+  // 새 값 WINTER와 예전 값 FRIEND를 같은 파랑/하양 색감으로 보여준다.
+  if (theme === "WINTER" || theme === "FRIEND") {
     return {
       hero: "from-sky-100 via-cyan-50 to-indigo-50 border-sky-200",
       badge: "bg-gradient-to-r from-sky-500 to-indigo-500 text-white",
@@ -747,7 +759,9 @@ function getThemePalette(theme) {
     };
   }
 
-  if (theme === "FAMILY") {
+  // 여름 테마
+  // 새 값 SUMMER와 예전 값 FAMILY를 같은 초록/햇살 색감으로 보여준다.
+  if (theme === "SUMMER" || theme === "FAMILY") {
     return {
       hero: "from-emerald-100 via-lime-50 to-amber-50 border-emerald-200",
       badge: "bg-gradient-to-r from-emerald-500 to-lime-500 text-white",
@@ -785,6 +799,8 @@ function getThemePalette(theme) {
     };
   }
 
+  // 라벤더 테마
+  // 새 값 LAVENDER와 예전 값 CUSTOM은 여기 기본 보라색 스타일을 사용한다.
   return {
     hero: "from-violet-100 via-fuchsia-50 to-pink-50 border-violet-200",
     badge: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white",
@@ -822,84 +838,360 @@ function getThemePalette(theme) {
   };
 }
 
-// 저금통 종류마다 가운데 대표 이모지를 하나씩 보여줘.
+/*
+ * getThemeEmoji 역할
+ *
+ * 저금통 테마에 맞는 대표 이모지를 하나 골라주는 함수야.
+ *
+ * 쉽게 말하면:
+ * - 봄 저금통이면 🌸
+ * - 겨울 저금통이면 ❄️
+ * - 여름 저금통이면 🌿
+ * - 라벤더 저금통이면 💜
+ * 를 보여주는 역할이야.
+ */
 function getThemeEmoji(theme) {
-  if (theme === "COUPLE") return "💞";
-  if (theme === "FRIEND") return "⭐";
-  if (theme === "FAMILY") return "🏡";
-  return "✨";
+  // 봄: 기존 커플 추억 역할
+  if (theme === "SPRING" || theme === "COUPLE") return "🌸";
+
+  // 겨울: 기존 친구 우정 역할
+  if (theme === "WINTER" || theme === "FRIEND") return "❄️";
+
+  // 여름: 기존 가족 추억 역할
+  if (theme === "SUMMER" || theme === "FAMILY") return "🌿";
+
+  // 라벤더: 기존 직접 만들기 역할
+  return "💜";
 }
 
-// 저금통 안쪽에 보이는 작은 장식들
+// 저금통 종류마다 가운데 대표 이모지를 하나씩 보여줘.
+function getJarSnowballTheme(theme) {
+  // 봄: 벚꽃잎 느낌
+  if (theme === "SPRING" || theme === "COUPLE") {
+    return {
+      label: "벚꽃",
+      icons: ["🌸", "🌸", "💮", "🩷"],
+      count: 8,
+    };
+  }
+
+  // 겨울: 눈송이 느낌
+  if (theme === "WINTER" || theme === "FRIEND") {
+    return {
+      label: "눈",
+      icons: ["❄️", "❄️", "🤍", "❅"],
+      count: 10,
+    };
+  }
+
+  // 여름: 잎사귀가 둥둥 떠다니는 느낌
+  if (theme === "SUMMER" || theme === "FAMILY") {
+    return {
+      label: "잎사귀",
+      icons: ["🌿", "🍃", "☘️", "💚"],
+      count: 8,
+    };
+  }
+
+  // 라벤더: 보라빛 꽃과 반짝이 느낌
+  return {
+    label: "라벤더",
+    icons: ["💜", "🔮", "🪻", "🟣"],
+    count: 8,
+  };
+}
+
+/*
+ * createJarSnowballParticles 역할
+ *
+ * 저금통 안에서 자연스럽게 흩날릴 작은 장식들을 만들어줘.
+ *
+ * 이번 버전의 핵심:
+ * - 한 번에 많이 만들지 않는다.
+ * - 2~3개씩 조금씩 만든다.
+ * - 각 장식은 자기 시간이 끝나면 따로 사라진다.
+ *
+ * 쉽게 말하면:
+ * 눈이 한 번에 우르르 내리는 게 아니라,
+ * 계속 조금씩 살살 내리게 만드는 함수야.
+ */
+function createJarSnowballParticles(theme, count = 2) {
+  const snowballTheme = getJarSnowballTheme(theme);
+
+  return Array.from({ length: count }, (_, index) => {
+    const icon =
+      snowballTheme.icons[
+        Math.floor(Math.random() * snowballTheme.icons.length)
+      ];
+
+    const duration = 3.2 + Math.random() * 1.4;
+    const delay = Math.random() * 0.35;
+
+    return {
+      id: `${Date.now()}-${index}-${Math.random()}`,
+      icon,
+
+      // 위쪽에서 자연스럽게 시작
+      left: 20 + Math.random() * 60,
+      top: 6 + Math.random() * 18,
+
+      // 너무 크지 않게 은은하게
+      size: 15 + Math.random() * 7,
+
+      // 좌우로 살짝 흔들리면서 내려감
+      fallX: -28 + Math.random() * 56,
+      fallY: 115 + Math.random() * 70,
+
+      // 회전
+      rotate: -100 + Math.random() * 200,
+
+      // 각 파티클마다 다른 속도
+      duration,
+      delay,
+
+      // 이 시간이 지나면 이 파티클만 제거할 거야.
+      lifetime: duration + delay + 0.35,
+    };
+  });
+}
+
+/*
+ * JarVisual 역할
+ *
+ * 이 컴포넌트는 저금통 상세 페이지 가운데에 보이는
+ * "큰 저금통 그림"을 담당해.
+ *
+ * 이번 버전:
+ * - 사용자가 누르지 않아도 자동으로 테마별 장식이 살짝 떨어진다.
+ * - 봄은 벚꽃, 겨울은 눈, 여름은 잎사귀, 라벤더는 보라빛 장식이 나온다.
+ * - 기존 "크게 보기" 기능은 아래 작은 버튼으로 유지한다.
+ *
+ * 쉽게 말하면:
+ * 가만히 보고 있어도 저금통 안에서 스노우볼처럼 장식이 계속 살짝 흩날리는 효과야.
+ */
 function JarVisual({ jar, jarRef, onClick, interactive = false }) {
   const palette = getThemePalette(jar?.theme);
 
-  function handleKeyDown(e) {
+  // 현재 테마에 맞는 파티클 정보
+  const snowballTheme = getJarSnowballTheme(jar?.theme);
+
+  // 화면에 보이는 벚꽃/눈/잎사귀 목록
+  const [particles, setParticles] = useState([]);
+
+  // 자동으로 2~3개씩 추가하는 interval 저장소
+  const snowballIntervalRef = useRef(null);
+
+  // 각 파티클을 나중에 지우는 타이머들을 모아두는 저장소
+  const particleRemoveTimerRefs = useRef([]);
+
+  /*
+   * playSnowballEffect 역할
+   *
+   * 파티클을 한 번에 전부 갈아끼우지 않고,
+   * 2~3개씩 계속 추가해준다.
+   *
+   * 그래서 화면이 끊기지 않고 자연스럽게 이어져 보여.
+   */
+  function playSnowballEffect() {
+    // 이번에 추가할 개수: 2개 또는 3개
+    const nextCount = Math.random() > 0.55 ? 3 : 2;
+
+    // 새 파티클 2~3개 생성
+    const nextParticles = createJarSnowballParticles(jar?.theme, nextCount);
+
+    // 기존 파티클은 유지하고, 새 파티클만 뒤에 추가
+    setParticles((prev) => {
+      // 너무 많이 쌓이면 화면이 복잡해지니까 최대 18개 정도만 유지
+      const merged = [...prev, ...nextParticles];
+      return merged.slice(-18);
+    });
+
+    // 각 파티클은 자기 수명이 끝나면 혼자 사라지게 한다.
+    nextParticles.forEach((particle) => {
+      const timerId = window.setTimeout(() => {
+        setParticles((prev) =>
+          prev.filter((item) => item.id !== particle.id)
+        );
+      }, particle.lifetime * 1000);
+
+      particleRemoveTimerRefs.current.push(timerId);
+    });
+  }
+
+  /*
+   * 저금통이 화면에 보이면 파티클을 계속 조금씩 추가한다.
+   *
+   * 핵심:
+   * - 650ms마다 2~3개씩 추가
+   * - 기존 파티클은 갑자기 지우지 않음
+   * - 각 파티클이 자기 애니메이션이 끝나면 알아서 사라짐
+   */
+  useEffect(() => {
     if (!interactive) return;
 
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onClick?.();
-    }
+    // 처음 들어왔을 때 너무 비어 보이지 않게 바로 한 번 실행
+    playSnowballEffect();
+
+    // 이후 계속 2~3개씩 자연스럽게 추가
+    snowballIntervalRef.current = window.setInterval(() => {
+      playSnowballEffect();
+    }, 650);
+
+    return () => {
+      // 자동 추가 interval 정리
+      if (snowballIntervalRef.current) {
+        window.clearInterval(snowballIntervalRef.current);
+      }
+
+      // 파티클 삭제 예약 타이머들 정리
+      particleRemoveTimerRefs.current.forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+
+      particleRemoveTimerRefs.current = [];
+    };
+  }, [interactive, jar?.theme]);
+
+  /*
+   * 기존 "저금통 크게 보기" 기능
+   *
+   * 자동 효과와 분리해서,
+   * 크게 보고 싶을 때는 아래 작은 버튼을 누르도록 한다.
+   */
+  function handleOpenZoom(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    onClick?.();
   }
 
   return (
     <div
       ref={jarRef}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      onClick={interactive ? onClick : undefined}
-      onKeyDown={handleKeyDown}
-      className={`relative mx-auto flex h-[320px] w-[260px] items-center justify-center outline-none ${
-        interactive
-          ? "cursor-pointer transition duration-200 hover:scale-[1.02] focus-visible:scale-[1.02]"
-          : ""
-      }`}
-      aria-label={interactive ? "저금통 크게 보기" : undefined}
+      className="relative mx-auto flex h-[320px] w-[260px] items-center justify-center outline-none"
+      aria-label="저금통"
     >
-      {/* 뒤쪽 둥근 빛 */}
-      <div
-        className={`absolute inset-6 rounded-full blur-3xl ${palette.floating}`}
-      />
+      {/* 이 컴포넌트 안에서만 쓰는 애니메이션 CSS */}
+      <style>
+        {`
+          @keyframes jarSnowballParticleFall {
+            0% {
+              opacity: 0;
+              transform: translate(0, -10px) rotate(0deg) scale(0.75);
+            }
 
-      {/* 반짝이 장식 */}
-      <div className="absolute left-6 top-10 text-2xl">✨</div>
-      <div className="absolute right-8 top-16 text-xl">💛</div>
-      <div className="absolute left-10 bottom-16 text-xl">🌿</div>
+            12% {
+              opacity: 0.9;
+            }
 
-      {/* 뚜껑 */}
-      <div
-        className={`absolute top-[48px] z-20 h-10 w-36 rounded-full ${palette.lid} shadow-lg`}
-      />
-      <div className="absolute top-[60px] z-30 h-2 w-14 rounded-full bg-slate-700/80" />
+            55% {
+              opacity: 0.9;
+            }
 
-      {/* 저금통 몸통 */}
-      <div
-        className={`relative z-10 mt-8 h-[210px] w-[180px] rounded-[42%_42%_28%_28%] border-4 ${palette.jarBody} shadow-[0_20px_50px_rgba(15,23,42,0.12)]`}
-      >
-        {/* 유리 느낌 하이라이트 */}
-        <div className="absolute left-6 top-6 h-24 w-8 rounded-full bg-white/60 blur-sm" />
-        <div className="absolute right-8 top-10 h-16 w-4 rounded-full bg-white/40 blur-sm" />
+            100% {
+              opacity: 0;
+              transform:
+                translate(var(--fall-x), var(--fall-y))
+                rotate(var(--fall-rotate))
+                scale(1);
+            }
+          }
 
-        {/* 안쪽 아이콘 */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <div className="text-5xl">{getThemeEmoji(jar?.theme)}</div>
+          .jar-snowball-particle {
+            animation-name: jarSnowballParticleFall;
+            animation-duration: var(--fall-duration);
+            animation-delay: var(--fall-delay);
+            animation-timing-function: ease-in-out;
+            animation-fill-mode: forwards;
+            will-change: transform, opacity;
+          }
 
-          <div className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-slate-700 shadow">
-            {jar?.isOpen ? "열린 저금통" : "잠긴 저금통"}
-          </div>
+          @keyframes jarSnowballSoftFloat {
+            0%, 100% {
+              transform: translateY(0);
+            }
+            50% {
+              transform: translateY(-3px);
+            }
+          }
 
-          <div className="text-center text-xs text-slate-500">
-            {ROLE_LABEL[jar?.myRole] || jar?.myRole}
-          </div>
+          .jar-snowball-soft-float {
+            animation: jarSnowballSoftFloat 3.2s ease-in-out infinite;
+          }
+        `}
+      </style>
 
-          {interactive && (
-            <div className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-bold text-slate-500 shadow-sm">
-              눌러서 크게 보기
+      {/* 저금통 그림 전체 */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center jar-snowball-soft-float">
+        {/* 뒤쪽 둥근 빛 */}
+        <div
+          className={`absolute inset-6 rounded-full blur-3xl ${palette.floating}`}
+        />
+
+        {/* 뚜껑 */}
+        <div
+          className={`absolute top-[48px] z-20 h-10 w-36 rounded-full ${palette.lid} shadow-lg`}
+        />
+        <div className="absolute top-[60px] z-30 h-2 w-14 rounded-full bg-slate-700/80" />
+
+        {/* 저금통 몸통 */}
+        <div
+          className={`relative z-10 mt-8 h-[210px] w-[180px] overflow-hidden rounded-[42%_42%_28%_28%] border-4 ${palette.jarBody} shadow-[0_20px_50px_rgba(15,23,42,0.12)]`}
+        >
+          {/* 유리 느낌 하이라이트 */}
+          <div className="absolute left-6 top-6 z-30 h-24 w-8 rounded-full bg-white/60 blur-sm" />
+          <div className="absolute right-8 top-10 z-30 h-16 w-4 rounded-full bg-white/40 blur-sm" />
+
+          {/*
+            자동 스노우볼 파티클
+            - 사용자가 누르지 않아도 일정 시간마다 particles 배열이 채워진다.
+            - overflow-hidden 덕분에 장식이 저금통 몸통 안에서만 보인다.
+          */}
+          {particles.map((particle) => (
+            <span
+              key={particle.id}
+              className="jar-snowball-particle absolute z-20 select-none"
+              style={{
+                left: `${particle.left}%`,
+                top: `${particle.top}%`,
+                fontSize: `${particle.size}px`,
+                "--fall-x": `${particle.fallX}px`,
+                "--fall-y": `${particle.fallY}px`,
+                "--fall-rotate": `${particle.rotate}deg`,
+                "--fall-duration": `${particle.duration}s`,
+                "--fall-delay": `${particle.delay}s`,
+              }}
+            >
+              {particle.icon}
+            </span>
+          ))}
+
+          {/* 안쪽 아이콘 */}
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3">
+            <div className="text-5xl">{getThemeEmoji(jar?.theme)}</div>
+
+            <div className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-slate-700 shadow">
+              {jar?.isOpen ? "열린 저금통" : "잠긴 저금통"}
             </div>
-          )}
+
+            <div className="text-center text-xs text-slate-500">
+              {ROLE_LABEL[jar?.myRole] || jar?.myRole}
+            </div>
+
+
+          </div>
         </div>
       </div>
+
+      {/* 기존 확대 모달 열기 버튼 */}
+      {interactive && (
+        <button
+          type="button"
+          onClick={handleOpenZoom}
+          className="absolute bottom-2 left-1/2 z-40 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-black text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
+        >
+          크게 보기
+        </button>
+      )}
     </div>
   );
 }
@@ -2833,7 +3125,8 @@ export default function JarDetailPage() {
     const [editForm, setEditForm] = useState({
       name: "",
       description: "",
-      theme: "CUSTOM",
+      // 새 기본값은 라벤더로 둔다.
+      theme: "LAVENDER",
       maxMembers: "2",
       openMode: "ALL_AT_ONCE",
       lockLevel: "HIDDEN",
@@ -3504,7 +3797,7 @@ export default function JarDetailPage() {
       setEditForm({
         name: jar.name ?? "",
         description: jar.description ?? "",
-        theme: jar.theme ?? "CUSTOM",
+        theme: jar.theme ?? "LAVENDER",
         maxMembers: String(jar.maxMembers ?? 2),
         openMode: jar.openMode ?? "ALL_AT_ONCE",
         lockLevel: jar.lockLevel ?? "HIDDEN",
