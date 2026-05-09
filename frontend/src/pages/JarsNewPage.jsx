@@ -2,23 +2,52 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import SandIcon from "../components/icons/SandIcon";
+import LavenderIcon from "../components/icons/LavenderIcon";
+import MoonlightIcon from "../components/icons/MoonlightIcon";
+import DewIcon from "../components/icons/DewIcon";
+import SpringIcon from "../components/icons/SpringIcon";
+import SummerIcon from "../components/icons/SummerIcon";
+import AutumnIcon from "../components/icons/AutumnIcon";
+import WinterIcon from "../components/icons/WinterIcon";
+import SpringParticleIcon from "../components/icons/SpringParticleIcon";
+import SummerParticleIcon from "../components/icons/SummerParticleIcon";
+import AutumnParticleIcon from "../components/icons/AutumnParticleIcon";
+import WinterParticleIcon from "../components/icons/WinterParticleIcon";
+import LavenderParticleIcon from "../components/icons/LavenderParticleIcon";
+import DewParticleIcon from "../components/icons/DewParticleIcon";
+import SandParticleIcon from "../components/icons/SandParticleIcon";
+import MoonlightParticleIcon from "../components/icons/MoonlightParticleIcon";
 
 // ==============================
 // 화면에 보여줄 한글 라벨
 // ==============================
+// 백엔드 JarTheme enum 값과 프론트 한글 이름을 연결하는 역할이야.
+// 예: 서버에는 "SPRING"으로 보내고, 화면에는 "봄"이라고 보여준다.
 const THEME_LABEL = {
-  // 새 테마 값
+  // 봄 테마: 벚꽃, 분홍 느낌
   SPRING: "봄",
+
+  // 여름 테마: 햇살, 잎, 초록 느낌
   SUMMER: "여름",
-  LAVENDER: "라벤더",
+
+  // 가을 테마: 노을빛 단풍, 주황/분홍 느낌
+  AUTUMN: "가을",
+
+  // 겨울 테마: 눈, 파랑/하양 느낌
   WINTER: "겨울",
 
-  // 예전 값 호환용
-  // 혹시 기존 데이터가 잠깐 들어와도 화면이 깨지지 않게 남겨둔다.
-  COUPLE: "봄",
-  FRIEND: "겨울",
-  FAMILY: "여름",
-  CUSTOM: "라벤더",
+  // 라벤더 테마: 보라빛 꽃밭 느낌
+  LAVENDER: "라벤더",
+
+  // 이슬 테마: 아침 물방울, 민트/연하늘 느낌
+  DEW: "이슬",
+
+  // 모래 테마: 해변/사막, 베이지 느낌
+  SAND: "모래",
+
+  // 달빛 테마: 밤하늘, 남색/은색 느낌
+  MOONLIGHT: "달빛",
 };
 
 const OPEN_MODE_LABEL = {
@@ -33,20 +62,20 @@ const LOCK_LEVEL_LABEL = {
 };
 
 // ==============================
-// 4가지 저금통 템플릿
+// 8가지 저금통 템플릿
 // ==============================
-// 지금 화면에서는 먼저 4개만 보여준다.
-// SPRING  = 기존 커플 추억
-// WINTER  = 기존 친구 우정
-// SUMMER  = 기존 가족 추억
-// LAVENDER = 기존 직접 만들기
+// 화면 배치 순서:
+// 봄        여름
+// 가을      겨울
+// 라벤더    이슬
+// 모래      달빛
 const JAR_TEMPLATES = [
   {
     id: 1,
     type: "SPRING",
-    emoji: "🌸",
+    emoji: <SpringIcon size={64} />,
     title: "봄 저금통",
-    summary: "분홍빛 봄처럼 따뜻한 추억을 담아둘 수 있어요.",
+    summary: "벚꽃처럼 따뜻한 추억을 담아요.",
     previewTitle: "우리의 봄 저금통",
     previewDesc: "함께한 소중한 순간을 벚꽃처럼 하나씩 모아둘래요.",
     values: {
@@ -61,33 +90,15 @@ const JAR_TEMPLATES = [
   },
   {
     id: 2,
-    type: "WINTER",
-    emoji: "❄️",
-    title: "겨울 저금통",
-    summary: "친구들과의 반짝이는 우정과 메시지를 모으는 공간이에요.",
-    previewTitle: "우리 겨울 우정 타임캡슐",
-    previewDesc: "눈, 별, 말풍선 느낌이 살아있는 시원한 우정 저금통",
-    values: {
-      name: "겨울 우정 저금통",
-      description: "서로에게 남기고 싶은 말들을 차곡차곡 모아보자.",
-      theme: "WINTER",
-      maxMembers: 4,
-      openAt: "",
-      openMode: "DAILY_DRAW",
-      lockLevel: "META_ONLY",
-    },
-  },
-  {
-    id: 3,
     type: "SUMMER",
-    emoji: "🌿",
+    emoji: <SummerIcon size={64} />,
     title: "여름 저금통",
-    summary: "가족 여행, 생일, 특별한 날들을 싱그럽게 기록해요.",
-    previewTitle: "우리 가족 여름 보물상자",
-    previewDesc: "잎사귀, 햇살, 집의 포근함이 담긴 가족 저금통",
+    summary: "햇살과 잎처럼 싱그러운 추억을 기록해요.",
+    previewTitle: "여름빛 추억 저금통",
+    previewDesc: "햇살 아래 반짝이는 초록빛 순간들을 담아봐요.",
     values: {
-      name: "여름 가족 추억 저금통",
-      description: "우리 가족의 특별한 이야기를 싱그럽게 담아둘 공간이에요.",
+      name: "여름빛 추억 저금통",
+      description: "햇살 아래 반짝이는 초록빛 순간들을 담아봐요.",
       theme: "SUMMER",
       maxMembers: 5,
       openAt: "",
@@ -96,21 +107,111 @@ const JAR_TEMPLATES = [
     },
   },
   {
-    id: 4,
-    type: "LAVENDER",
-    emoji: "💜",
-    title: "라벤더 저금통",
-    summary: "차분한 라벤더 분위기로 원하는 방식의 저금통을 만들 수 있어요.",
-    previewTitle: "나만의 라벤더 저금통",
-    previewDesc: "보라빛 반짝임과 자유로운 분위기의 직접 만들기 저금통",
+    id: 3,
+    type: "AUTUMN",
+    emoji: <AutumnIcon size={64} />,
+    title: "가을 저금통",
+    summary: "노을빛 단풍처럼 따뜻한 순간을 모아요.",
+    previewTitle: "가을빛 단풍 저금통",
+    previewDesc: "주황빛과 분홍빛이 섞인 따뜻한 기억을 차곡차곡 담아봐요.",
     values: {
-      name: "",
-      description: "",
+      name: "가을빛 단풍 저금통",
+      description: "주황빛과 분홍빛이 섞인 따뜻한 기억을 차곡차곡 담아봐요.",
+      theme: "AUTUMN",
+      maxMembers: 4,
+      openAt: "",
+      openMode: "ALL_AT_ONCE",
+      lockLevel: "TITLE_ONLY",
+    },
+  },
+  {
+    id: 4,
+    type: "WINTER",
+    emoji: <WinterIcon size={64} />,
+    title: "겨울 저금통",
+    summary: "눈처럼 반짝이는 추억을 모아요.",
+    previewTitle: "겨울눈 추억 저금통",
+    previewDesc: "하얀 눈처럼 조용하고 반짝이는 이야기를 남겨봐요.",
+    values: {
+      name: "겨울눈 추억 저금통",
+      description: "하얀 눈처럼 조용하고 반짝이는 이야기를 남겨봐요.",
+      theme: "WINTER",
+      maxMembers: 4,
+      openAt: "",
+      openMode: "DAILY_DRAW",
+      lockLevel: "META_ONLY",
+    },
+  },
+  {
+    id: 5,
+    type: "LAVENDER",
+    emoji: <LavenderIcon size={64} />,
+    title: "라벤더 저금통",
+    summary: "보라빛 꽃밭처럼 차분한 추억을 담아요.",
+    previewTitle: "라벤더 꽃밭 저금통",
+    previewDesc: "은은한 보라빛 속에 조용히 간직하고 싶은 마음을 담아봐요.",
+    values: {
+      name: "라벤더 꽃밭 저금통",
+      description: "은은한 보라빛 속에 조용히 간직하고 싶은 마음을 담아봐요.",
       theme: "LAVENDER",
       maxMembers: 2,
       openAt: "",
       openMode: "ALL_AT_ONCE",
       lockLevel: "HIDDEN",
+    },
+  },
+  {
+    id: 6,
+    type: "DEW",
+    emoji: <DewIcon size={64} />,
+    title: "이슬 저금통",
+    summary: "아침 이슬처럼 맑은 순간을 담아요.",
+    previewTitle: "맑은 이슬 저금통",
+    previewDesc: "투명한 물방울처럼 깨끗하고 소중한 순간들을 모아봐요.",
+    values: {
+      name: "맑은 이슬 저금통",
+      description: "투명한 물방울처럼 깨끗하고 소중한 순간들을 모아봐요.",
+      theme: "DEW",
+      maxMembers: 4,
+      openAt: "",
+      openMode: "ALL_AT_ONCE",
+      lockLevel: "META_ONLY",
+    },
+  },
+  {
+    id: 7,
+    type: "SAND",
+    emoji: <SandIcon size={64} />,
+    title: "모래 저금통",
+    summary: "모래알처럼 작은 순간들을 소중히 모아요.",
+    previewTitle: "따뜻한 모래 저금통",
+    previewDesc: "해변의 모래알처럼 반짝이는 기억을 하나씩 담아봐요.",
+    values: {
+      name: "따뜻한 모래 저금통",
+      description: "해변의 모래알처럼 반짝이는 기억을 하나씩 담아봐요.",
+      theme: "SAND",
+      maxMembers: 4,
+      openAt: "",
+      openMode: "DAILY_DRAW",
+      lockLevel: "META_ONLY",
+    },
+  },
+  {
+    id: 8,
+    type: "MOONLIGHT",
+    emoji: <MoonlightIcon size={64} />,
+    title: "달빛 저금통",
+    summary: "밤하늘 달빛처럼 은은한 추억을 담아요.",
+    previewTitle: "달빛 밤하늘 저금통",
+    previewDesc: "남색 밤하늘과 은빛 달빛 아래 조용히 빛나는 추억을 모아봐요.",
+    values: {
+      name: "달빛 밤하늘 저금통",
+      description: "남색 밤하늘과 은빛 달빛 아래 조용히 빛나는 추억을 모아봐요.",
+      theme: "MOONLIGHT",
+      maxMembers: 2,
+      openAt: "",
+      openMode: "ALL_AT_ONCE",
+      lockLevel: "TITLE_ONLY",
     },
   },
 ];
@@ -134,217 +235,307 @@ function toOffsetDateTimeString(localValue) {
 // ==============================
 // 타입별 색/배경/저금통 스타일
 // ==============================
-// 저금통 theme 값만 보고, 예전에 쓰던 "style 객체 모양" 그대로 돌려주는 함수
+// 저금통 theme 값만 보고 오른쪽 미리보기 카드, 저금통 뚜껑, 몸통 색을 정해주는 함수야.
 function getVisualPreset(theme) {
-  // =========================
-  // 1) 커플 저금통
-  // =========================
-  if (theme === "SPRING" || theme === "COUPLE") {
+  // 봄 테마: 벚꽃, 분홍
+  if (theme === "SPRING") {
     return {
-      // 바깥 큰 미리보기 카드 배경
       previewCardStyle: {
         background:
           "linear-gradient(135deg, #fff1f4 0%, #fff7fb 45%, #fff6eb 100%)",
       },
-
-      // 왼쪽 작은 배지 스타일
       badgeStyle: {
         backgroundColor: "#ffeff5",
         color: "#e63c74",
       },
-
-      // 오른쪽 작은 테마 배지 스타일
       themeBadgeStyle: {
         backgroundColor: "#fff3e8",
         color: "#ff8a3d",
       },
-
-      // 뒤쪽 번지는 빛 효과
       glowStyle: {
         background:
           "radial-gradient(circle, rgba(255,108,163,0.35) 0%, rgba(255,108,163,0.06) 65%, rgba(255,108,163,0) 100%)",
       },
-
-      // 저금통 뚜껑 스타일
       lidStyle: {
         background: "linear-gradient(90deg, #ff6391 0%, #ffb25e 100%)",
       },
-
-      // 저금통 몸통 스타일
       jarBodyStyle: {
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,248,251,0.92) 55%, rgba(255,241,228,0.96) 100%)",
         border: "4px solid rgba(255,255,255,0.8)",
         boxShadow: "0 24px 45px rgba(255, 118, 160, 0.20)",
       },
-
-      // 가운데 작은 라벨 알약 모양
       labelPillStyle: {
         backgroundColor: "rgba(255,255,255,0.92)",
         color: "#5b5560",
       },
-
-      // 가운데 대표 이모지
-      centerEmoji: "🌸",
-
-      // 주변 장식 이모지
-      decor: [
-
-      ],
-
-      // 포인트 선 색
+      centerEmoji: <SpringIcon size={64} />,
+      decor: [],
       accentLine: "#ff7ea8",
     };
   }
 
-  // =========================
-  // 2) 친구 저금통
-  // =========================
-  if (theme === "WINTER" || theme === "FRIEND") {
-    return {
-      previewCardStyle: {
-        background:
-          "linear-gradient(135deg, #effbff 0%, #f4faff 45%, #eef2ff 100%)",
-      },
-
-      badgeStyle: {
-        backgroundColor: "#ebfbff",
-        color: "#1482b8",
-      },
-
-      themeBadgeStyle: {
-        backgroundColor: "#eff6ff",
-        color: "#4c74d9",
-      },
-
-      glowStyle: {
-        background:
-          "radial-gradient(circle, rgba(78,194,255,0.30) 0%, rgba(78,194,255,0.06) 65%, rgba(78,194,255,0) 100%)",
-      },
-
-      lidStyle: {
-        background: "linear-gradient(90deg, #34c7ff 0%, #4f75ff 100%)",
-      },
-
-      jarBodyStyle: {
-        background:
-          "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(243,251,255,0.92) 55%, rgba(238,244,255,0.96) 100%)",
-        border: "4px solid rgba(255,255,255,0.8)",
-        boxShadow: "0 24px 45px rgba(79, 117, 255, 0.18)",
-      },
-
-      labelPillStyle: {
-        backgroundColor: "rgba(255,255,255,0.92)",
-        color: "#4b5f77",
-      },
-
-      centerEmoji: "❄️",
-
-      decor: [
-
-      ],
-
-      accentLine: "#5cb9ff",
-    };
-  }
-
-  // =========================
-  // 3) 가족 저금통
-  // =========================
-  if (theme === "SUMMER" || theme === "FAMILY") {
+  // 여름 테마: 햇살, 잎, 초록
+  if (theme === "SUMMER") {
     return {
       previewCardStyle: {
         background:
           "linear-gradient(135deg, #eefbf5 0%, #f7fff8 45%, #fffceb 100%)",
       },
-
       badgeStyle: {
         backgroundColor: "#edfdf3",
         color: "#2d9152",
       },
-
       themeBadgeStyle: {
         backgroundColor: "#fff7e5",
         color: "#f39a2c",
       },
-
       glowStyle: {
         background:
           "radial-gradient(circle, rgba(127,214,120,0.28) 0%, rgba(127,214,120,0.06) 65%, rgba(127,214,120,0) 100%)",
       },
-
       lidStyle: {
         background: "linear-gradient(90deg, #43d3c0 0%, #b8df3c 100%)",
       },
-
       jarBodyStyle: {
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(242,255,246,0.92) 55%, rgba(255,251,230,0.96) 100%)",
         border: "4px solid rgba(255,255,255,0.8)",
         boxShadow: "0 24px 45px rgba(100, 182, 118, 0.18)",
       },
-
       labelPillStyle: {
         backgroundColor: "rgba(255,255,255,0.92)",
         color: "#4f5b4e",
       },
-
-      centerEmoji: "🌿",
-
-      decor: [
-
-      ],
-
+      centerEmoji: <SummerIcon size={64} />,
+      decor: [],
       accentLine: "#4fc26d",
     };
   }
 
-  // =========================
-  // 4) 라벤더 저금통
-  // - 기존 직접 만들기(CUSTOM) 역할
-  // =========================
+  // 가을 테마: 노을빛 단풍, 주황/분홍
+  if (theme === "AUTUMN") {
+    return {
+      previewCardStyle: {
+        background:
+          "linear-gradient(135deg, #fff7ed 0%, #fff1e8 45%, #ffe4e6 100%)",
+      },
+      badgeStyle: {
+        backgroundColor: "#ffedd5",
+        color: "#c2410c",
+      },
+      themeBadgeStyle: {
+        backgroundColor: "#ffe4e6",
+        color: "#be123c",
+      },
+      glowStyle: {
+        background:
+          "radial-gradient(circle, rgba(249,115,22,0.30) 0%, rgba(244,63,94,0.07) 65%, rgba(249,115,22,0) 100%)",
+      },
+      lidStyle: {
+        background: "linear-gradient(90deg, #f97316 0%, #fb7185 100%)",
+      },
+      jarBodyStyle: {
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,247,237,0.94) 55%, rgba(255,228,230,0.96) 100%)",
+        border: "4px solid rgba(255,255,255,0.8)",
+        boxShadow: "0 24px 45px rgba(249, 115, 22, 0.20)",
+      },
+      labelPillStyle: {
+        backgroundColor: "rgba(255,255,255,0.92)",
+        color: "#7c2d12",
+      },
+      centerEmoji: <AutumnIcon size={64} />,
+      decor: [],
+      accentLine: "#f97316",
+    };
+  }
+
+  // 겨울 테마: 눈, 파랑/하양
+  if (theme === "WINTER") {
+    return {
+      previewCardStyle: {
+        background:
+          "linear-gradient(135deg, #effbff 0%, #f4faff 45%, #eef2ff 100%)",
+      },
+      badgeStyle: {
+        backgroundColor: "#ebfbff",
+        color: "#1482b8",
+      },
+      themeBadgeStyle: {
+        backgroundColor: "#eff6ff",
+        color: "#4c74d9",
+      },
+      glowStyle: {
+        background:
+          "radial-gradient(circle, rgba(78,194,255,0.30) 0%, rgba(78,194,255,0.06) 65%, rgba(78,194,255,0) 100%)",
+      },
+      lidStyle: {
+        background: "linear-gradient(90deg, #34c7ff 0%, #4f75ff 100%)",
+      },
+      jarBodyStyle: {
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(243,251,255,0.92) 55%, rgba(238,244,255,0.96) 100%)",
+        border: "4px solid rgba(255,255,255,0.8)",
+        boxShadow: "0 24px 45px rgba(79, 117, 255, 0.18)",
+      },
+      labelPillStyle: {
+        backgroundColor: "rgba(255,255,255,0.92)",
+        color: "#4b5f77",
+      },
+      centerEmoji: <WinterIcon size={64} />,
+      decor: [],
+      accentLine: "#5cb9ff",
+    };
+  }
+
+  // 이슬 테마: 아침 물방울, 민트/연하늘
+  if (theme === "DEW") {
+    return {
+      previewCardStyle: {
+        background:
+          "linear-gradient(135deg, #ecfeff 0%, #f0fdfa 45%, #eff6ff 100%)",
+      },
+      badgeStyle: {
+        backgroundColor: "#ccfbf1",
+        color: "#0f766e",
+      },
+      themeBadgeStyle: {
+        backgroundColor: "#e0f2fe",
+        color: "#0369a1",
+      },
+      glowStyle: {
+        background:
+          "radial-gradient(circle, rgba(45,212,191,0.28) 0%, rgba(125,211,252,0.07) 65%, rgba(45,212,191,0) 100%)",
+      },
+      lidStyle: {
+        background: "linear-gradient(90deg, #2dd4bf 0%, #7dd3fc 100%)",
+      },
+      jarBodyStyle: {
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,253,250,0.94) 55%, rgba(224,242,254,0.96) 100%)",
+        border: "4px solid rgba(255,255,255,0.8)",
+        boxShadow: "0 24px 45px rgba(45, 212, 191, 0.18)",
+      },
+      labelPillStyle: {
+        backgroundColor: "rgba(255,255,255,0.92)",
+        color: "#155e75",
+      },
+      centerEmoji: <DewIcon size={64} />,
+      decor: [],
+      accentLine: "#2dd4bf",
+    };
+  }
+
+  // 모래 테마: 해변/사막, 베이지
+  if (theme === "SAND") {
+    return {
+      previewCardStyle: {
+        background:
+          "linear-gradient(135deg, #fffbeb 0%, #fef3c7 45%, #fff7ed 100%)",
+      },
+      badgeStyle: {
+        backgroundColor: "#fef3c7",
+        color: "#92400e",
+      },
+      themeBadgeStyle: {
+        backgroundColor: "#ffedd5",
+        color: "#9a3412",
+      },
+      glowStyle: {
+        background:
+          "radial-gradient(circle, rgba(245,158,11,0.25) 0%, rgba(251,191,36,0.07) 65%, rgba(245,158,11,0) 100%)",
+      },
+      lidStyle: {
+        background: "linear-gradient(90deg, #d97706 0%, #fbbf24 100%)",
+      },
+      jarBodyStyle: {
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,251,235,0.94) 55%, rgba(254,243,199,0.96) 100%)",
+        border: "4px solid rgba(255,255,255,0.8)",
+        boxShadow: "0 24px 45px rgba(217, 119, 6, 0.16)",
+      },
+      labelPillStyle: {
+        backgroundColor: "rgba(255,255,255,0.92)",
+        color: "#78350f",
+      },
+      centerEmoji: <SandIcon size={64} />,
+      decor: [],
+      accentLine: "#d97706",
+    };
+  }
+
+  // 달빛 테마: 밤하늘, 남색/은색
+  if (theme === "MOONLIGHT") {
+    return {
+      previewCardStyle: {
+        background:
+          "linear-gradient(135deg, #eef2ff 0%, #f8fafc 45%, #e0e7ff 100%)",
+      },
+      badgeStyle: {
+        backgroundColor: "#e0e7ff",
+        color: "#3730a3",
+      },
+      themeBadgeStyle: {
+        backgroundColor: "#f8fafc",
+        color: "#334155",
+      },
+      glowStyle: {
+        background:
+          "radial-gradient(circle, rgba(129,140,248,0.32) 0%, rgba(148,163,184,0.08) 65%, rgba(129,140,248,0) 100%)",
+      },
+      lidStyle: {
+        background: "linear-gradient(90deg, #312e81 0%, #94a3b8 100%)",
+      },
+      jarBodyStyle: {
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(238,242,255,0.94) 55%, rgba(226,232,240,0.96) 100%)",
+        border: "4px solid rgba(255,255,255,0.8)",
+        boxShadow: "0 24px 45px rgba(49, 46, 129, 0.20)",
+      },
+      labelPillStyle: {
+        backgroundColor: "rgba(255,255,255,0.92)",
+        color: "#312e81",
+      },
+      centerEmoji: <MoonlightIcon size={64} />,
+      decor: [],
+      accentLine: "#6366f1",
+    };
+  }
+
+  // 라벤더 테마: 꽃밭, 보라
   return {
     previewCardStyle: {
       background:
         "linear-gradient(135deg, #f4f1ff 0%, #f8f5ff 45%, #fbf7ff 100%)",
     },
-
     badgeStyle: {
       backgroundColor: "#f4efff",
       color: "#7b55e8",
     },
-
     themeBadgeStyle: {
       backgroundColor: "#fff4fb",
       color: "#d45be6",
     },
-
     glowStyle: {
       background:
         "radial-gradient(circle, rgba(155,115,255,0.28) 0%, rgba(155,115,255,0.06) 65%, rgba(155,115,255,0) 100%)",
     },
-
     lidStyle: {
       background: "linear-gradient(90deg, #8f62ff 0%, #e068d8 100%)",
     },
-
     jarBodyStyle: {
       background:
         "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(248,244,255,0.92) 55%, rgba(252,245,255,0.96) 100%)",
       border: "4px solid rgba(255,255,255,0.8)",
       boxShadow: "0 24px 45px rgba(155, 115, 255, 0.20)",
     },
-
     labelPillStyle: {
       backgroundColor: "rgba(255,255,255,0.92)",
       color: "#605177",
     },
-
-    centerEmoji: "💜",
-
-    decor: [
-    ],
-
+    centerEmoji: <LavenderIcon size={64} />,
+    decor: [],
     accentLine: "#8d69ff",
   };
 }
@@ -356,7 +547,7 @@ function getVisualPreset(theme) {
 // 배경색 / 테두리색 / 그림자 / 선택 배지 색을 바꿔주는 함수야.
 function getTemplateCardStyle(theme) {
   // 봄 저금통
-  if (theme === "SPRING" || theme === "COUPLE") {
+  if (theme === "SPRING") {
     return {
       cardStyle: {
         borderColor: "#ff7ea8",
@@ -371,7 +562,7 @@ function getTemplateCardStyle(theme) {
   }
 
   // 겨울 저금통
-  if (theme === "WINTER" || theme === "FRIEND") {
+  if (theme === "WINTER") {
     return {
       cardStyle: {
         borderColor: "#5cb9ff",
@@ -386,7 +577,7 @@ function getTemplateCardStyle(theme) {
   }
 
   // 여름 저금통
-  if (theme === "SUMMER" || theme === "FAMILY") {
+  if (theme === "SUMMER") {
     return {
       cardStyle: {
         borderColor: "#4fc26d",
@@ -400,6 +591,67 @@ function getTemplateCardStyle(theme) {
     };
   }
 
+  // 가을 저금통: 노을빛 단풍 느낌
+  if (theme === "AUTUMN") {
+    return {
+      cardStyle: {
+        borderColor: "#fb7185",
+        background:
+          "linear-gradient(135deg, #fff7ed 0%, #fed7aa 42%, #ffe4e6 100%)",
+        boxShadow: "0 10px 24px rgba(251, 113, 133, 0.20)",
+      },
+      badgeStyle: {
+        backgroundColor: "#ffe4e6",
+        color: "#be123c",
+      },
+    };
+  }
+
+  // 이슬 저금통
+  if (theme === "DEW") {
+    return {
+      cardStyle: {
+        borderColor: "#2dd4bf",
+        background: "linear-gradient(135deg, #ecfeff 0%, #f0fdfa 100%)",
+        boxShadow: "0 10px 24px rgba(45, 212, 191, 0.16)",
+      },
+      badgeStyle: {
+        backgroundColor: "#ccfbf1",
+        color: "#0f766e",
+      },
+    };
+  }
+
+  // 모래 저금통: 해변 모래빛 느낌
+  if (theme === "SAND") {
+    return {
+      cardStyle: {
+        borderColor: "#d6a85f",
+        background:
+          "linear-gradient(135deg, #fffaf0 0%, #f8e7c2 48%, #f5d7a1 100%)",
+        boxShadow: "0 10px 24px rgba(180, 121, 54, 0.16)",
+      },
+      badgeStyle: {
+        backgroundColor: "#fff3d6",
+        color: "#8a5a1f",
+      },
+    };
+  }
+
+  // 달빛 저금통
+  if (theme === "MOONLIGHT") {
+    return {
+      cardStyle: {
+        borderColor: "#6366f1",
+        background: "linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%)",
+        boxShadow: "0 10px 24px rgba(99, 102, 241, 0.18)",
+      },
+      badgeStyle: {
+        backgroundColor: "#e0e7ff",
+        color: "#3730a3",
+      },
+    };
+  }
   // 라벤더 저금통
   return {
     cardStyle: {
@@ -428,27 +680,247 @@ function getTemplateCardStyle(theme) {
  * 를 골라주는 작은 사전이야.
  */
 function getPreviewSnowballTheme(theme) {
-  if (theme === "SPRING" || theme === "COUPLE") {
+  if (theme === "SPRING") {
     return {
-      icons: ["🌸", "🌸", "💮", "🩷"],
+      icons: [
+        {
+          type: "custom",
+          render: (size) => (
+            <SpringParticleIcon variant="petal" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <SpringParticleIcon variant="flower" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <SpringParticleIcon variant="heart" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <SpringParticleIcon variant="sparkle" size={size} />
+          ),
+        },
+      ],
     };
   }
 
-  if (theme === "WINTER" || theme === "FRIEND") {
+  if (theme === "WINTER") {
     return {
-      icons: ["❄️", "❄️", "🤍", "❅"],
+      icons: [
+        {
+          type: "custom",
+          render: (size) => (
+            <WinterParticleIcon variant="snowflake" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <WinterParticleIcon variant="ice" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <WinterParticleIcon variant="snowball" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <WinterParticleIcon variant="sparkle" size={size} />
+          ),
+        },
+      ],
     };
   }
 
-  if (theme === "SUMMER" || theme === "FAMILY") {
+  if (theme === "SUMMER") {
     return {
-      icons: ["🌿", "🍃", "☘️", "💚"],
+      icons: [
+        {
+          type: "custom",
+          render: (size) => (
+            <SummerParticleIcon variant="leaf" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <SummerParticleIcon variant="sun" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <SummerParticleIcon variant="grass" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <SummerParticleIcon variant="sparkle" size={size} />
+          ),
+        },
+      ],
     };
   }
 
-  return {
-    icons: ["💜", "🔮", "🪻", "🟣"],
-  };
+  if (theme === "AUTUMN") {
+    return {
+      icons: [
+        {
+          type: "custom",
+          render: (size) => (
+            <AutumnParticleIcon variant="maple" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <AutumnParticleIcon variant="leaf" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <AutumnParticleIcon variant="chestnut" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <AutumnParticleIcon variant="sparkle" size={size} />
+          ),
+        },
+      ],
+    };
+  }
+
+  if (theme === "DEW") {
+    return {
+      icons: [
+        {
+          type: "custom",
+          render: (size) => (
+            <DewParticleIcon variant="drop" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <DewParticleIcon variant="bubble" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <DewParticleIcon variant="leaf" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <DewParticleIcon variant="sparkle" size={size} />
+          ),
+        },
+      ],
+    };
+  }
+
+ if (theme === "SAND") {
+   return {
+     icons: [
+       {
+         type: "custom",
+         render: (size) => (
+           <SandParticleIcon variant="shell" size={size} />
+         ),
+       },
+       {
+         type: "custom",
+         render: (size) => (
+           <SandParticleIcon variant="grain" size={size} />
+         ),
+       },
+       {
+         type: "custom",
+         render: (size) => (
+           <SandParticleIcon variant="starfish" size={size} />
+         ),
+       },
+       {
+         type: "custom",
+         render: (size) => (
+           <SandParticleIcon variant="sparkle" size={size} />
+         ),
+       },
+     ],
+   };
+ }
+
+  if (theme === "MOONLIGHT") {
+    return {
+      icons: [
+        {
+          type: "custom",
+          render: (size) => (
+            <MoonlightParticleIcon variant="moon" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <MoonlightParticleIcon variant="star" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <MoonlightParticleIcon variant="cloud" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <MoonlightParticleIcon variant="sparkle" size={size} />
+          ),
+        },
+      ],
+    };
+  }
+
+  if (theme === "LAVENDER") {
+    return {
+      icons: [
+        {
+          type: "custom",
+          render: (size) => (
+            <LavenderParticleIcon variant="lavender" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <LavenderParticleIcon variant="petal" size={size} />
+          ),
+        },
+        {
+          type: "custom",
+          render: (size) => (
+            <LavenderParticleIcon variant="sparkle" size={size} />
+          ),
+        },
+      ],
+    };
+  }
 }
 
 /*
@@ -481,7 +953,7 @@ function createPreviewSnowballParticles(theme, count = 2) {
       top: 8 + Math.random() * 18,
 
       // 너무 크지 않게 은은하게
-      size: 14 + Math.random() * 7,
+      size: 20 + Math.random() * 8,
 
       // 좌우로 살짝 흔들리면서 아래로 떨어짐
       fallX: -26 + Math.random() * 52,
@@ -620,7 +1092,7 @@ function JarIllustration({ template, form }) {
   }, [form.theme]);
 
   return (
-    <div className="relative mx-auto mt-4 h-[390px] w-full max-w-[430px]">
+    <div className="relative mx-auto mt-2 h-[300px] w-full max-w-[360px]">
       {/* 미리보기 저금통 안에서만 쓰는 파티클 애니메이션 */}
       <style>
         {`
@@ -648,11 +1120,13 @@ function JarIllustration({ template, form }) {
           }
 
           .preview-jar-particle {
+            opacity: 0;
+            transform: translate(0, -10px) rotate(0deg) scale(0.75);
             animation-name: previewJarParticleFall;
             animation-duration: var(--fall-duration);
             animation-delay: var(--fall-delay);
             animation-timing-function: ease-in-out;
-            animation-fill-mode: forwards;
+            animation-fill-mode: both;
             will-change: transform, opacity;
           }
         `}
@@ -680,7 +1154,7 @@ function JarIllustration({ template, form }) {
 
       {/* 저금통 전체 */}
       <motion.div
-        className="absolute left-1/2 top-[45px] -translate-x-1/2"
+          className="absolute left-1/2 top-[25px] -translate-x-1/2"
         animate={{ y: [0, -10, 0] }}
         transition={{ duration: 3.1, repeat: Infinity, ease: "easeInOut" }}
       >
@@ -723,7 +1197,7 @@ function JarIllustration({ template, form }) {
             {particles.map((particle) => (
               <span
                 key={particle.id}
-                className="preview-jar-particle absolute z-20 select-none"
+                className="preview-jar-particle absolute z-20 flex select-none items-center justify-center"
                 style={{
                   left: `${particle.left}%`,
                   top: `${particle.top}%`,
@@ -735,13 +1209,19 @@ function JarIllustration({ template, form }) {
                   "--fall-delay": `${particle.delay}s`,
                 }}
               >
-                {particle.icon}
+                {typeof particle.icon === "string"
+                  ? particle.icon
+                  : particle.icon.type === "emoji"
+                    ? particle.icon.value
+                    : particle.icon.render(particle.size)}
               </span>
             ))}
 
             {/* 안쪽 내용 */}
             <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3">
-              <div className="text-[52px]">{preset.centerEmoji}</div>
+              <div className="flex h-[70px] w-[70px] items-center justify-center text-[52px]">
+                {preset.centerEmoji}
+              </div>
             </div>
           </div>
 
@@ -773,7 +1253,7 @@ function JarPreview({ template, form }) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -12, scale: 0.98 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="rounded-[28px] border border-white/70 p-6 shadow-[0_18px_48px_rgba(15,23,42,0.10)]"
+        className="flex h-full min-h-[560px] flex-col rounded-[28px] border border-white/70 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.10)]"
         style={preset.previewCardStyle}
       >
         {/* 뱃지 */}
@@ -782,7 +1262,7 @@ function JarPreview({ template, form }) {
             className="rounded-full px-3 py-1 text-xs font-extrabold"
             style={preset.badgeStyle}
           >
-            {template.emoji} {template.title}
+             {template.title}
           </span>
 
           <span
@@ -794,11 +1274,11 @@ function JarPreview({ template, form }) {
         </div>
 
         {/* 제목/설명 */}
-        <h3 className="text-[38px] font-black leading-tight text-slate-800">
+        <h3 className="text-[30px] font-black leading-tight text-slate-800">
           {form.name || template.previewTitle}
         </h3>
 
-        <p className="mt-3 text-lg leading-8 text-slate-600">
+        <p className="mt-2 text-base leading-7 text-slate-600">
           {form.description || template.previewDesc}
         </p>
 
@@ -816,7 +1296,7 @@ function JarPreview({ template, form }) {
         <JarIllustration template={template} form={form} />
 
         {/* 아래 설명 카드 */}
-        <div className="rounded-[20px] bg-white/88 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+        <div className="mt-auto rounded-[20px] bg-white/88 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
           <div
             className="mb-2 h-1.5 w-14 rounded-full"
             style={{ backgroundColor: preset.accentLine }}
@@ -933,13 +1413,13 @@ export default function JarsNewPage() {
           {/* 왼쪽 카드 목록 */}
           <div>
             <h2 className="text-3xl font-black text-slate-800">
-              어떤 저금통을 만들고 싶어?
+              어떤 저금통을 만들고 싶어요?
             </h2>
             <p className="mt-2 text-base text-slate-500">
-              4가지 테마 중 하나를 고르면 그에 맞는 저금통이 바로 보여.
+              8가지 테마 중 하나를 고르면 그에 맞는 저금통이 바로 보여요.
             </p>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {JAR_TEMPLATES.map((template) => {
                 const isSelected = form.theme === template.values.theme;
 
@@ -952,13 +1432,13 @@ export default function JarsNewPage() {
                     onClick={() => handleTemplateClick(template)}
                     whileHover={{ y: -4, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`rounded-[20px] border p-5 text-left shadow-sm transition ${
+                    className={`min-h-[138px] rounded-[18px] border p-4 text-left shadow-sm transition ${
                       isSelected ? "" : "border-[#ece7e1] bg-white"
                     }`}
                     style={isSelected ? templateCardStyle.cardStyle : undefined}
                   >
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="text-3xl">{template.emoji}</div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-2xl">{template.emoji}</div>
 
                       {isSelected && (
                         <span
@@ -970,8 +1450,8 @@ export default function JarsNewPage() {
                       )}
                     </div>
 
-                    <h3 className="text-xl font-black text-slate-800">{template.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                    <h3 className="text-base font-black text-slate-800">{template.title}</h3>
+                    <p className="mt-1.5 text-xs leading-5 text-slate-600">
                       {template.summary}
                     </p>
                   </motion.button>
@@ -981,7 +1461,7 @@ export default function JarsNewPage() {
           </div>
 
           {/* 오른쪽 미리보기 */}
-          <div>
+          <div className="h-full">
             <JarPreview template={selectedTemplate} form={form} />
           </div>
         </section>
@@ -1043,8 +1523,12 @@ export default function JarsNewPage() {
                 >
                   <option value="SPRING">{THEME_LABEL.SPRING}</option>
                   <option value="SUMMER">{THEME_LABEL.SUMMER}</option>
-                  <option value="LAVENDER">{THEME_LABEL.LAVENDER}</option>
+                  <option value="AUTUMN">{THEME_LABEL.AUTUMN}</option>
                   <option value="WINTER">{THEME_LABEL.WINTER}</option>
+                  <option value="LAVENDER">{THEME_LABEL.LAVENDER}</option>
+                  <option value="DEW">{THEME_LABEL.DEW}</option>
+                  <option value="SAND">{THEME_LABEL.SAND}</option>
+                  <option value="MOONLIGHT">{THEME_LABEL.MOONLIGHT}</option>
                 </select>
               </div>
 

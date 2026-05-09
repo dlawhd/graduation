@@ -52,7 +52,7 @@ public class RefreshToken extends BaseEntity{
     private User user;
 
     // ✅ refresh 토큰의 해시값(SHA-256)
-    @Column(name = "token_hash", nullable = false, length = 64)
+    @Column(name = "token_hash", nullable = false, columnDefinition = "CHAR(64)")
     private String tokenHash;
 
     // ✅ refresh 토큰이 만료되는 시간

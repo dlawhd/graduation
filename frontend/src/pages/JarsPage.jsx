@@ -1,6 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/apiClient";
+import SandIcon from "../components/icons/SandIcon";
+import LavenderIcon from "../components/icons/LavenderIcon";
+import MoonlightIcon from "../components/icons/MoonlightIcon";
+import DewIcon from "../components/icons/DewIcon";
+import SpringIcon from "../components/icons/SpringIcon";
+import SummerIcon from "../components/icons/SummerIcon";
+import AutumnIcon from "../components/icons/AutumnIcon";
+import WinterIcon from "../components/icons/WinterIcon";
+import SpringParticleIcon from "../components/icons/SpringParticleIcon";
+import SummerParticleIcon from "../components/icons/SummerParticleIcon";
+import AutumnParticleIcon from "../components/icons/AutumnParticleIcon";
+import WinterParticleIcon from "../components/icons/WinterParticleIcon";
+import LavenderParticleIcon from "../components/icons/LavenderParticleIcon";
+import DewParticleIcon from "../components/icons/DewParticleIcon";
+import SandParticleIcon from "../components/icons/SandParticleIcon";
+import MoonlightParticleIcon from "../components/icons/MoonlightParticleIcon";
 
 /*
   JarsPage 역할
@@ -31,16 +47,13 @@ const ROLE_LABEL = {
 const THEME_LABEL = {
   // 새 테마 값
   SPRING: "봄",
-  WINTER: "겨울",
   SUMMER: "여름",
+  AUTUMN: "가을",
+  WINTER: "겨울",
   LAVENDER: "라벤더",
-
-  // 예전 값 호환용
-  // 기존 DB/화면에 잠깐 예전 값이 남아 있어도 깨지지 않게 둔다.
-  COUPLE: "봄",
-  FRIEND: "겨울",
-  FAMILY: "여름",
-  CUSTOM: "라벤더",
+  DEW: "이슬",
+  SAND: "모래",
+  MOONLIGHT: "달빛",
 };
 
 // 한 페이지에서 보여줄 저금통 개수
@@ -110,134 +123,257 @@ function getOpenProgressWidth(jar) {
   return 24;
 }
 
-// 테마별 색상 묶음
-// 상세 페이지처럼 각 저금통이 자기 색을 가지게 해주는 부분이야.
-function getThemePalette(theme) {
-
-  // 봄 테마
-  // 새 값 SPRING과 예전 값 COUPLE을 같은 색으로 보여준다.
-  if (theme === "SPRING" || theme === "COUPLE") {
-    return {
-      pageGlow: "from-rose-100/40 via-orange-100/30 to-transparent",
-      heroRing: "ring-rose-100",
-      heroDot: "bg-rose-400",
-      heroBadge: "bg-rose-100 text-rose-700",
-      heroButton: "from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600",
-      card: "border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-orange-50 hover:border-rose-300",
-      cardShadow: "shadow-[0_12px_40px_rgba(244,63,94,0.10)]",
-      badge: "bg-gradient-to-r from-rose-500 to-orange-500 text-white",
-      soft: "bg-rose-100 text-rose-700",
-      infoBox: "border-rose-100/90 bg-white/75",
-      outline: "border-rose-200 bg-white/80 text-rose-700 hover:bg-rose-50",
-      previewBody: "border-rose-200 bg-gradient-to-b from-rose-100 via-pink-50 to-white",
-      previewLid: "bg-gradient-to-r from-rose-500 to-orange-500",
-      glow: "bg-rose-300/40",
-      progress: "from-rose-500 to-orange-500",
-      icon: "🌸",
-      sparkles: [],
-    };
+/*
+ * getThemeIcon 역할
+ *
+ * 저금통 목록 카드 안에 보여줄 대표 SVG 아이콘을 골라주는 함수야.
+ *
+ * 쉽게 말하면:
+ * - 봄이면 SpringIcon
+ * - 여름이면 SummerIcon
+ * - 가을이면 AutumnIcon
+ * 처럼 우리가 만든 둥근 테마 아이콘을 보여준다.
+ */
+function getThemeIcon(theme, size = 52) {
+  if (theme === "SPRING") {
+    return <SpringIcon size={size} />;
   }
 
-  // 겨울 테마
-  // 새 값 WINTER와 예전 값 FRIEND를 같은 색으로 보여준다.
-  if (theme === "WINTER" || theme === "FRIEND") {
-    return {
-      pageGlow: "from-sky-100/40 via-indigo-100/30 to-transparent",
-      heroRing: "ring-sky-100",
-      heroDot: "bg-sky-500",
-      heroBadge: "bg-sky-100 text-sky-700",
-      heroButton: "from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600",
-      card: "border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-indigo-50 hover:border-sky-300",
-      cardShadow: "shadow-[0_12px_40px_rgba(59,130,246,0.10)]",
-      badge: "bg-gradient-to-r from-sky-500 to-indigo-500 text-white",
-      soft: "bg-sky-100 text-sky-700",
-      infoBox: "border-sky-100/90 bg-white/75",
-      outline: "border-sky-200 bg-white/80 text-sky-700 hover:bg-sky-50",
-      previewBody: "border-sky-200 bg-gradient-to-b from-sky-100 via-cyan-50 to-white",
-      previewLid: "bg-gradient-to-r from-sky-500 to-indigo-500",
-      glow: "bg-sky-300/40",
-      progress: "from-sky-500 to-indigo-500",
-      icon: "❄️",
-      sparkles: [],
-    };
+  if (theme === "SUMMER") {
+    return <SummerIcon size={size} />;
   }
 
-  // 여름 테마
-  // 새 값 SUMMER와 예전 값 FAMILY를 같은 색으로 보여준다.
-  if (theme === "SUMMER" || theme === "FAMILY") {
-    return {
-      pageGlow: "from-emerald-100/40 via-lime-100/30 to-transparent",
-      heroRing: "ring-emerald-100",
-      heroDot: "bg-emerald-500",
-      heroBadge: "bg-emerald-100 text-emerald-700",
-      heroButton: "from-emerald-500 to-lime-500 hover:from-emerald-600 hover:to-lime-600",
-      card: "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-lime-50 hover:border-emerald-300",
-      cardShadow: "shadow-[0_12px_40px_rgba(16,185,129,0.10)]",
-      badge: "bg-gradient-to-r from-emerald-500 to-lime-500 text-white",
-      soft: "bg-emerald-100 text-emerald-700",
-      infoBox: "border-emerald-100/90 bg-white/75",
-      outline: "border-emerald-200 bg-white/80 text-emerald-700 hover:bg-emerald-50",
-      previewBody: "border-emerald-200 bg-gradient-to-b from-emerald-100 via-lime-50 to-white",
-      previewLid: "bg-gradient-to-r from-emerald-500 to-lime-500",
-      glow: "bg-emerald-300/40",
-      progress: "from-emerald-500 to-lime-500",
-      icon: "🌿",
-      sparkles: [],
-    };
+  if (theme === "AUTUMN") {
+    return <AutumnIcon size={size} />;
   }
 
-  // 라벤더 테마
-  // 새 값 LAVENDER와 예전 값 CUSTOM은 여기 기본 보라색 스타일을 사용한다.
-  return {
-    pageGlow: "from-violet-100/40 via-fuchsia-100/30 to-transparent",
-    heroRing: "ring-violet-100",
-    heroDot: "bg-violet-500",
-    heroBadge: "bg-violet-100 text-violet-700",
-    heroButton: "from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600",
-    card: "border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 hover:border-violet-300",
-    cardShadow: "shadow-[0_12px_40px_rgba(139,92,246,0.10)]",
-    badge: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white",
-    soft: "bg-violet-100 text-violet-700",
-    infoBox: "border-violet-100/90 bg-white/75",
-    outline: "border-violet-200 bg-white/80 text-violet-700 hover:bg-violet-50",
-    previewBody: "border-violet-200 bg-gradient-to-b from-violet-100 via-fuchsia-50 to-white",
-    previewLid: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
-    glow: "bg-violet-300/40",
-    progress: "from-violet-500 to-fuchsia-500",
-    icon: "💜",
-    sparkles: [],
-  };
+  if (theme === "WINTER") {
+    return <WinterIcon size={size} />;
+  }
+
+  if (theme === "DEW") {
+    return <DewIcon size={size} />;
+  }
+
+  if (theme === "SAND") {
+    return <SandIcon size={size} />;
+  }
+
+  if (theme === "MOONLIGHT") {
+    return <MoonlightIcon size={size} />;
+  }
+
+  return <LavenderIcon size={size} />;
 }
+
+/*
+ * getThemeMiniParticles 역할
+ *
+ * 저금통 목록 썸네일 안에 작게 보여줄 장식을 골라주는 함수야.
+ *
+ * 상세 페이지처럼 계속 떨어지는 애니메이션은 아니고,
+ * 카드 안에서 테마 분위기만 살짝 보여주는 정적인 장식이야.
+ */
+
+ // 테마별 색상 묶음
+ // 상세 페이지처럼 각 저금통이 자기 색을 가지게 해주는 부분이야.
+ function getThemePalette(theme) {
+   // 봄 테마
+   if (theme === "SPRING" || theme === "COUPLE") {
+     return {
+       pageGlow: "from-rose-100/40 via-orange-100/30 to-transparent",
+       heroRing: "ring-rose-100",
+       heroDot: "bg-rose-400",
+       heroBadge: "bg-rose-100 text-rose-700",
+       heroButton: "from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600",
+       card: "border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-orange-50 hover:border-rose-300",
+       cardShadow: "shadow-[0_12px_40px_rgba(244,63,94,0.10)]",
+       badge: "bg-gradient-to-r from-rose-500 to-orange-500 text-white",
+       soft: "bg-rose-100 text-rose-700",
+       infoBox: "border-rose-100/90 bg-white/75",
+       outline: "border-rose-200 bg-white/80 text-rose-700 hover:bg-rose-50",
+       previewBody: "border-rose-200 bg-gradient-to-b from-rose-100 via-pink-50 to-white",
+       previewLid: "bg-gradient-to-r from-rose-500 to-orange-500",
+       glow: "bg-rose-300/40",
+       progress: "from-rose-500 to-orange-500",
+     };
+   }
+
+   // 여름 테마
+   if (theme === "SUMMER" || theme === "FAMILY") {
+     return {
+       pageGlow: "from-emerald-100/40 via-lime-100/30 to-transparent",
+       heroRing: "ring-emerald-100",
+       heroDot: "bg-emerald-500",
+       heroBadge: "bg-emerald-100 text-emerald-700",
+       heroButton: "from-emerald-500 to-lime-500 hover:from-emerald-600 hover:to-lime-600",
+       card: "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-lime-50 hover:border-emerald-300",
+       cardShadow: "shadow-[0_12px_40px_rgba(16,185,129,0.10)]",
+       badge: "bg-gradient-to-r from-emerald-500 to-lime-500 text-white",
+       soft: "bg-emerald-100 text-emerald-700",
+       infoBox: "border-emerald-100/90 bg-white/75",
+       outline: "border-emerald-200 bg-white/80 text-emerald-700 hover:bg-emerald-50",
+       previewBody: "border-emerald-200 bg-gradient-to-b from-emerald-100 via-lime-50 to-white",
+       previewLid: "bg-gradient-to-r from-emerald-500 to-lime-500",
+       glow: "bg-emerald-300/40",
+       progress: "from-emerald-500 to-lime-500",
+     };
+   }
+
+   // 가을 테마
+   if (theme === "AUTUMN") {
+     return {
+       pageGlow: "from-orange-100/40 via-rose-100/30 to-transparent",
+       heroRing: "ring-orange-100",
+       heroDot: "bg-orange-500",
+       heroBadge: "bg-orange-100 text-orange-700",
+       heroButton: "from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600",
+       card: "border-orange-200/80 bg-gradient-to-br from-orange-50 via-white to-rose-50 hover:border-orange-300",
+       cardShadow: "shadow-[0_12px_40px_rgba(249,115,22,0.12)]",
+       badge: "bg-gradient-to-r from-orange-500 to-rose-500 text-white",
+       soft: "bg-orange-100 text-orange-700",
+       infoBox: "border-orange-100/90 bg-white/75",
+       outline: "border-orange-200 bg-white/80 text-orange-700 hover:bg-orange-50",
+       previewBody: "border-orange-200 bg-gradient-to-b from-orange-100 via-amber-50 to-white",
+       previewLid: "bg-gradient-to-r from-orange-500 to-rose-500",
+       glow: "bg-orange-300/40",
+       progress: "from-orange-500 to-rose-500",
+     };
+   }
+
+   // 겨울 테마
+   if (theme === "WINTER" || theme === "FRIEND") {
+     return {
+       pageGlow: "from-sky-100/40 via-indigo-100/30 to-transparent",
+       heroRing: "ring-sky-100",
+       heroDot: "bg-sky-500",
+       heroBadge: "bg-sky-100 text-sky-700",
+       heroButton: "from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600",
+       card: "border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-indigo-50 hover:border-sky-300",
+       cardShadow: "shadow-[0_12px_40px_rgba(59,130,246,0.10)]",
+       badge: "bg-gradient-to-r from-sky-500 to-indigo-500 text-white",
+       soft: "bg-sky-100 text-sky-700",
+       infoBox: "border-sky-100/90 bg-white/75",
+       outline: "border-sky-200 bg-white/80 text-sky-700 hover:bg-sky-50",
+       previewBody: "border-sky-200 bg-gradient-to-b from-sky-100 via-cyan-50 to-white",
+       previewLid: "bg-gradient-to-r from-sky-500 to-indigo-500",
+       glow: "bg-sky-300/40",
+       progress: "from-sky-500 to-indigo-500",
+     };
+   }
+
+   // 이슬 테마
+   if (theme === "DEW") {
+     return {
+       pageGlow: "from-cyan-100/40 via-teal-100/30 to-transparent",
+       heroRing: "ring-teal-100",
+       heroDot: "bg-teal-400",
+       heroBadge: "bg-teal-100 text-teal-700",
+       heroButton: "from-teal-400 to-sky-400 hover:from-teal-500 hover:to-sky-500",
+       card: "border-teal-200/80 bg-gradient-to-br from-cyan-50 via-white to-sky-50 hover:border-teal-300",
+       cardShadow: "shadow-[0_12px_40px_rgba(20,184,166,0.10)]",
+       badge: "bg-gradient-to-r from-teal-400 to-sky-400 text-white",
+       soft: "bg-teal-100 text-teal-700",
+       infoBox: "border-teal-100/90 bg-white/75",
+       outline: "border-teal-200 bg-white/80 text-teal-700 hover:bg-teal-50",
+       previewBody: "border-teal-200 bg-gradient-to-b from-cyan-100 via-teal-50 to-white",
+       previewLid: "bg-gradient-to-r from-teal-400 to-sky-400",
+       glow: "bg-teal-300/40",
+       progress: "from-teal-400 to-sky-400",
+     };
+   }
+
+   // 모래 테마
+   if (theme === "SAND") {
+     return {
+       pageGlow: "from-amber-100/40 via-orange-100/30 to-transparent",
+       heroRing: "ring-amber-100",
+       heroDot: "bg-amber-500",
+       heroBadge: "bg-amber-100 text-amber-800",
+       heroButton: "from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600",
+       card: "border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50 hover:border-amber-300",
+       cardShadow: "shadow-[0_12px_40px_rgba(217,119,6,0.10)]",
+       badge: "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
+       soft: "bg-amber-100 text-amber-800",
+       infoBox: "border-amber-100/90 bg-white/75",
+       outline: "border-amber-200 bg-white/80 text-amber-800 hover:bg-amber-50",
+       previewBody: "border-amber-200 bg-gradient-to-b from-amber-100 via-yellow-50 to-white",
+       previewLid: "bg-gradient-to-r from-amber-500 to-orange-500",
+       glow: "bg-amber-300/40",
+       progress: "from-amber-500 to-orange-500",
+     };
+   }
+
+   // 달빛 테마
+   if (theme === "MOONLIGHT") {
+     return {
+       pageGlow: "from-indigo-100/40 via-slate-100/30 to-transparent",
+       heroRing: "ring-indigo-100",
+       heroDot: "bg-indigo-600",
+       heroBadge: "bg-indigo-100 text-indigo-700",
+       heroButton: "from-indigo-700 to-slate-500 hover:from-indigo-800 hover:to-slate-600",
+       card: "border-indigo-200/80 bg-gradient-to-br from-indigo-50 via-white to-slate-50 hover:border-indigo-300",
+       cardShadow: "shadow-[0_12px_40px_rgba(79,70,229,0.11)]",
+       badge: "bg-gradient-to-r from-indigo-700 to-slate-500 text-white",
+       soft: "bg-indigo-100 text-indigo-700",
+       infoBox: "border-indigo-100/90 bg-white/75",
+       outline: "border-indigo-200 bg-white/80 text-indigo-700 hover:bg-indigo-50",
+       previewBody: "border-indigo-200 bg-gradient-to-b from-indigo-100 via-slate-50 to-white",
+       previewLid: "bg-gradient-to-r from-indigo-700 to-slate-500",
+       glow: "bg-indigo-300/40",
+       progress: "from-indigo-700 to-slate-500",
+     };
+   }
+
+   // 라벤더 테마
+   return {
+     pageGlow: "from-violet-100/40 via-fuchsia-100/30 to-transparent",
+     heroRing: "ring-violet-100",
+     heroDot: "bg-violet-500",
+     heroBadge: "bg-violet-100 text-violet-700",
+     heroButton: "from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600",
+     card: "border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 hover:border-violet-300",
+     cardShadow: "shadow-[0_12px_40px_rgba(139,92,246,0.10)]",
+     badge: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white",
+     soft: "bg-violet-100 text-violet-700",
+     infoBox: "border-violet-100/90 bg-white/75",
+     outline: "border-violet-200 bg-white/80 text-violet-700 hover:bg-violet-50",
+     previewBody: "border-violet-200 bg-gradient-to-b from-violet-100 via-fuchsia-50 to-white",
+     previewLid: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
+     glow: "bg-violet-300/40",
+     progress: "from-violet-500 to-fuchsia-500",
+   };
+ }
 
 // 카드 왼쪽에 들어가는 작은 저금통 미리보기
 function JarListVisual({ jar }) {
   const palette = getThemePalette(jar?.theme);
 
+  // 목록 카드 안에 보여줄 대표 SVG 아이콘
+  const themeIcon = getThemeIcon(jar?.theme, 58);
+
   return (
-    <div className="relative mx-auto flex h-49 w-36 items-center justify-center">
+    <div className="relative mx-auto flex h-[196px] w-36 items-center justify-center">
       {/* 뒤에 은은하게 퍼지는 빛 */}
       <div className={`absolute inset-4 rounded-full blur-3xl ${palette.glow}`} />
 
-      {/* 반짝이 */}
-      <div className="absolute left-3 top-8 text-sm">{palette.sparkles[0]}</div>
-      <div className="absolute right-5 top-10 text-sm">{palette.sparkles[1]}</div>
-
       {/* 저금통 뚜껑 */}
-      <div className={`absolute top-8 z-20 h-7 w-22 rounded-full ${palette.previewLid} shadow-md`} />
+      <div
+        className={`absolute top-8 z-20 h-7 w-[88px] rounded-full ${palette.previewLid} shadow-md`}
+      />
       <div className="absolute top-[42px] z-30 h-1.5 w-9 rounded-full bg-slate-700/70" />
 
       {/* 저금통 몸통 */}
       <div
-        className={`relative z-10 mt-6 flex h-30 w-26 flex-col items-center justify-center rounded-[42%_42%_28%_28%] border-4 ${palette.previewBody} shadow-[0_18px_35px_rgba(15,23,42,0.10)]`}
+        className={`relative z-10 mt-6 flex h-[122px] w-[106px] flex-col items-center justify-center overflow-hidden rounded-[42%_42%_28%_28%] border-4 ${palette.previewBody} shadow-[0_18px_35px_rgba(15,23,42,0.10)]`}
       >
-        <div className="text-3xl">{palette.icon}</div>
+        {/* 유리 반짝임 */}
+        <div className="absolute left-3 top-5 z-30 h-14 w-2 rounded-full bg-white/55 blur-[1px]" />
+        <div className="absolute right-4 top-7 z-30 h-10 w-1.5 rounded-full bg-white/35 blur-[1px]" />
 
-        <div className="mt-2 rounded-full bg-white/85 px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm">
-          {jar?.isOpen ? "열림 저금통" : "잠긴 저금통"}
-        </div>
-
-        <div className="mt-2 text-[10px] font-semibold text-slate-500">
-          {jar?.memberCount || 0}/{jar?.maxMembers || 0}명
+        {/* 가운데 대표 테마 SVG 아이콘 */}
+        <div className="relative z-40 flex h-[62px] w-[62px] items-center justify-center">
+          {themeIcon}
         </div>
       </div>
     </div>

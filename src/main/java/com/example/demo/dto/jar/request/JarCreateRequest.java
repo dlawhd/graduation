@@ -25,8 +25,6 @@ public record JarCreateRequest(
         String description,
 
         // 저금통 테마는 꼭 필요하다.
-        // 앞으로는 SPRING / WINTER / SUMMER / LAVENDER / AUTUMN / FOREST / OCEAN / SUNSET 값을 사용한다.
-        // COUPLE / FRIEND / FAMILY / CUSTOM은 예전 프론트 호환용으로만 잠깐 남겨둔다.
         @NotNull
         JarTheme theme,
 
