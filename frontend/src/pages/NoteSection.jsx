@@ -297,9 +297,38 @@ function PaperComposeModal({
       {/* 어두운 배경 */}
       <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-[2px] paper-overlay-open" />
 
+      {/* 새 쪽지 모달 안쪽 스크롤바 디자인 */}
+      <style>
+        {`
+          .paper-compose-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+          }
+
+          .paper-compose-scroll::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          .paper-compose-scroll::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 16px 0;
+          }
+
+          .paper-compose-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 999px;
+            border: 2px solid rgba(255, 253, 248, 0.95);
+          }
+
+          .paper-compose-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.65);
+          }
+        `}
+      </style>
+
       {/* 종이 본체 */}
-      <div className={`relative w-full max-w-2xl origin-center ${paperAnimationClass}`}>
-        <div className="relative overflow-hidden rounded-[34px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] px-6 py-6 shadow-[0_30px_80px_rgba(15,23,42,0.28)]">
+      <div className={`relative flex max-h-[88vh] w-full max-w-2xl origin-center ${paperAnimationClass}`}>
+        <div className="relative flex max-h-[88vh] w-full flex-col overflow-hidden rounded-[34px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.28)]">
           {/* 접힌 모서리 */}
           <div className="absolute right-0 top-0 h-16 w-16 rounded-bl-[28px] border-b border-l border-white/80 bg-white/80" />
 
@@ -309,9 +338,10 @@ function PaperComposeModal({
           <div className="pointer-events-none absolute left-20 bottom-14 h-16 w-[2px] rotate-[18deg] bg-slate-200/50" />
           <div className="pointer-events-none absolute left-6 top-6 h-24 w-10 rounded-full bg-white/45 blur-md" />
 
-          <div className={`relative z-10 ${contentAnimationClass}`}>
-            {/* 헤더 */}
-            <div className="mb-5 flex items-center justify-between gap-3">
+          <div className={`relative z-10 flex min-h-0 flex-1 flex-col ${contentAnimationClass}`}>
+            {/* 헤더는 위에 고정된 영역처럼 분리 */}
+            <div className="shrink-0 border-b border-amber-100/70 bg-[#fffdf8]/95 px-6 pb-4 pt-6">
+              <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-lg font-black text-slate-800">
                   {isFormStep && "새 쪽지 넣기"}
@@ -337,7 +367,12 @@ function PaperComposeModal({
               >
                 닫기
               </button>
+              </div>
             </div>
+
+            {/* 아래 내용만 스크롤되는 영역 */}
+            <div className="paper-compose-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-5">
+
 
             {/* 1단계: 작성 */}
             {isFormStep && (
@@ -717,6 +752,7 @@ function PaperComposeModal({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

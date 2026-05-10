@@ -1742,13 +1742,53 @@ function JarZoomNoteDetailModal({
       return () => window.removeEventListener("keydown", handler);
     }, [selectedIndex, images.length]);
 
-
     if (!open) return null;
 
     return (
+      // 화면 전체를 덮는 어두운 배경 영역
       <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-900/60 px-4 py-6">
-        <div className="w-full max-w-3xl rounded-[32px] border border-white/70 bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
-          <div className="mb-5 flex items-start justify-between gap-3">
+        {/* 쪽지 상세 모달 안쪽 스크롤바를 부드럽게 보이게 하는 CSS */}
+        <style>
+          {`
+            .jar-note-detail-scroll {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+            }
+
+            .jar-note-detail-scroll::-webkit-scrollbar {
+              width: 8px;
+            }
+
+            .jar-note-detail-scroll::-webkit-scrollbar-track {
+              background: transparent;
+              margin: 16px 0;
+            }
+
+            .jar-note-detail-scroll::-webkit-scrollbar-thumb {
+              background: rgba(148, 163, 184, 0.45);
+              border-radius: 999px;
+              border: 2px solid rgba(255, 255, 255, 0.95);
+            }
+
+            .jar-note-detail-scroll::-webkit-scrollbar-thumb:hover {
+              background: rgba(100, 116, 139, 0.65);
+            }
+          `}
+        </style>
+
+        {/*
+          쪽지 상세 모달 본체
+
+          flex-col
+          - 위쪽 헤더와 아래쪽 본문을 세로로 나눈다.
+
+          overflow-hidden
+          - 둥근 모서리 밖으로 내용이나 스크롤바가 튀어나가지 않게 막는다.
+        */}
+        <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+          {/* 상단 제목/닫기 영역은 스크롤되지 않게 고정 */}
+          <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6">
+            <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-lg font-black text-slate-800">쪽지 상세 보기</p>
               <p className="mt-1 text-sm text-slate-500">
@@ -1764,7 +1804,9 @@ function JarZoomNoteDetailModal({
               닫기
             </button>
           </div>
-
+          </div>
+          {/* 아래 내용만 스크롤되는 영역 */}
+          <div className="jar-note-detail-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-5">
           {loading && (
             <div className="space-y-3">
               <div className="h-6 w-48 animate-pulse rounded-full bg-slate-200" />
@@ -1965,6 +2007,7 @@ function JarZoomNoteDetailModal({
             </div>
           )}
         </div>
+        </div>
         {currentImage && (
           <div
             className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80"
@@ -2074,7 +2117,16 @@ function JarZoomModal({
 }) {
   if (!open) return null;
 
-  const NOTES_PER_PAGE = 2;
+  const NOTES_PER_PAGE = 3;
+
+  // 저금통이 실제로 열렸는지 확인하는 값이야.
+  // true면 오른쪽 쪽지 목록을 보여주고,
+  // false면 저금통만 보여줘서 비밀 느낌을 유지해.
+  const isJarOpen = !!jar?.isOpen;
+
+  // 오픈 전에는 쪽지 목록을 화면 계산에 쓰지 않는다.
+  // 그래야 쪽지 개수나 검색 결과가 노출되지 않아.
+  const visibleNotes = isJarOpen ? notes : [];
 
   // 오른쪽 검색창 상태
   const [searchForm, setSearchForm] = useState({
@@ -2090,7 +2142,7 @@ function JarZoomModal({
     const q = searchForm.q.trim().toLowerCase();
     const tag = searchForm.tag.trim().toLowerCase();
 
-    return notes.filter((note) => {
+    return visibleNotes.filter((note) => {
       const title =
         typeof note?.title === "string" ? note.title.toLowerCase() : "";
       const content =
@@ -2112,7 +2164,7 @@ function JarZoomModal({
 
       return matchesQ && matchesTag;
     });
-  }, [notes, searchForm]);
+  }, [visibleNotes, searchForm]);
 
   // 왼쪽 저금통 안에 보여줄 쪽지도 검색 결과 기준으로 8개만
   const previewNotes = useMemo(() => {
@@ -2232,42 +2284,108 @@ function JarZoomModal({
             animation-direction: alternate;
           }
 
+          .jar-zoom-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+          }
+
+          .jar-zoom-scroll::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          .jar-zoom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 16px 0;
+          }
+
+          .jar-zoom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.95);
+          }
+
+          .jar-zoom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.65);
+          }
+
+          .jar-zoom-note-list-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+          }
+
+          .jar-zoom-note-list-scroll::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          .jar-zoom-note-list-scroll::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 12px 0;
+          }
+
+          .jar-zoom-note-list-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.95);
+          }
+
+          .jar-zoom-note-list-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.65);
+          }
         `}
       </style>
 
       <div
-        className={`jar-zoom-pop w-full max-w-6xl rounded-[34px] border border-white/70 bg-white/95 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm lg:p-8`}
+       className={`jar-zoom-pop flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm`}
       >
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-lg font-black text-slate-800">
-              저금통 안 들여다보기
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              화면 가운데에서 저금통을 크게 보고, 안에 쪽지가 얼마나 들어왔는지 확인할 수 있어요.
-            </p>
-          </div>
+        {/* 상단 제목/닫기 영역은 스크롤되지 않게 분리 */}
+        <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6 lg:px-8 lg:pt-8">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-lg font-black text-slate-800">
+                저금통 안 들여다보기
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                화면 가운데에서 저금통을 크게 보고, 안에 쪽지가 얼마나 들어왔는지 확인할 수 있어요.
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
-          >
-            닫기
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+            >
+              닫기
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        {/*
+          모달 본문 영역
+          모바일에서는 전체가 세로로 길어질 수 있으니 바깥 스크롤을 유지하고,
+          PC에서는 오른쪽 목록만 따로 스크롤되게 하기 위해 바깥 스크롤을 숨겨준다.
+        */}
+        <div className="jar-zoom-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-5 lg:px-8 lg:pb-8">
+          <div
+            className={
+              isJarOpen
+                ? "grid min-h-0 gap-6 lg:h-full lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch"
+                : "grid min-h-0 items-start gap-6"
+            }
+          >
           {/* 왼쪽: 확대 저금통 */}
           <section
-            className={`rounded-[30px] border p-6 shadow-sm ${palette.panel}`}
+            className={`rounded-[30px] border p-6 shadow-sm ${
+              isJarOpen
+                ? "flex self-stretch lg:h-full flex-col"
+                : "self-start mx-auto w-full max-w-3xl"
+            } ${palette.panel}`}
           >
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                {jar?.isOpen ? "OPEN" : "LOCKED"}
+                {isJarOpen ? "OPEN" : "LOCKED"}
               </span>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
-                쪽지 {notes.length}개
+                {isJarOpen ? `쪽지 ${notes.length}개` : "비밀 보관 중"}
               </span>
             </div>
 
@@ -2333,7 +2451,7 @@ function JarZoomModal({
                     </div>
 
                     <div className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-slate-700 shadow">
-                      아직 쪽지가 없어요
+                      {isJarOpen ? "아직 쪽지가 없어요" : "오픈 전까지 비밀이에요"}
                     </div>
                   </div>
                 )}
@@ -2363,11 +2481,30 @@ function JarZoomModal({
                   </div>
                 )}
               </div>
-            </div>
-          </section>
+                        </div>
+
+                        {/*
+                          저금통 안내 문구
+
+                          역할:
+                          - 왼쪽 저금통 아래가 비어 보이지 않게 채워준다.
+                          - 왼쪽 저금통은 "미리보기", 오른쪽 목록은 "전체 확인"이라는 역할을 알려준다.
+                        */}
+                        {isJarOpen && (
+                          <div
+                            className={`mt-4 rounded-2xl border px-4 py-3 text-center text-xs font-semibold leading-6 ${palette.infoBox}`}
+                          >
+                            <p>저금통 안에는 최대 8개의 쪽지만 미리 보여요.</p>
+                            <p>전체 쪽지는 오른쪽 목록에서 확인할 수 있어요.</p>
+                          </div>
+                        )}
+                      </section>
 
           {/* 오른쪽: 쪽지 요약 목록 */}
-          <aside className={`rounded-[30px] border p-6 shadow-sm ${palette.panel}`}>
+          {isJarOpen && (
+              <aside className={`flex min-h-0 flex-col overflow-hidden rounded-[30px] border p-6 shadow-sm lg:h-full ${palette.panel}`}>
+              {/* 검색창 위쪽 영역은 고정 */}
+            <div className="shrink-0">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
                 저금통 이름
@@ -2376,10 +2513,6 @@ function JarZoomModal({
                 {jar?.name}
               </span>
             </div>
-
-            <p className="mb-5 text-sm leading-7 text-slate-500">
-              오픈 전이면 잠금 정책에 맞는 정보만 보이고, 오픈 후에는 실제 제목이나 내용 일부가 보여요.
-            </p>
 
             <form
               onSubmit={(e) => e.preventDefault()}
@@ -2435,29 +2568,31 @@ function JarZoomModal({
                 </span>
               )}
             </div>
+            </div>
 
-            {loading && (
-              <div className="space-y-3">
-                {[1, 2, 3].map((item) => (
-                  <div
-                    key={item}
-                    className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
-                  >
-                    <div className="mb-2 h-4 w-24 rounded-full bg-slate-200" />
-                    <div className="h-3 w-full rounded-full bg-slate-100" />
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* 쪽지 카드 목록만 따로 스크롤되는 영역 */}
+            <div className="jar-zoom-note-list-scroll mt-1 h-[300px] overflow-y-auto overscroll-contain pr-2 lg:h-[330px] xl:h-[360px]">
+              {loading && (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((item) => (
+                    <div
+                      key={item}
+                      className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
+                    >
+                      <div className="mb-2 h-4 w-24 rounded-full bg-slate-200" />
+                      <div className="h-3 w-full rounded-full bg-slate-100" />
+                    </div>
+                  ))}
+                </div>
+              )}
 
             {!loading && !error && filteredNotes.length === 0 && (
-              <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
-                아직 들어간 쪽지가 없어요.
-              </div>
-            )}
+                <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
+                  아직 들어간 쪽지가 없어요.
+                </div>
+              )}
 
-            {!loading && !error && filteredNotes.length > 0 && (
-              <>
+             {!loading && !error && filteredNotes.length > 0 && (
                 <div className="space-y-3">
                   {pagedNotes.map((note, index) => (
                     <button
@@ -2528,58 +2663,62 @@ function JarZoomModal({
                     </button>
                   ))}
                 </div>
+                )}
+              </div>
 
-                {notePageCount > 1 && (
-                  <div className="mt-5 flex flex-col gap-3 border-t border-white/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs font-semibold text-slate-500">
-                      {notePage} / {notePageCount} 페이지
-                    </p>
+                {!loading && !error && filteredNotes.length > 0 && notePageCount > 1 && (
+                  <div className="mt-4 shrink-0 border-t border-white/60 pt-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-semibold text-slate-500">
+                        {notePage} / {notePageCount} 페이지
+                      </p>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setNotePage((prev) => Math.max(1, prev - 1))}
-                        disabled={notePage === 1}
-                        className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
-                      >
-                        이전
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setNotePage((prev) => Math.max(1, prev - 1))}
+                          disabled={notePage === 1}
+                          className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
+                        >
+                          이전
+                        </button>
 
-                      {Array.from({ length: notePageCount }, (_, index) => index + 1).map(
-                        (pageNumber) => (
-                          <button
-                            key={pageNumber}
-                            type="button"
-                            onClick={() => setNotePage(pageNumber)}
-                            className={`rounded-2xl px-3 py-2 text-sm font-bold transition ${
-                              pageNumber === notePage
-                                ? palette.primaryButton
-                                : palette.outlineButton
-                            }`}
-                          >
-                            {pageNumber}
-                          </button>
-                        )
-                      )}
+                        {Array.from({ length: notePageCount }, (_, index) => index + 1).map(
+                          (pageNumber) => (
+                            <button
+                              key={pageNumber}
+                              type="button"
+                              onClick={() => setNotePage(pageNumber)}
+                              className={`rounded-2xl px-3 py-2 text-sm font-bold transition ${
+                                pageNumber === notePage
+                                  ? palette.primaryButton
+                                  : palette.outlineButton
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          )
+                        )}
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setNotePage((prev) => Math.min(notePageCount, prev + 1))
-                        }
-                        disabled={notePage === notePageCount}
-                        className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
-                      >
-                        다음
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNotePage((prev) => Math.min(notePageCount, prev + 1))
+                          }
+                          disabled={notePage === notePageCount}
+                          className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
+                        >
+                          다음
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
-              </>
-            )}
           </aside>
+          )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
@@ -4808,6 +4947,18 @@ function handleCancelEditComment() {
 // 저금통 클릭 시 확대 모달 열기
 async function handleOpenJarZoom() {
   setJarZoomOpen(true);
+
+  // 오픈 전에는 쪽지 목록 자체를 불러오지 않는다.
+  // 이유:
+  // - 저금통은 열리기 전까지 비밀이라는 콘셉트가 중요하다.
+  // - 화면에서 숨기더라도 굳이 목록 API를 호출할 필요가 없다.
+  if (!jar?.isOpen) {
+    setJarZoomNotes([]);
+    setJarZoomError("");
+    setJarZoomLoading(false);
+    return;
+  }
+
   await loadJarZoomNotes();
 }
 
