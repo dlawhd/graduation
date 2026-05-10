@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import noteApi from "../api/noteApi";
 import fileApi from "../api/fileApi";
+import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
+import NoteIntoJarIcon from "../components/icons/NoteIntoJarIcon";
 
 // 잠금 레벨을 화면용으로 바꿔주는 작은 사전
 const LOCK_LEVEL_LABEL = {
@@ -718,7 +720,12 @@ function PaperComposeModal({
             {/* 3단계: 최종 확인 */}
             {isConfirmStep && (
               <div className="py-4 text-center">
-                <div className="mb-4 text-5xl">📮</div>
+
+                <NoteIntoJarIcon
+                  className="mb-4"
+                  sizeClass="h-28 w-28"
+                  withShadow={true}
+                />
 
                 <p className="text-sm leading-7 text-slate-500">
                   저금통에 넣으면 쪽지 수정이나 삭제가 불가능해요!
@@ -1759,46 +1766,6 @@ async function handleCreateNote() {
             animation: noteFlightToJar 920ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
             filter: drop-shadow(0 18px 28px rgba(15, 23, 42, 0.2));
           }
-
-          .note-flight-body {
-            position: absolute;
-            inset: 0;
-            overflow: hidden;
-            border: 4px solid #69a8d8;
-            border-radius: 18px;
-            background: #f4dde2;
-          }
-
-          .note-flight-fold {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 22px;
-            height: 22px;
-            border-left: 4px solid #69a8d8;
-            border-bottom: 4px solid #69a8d8;
-            border-bottom-left-radius: 14px;
-            background: rgba(255, 255, 255, 0.72);
-          }
-
-          .note-flight-line {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 68px;
-            height: 4px;
-            border-radius: 999px;
-            background: #69a8d8;
-            transform-origin: center;
-          }
-
-          .note-flight-line-1 {
-            transform: translate(-50%, -50%) rotate(36deg);
-          }
-
-          .note-flight-line-2 {
-            transform: translate(-50%, -50%) rotate(-36deg);
-          }
         `}
       </style>
 
@@ -1847,11 +1814,14 @@ async function handleCreateNote() {
             "--note-dy": `${flyingNote.deltaY}px`,
           }}
         >
-          <div className="note-flight-body">
-            <div className="note-flight-fold" />
-            <div className="note-flight-line note-flight-line-1" />
-            <div className="note-flight-line note-flight-line-2" />
-          </div>
+          {/* 저금통으로 날아가는 쪽지도 같은 SVG를 사용한다.
+              작은 크기와 장식 없는 버전으로 써서 움직일 때 깔끔하게 보이게 한다. */}
+          <MemoryDrawNoteIcon
+            sizeClass="h-full w-full"
+            withShadow={false}
+            withDecorations={false}
+            centered={false}
+          />
         </div>
       )}
       {toast.show && (

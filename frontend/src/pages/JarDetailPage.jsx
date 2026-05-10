@@ -22,6 +22,7 @@ import LavenderParticleIcon from "../components/icons/LavenderParticleIcon";
 import DewParticleIcon from "../components/icons/DewParticleIcon";
 import SandParticleIcon from "../components/icons/SandParticleIcon";
 import MoonlightParticleIcon from "../components/icons/MoonlightParticleIcon";
+import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
 
 import {
   createJarMemberSocketClient,
@@ -264,6 +265,235 @@ function ReactionBar({
 }
 
 /*
+ * CommentItem 역할
+ *
+ * 댓글 1개를 화면에 보여주는 컴포넌트야.
+ *
+ * 핵심:
+ * - 일반 댓글도 보여주고
+ * - 답글도 보여주고
+ * - 답글의 답글도 계속 보여줄 수 있어.
+ *
+ * 쉽게 말하면:
+ * 댓글 안에 replies가 있으면
+ * 그 replies도 다시 CommentItem으로 그려서
+ * 몇 단계 답글이든 같은 모양으로 보여주는 구조야.
+ */
+function CommentItem({
+  comment,
+  depth = 0,
+  palette,
+  currentUserId,
+  submitting,
+  editingCommentId,
+  editingContent,
+  onStartEdit,
+  onEditChange,
+  onCancelEdit,
+  onUpdate,
+  deletingCommentId,
+  onDelete,
+  replyTargetCommentId,
+  replyDraftMap,
+  onToggleReply,
+  onReplyDraftChange,
+  onCreateReply,
+  replyExpandedMap,
+  onToggleReplies,
+  focusedCommentId,
+}) {
+  // 현재 댓글이 내 댓글인지 확인한다.
+  const isMine = Number(comment.userId) === Number(currentUserId);
+
+  // 현재 댓글이 수정 모드인지 확인한다.
+  const isEditing = editingCommentId === comment.commentId;
+
+  // replies가 없으면 빈 배열로 맞춰서 화면이 터지지 않게 한다.
+  const replies = Array.isArray(comment.replies) ? comment.replies : [];
+
+  // 답글 개수는 답글의 답글까지 전부 세어준다.
+  const replyCount = getTotalCommentCount(replies);
+
+  // 이 댓글 아래 답글 목록이 펼쳐져 있는지 확인한다.
+  const isReplyExpanded = !!replyExpandedMap[comment.commentId];
+
+  // 최상위 댓글과 답글 카드 색을 살짝 다르게 보여준다.
+  const cardClass = depth === 0 ? palette.softCard : palette.panelSoft;
+
+  return (
+    <div className={depth === 0 ? "space-y-3" : "ml-6 space-y-3 border-l-2 border-slate-200 pl-4"}>
+      <div
+        id={`jar-comment-${comment.commentId}`}
+        className={`rounded-2xl border p-4 ${cardClass} ${getFocusedCommentClass(
+          Number(focusedCommentId) === Number(comment.commentId)
+        )}`}
+      >
+        {/* 작성자 / 작성시간 / 수정 / 삭제 */}
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-slate-800">
+              {comment.authorName || `사용자 ${comment.userId}`}
+            </p>
+
+            <p className="text-[11px] font-semibold text-slate-400">
+              {formatDate(comment.createdAt)}
+            </p>
+          </div>
+
+          {isMine && !isEditing && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onStartEdit(comment)}
+                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
+              >
+                수정
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onDelete(comment.commentId)}
+                disabled={deletingCommentId === comment.commentId}
+                className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
+              >
+                {deletingCommentId === comment.commentId ? "삭제 중..." : "삭제"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 일반 보기 모드 */}
+        {!isEditing && (
+          <p className="text-sm leading-7 text-slate-700">
+            {comment.content}
+          </p>
+        )}
+
+        {/* 수정 모드 */}
+        {isEditing && (
+          <div className="space-y-3">
+            <textarea
+              rows={3}
+              value={editingContent}
+              onChange={(e) => onEditChange(e.target.value)}
+              className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+              >
+                취소
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onUpdate(comment.commentId)}
+                disabled={submitting}
+                className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+              >
+                {submitting ? "저장 중..." : "수정 저장"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 답글 / 답글 보기 버튼 */}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onToggleReply(comment.commentId)}
+            className="text-xs font-bold text-slate-500 transition hover:text-slate-700"
+          >
+            {replyTargetCommentId === comment.commentId ? "답글 닫기" : "답글 달기"}
+          </button>
+
+          {replyCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onToggleReplies(comment.commentId)}
+              className="text-xs font-bold text-slate-500 transition hover:text-slate-700"
+            >
+              {isReplyExpanded ? "답글 숨기기" : `답글 ${replyCount}개 보기`}
+            </button>
+          )}
+        </div>
+
+        {/* 답글 작성창 */}
+        {replyTargetCommentId === comment.commentId && (
+          <div className="mt-4 rounded-2xl border border-dashed p-3">
+            <textarea
+              rows={2}
+              value={replyDraftMap[comment.commentId] || ""}
+              onChange={(e) =>
+                onReplyDraftChange(comment.commentId, e.target.value)
+              }
+              placeholder="이 댓글에 답글을 남겨보세요."
+              className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+            />
+
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => onToggleReply(comment.commentId)}
+                className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+              >
+                답글 닫기
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onCreateReply(comment.commentId)}
+                disabled={submitting}
+                className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+              >
+                {submitting ? "등록 중..." : "답글 등록"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 답글 목록
+          replies 안에 또 replies가 있으면 CommentItem이 다시 CommentItem을 부른다.
+          그래서 답글의 답글도 계속 렌더링된다. */}
+      {replyCount > 0 && isReplyExpanded && (
+        <div className="space-y-3">
+          {replies.map((reply) => (
+            <CommentItem
+              key={reply.commentId}
+              comment={reply}
+              depth={depth + 1}
+              palette={palette}
+              currentUserId={currentUserId}
+              submitting={submitting}
+              editingCommentId={editingCommentId}
+              editingContent={editingContent}
+              onStartEdit={onStartEdit}
+              onEditChange={onEditChange}
+              onCancelEdit={onCancelEdit}
+              onUpdate={onUpdate}
+              deletingCommentId={deletingCommentId}
+              onDelete={onDelete}
+              replyTargetCommentId={replyTargetCommentId}
+              replyDraftMap={replyDraftMap}
+              onToggleReply={onToggleReply}
+              onReplyDraftChange={onReplyDraftChange}
+              onCreateReply={onCreateReply}
+              replyExpandedMap={replyExpandedMap}
+              onToggleReplies={onToggleReplies}
+              focusedCommentId={focusedCommentId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/*
  * 이 컴포넌트는 쪽지 상세 모달 아래에서
  * 댓글 목록 / 댓글 작성 / 댓글 수정 / 댓글 삭제 UI를 보여주는 역할
  *
@@ -365,245 +595,32 @@ function CommentSection({
 
         {!loading && !error && comments.length > 0 && (
           <div className="mt-4 space-y-4">
-            {comments.map((comment) => {
-              const isMine = Number(comment.userId) === Number(currentUserId);
-              const isEditing = editingCommentId === comment.commentId;
-              const replies = Array.isArray(comment.replies) ? comment.replies : [];
-              const replyCount = replies.length;
-              const isReplyExpanded = !!replyExpandedMap[comment.commentId];
-
-              return (
-                <div key={comment.commentId} className="space-y-3">
-                  {/* 부모 댓글 */}
-                  <div
-                    id={`jar-comment-${comment.commentId}`}
-                    className={`rounded-2xl border p-4 ${palette.softCard} ${getFocusedCommentClass(
-                      Number(focusedCommentId) === Number(comment.commentId)
-                    )}`}
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black text-slate-800">
-                          {comment.authorName || `사용자 ${comment.userId}`}
-                        </p>
-                        <p className="text-[11px] font-semibold text-slate-400">
-                          {formatDate(comment.createdAt)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onToggleReply(comment.commentId)}
-                          className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
-                        >
-                          답글
-                        </button>
-
-                        {isMine && !isEditing && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => onStartEdit(comment)}
-                              className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
-                            >
-                              수정
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => onDelete(comment.commentId)}
-                              disabled={deletingCommentId === comment.commentId}
-                              className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
-                            >
-                              {deletingCommentId === comment.commentId ? "삭제 중..." : "삭제"}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {!isEditing && (
-                      <p className="text-sm leading-7 text-slate-700">
-                        {comment.content}
-                      </p>
-                    )}
-
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => onToggleReply(comment.commentId)}
-                        className="text-xs font-bold text-slate-500 transition hover:text-slate-700"
-                      >
-                        {replyTargetCommentId === comment.commentId ? "답글 닫기" : "답글 달기"}
-                      </button>
-
-                      {replyCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => onToggleReplies(comment.commentId)}
-                          className="text-xs font-bold text-slate-500 transition hover:text-slate-700"
-                        >
-                          {isReplyExpanded ? "답글 숨기기" : `답글 ${replyCount}개 더 보기`}
-                        </button>
-                      )}
-                    </div>
-
-                    {isEditing && (
-                      <div className="space-y-3">
-                        <textarea
-                          rows={3}
-                          value={editingContent}
-                          onChange={(e) => onEditChange(e.target.value)}
-                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                        />
-
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={onCancelEdit}
-                            className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
-                          >
-                            취소
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onUpdate(comment.commentId)}
-                            disabled={submitting}
-                            className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-                          >
-                            {submitting ? "저장 중..." : "수정 저장"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 답글 작성창 */}
-                    {replyTargetCommentId === comment.commentId && (
-                      <div className="mt-4 rounded-2xl border border-dashed p-3">
-                        <textarea
-                          rows={2}
-                          value={replyDraftMap[comment.commentId] || ""}
-                          onChange={(e) =>
-                            onReplyDraftChange(comment.commentId, e.target.value)
-                          }
-                          placeholder="이 댓글에 답글을 남겨보세요."
-                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                        />
-
-                        <div className="mt-3 flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onToggleReply(comment.commentId)}
-                            className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
-                          >
-                            답글 닫기
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onCreateReply(comment.commentId)}
-                            disabled={submitting}
-                            className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-                          >
-                            {submitting ? "등록 중..." : "답글 등록"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 대댓글 목록 */}
-                  {replyCount > 0 && isReplyExpanded && (
-                    <div className="ml-6 space-y-2 border-l-2 border-slate-200 pl-4">
-                      {replies.map((reply) => {
-                        const isReplyMine = Number(reply.userId) === Number(currentUserId);
-                        const isReplyEditing = editingCommentId === reply.commentId;
-
-                        return (
-                          <div
-                            key={reply.commentId}
-                            id={`jar-comment-${reply.commentId}`}
-                            className={`rounded-2xl border p-4 ${palette.panelSoft} ${getFocusedCommentClass(
-                              Number(focusedCommentId) === Number(reply.commentId)
-                            )}`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-black text-slate-800">
-                                  {reply.authorName || `사용자 ${reply.userId}`}
-                                </p>
-                                <p className="text-[11px] font-semibold text-slate-400">
-                                  {formatDate(reply.createdAt)}
-                                </p>
-                              </div>
-
-                              {isReplyMine && !isReplyEditing && (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => onStartEdit(reply)}
-                                    className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${palette.outlineBtn}`}
-                                  >
-                                    수정
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => onDelete(reply.commentId)}
-                                    disabled={deletingCommentId === reply.commentId}
-                                    className={`rounded-full px-3 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
-                                  >
-                                    {deletingCommentId === reply.commentId ? "삭제 중..." : "삭제"}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
-                            {!isReplyEditing && (
-                              <p className="text-sm leading-7 text-slate-700">
-                                {reply.content}
-                              </p>
-                            )}
-
-                            {isReplyEditing && (
-                              <div className="space-y-3">
-                                <textarea
-                                  rows={3}
-                                  value={editingContent}
-                                  onChange={(e) => onEditChange(e.target.value)}
-                                  className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                />
-
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={onCancelEdit}
-                                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
-                                  >
-                                    취소
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => onUpdate(reply.commentId)}
-                                    disabled={submitting}
-                                    className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-                                  >
-                                    {submitting ? "저장 중..." : "수정 저장"}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {comments.map((comment) => (
+              <CommentItem
+                key={comment.commentId}
+                comment={comment}
+                depth={0}
+                palette={palette}
+                currentUserId={currentUserId}
+                submitting={submitting}
+                editingCommentId={editingCommentId}
+                editingContent={editingContent}
+                onStartEdit={onStartEdit}
+                onEditChange={onEditChange}
+                onCancelEdit={onCancelEdit}
+                onUpdate={onUpdate}
+                deletingCommentId={deletingCommentId}
+                onDelete={onDelete}
+                replyTargetCommentId={replyTargetCommentId}
+                replyDraftMap={replyDraftMap}
+                onToggleReply={onToggleReply}
+                onReplyDraftChange={onReplyDraftChange}
+                onCreateReply={onCreateReply}
+                replyExpandedMap={replyExpandedMap}
+                onToggleReplies={onToggleReplies}
+                focusedCommentId={focusedCommentId}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -2115,7 +2132,6 @@ function JarZoomModal({
   onReactNote,
   reactingNoteId,
 }) {
-  if (!open) return null;
 
   const NOTES_PER_PAGE = 3;
 
@@ -2236,6 +2252,9 @@ function JarZoomModal({
       tag: "",
     });
   }
+
+  // Hook과 함수 선언이 끝난 뒤에 return null 처리
+    if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/55 px-4 py-6">
@@ -2416,7 +2435,7 @@ function JarZoomModal({
                       return (
                         <div
                           key={item.id}
-                          className="jar-floating-note absolute h-[78px] w-[92px] rounded-[18px] border-2 border-sky-300 bg-white/88 p-2 shadow-[0_10px_22px_rgba(15,23,42,0.12)]"
+                          className="jar-floating-note absolute flex h-[78px] w-[92px] items-center justify-center rounded-[18px] border-2 border-sky-300 bg-white/88 p-2 text-center shadow-[0_10px_22px_rgba(15,23,42,0.12)]"
                           style={{
                             top: `${item.top}%`,
                             left: `${item.left}%`,
@@ -2430,12 +2449,9 @@ function JarZoomModal({
                         >
                           <div className="absolute right-0 top-0 h-4 w-4 rounded-bl-[10px] border-b-2 border-l-2 border-sky-300 bg-white/80" />
 
-                          <p className="line-clamp-1 pr-2 text-[11px] font-black text-slate-700">
-                            {note?.title || "오픈 전 쪽지"}
-                          </p>
-
-                          <p className="mt-2 line-clamp-3 text-[10px] leading-4 text-slate-500">
-                            {getJarZoomNotePreview(note, jar)}
+                          {/* 쪽지 제목을 카드 정중앙에 배치한다. */}
+                          <p className="line-clamp-2 px-2 text-center text-[11px] font-black leading-4 text-slate-700">
+                            {note?.title || "제목 없는 쪽지"}
                           </p>
                         </div>
                       );
@@ -2595,7 +2611,7 @@ function JarZoomModal({
              {!loading && !error && filteredNotes.length > 0 && (
                 <div className="space-y-3">
                   {pagedNotes.map((note, index) => (
-                    <button
+                    <article
                       key={note.noteId ?? note.id ?? `${index}-${note.title || "note"}`}
                       type="button"
                       onClick={() => onOpenNoteDetail?.(note.noteId ?? note.id)}
@@ -2617,11 +2633,6 @@ function JarZoomModal({
                       {/* 제목 */}
                       <p className="text-sm font-black text-slate-800">
                         {note?.title || "오픈 전 쪽지"}
-                      </p>
-
-                      {/* 내용 */}
-                      <p className="mt-2 text-xs leading-6 text-slate-500">
-                        {getJarZoomNotePreview(note, jar)}
                       </p>
 
                       <ReactionBar
@@ -2660,7 +2671,7 @@ function JarZoomModal({
                       <p className="mt-3 text-[11px] font-semibold text-slate-400">
                         눌러서 상세 보기
                       </p>
-                    </button>
+                    </article>
                   ))}
                 </div>
                 )}
@@ -3124,6 +3135,511 @@ function JarOpenCelebrationModal({
 }
 
 /*
+ * MemoryDrawModal 역할
+ *
+ * 이 컴포넌트는 "추억 쪽지 뽑기"를 모달로 보여주는 역할을 해.
+ *
+ * 쉽게 말하면:
+ * - 평소에는 화면에 보이지 않는다.
+ * - 사용자가 "추억 쪽지 뽑기" 버튼을 누르면 열린다.
+ * - 주변 화면은 어두워지고, 가운데에서 뽑기 결과를 보여준다.
+ */
+function MemoryDrawModal({
+  open,
+  jar,
+  palette,
+  today,
+  history,
+  loading,
+  drawing,
+  error,
+  onClose,
+  onDraw,
+  onReload,
+  onOpenNoteDetail,
+  realtimeMessage,
+}) {
+  // 추억 쪽지 뽑기 애니메이션이 재생 중인지 저장한다.
+  // true면 결과를 바로 보여주지 않고, 가운데에서 쪽지 뽑기 연출을 먼저 보여준다.
+  const [drawAnimationPlaying, setDrawAnimationPlaying] = useState(false);
+
+  /*
+   * 추억 쪽지 뽑기 버튼 클릭 함수
+   *
+   * 역할:
+   * - 사용자가 버튼을 누르면 바로 결과를 보여주지 않는다.
+   * - 먼저 쪽지 아이콘이 흔들리고, 작은 쪽지들이 날아다니는 애니메이션을 보여준다.
+   * - 최소 1.6초 동안 연출을 보여준 뒤 결과 화면으로 전환한다.
+   */
+  async function handleMemoryDrawClick() {
+    // 이미 뽑는 중이면 중복 클릭을 막는다.
+    if (drawing || drawAnimationPlaying) {
+      return;
+    }
+
+    setDrawAnimationPlaying(true);
+
+    try {
+      // API 요청과 애니메이션 시간을 같이 기다린다.
+      // API가 빨리 끝나도 최소 1.6초는 연출이 보인다.
+      await Promise.all([
+        Promise.resolve(onDraw?.()),
+        new Promise((resolve) => window.setTimeout(resolve, 1600)),
+      ]);
+    } finally {
+      // 결과 카드가 너무 갑자기 보이지 않도록 아주 살짝 늦게 닫는다.
+      window.setTimeout(() => {
+        setDrawAnimationPlaying(false);
+      }, 180);
+    }
+  }
+
+  // Hook 선언이 끝난 뒤에 open 체크를 해야 한다.
+  if (!open) return null;
+
+  // 오늘 뽑기 결과를 안전하게 꺼낸다.
+  const dailyDraw = today?.dailyDraw ?? null;
+
+  // 오늘 뽑힌 쪽지 정보
+  const note = dailyDraw?.note ?? null;
+
+  // 오늘 카드에 이미지가 있으면 대표 이미지로 사용한다.
+  const coverImage = Array.isArray(note?.attachments)
+    ? note.attachments.find((attachment) =>
+        attachment?.contentType?.startsWith("image/")
+      )
+    : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[190] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
+      onMouseDown={onClose}
+    >
+      <style>
+        {`
+          @keyframes memoryDrawModalPop {
+            0% {
+              opacity: 0;
+              transform: translateY(20px) scale(0.9);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+
+          @keyframes memoryDrawGiftBounce {
+            0%, 100% {
+              transform: translateY(0) rotate(0deg);
+            }
+            35% {
+              transform: translateY(-8px) rotate(-4deg);
+            }
+            70% {
+              transform: translateY(4px) rotate(4deg);
+            }
+          }
+
+          /* 버튼을 눌렀을 때 쪽지 아이콘이 통통 흔들리는 효과 */
+          @keyframes memoryDrawNotePick {
+            0% {
+              transform: translateY(0) rotate(-5deg) scale(1);
+            }
+            25% {
+              transform: translateY(-10px) rotate(7deg) scale(1.08);
+            }
+            50% {
+              transform: translateY(3px) rotate(-6deg) scale(1.02);
+            }
+            75% {
+              transform: translateY(-7px) rotate(5deg) scale(1.08);
+            }
+            100% {
+              transform: translateY(0) rotate(0deg) scale(1);
+            }
+          }
+
+          /* 작은 쪽지들이 가운데에서 바깥으로 날아가는 효과 */
+          @keyframes memoryDrawMiniNoteBurst {
+            0% {
+              opacity: 0;
+              transform: translate(0, 0) rotate(0deg) scale(0.45);
+            }
+            35% {
+              opacity: 1;
+            }
+            100% {
+              opacity: 1;
+              transform:
+                translate(var(--note-x), var(--note-y))
+                rotate(var(--note-rotate))
+                scale(1);
+            }
+          }
+
+          /* 가운데 빛이 확 퍼지는 효과 */
+          @keyframes memoryDrawGlowPulse {
+            0% {
+              opacity: 0;
+              transform: scale(0.65);
+            }
+            45% {
+              opacity: 1;
+              transform: scale(1.12);
+            }
+            100% {
+              opacity: 0.72;
+              transform: scale(1);
+            }
+          }
+
+          /* 아래 안내 문구가 살짝 올라오는 효과 */
+          @keyframes memoryDrawTextUp {
+            0% {
+              opacity: 0;
+              transform: translateY(14px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .memory-draw-pop {
+            animation: memoryDrawModalPop 260ms cubic-bezier(0.22, 1, 0.36, 1);
+          }
+
+          .memory-draw-gift {
+            animation: memoryDrawGiftBounce 1.8s ease-in-out infinite;
+          }
+
+          .memory-draw-note-pick {
+            animation: memoryDrawNotePick 950ms ease-in-out infinite;
+            transform-origin: center;
+          }
+
+          .memory-draw-mini-note {
+            animation: memoryDrawMiniNoteBurst 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          }
+
+          .memory-draw-glow {
+            animation: memoryDrawGlowPulse 1100ms ease-out both;
+          }
+
+          .memory-draw-text-up {
+            animation: memoryDrawTextUp 520ms 260ms ease-out both;
+          }
+        `}
+      </style>
+
+      <div
+        className="memory-draw-pop relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-[36px] border border-white/70 bg-white/95 shadow-[0_35px_100px_rgba(0,0,0,0.35)]"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* 상단 영역 */}
+        <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6">
+        {/* 추억 쪽지 뽑기 버튼을 눌렀을 때만 보이는 애니메이션 오버레이 */}
+        {drawAnimationPlaying && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-white/88 px-6 backdrop-blur-sm">
+            <div className="relative flex h-[360px] w-full max-w-xl items-center justify-center text-center">
+              {/* 가운데에서 퍼지는 빛 */}
+              <div className={`memory-draw-glow absolute h-72 w-72 rounded-full blur-3xl ${palette.floating}`} />
+              <div className="memory-draw-glow absolute h-48 w-48 rounded-full bg-amber-200/35 blur-2xl" />
+
+              {/* 작은 쪽지들이 뽑히는 듯 날아가는 효과 */}
+              {[
+                { x: "-150px", y: "-95px", r: "-18deg", text: "추억" },
+                { x: "145px", y: "-90px", r: "16deg", text: "쪽지" },
+                { x: "-135px", y: "80px", r: "14deg", text: "마음" },
+                { x: "135px", y: "78px", r: "-12deg", text: "기억" },
+                { x: "-35px", y: "-145px", r: "8deg", text: "우리" },
+              ].map((item, index) => (
+                <div
+                  key={`${item.text}-${index}`}
+                  className="memory-draw-mini-note absolute left-1/2 top-1/2 z-20 flex h-[58px] w-[72px] items-center justify-center rounded-[16px] border-2 border-sky-300 bg-white/95 text-[11px] font-black text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.18)]"
+                  style={{
+                    "--note-x": item.x,
+                    "--note-y": item.y,
+                    "--note-rotate": item.r,
+                    animationDelay: `${index * 90}ms`,
+                  }}
+                >
+                  {item.text}
+
+                  {/* 쪽지 모서리 접힌 느낌 */}
+                  <span className="absolute right-0 top-0 h-4 w-4 rounded-bl-[10px] border-b-2 border-l-2 border-sky-300 bg-sky-50" />
+                </div>
+              ))}
+
+              {/* 가운데 메인 쪽지 아이콘 */}
+              <div className="relative z-30 flex flex-col items-center">
+                <MemoryDrawNoteIcon className="memory-draw-note-pick !mb-2 scale-125" />
+
+                <p className="memory-draw-text-up mt-5 text-2xl font-black text-slate-800">
+                  추억 쪽지를 고르는 중...
+                </p>
+
+                <p className="memory-draw-text-up mt-3 text-sm font-semibold leading-7 text-slate-500">
+                  저금통 안에서 오늘 보여줄 쪽지 한 장을 찾고 있어요.
+                </p>
+              </div>
+
+            </div>
+          </div>
+        )}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.24em] text-slate-400">
+                MEMORY DRAW
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black text-slate-800">
+                추억 쪽지 뽑기
+              </h2>
+
+              <p className="mt-2 text-sm leading-7 text-slate-500">
+                저금통 안에 담긴 추억 중 한 장을 랜덤으로 열어볼 수 있어요.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+
+        {/* 내용 영역 */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5">
+          {/* 실시간 안내 */}
+          {jar?.isOpen && realtimeMessage && (
+            <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-bold ${palette.hintBox}`}>
+              ✨ {realtimeMessage}
+            </div>
+          )}
+
+          {/* 저금통이 아직 열리지 않았을 때 */}
+          {!jar?.isOpen && (
+            <div className={`rounded-[30px] border border-dashed px-6 py-10 text-center ${palette.emptyBox}`}>
+              <div className="mb-4 text-5xl">🔒</div>
+
+              <h3 className="text-xl font-black">
+                아직 저금통이 열리지 않았어요
+              </h3>
+
+              <p className="mx-auto mt-3 max-w-md text-sm leading-7">
+                오픈 시간이 지나면 추억 쪽지를 뽑을 수 있어요.
+                조금만 더 기다려 주세요.
+              </p>
+            </div>
+          )}
+
+          {/* 로딩 중 */}
+          {jar?.isOpen && loading && (
+            <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
+              <div className={`animate-pulse rounded-[30px] border p-5 ${palette.softCard}`}>
+                <div className="mb-4 h-5 w-40 rounded-full bg-slate-200" />
+                <div className="h-56 rounded-[24px] bg-slate-100" />
+              </div>
+
+              <div className={`animate-pulse rounded-[30px] border p-5 ${palette.softCard}`}>
+                <div className="mb-4 h-5 w-32 rounded-full bg-slate-200" />
+                <div className="space-y-3">
+                  <div className="h-14 rounded-2xl bg-slate-100" />
+                  <div className="h-14 rounded-2xl bg-slate-100" />
+                  <div className="h-14 rounded-2xl bg-slate-100" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 에러 */}
+          {jar?.isOpen && !loading && error && (
+            <div className={`rounded-[30px] border border-dashed px-6 py-8 text-center text-sm ${palette.emptyBox}`}>
+              <p>{error}</p>
+
+              <button
+                type="button"
+                onClick={onReload}
+                className={`mt-4 rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineBtn}`}
+              >
+                다시 불러오기
+              </button>
+            </div>
+          )}
+
+          {/* 열린 저금통 + 아직 오늘 뽑은 쪽지가 없을 때 */}
+          {jar?.isOpen && !loading && !error && !note && (
+            <div className={`relative overflow-hidden rounded-[30px] border p-8 text-center ${palette.panel}`}>
+              <MemoryDrawNoteIcon palette={palette} />
+
+              <h3 className="text-2xl font-black text-slate-800">
+                아직 뽑은 추억 쪽지가 없어요
+              </h3>
+
+              <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
+                버튼을 누르면 아직 뽑히지 않은 쪽지 중에서
+                추억 쪽지 한 장이 랜덤으로 공개돼요.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleMemoryDrawClick}
+                disabled={drawing || drawAnimationPlaying}
+                className={`mt-6 rounded-2xl px-6 py-3 text-sm font-black shadow-lg transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+              >
+                {drawing || drawAnimationPlaying ? "추억 쪽지 고르는 중..." : "추억 쪽지 뽑기"}
+              </button>
+            </div>
+          )}
+
+          {/* 열린 저금통 + 오늘 뽑은 쪽지가 있을 때 */}
+          {jar?.isOpen && !loading && !error && note && (
+            <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+              {/* 결과 카드 */}
+              <article className={`overflow-hidden rounded-[30px] border ${palette.panel}`}>
+                {coverImage ? (
+                  <img
+                    src={coverImage.thumbnailUrl || coverImage.url}
+                    alt={note.title || "뽑힌 추억 이미지"}
+                    className="h-64 w-full object-cover"
+                  />
+                ) : (
+                  <div className={`flex h-64 items-center justify-center ${palette.infoBox}`}>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-slate-500">
+                        이미지 없이 공개된 추억이에요
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-5">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    {dailyDraw?.drawDate && (
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                        {dailyDraw.drawDate}
+                      </span>
+                    )}
+
+                    {note.noteDate && (
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
+                        추억 날짜 {formatNoteDateOnly(note.noteDate)}
+                      </span>
+                    )}
+
+                    {note.location && (
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                        {note.location}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-orange-400">
+                    오늘 뽑힌 추억
+                  </p>
+
+                  <h3 className="text-2xl font-black text-slate-800">
+                    {note.title || "제목 없는 추억"}
+                  </h3>
+
+                  <p className="mt-3 line-clamp-4 text-sm leading-7 text-slate-600">
+                    {note.content || "내용이 없는 추억이에요."}
+                  </p>
+
+                  <p className="mt-3 text-xs font-bold text-slate-400">
+                    작성자: {note.authorName || `사용자 ${note.authorId}`}
+                  </p>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onOpenNoteDetail?.(note.noteId)}
+                      className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-sm transition hover:scale-[1.01] ${palette.primaryButton}`}
+                    >
+                      자세히 보기
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={onReload}
+                      className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                    >
+                      새로고침
+                    </button>
+                  </div>
+                </div>
+              </article>
+
+              {/* 공개 기록 */}
+              <aside className={`rounded-[30px] border p-5 ${palette.panel}`}>
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-black text-slate-800">
+                      뽑기 기록
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      지금까지 뽑힌 추억 쪽지들이에요.
+                    </p>
+                  </div>
+
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                    {history.length}개
+                  </span>
+                </div>
+
+                {history.length === 0 && (
+                  <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
+                    아직 뽑기 기록이 없어요.
+                  </div>
+                )}
+
+                {history.length > 0 && (
+                  <div className="space-y-3">
+                    {history.slice(0, 5).map((item) => (
+                      <button
+                        key={item.drawId}
+                        type="button"
+                        onClick={() => onOpenNoteDetail?.(item.noteId)}
+                        className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${palette.softCard}`}
+                      >
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.activeChip}`}>
+                            {item.drawDate}
+                          </span>
+
+                          {item.noteDate && (
+                            <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}>
+                              {formatNoteDateOnly(item.noteDate)}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-sm font-black text-slate-800">
+                          {item.title || "제목 없는 추억"}
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          {item.authorName || `사용자 ${item.authorId}`}
+                          {item.location ? ` · ${item.location}` : ""}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </aside>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/*
  * DailyDrawSection
  *
  * 이 컴포넌트는 "오늘의 추억 한 장" UI를 보여주는 역할을 해.
@@ -3147,10 +3663,6 @@ function DailyDrawSection({
   onOpenNoteDetail,
   realtimeMessage,
 }) {
-  // DAILY_DRAW 방식 저금통이 아니면 이 섹션은 아예 보여주지 않는다.
-  if (jar?.openMode !== "DAILY_DRAW") {
-    return null;
-  }
 
   // 오늘 카드 응답에서 실제 Daily Draw 결과만 꺼낸다.
   const dailyDraw = today?.dailyDraw ?? null;
@@ -3172,15 +3684,15 @@ function DailyDrawSection({
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
-            Daily Draw
+            MEMORY DRAW
           </p>
 
           <h2 className="mt-2 text-2xl font-black text-slate-800">
-            오늘의 추억 한 장
+            추억 쪽지 뽑기
           </h2>
 
           <p className="mt-2 text-sm leading-7 text-slate-500">
-            저금통이 열린 뒤, 하루에 한 장씩 아직 뽑히지 않은 추억을 랜덤으로 공개해요.
+            저금통이 열린 뒤, 버튼을 눌러 아직 뽑히지 않은 추억 쪽지 중 한 장을 랜덤으로 확인할 수 있어요.
           </p>
         </div>
 
@@ -3243,11 +3755,11 @@ function DailyDrawSection({
           <div className="mb-4 text-5xl">🎁</div>
 
           <h3 className="text-xl font-black text-slate-800">
-            아직 오늘의 추억 한 장이 없어요
+            아직 뽑은 추억 쪽지가 없어요
           </h3>
 
           <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
-            버튼을 누르면 아직 한 번도 뽑히지 않은 쪽지 중에서 오늘의 카드 1장이 랜덤으로 공개돼요.
+            버튼을 누르면 아직 뽑히지 않은 쪽지 중에서 추억 쪽지 1장이 랜덤으로 공개돼요.
           </p>
 
           <button
@@ -3256,7 +3768,7 @@ function DailyDrawSection({
             disabled={drawing}
             className={`mt-5 rounded-2xl px-5 py-3 text-sm font-black shadow-md transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
           >
-            {drawing ? "오늘 카드 뽑는 중..." : "오늘의 추억 한 장 뽑기"}
+            {drawing ? "추억 쪽지 뽑는 중..." : "추억 쪽지 뽑기"}
           </button>
         </div>
       )}
@@ -3571,6 +4083,10 @@ export default function JarDetailPage() {
   const [dailyDrawDrawing, setDailyDrawDrawing] = useState(false);
   const [dailyDrawError, setDailyDrawError] = useState("");
 
+  // 사용자가 마지막으로 확인한 추억 쪽지 뽑기 결과를 저장한다.
+  // 예: "2026-05-10:12"
+  const [memoryDrawSeenKey, setMemoryDrawSeenKey] = useState("");
+
   // Daily Draw WebSocket 이벤트를 받았을 때 잠깐 보여줄 안내 문구
   const [dailyDrawRealtimeMessage, setDailyDrawRealtimeMessage] = useState("");
 
@@ -3580,6 +4096,10 @@ export default function JarDetailPage() {
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
   const [jarChatOpen, setJarChatOpen] = useState(false);
+
+  // 추억 쪽지 뽑기 모달 상태
+  // false면 닫힘, true면 열림
+  const [memoryDrawOpen, setMemoryDrawOpen] = useState(false);
 
   // 저금통 오픈 축하 모달 상태
   // 서버에서 JAR_OPENED 이벤트가 오면 true로 바뀌고, 화면 가운데 오픈 연출이 뜬다.
@@ -3629,6 +4149,45 @@ export default function JarDetailPage() {
 
   // 저금통마다 숨김 목록을 따로 저장하려고 key를 jarId 기준으로 만들어줘.
   const hiddenInviteStorageKey = `jar-detail-hidden-revoked-invites:${jarId}`;
+
+  /*
+   * 현재 오늘 뽑힌 추억 쪽지를 구분하는 값이다.
+   *
+   * 예:
+   * - drawDate가 2026-05-10
+   * - drawId가 12
+   * - 그러면 "2026-05-10:12" 형태로 저장한다.
+   *
+   * 이렇게 해두면 사용자가 이 결과를 봤는지 쉽게 비교할 수 있다.
+   */
+  const currentMemoryDrawKey = useMemo(() => {
+    const draw = dailyDrawToday?.dailyDraw;
+
+    if (!draw?.drawId) {
+      return "";
+    }
+
+    return `${draw.drawDate || "today"}:${draw.drawId}`;
+  }, [dailyDrawToday]);
+
+  /*
+   * 저금통마다 본 기록을 따로 저장하기 위한 localStorage key다.
+   *
+   * 이유:
+   * - 21번 저금통에서 본 뽑기 결과와
+   * - 22번 저금통에서 본 뽑기 결과는 따로 관리해야 하기 때문이다.
+   */
+  const memoryDrawSeenStorageKey = `memory-draw-seen:${jarId}`;
+
+  /*
+   * 버튼 위에 1 배지를 보여줄지 결정한다.
+   *
+   * 조건:
+   * - 오늘 뽑힌 쪽지가 있어야 한다.
+   * - 그런데 내가 마지막으로 본 결과와 다르면 1을 보여준다.
+   */
+  const showMemoryDrawBadge =
+    !!currentMemoryDrawKey && memoryDrawSeenKey !== currentMemoryDrawKey;
 
   // 상세 데이터 불러오기
   async function loadJarDetail({ silent = false } = {}) {
@@ -4103,28 +4662,19 @@ export default function JarDetailPage() {
   }, [jarId, jarChatOpen]);
 
   /*
-   * Daily Draw 자동 조회
+   * 추억 쪽지 뽑기 자동 조회
    *
    * 역할:
    * - 저금통 상세 정보가 로드된 뒤
-   * - openMode가 DAILY_DRAW이고
    * - 저금통이 열린 상태라면
-   * 오늘 카드와 히스토리를 자동으로 불러온다.
+   * - 오늘 뽑힌 쪽지와 뽑기 기록을 불러온다.
+   *
+   * 이제 openMode와 상관없이 사용할 수 있다.
    */
   useEffect(() => {
     if (!jarId || !jar) return;
 
-    // DAILY_DRAW 방식이 아니면 Daily Draw 상태를 비운다.
-    if (jar.openMode !== "DAILY_DRAW") {
-      setDailyDrawToday(null);
-      setDailyDrawHistory([]);
-      setDailyDrawError("");
-      setDailyDrawLoading(false);
-      return;
-    }
-
-    // DAILY_DRAW이지만 아직 열리지 않았다면 API를 호출하지 않는다.
-    // 백엔드가 "아직 열리지 않음"으로 막을 것이기 때문이다.
+    // 아직 저금통이 열리지 않았다면 뽑기 API를 호출하지 않는다.
     if (!jar.isOpen) {
       setDailyDrawToday(null);
       setDailyDrawHistory([]);
@@ -4134,7 +4684,7 @@ export default function JarDetailPage() {
     }
 
     refreshDailyDraw();
-  }, [jarId, jar?.openMode, jar?.isOpen]);
+  }, [jarId, jar?.isOpen]);
 
   /*
    * Daily Draw WebSocket 연결
@@ -4156,9 +4706,6 @@ export default function JarDetailPage() {
 
     // 저금통 상세 정보가 아직 없으면 연결하지 않는다.
     if (!jar) return;
-
-    // DAILY_DRAW 방식 저금통에서만 Daily Draw 이벤트를 구독한다.
-    if (jar.openMode !== "DAILY_DRAW") return;
 
     // 아직 열리지 않은 저금통이면 오늘 카드를 뽑을 수 없으므로 구독하지 않는다.
     if (!jar.isOpen) return;
@@ -4231,7 +4778,7 @@ export default function JarDetailPage() {
         window.clearTimeout(dailyDrawRealtimeMessageTimerRef.current);
       }
     };
-  }, [jarId, jar?.openMode, jar?.isOpen]);
+  }, [jarId, jar?.isOpen]);
 
   // 상세 정보를 받아온 뒤, OWNER / ADMIN 이면 초대 목록도 로드
   useEffect(() => {
@@ -4268,6 +4815,43 @@ export default function JarDetailPage() {
         setHiddenInvitesReady(true);
       }
     }, [hiddenInviteStorageKey]);
+
+    /*
+     * 페이지에 들어왔을 때,
+     * 이 저금통의 추억 쪽지 뽑기 결과를 이미 봤는지 확인한다.
+     */
+    useEffect(() => {
+      if (!jarId) return;
+
+      try {
+        const saved = localStorage.getItem(memoryDrawSeenStorageKey);
+        setMemoryDrawSeenKey(saved || "");
+      } catch {
+        setMemoryDrawSeenKey("");
+      }
+    }, [jarId, memoryDrawSeenStorageKey]);
+
+    /*
+     * 추억 쪽지 뽑기 모달을 열었고,
+     * 현재 뽑힌 결과가 있으면 "봤다"고 저장한다.
+     *
+     * 그래서 모달을 한 번 열어서 확인하면
+     * 버튼의 1 배지가 사라진다.
+     */
+    useEffect(() => {
+      if (!memoryDrawOpen) return;
+      if (!currentMemoryDrawKey) return;
+
+      try {
+        localStorage.setItem(memoryDrawSeenStorageKey, currentMemoryDrawKey);
+      } catch {
+        // localStorage 저장 실패는 화면을 멈출 정도의 문제는 아니므로 넘어간다.
+      }
+
+      setMemoryDrawSeenKey(currentMemoryDrawKey);
+    }, [memoryDrawOpen, currentMemoryDrawKey, memoryDrawSeenStorageKey]);
+
+
 
     // 숨긴 코드 목록이 바뀔 때마다 브라우저에 저장해 둬.
     useEffect(() => {
@@ -4759,7 +5343,8 @@ async function handleCreateReply(parentCommentId) {
   try {
     await fetchCsrf();
 
-    await apiClient.post(
+    // 답글을 저장하고, 저장된 답글 id를 받아온다.
+    const createRes = await apiClient.post(
       `/api/v1/jars/${jarId}/notes/${noteId}/comments`,
       {
         content,
@@ -4767,8 +5352,34 @@ async function handleCreateReply(parentCommentId) {
       }
     );
 
-    // 댓글 전체 다시 불러오기
-    await loadJarZoomComments(noteId);
+    const createdCommentId = createRes.data?.data?.commentId;
+
+    // 댓글 전체를 다시 불러온다.
+    const refreshedComments = await loadJarZoomComments(noteId);
+
+    // 새로 만든 답글이 댓글 트리 어디에 있는지 찾는다.
+    const createdPath = findCommentPath(refreshedComments, createdCommentId);
+
+    // 새 답글을 보려면 펼쳐야 하는 부모 댓글들을 전부 펼친다.
+    if (createdPath && createdPath.length > 1) {
+      const parentIdsToExpand = createdPath.slice(0, -1);
+
+      setReplyExpandedMap((prev) => {
+        const next = { ...prev };
+
+        parentIdsToExpand.forEach((commentId) => {
+          next[commentId] = true;
+        });
+
+        return next;
+      });
+    } else {
+      // 혹시 path를 못 찾으면 최소한 답글 단 대상 댓글은 펼친다.
+      setReplyExpandedMap((prev) => ({
+        ...prev,
+        [parentCommentId]: true,
+      }));
+    }
 
     // 입력창 값 비우기
     setReplyDraftMap((prev) => ({
@@ -4786,13 +5397,7 @@ async function handleCreateReply(parentCommentId) {
     }));
 
     // 총 댓글 수 다시 계산
-    const refreshedCommentsRes = await apiClient.get(
-      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
-    );
-    const refreshedItems = normalizeCommentItems(refreshedCommentsRes.data?.data);
-
-    setJarZoomComments(refreshedItems);
-    patchCommentCountEverywhere(noteId, getTotalCommentCount(refreshedItems));
+    patchCommentCountEverywhere(noteId, getTotalCommentCount(refreshedComments));
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -5089,11 +5694,6 @@ async function refreshDailyDraw() {
 async function handleDrawDailyDrawToday() {
   if (!jarId) return;
 
-  if (jar?.openMode !== "DAILY_DRAW") {
-    window.alert("하루 1장 랜덤 공개 방식 저금통에서만 사용할 수 있어요.");
-    return;
-  }
-
   if (!jar?.isOpen) {
     window.alert("저금통이 열린 뒤에 오늘의 추억 한 장을 뽑을 수 있어요.");
     return;
@@ -5165,6 +5765,44 @@ async function handleOpenDailyDrawNoteDetail(noteId) {
 function handleOpenJarChat() {
   setJarChatOpen(true);
   setChatUnreadCount(0);
+}
+
+/*
+ * 추억 쪽지 뽑기 모달 열기
+ *
+ * 역할:
+ * - 사용자가 "추억 쪽지 뽑기" 버튼을 누르면 실행된다.
+ * - 화면 주변을 어둡게 만드는 모달을 연다.
+ * - 저금통이 이미 열려 있으면 오늘 뽑기 상태도 최신으로 맞춘다.
+ */
+async function handleOpenMemoryDraw() {
+  setMemoryDrawOpen(true);
+
+  // 저금통이 열려 있을 때만 뽑기 데이터를 다시 확인한다.
+  if (jar?.isOpen) {
+    await refreshDailyDraw();
+  }
+}
+
+/*
+ * 추억 쪽지 뽑기 모달 닫기
+ */
+function handleCloseMemoryDraw() {
+  setMemoryDrawOpen(false);
+}
+
+/*
+ * 추억 쪽지 뽑기 모달에서 쪽지 상세를 열 때 사용한다.
+ *
+ * 이유:
+ * - 뽑기 모달이 계속 떠 있으면
+ *   쪽지 상세 모달과 겹쳐서 화면이 복잡해진다.
+ * - 그래서 먼저 뽑기 모달을 닫고,
+ *   기존 쪽지 상세 모달을 연다.
+ */
+async function handleOpenMemoryDrawNoteDetail(noteId) {
+  setMemoryDrawOpen(false);
+  await handleOpenDailyDrawNoteDetail(noteId);
 }
 
 /*
@@ -5642,11 +6280,26 @@ function handleRestoreHiddenInvites() {
                     onClick={handleOpenJarChat}
                     className={`relative w-[152px] rounded-2xl border px-5 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
                   >
-                    💬 저금통 채팅
+                    저금통 채팅
 
                     {chatUnreadCount > 0 && (
                       <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-[11px] font-black text-white shadow-md">
                         {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* 추억 쪽지 뽑기 모달 열기 버튼 */}
+                  <button
+                    type="button"
+                    onClick={handleOpenMemoryDraw}
+                    className={`relative w-[152px] rounded-2xl border px-5 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
+                  >
+                    추억 쪽지 뽑기
+
+                    {showMemoryDrawBadge && (
+                      <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-500 px-2 text-[11px] font-black text-white shadow-md">
+                        1
                       </span>
                     )}
                   </button>
@@ -5757,20 +6410,6 @@ function handleRestoreHiddenInvites() {
           </div>
         </div>
 
-        <DailyDrawSection
-          jar={jar}
-          palette={palette}
-          today={dailyDrawToday}
-          history={dailyDrawHistory}
-          loading={dailyDrawLoading}
-          drawing={dailyDrawDrawing}
-          error={dailyDrawError}
-          onDraw={handleDrawDailyDrawToday}
-          onReload={refreshDailyDraw}
-          onOpenNoteDetail={handleOpenDailyDrawNoteDetail}
-          realtimeMessage={dailyDrawRealtimeMessage}
-        />
-
         <NoteSection
           key={`note-section-${jarId}-${noteSectionRefreshKey}`}
           jar={jar}
@@ -5801,6 +6440,21 @@ function handleRestoreHiddenInvites() {
           palette={palette}
           currentUserId={me?.userId}
           onClose={handleCloseJarChat}
+        />
+        <MemoryDrawModal
+          open={memoryDrawOpen}
+          jar={jar}
+          palette={palette}
+          today={dailyDrawToday}
+          history={dailyDrawHistory}
+          loading={dailyDrawLoading}
+          drawing={dailyDrawDrawing}
+          error={dailyDrawError}
+          onClose={handleCloseMemoryDraw}
+          onDraw={handleDrawDailyDrawToday}
+          onReload={refreshDailyDraw}
+          onOpenNoteDetail={handleOpenMemoryDrawNoteDetail}
+          realtimeMessage={dailyDrawRealtimeMessage}
         />
         <JarOpenCelebrationModal
           open={jarOpenCelebrationOpen}

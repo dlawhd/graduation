@@ -17,6 +17,20 @@ public interface NoteCommentRepository extends JpaRepository<NoteComment, Long> 
     // 특정 저금통의 특정 쪽지 안에, 특정 댓글이 실제로 속해 있는지 안전하게 확인할 때 쓰는 메서드
     Optional<NoteComment> findByCommentIdAndNote_NoteId(Long commentId, Long noteId);
 
+    /*
+     * 특정 댓글 바로 아래에 달린 답글들을 찾는다.
+     *
+     * 예:
+     * 댓글 A
+     * └ 답글 B
+     *   └ 답글 C
+     *
+     * parentCommentId가 A이면 B만 찾고,
+     * parentCommentId가 B이면 C만 찾는다.
+     */
+    List<NoteComment> findByParentComment_CommentIdOrderByCreatedAtAscCommentIdAsc(
+            Long parentCommentId
+    );
 
     /*
      * 특정 댓글 아래에 대댓글이 하나라도 있는지 확인하는 메서드
@@ -38,4 +52,6 @@ public interface NoteCommentRepository extends JpaRepository<NoteComment, Long> 
      * 이런 곳에 쓰기 좋음
      */
     long countByNote_NoteId(Long noteId);
+
+
 }

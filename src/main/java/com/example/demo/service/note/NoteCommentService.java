@@ -92,26 +92,16 @@ public class NoteCommentService {
         // 5. 입력값 정리
         String normalizedContent = normalizeContent(request.content());
 
-        // 6. 부모 댓글이 있으면 대댓글 처리
+        // 6. 부모 댓글이 있으면 답글로 처리한다.
         NoteComment parentComment = null;
+
         if (request.parentCommentId() != null) {
+            // 6-1. 사용자가 답글을 달려고 선택한 부모 댓글을 찾는다.
             parentComment = getCommentOrThrow(noteId, request.parentCommentId());
 
-            // 부모 댓글도 같은 note 안에 있는지 한 번 더 확인
-            if (!parentComment.isNote(noteId)) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "같은 쪽지의 댓글에만 답글을 달 수 있어."
-                );
-            }
-
-            // 이번 버전은 대댓글의 대댓글은 막기
-            if (parentComment.isReply()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "대댓글 아래에 또 답글을 달 수 없어."
-                );
-            }
+            // 6-2. 부모 댓글이 같은 쪽지 안에 있는 댓글인지 확인한다.
+            // 다른 쪽지 댓글 아래에 답글이 달리는 실수를 막기 위한 안전장치다.
+            validateParentCommentBelongsToNote(parentComment, noteId);
         }
 
         // 7. 댓글 엔티티 만들기
@@ -284,8 +274,18 @@ public class NoteCommentService {
      * - 저금통 active 멤버만 가능
      * - 작성자 본인만 가능
      *
-     * NoteComment 엔티티에 soft delete 설정이 들어가 있으므로 delete()를 호출하면 DB에서 바로 지워지는 게 아니라
-     * deleted_at 시간이 찍히는 방식으로 동작
+     * 삭제 정책:
+     * - 댓글을 삭제하면 그 댓글 아래의 모든 답글도 함께 삭제한다.
+     * - "삭제된 댓글입니다." 같은 문구는 남기지 않는다.
+     * - 화면에서는 삭제 후 바로 안 보이게 한다.
+     *
+     * 예:
+     * 댓글 A
+     * └ 답글 B
+     *   └ 답글 C
+     *
+     * 댓글 A를 삭제하면 A, B, C가 모두 삭제된다.
+     * 답글 B를 삭제하면 B, C가 삭제되고 A는 남는다.
      */
     @Transactional
     public void deleteComment(
@@ -300,28 +300,19 @@ public class NoteCommentService {
         // 2. 저금통 확인
         getJarOrThrow(jarId);
 
-        // 3. active 멤버 확인
+        // 3. 현재 사용자가 저금통 멤버인지 확인
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 삭제할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
         getNoteOrThrow(jarId, noteId);
 
-        // 5. 이 쪽지에 속한 댓글인지 확인
+        // 5. 삭제하려는 댓글이 이 쪽지 안에 있는 댓글인지 확인
         NoteComment comment = getCommentOrThrow(noteId, commentId);
 
         // 6. 댓글 작성자 본인인지 확인
         validateCommentOwner(comment, currentUserId, "작성자 본인만 댓글을 삭제할 수 있어.");
 
-        // 7. 부모 댓글인데 답글이 달려 있으면 삭제 막기
-        if (comment.isRootComment() &&
-                noteCommentRepository.existsByParentComment_CommentId(commentId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "답글이 달린 댓글은 삭제할 수 없어."
-            );
-        }
-
-        // 8. 삭제 전에 WebSocket 이벤트에 필요한 값 미리 꺼내두기
+        // 7. WebSocket 이벤트에 필요한 값은 삭제 전에 미리 꺼내둔다.
         Long parentCommentId = comment.getParentComment() != null
                 ? comment.getParentComment().getCommentId()
                 : null;
@@ -329,10 +320,21 @@ public class NoteCommentService {
         Long deletedCommentId = comment.getCommentId();
         String actorName = comment.getUser().getName();
 
-        // 9. soft delete
-        noteCommentRepository.delete(comment);
+        /*
+         * 8. 삭제 대상 댓글과 그 아래 답글들을 전부 삭제한다.
+         *
+         * 핵심:
+         * - 먼저 자식 답글들을 삭제한다.
+         * - 그 다음 현재 댓글을 삭제한다.
+         *
+         * 이유:
+         * - 부모를 먼저 삭제하면 자식 답글을 찾기 애매해질 수 있다.
+         * - 아래에서부터 지우면 댓글 트리가 깔끔하게 정리된다.
+         */
+        deleteCommentWithChildren(comment);
 
-        // 10. 댓글 삭제 이벤트 보내기
+        // 9. 댓글 삭제 이벤트 보내기
+        // 프론트는 이 이벤트를 받으면 댓글 목록을 다시 조회해서 화면을 최신 상태로 맞춘다.
         noteRealtimeService.sendNoteEventAfterCommit(
                 jarId,
                 noteId,
@@ -485,33 +487,59 @@ public class NoteCommentService {
                 ));
     }
 
+    /*
+     * 댓글 목록을 트리 형태로 만드는 함수다.
+     *
+     * 예:
+     * 댓글 A
+     * └ 답글 B
+     *   └ 답글 C
+     *
+     * 쉽게 말하면:
+     * DB에는 댓글이 한 줄씩 저장되어 있지만,
+     * 화면에는 댓글 안에 replies가 들어있는 구조로 보내야 한다.
+     */
     private List<NoteCommentItem> buildCommentTree(List<NoteComment> comments) {
+        // 1. 부모 댓글 id 기준으로 자식 댓글들을 묶는다.
         Map<Long, List<NoteComment>> childrenMap = comments.stream()
                 .filter(NoteComment::isReply)
-                .collect(Collectors.groupingBy(comment -> comment.getParentComment().getCommentId()));
+                .collect(Collectors.groupingBy(
+                        comment -> comment.getParentComment().getCommentId()
+                ));
 
+        // 2. 부모가 없는 최상위 댓글부터 시작한다.
         return comments.stream()
                 .filter(NoteComment::isRootComment)
-                .map(parent -> {
-                    List<NoteCommentItem> replies = childrenMap
-                            .getOrDefault(parent.getCommentId(), List.of())
-                            .stream()
-                            .map(reply -> toItem(reply, List.of()))
-                            .toList();
-
-                    return toItem(parent, replies);
-                })
+                .map(rootComment -> toItemWithChildren(rootComment, childrenMap))
                 .toList();
     }
 
-    private void validateReplyDepth(NoteComment parentComment) {
-        if (parentComment != null && parentComment.isReply()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "대댓글 아래에 또 답글을 달 수 없어."
-            );
-        }
+    /*
+     * 댓글 1개를 DTO로 바꾸면서,
+     * 그 댓글 아래 답글들도 계속 붙여주는 함수다.
+     *
+     * 이 함수가 자기 자신을 다시 부르기 때문에
+     * 답글의 답글까지 계속 내려갈 수 있다.
+     */
+    private NoteCommentItem toItemWithChildren(
+            NoteComment comment,
+            Map<Long, List<NoteComment>> childrenMap
+    ) {
+        // 1. 현재 댓글 바로 아래에 달린 답글들을 찾는다.
+        List<NoteComment> children = childrenMap.getOrDefault(
+                comment.getCommentId(),
+                List.of()
+        );
+
+        // 2. 자식 답글들도 다시 같은 방식으로 변환한다.
+        List<NoteCommentItem> replies = children.stream()
+                .map(child -> toItemWithChildren(child, childrenMap))
+                .toList();
+
+        // 3. 현재 댓글 + 그 아래 답글 목록을 응답 DTO로 만든다.
+        return toItem(comment, replies);
     }
+
 
     private void validateParentCommentBelongsToNote(NoteComment parentComment, Long noteId) {
         if (parentComment != null && !parentComment.isNote(noteId)) {
@@ -520,5 +548,33 @@ public class NoteCommentService {
                     "같은 쪽지의 댓글에만 답글을 달 수 있어."
             );
         }
+    }
+
+    /*
+     * 댓글과 그 아래 모든 답글을 함께 삭제하는 함수다.
+     *
+     * 쉽게 말하면:
+     * - 현재 댓글 아래 답글들을 찾는다.
+     * - 각 답글 아래에 또 답글이 있으면 그것도 먼저 삭제한다.
+     * - 마지막에 현재 댓글을 삭제한다.
+     *
+     * 이렇게 하면 댓글 A를 삭제할 때
+     * A 아래의 B, C, D까지 모두 화면에서 사라진다.
+     */
+    private void deleteCommentWithChildren(NoteComment comment) {
+        // 1. 현재 댓글 바로 아래에 달린 답글들을 찾는다.
+        List<NoteComment> childComments =
+                noteCommentRepository.findByParentComment_CommentIdOrderByCreatedAtAscCommentIdAsc(
+                        comment.getCommentId()
+                );
+
+        // 2. 자식 답글들도 같은 방식으로 먼저 삭제한다.
+        for (NoteComment childComment : childComments) {
+            deleteCommentWithChildren(childComment);
+        }
+
+        // 3. 자식들을 모두 지운 뒤 현재 댓글을 삭제한다.
+        // NoteComment 엔티티에 soft delete가 적용되어 있다면 deleted_at이 찍힌다.
+        noteCommentRepository.delete(comment);
     }
 }

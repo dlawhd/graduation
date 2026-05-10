@@ -72,16 +72,14 @@ public class JarDailyDrawService {
     public DailyDrawResponse drawToday(Long currentUserId, Long jarId) {
 
         // 1. 저금통이 실제로 존재하는지 먼저 확인한다.
-        Jar jar = getJarOrThrow(jarId);
+        // 반환값을 꼭 쓰지 않아도, 여기서 없는 저금통이면 예외가 발생한다.
+        getJarOrThrow(jarId);
 
         // 2. 현재 사용자가 이 저금통의 active 멤버인지 확인한다.
         validateActiveMember(jarId, currentUserId);
 
-        // 3. Daily Draw 방식 저금통인지 확인한다.
-        validateDailyDrawMode(jar);
-
-        // 4. 저금통이 열렸는지 확인한다.
-        // 오픈 시간이 지났는데 스케줄러가 아직 처리하지 못했다면 여기서 바로 열림 처리까지 시도한다.
+        // 3. 저금통이 열렸는지 확인한다.
+        // 이제 추억 쪽지 뽑기는 openMode와 상관없이 사용할 수 있다.
         validateOpened(jarId);
 
         /*
@@ -112,15 +110,13 @@ public class JarDailyDrawService {
     public DailyDrawTodayResponse getTodayDraw(Long currentUserId, Long jarId) {
 
         // 1. 저금통 확인
-        Jar jar = getJarOrThrow(jarId);
+        getJarOrThrow(jarId);
 
         // 2. 멤버인지 확인
         validateActiveMember(jarId, currentUserId);
 
-        // 3. DAILY_DRAW 모드인지 확인
-        validateDailyDrawMode(jar);
-
-        // 4. 열린 저금통인지 확인
+        // 3. 열린 저금통인지 확인
+        // 공개 방식이 ALL_AT_ONCE여도 추억 쪽지 뽑기는 사용할 수 있다.
         validateOpened(jarId);
 
         // 5. 한국 날짜 기준 오늘 카드 조회
@@ -141,15 +137,13 @@ public class JarDailyDrawService {
     ) {
 
         // 1. 저금통 확인
-        Jar jar = getJarOrThrow(jarId);
+        getJarOrThrow(jarId);
 
         // 2. 멤버인지 확인
         validateActiveMember(jarId, currentUserId);
 
-        // 3. DAILY_DRAW 모드인지 확인
-        validateDailyDrawMode(jar);
-
-        // 4. 열린 저금통인지 확인
+        // 3. 열린 저금통인지 확인
+        // 뽑기 기록도 openMode와 상관없이 볼 수 있게 한다.
         validateOpened(jarId);
 
         // 5. page, size 값이 너무 이상하게 들어오지 않도록 안전하게 보정한다.
@@ -292,21 +286,6 @@ public class JarDailyDrawService {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "현재 저금통 멤버만 오늘의 추억 한 장을 볼 수 있어."
-            );
-        }
-    }
-
-    /*
-     * DAILY_DRAW 방식 저금통인지 확인한다.
-     *
-     * ALL_AT_ONCE 저금통은 오픈되면 전체 쪽지를 한 번에 보는 방식이라서
-     * Daily Draw 기능을 사용할 수 없다.
-     */
-    private void validateDailyDrawMode(Jar jar) {
-        if (jar.getOpenMode() != JarOpenMode.DAILY_DRAW) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "DAILY_DRAW 방식 저금통에서만 오늘의 추억 한 장을 사용할 수 있어."
             );
         }
     }
