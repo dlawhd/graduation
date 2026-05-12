@@ -499,7 +499,7 @@ class NoteReactionServiceTest {
                 .owner(createUser(999L, "방장"))
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.COUPLE)
+                .theme(JarTheme.SPRING)
                 .maxMembers(4)
                 .openAt(LocalDateTime.now().plusDays(3))
                 .openMode(JarOpenMode.ALL_AT_ONCE)

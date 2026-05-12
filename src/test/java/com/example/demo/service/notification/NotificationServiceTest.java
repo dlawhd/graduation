@@ -344,7 +344,7 @@ class NotificationServiceTest {
                 .owner(owner)
                 .name("알림 테스트 저금통")
                 .description("알림 테스트용")
-                .theme(JarTheme.COUPLE)
+                .theme(JarTheme.SPRING)
                 .maxMembers(5)
                 .openAt(LocalDateTime.of(2027, 4, 17, 0, 0))
                 .openMode(JarOpenMode.ALL_AT_ONCE)

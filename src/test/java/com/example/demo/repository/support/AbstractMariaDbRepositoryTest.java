@@ -66,7 +66,7 @@ public abstract class AbstractMariaDbRepositoryTest {
                 .owner(owner)
                 .name(name)
                 .description(name + " description")
-                .theme(JarTheme.COUPLE)
+                .theme(JarTheme.SPRING)
                 .maxMembers(5)
                 .openAt(openAt)
                 .openMode(JarOpenMode.ALL_AT_ONCE)

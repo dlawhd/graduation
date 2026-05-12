@@ -777,7 +777,7 @@ class NoteServiceTest {
                 .owner(createUser(999L, "방장"))
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.COUPLE)
+                .theme(JarTheme.SPRING)
                 .maxMembers(2)
                 .openAt(openAt)
                 .openMode(JarOpenMode.ALL_AT_ONCE)

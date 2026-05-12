@@ -426,7 +426,7 @@ class ChatServiceTest {
                 .owner(owner)
                 .name("테스트 저금통")
                 .description("채팅 테스트용 저금통")
-                .theme(JarTheme.COUPLE)
+                .theme(JarTheme.SPRING)
                 .maxMembers(2)
                 .openAt(NOW.plusDays(10))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
