@@ -1,17 +1,10 @@
 package com.example.demo.enums.jar;
 
 /*
- * 이 enum은 저금통의 화면 테마를 정하는 역할을 해.
- *
- * 쉽게 말하면:
+ * 이 enum은 저금통의 화면 테마를 정하는 역할
  * - 사용자가 저금통 만들기 화면에서 고른 테마가
  * - SPRING, SUMMER, AUTUMN 같은 값으로 서버에 전달되고
- * - DB에는 이 enum 이름이 문자열 그대로 저장돼.
- *
- * 주의할 점:
- * - DB의 jars.theme 값과 이 enum 값은 반드시 같아야 해.
- * - 예를 들어 DB에 "FOREST"가 남아 있는데 enum에서 FOREST를 지우면
- *   저금통 조회할 때 에러가 날 수 있어.
+ * - DB에는 이 enum 이름이 문자열 그대로 저장
  */
 public enum JarTheme {
 
