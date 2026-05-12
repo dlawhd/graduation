@@ -92,7 +92,7 @@ class JarServiceTest {
         JarCreateRequest request = new JarCreateRequest(
                 "우리 저금통",
                 "1년 뒤에 열어보자",
-                JarTheme.CUSTOM,
+                JarTheme.SPRING,
                 2,
                 LocalDateTime.of(2026, 12, 31, 0, 0, 0),
                 JarOpenMode.ALL_AT_ONCE,
@@ -156,7 +156,7 @@ class JarServiceTest {
                 .owner(currentUser)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(2)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -195,7 +195,7 @@ class JarServiceTest {
                 .owner(currentUser)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(2)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -257,7 +257,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -313,7 +313,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -357,7 +357,7 @@ class JarServiceTest {
                 .owner(currentUser)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -394,7 +394,7 @@ class JarServiceTest {
                 .owner(currentUser)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -427,7 +427,7 @@ class JarServiceTest {
                 .owner(currentUser)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -475,7 +475,7 @@ class JarServiceTest {
                 .owner(currentUser)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -529,7 +529,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -582,7 +582,7 @@ class JarServiceTest {
                 .owner(admin)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -632,7 +632,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -670,7 +670,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("원래 설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -685,7 +685,7 @@ class JarServiceTest {
         JarUpdateRequest request = new JarUpdateRequest(
                 "우리 저금통(수정)",
                 "설명 바꿈",
-                JarTheme.FAMILY,
+                JarTheme.WINTER,
                 5,
                 LocalDateTime.parse("2027-02-27T00:00:00+09:00"),
                 JarOpenMode.ALL_AT_ONCE,
@@ -707,7 +707,7 @@ class JarServiceTest {
         // then
         assertThat(jar.getName()).isEqualTo("우리 저금통(수정)");
         assertThat(jar.getDescription()).isEqualTo("설명 바꿈");
-        assertThat(jar.getTheme()).isEqualTo(JarTheme.FAMILY);
+        assertThat(jar.getTheme()).isEqualTo(JarTheme.WINTER);
         assertThat(jar.getMaxMembers()).isEqualTo(5);
 
         assertThat(response.jarId()).isEqualTo(10L);
@@ -728,7 +728,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("원래 설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(5)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -777,7 +777,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)
@@ -827,7 +827,7 @@ class JarServiceTest {
                 .owner(owner)
                 .name("우리 저금통")
                 .description("설명")
-                .theme(JarTheme.CUSTOM)
+                .theme(JarTheme.SPRING)
                 .maxMembers(3)
                 .openAt(LocalDateTime.now().plusDays(30))
                 .openMode(JarOpenMode.ALL_AT_ONCE)

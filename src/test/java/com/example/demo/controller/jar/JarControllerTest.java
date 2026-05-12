@@ -60,7 +60,7 @@ class JarControllerTest {
         JarCreateRequest request = new JarCreateRequest(
                 "우리 저금통",
                 "설명",
-                JarTheme.CUSTOM,
+                JarTheme.SPRING,
                 2,
                 LocalDateTime.of(2026, 12, 31, 0, 0, 0),
                 JarOpenMode.ALL_AT_ONCE,
@@ -135,7 +135,7 @@ class JarControllerTest {
                 10L,
                 "우리 저금통",
                 "설명",
-                JarTheme.CUSTOM,
+                JarTheme.SPRING,
                 1L,
                 2,
                 5,
@@ -403,7 +403,7 @@ class JarControllerTest {
         JarUpdateRequest request = new JarUpdateRequest(
                 "우리 저금통(수정)",
                 "설명 바꿈",
-                JarTheme.CUSTOM,
+                JarTheme.SPRING,
                 5,
                 LocalDateTime.parse("2027-02-27T00:00:00+09:00"),
                 JarOpenMode.ALL_AT_ONCE,
