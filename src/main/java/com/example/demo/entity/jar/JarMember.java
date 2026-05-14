@@ -92,8 +92,12 @@ public class JarMember extends BaseEntity {
         this.role = role;
     }
 
+    // 저금통 멤버가 나가거나 강퇴될 때 호출되는 기능
     public void leave() {
-        this.joinedAt = LocalDateTime.now(KST);
+        // 사용자가 저금통을 나간 시간을 저장합니다.
+        this.leftAt = LocalDateTime.now(KST);
+
+        // 실제 DB row를 지우지 않고, deletedAt에 시간을 찍어 "나간 상태"로 표시합니다.
         this.softDelete();
     }
 
