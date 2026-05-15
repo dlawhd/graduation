@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@SQLDelete(sql = "UPDATE refresh_tokens SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE refresh_tokens SET deleted_at = NOW(), updated_at = NOW() WHERE token_id = ?")
 @SQLRestriction("deleted_at IS NULL")
 @Table(
         name = "refresh_tokens",
