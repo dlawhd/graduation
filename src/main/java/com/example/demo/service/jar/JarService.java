@@ -348,9 +348,11 @@ public class JarService {
                         "저금통을 찾을 수 없어."
                 ));
 
-        // 5. 기존 멤버 row가 있는지 확인 (삭제된 것 포함)
+        // 5. 기존 멤버 row가 있는지 확인합니다. 삭제된 row까지 포함해서 찾아야 함
+        // 예전에 나가거나 강퇴된 사람은 jar_members에 deleted_at이 찍힌 상태로 남음
+        // 이 row를 다시 살려야 UNIQUE(jar_id, user_id) 충돌이 안남
         Optional<JarMember> existingMemberOpt =
-                jarMemberRepository.findByJar_JarIdAndUser_Id(jarId, currentUserId);
+                jarMemberRepository.findAnyByJarIdAndUserIdIncludingDeleted(jarId, currentUserId);
 
         // 6. 이미 active 멤버면 다시 들어올 필요가 없어
         if (existingMemberOpt.isPresent() && existingMemberOpt.get().isActive()) {

@@ -10,7 +10,6 @@ import java.util.Optional;
 
 public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
 
-
     //  현재 active 멤버인지 확인
     //  deleted_at 이 null 이면 지금 이 저금통에 참여 중인 상태라고 보면 됌
     boolean existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(Long jarId, Long userId);
@@ -19,11 +18,26 @@ public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
     //  권한 확인이나 내 역할 확인할 때 자주 쓸 수 있어.
     Optional<JarMember> findByJar_JarIdAndUser_IdAndDeletedAtIsNull(Long jarId, Long userId);
 
-    // 특정 유저의 멤버 row 찾기 (삭제된 것 포함)
-    // 이 메서드가 중요한 이유:
-    // 이미 한 번 들어왔다가 나간 사람은 새 row를 만들지 않고 기존 row를 재활성화해야 하니까..
-    // joinByInvite()에서 재가입 처리할 때 꼭 필요
-    Optional<JarMember> findByJar_JarIdAndUser_Id(Long jarId, Long userId);
+    /**
+     * 삭제된 멤버까지 포함해서 jar_members row를 찾습니다.
+     *
+     * 왜 native query를 쓰나요?
+     * JarMember 엔티티에는 @SQLRestriction("deleted_at IS NULL")이 있어서,
+     * 일반 JPA 조회를 하면 deleted_at이 있는 row는 자동으로 제외됩니다.
+     *
+     * 그런데 재가입 처리에서는 "예전에 나간 row"를 다시 찾아서 살려야 합니다.
+     * 그래서 직접 SQL을 작성해서 deleted_at 조건 없이 조회합니다.
+     */
+    @Query(value = """
+            SELECT *
+            FROM jar_members
+            WHERE jar_id = :jarId
+              AND user_id = :userId
+            """, nativeQuery = true)
+    Optional<JarMember> findAnyByJarIdAndUserIdIncludingDeleted(
+            @Param("jarId") Long jarId,
+            @Param("userId") Long userId
+    );
 
     // 현재 active 멤버 수 세기
     // 정원(maxMembers) 체크할 때 사용

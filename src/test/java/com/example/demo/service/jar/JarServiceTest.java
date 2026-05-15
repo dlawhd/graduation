@@ -278,7 +278,7 @@ class JarServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(jarInviteRepository.findByCodeForUpdate("ABCD1234")).thenReturn(Optional.of(invite));
         when(jarRepository.findByJarIdForUpdate(10L)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.findByJar_JarIdAndUser_Id(10L, 1L)).thenReturn(Optional.empty());
+        when(jarMemberRepository.findAnyByJarIdAndUserIdIncludingDeleted(10L, 1L)).thenReturn(Optional.empty());
         when(jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(10L)).thenReturn(1L);
 
         // when
@@ -334,13 +334,88 @@ class JarServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(jarInviteRepository.findByCodeForUpdate("ABCD1234")).thenReturn(Optional.of(invite));
         when(jarRepository.findByJarIdForUpdate(10L)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.findByJar_JarIdAndUser_Id(10L, 1L))
+        when(jarMemberRepository.findAnyByJarIdAndUserIdIncludingDeleted(10L, 1L))
                 .thenReturn(Optional.of(activeMember));
 
         // when & then
         assertThatThrownBy(() -> jarService.joinByInvite(1L, new JarInviteJoinRequest("ABCD1234")))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("이미 이 저금통의 멤버");
+    }
+
+    @Test
+    void joinByInvite는_나갔던_멤버를_새로_저장하지_않고_재가입시킨다() {
+        // given
+        User currentUser = User.builder()
+                .id(1L)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-123")
+                .build();
+
+        User owner = User.builder()
+                .id(2L)
+                .name("주인")
+                .provider("NAVER")
+                .providerId("naver-999")
+                .build();
+
+        Jar jar = Jar.builder()
+                .owner(owner)
+                .name("우리 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(3)
+                .openAt(LocalDateTime.now().plusDays(30))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(jar, "jarId", 10L);
+
+        JarInvite invite = JarInvite.builder()
+                .jar(jar)
+                .createdBy(owner)
+                .code("ABCD1234")
+                .expiresAt(LocalDateTime.now().plusHours(24))
+                .maxUses(5)
+                .build();
+
+        // 예전에 들어왔다가 나간 멤버를 만듭니다.
+        JarMember leftMember = JarMember.createMember(jar, currentUser);
+
+        // leave()를 호출하면 leftAt과 deletedAt이 찍힌 "나간 멤버"가 됩니다.
+        leftMember.leave();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
+        when(jarInviteRepository.findByCodeForUpdate("ABCD1234")).thenReturn(Optional.of(invite));
+        when(jarRepository.findByJarIdForUpdate(10L)).thenReturn(Optional.of(jar));
+
+        // 핵심:
+        // 삭제된 row까지 포함해서 기존 멤버를 찾는 메서드가 leftMember를 반환해야 합니다.
+        when(jarMemberRepository.findAnyByJarIdAndUserIdIncludingDeleted(10L, 1L))
+                .thenReturn(Optional.of(leftMember));
+
+        when(jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(10L)).thenReturn(1L);
+
+        // when
+        JarInviteJoinResponse response = jarService.joinByInvite(
+                1L,
+                new JarInviteJoinRequest("ABCD1234")
+        );
+
+        // then
+        assertThat(response.jarId()).isEqualTo(10L);
+        assertThat(response.myRole()).isEqualTo(JarRole.MEMBER);
+
+        // 기존 row를 다시 살렸으므로 새 멤버 save는 호출되면 안 됩니다.
+        verify(jarMemberRepository, never()).save(any(JarMember.class));
+
+        // 재가입되었으므로 deletedAt과 leftAt이 다시 null이 되어야 합니다.
+        assertThat(leftMember.getDeletedAt()).isNull();
+        assertThat(leftMember.getLeftAt()).isNull();
+
+        // 초대코드 사용 횟수는 1 증가해야 합니다.
+        assertThat(invite.getUsedCount()).isEqualTo(1);
     }
 
     @Test
