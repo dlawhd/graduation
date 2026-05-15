@@ -76,9 +76,14 @@ class JarDailyDrawServiceTest {
     @Mock
     private JarOpenService jarOpenService;
 
+    @Mock
+    private JarDailyDrawRealtimeService jarDailyDrawRealtimeService;
+
     // 위 Mock들을 주입받아서 테스트할 실제 Service
     @InjectMocks
     private JarDailyDrawService jarDailyDrawService;
+
+
 
     @Test
     @DisplayName("drawToday - 오늘 카드가 없으면 아직 안 뽑힌 쪽지 중 1장을 뽑아 저장한다")
@@ -252,7 +257,7 @@ class JarDailyDrawServiceTest {
         // then
         assertThat(ex).isNotNull();
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("DAILY_DRAW 방식 저금통에서만 오늘의 추억 한 장을 사용할 수 있어.");
+        assertThat(ex.getReason()).isEqualTo("아직 열리지 않은 저금통이야. 오픈 이후에 오늘의 추억 한 장을 사용할 수 있어.");
 
         // DAILY_DRAW가 아니면 오픈 확인이나 후보 조회까지 가면 안 된다.
         verifyNoInteractions(jarOpenService);
