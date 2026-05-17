@@ -1,4 +1,5 @@
 import { Client } from "@stomp/stompjs";
+import { getWebSocketUrl } from "./socketUrl";
 
 /*
  * chatSocketApi.js 역할
@@ -15,27 +16,6 @@ import { Client } from "@stomp/stompjs";
  * JarDetailPage.jsx 안에 WebSocket 코드를 전부 넣으면 코드가 너무 길어짐
  * 그래서 연결 담당 코드는 이 파일에 모아두고, 화면에서는 필요한 함수만 가져다 쓰는 게 깔끔
  */
-
-/*
- * 현재 실행 환경에 맞는 WebSocket 주소를 만들어주는 함수
- *
- * 로컬:
- * - 프론트: http://localhost:5173
- * - 백엔드: ws://localhost:8080/ws
- *
- * 배포:
- * - 프론트: https://www.esjh.shop
- * - 백엔드: wss://api.esjh.shop/ws
- */
-function getWebSocketUrl() {
-  // 현재 브라우저 주소가 localhost면 로컬 백엔드로 연결한다.
-  if (window.location.hostname === "localhost") {
-    return "ws://localhost:8080/ws";
-  }
-
-  // 배포 환경에서는 https가 아니라 wss를 사용해야 한다.
-  return "wss://api.esjh.shop/ws";
-}
 
 /*
  * 저금통 채팅 WebSocket 클라이언트를 만드는 함수

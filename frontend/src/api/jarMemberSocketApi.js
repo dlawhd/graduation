@@ -1,4 +1,5 @@
 import { Client } from "@stomp/stompjs";
+import { getWebSocketUrl } from "./socketUrl";
 
 /*
  * jarMemberSocketApi.js 역할
@@ -11,16 +12,6 @@ import { Client } from "@stomp/stompjs";
  * - 누가 들어오거나, 나가거나, 강퇴되거나, 역할이 바뀌면
  * - JarDetailPage.jsx에 알려주는 역할을 해.
  */
-
-function getWebSocketUrl() {
-  // 로컬 프론트에서 실행 중이면 로컬 백엔드 WebSocket으로 연결한다.
-  if (window.location.hostname === "localhost") {
-    return "ws://localhost:8080/ws";
-  }
-
-  // 배포 환경에서는 보안 WebSocket 주소를 사용한다.
-  return "wss://api.esjh.shop/ws";
-}
 
 /*
  * 저금통 멤버 변화 WebSocket 클라이언트를 만든다.

@@ -1,4 +1,5 @@
 import { Client } from "@stomp/stompjs";
+import { getWebSocketUrl } from "./socketUrl";
 
 /*
  * notificationSocketApi.js 역할
@@ -12,26 +13,6 @@ import { Client } from "@stomp/stompjs";
  * - 로그아웃하거나 화면을 벗어나면 연결을 끊는다.
  */
 
-/*
- * 현재 실행 환경에 맞는 WebSocket 주소를 만들어주는 함수
- *
- * 로컬:
- * - 프론트: http://localhost:5173
- * - 백엔드: ws://localhost:8080/ws
- *
- * 배포:
- * - 프론트: https://www.esjh.shop
- * - 백엔드: wss://api.esjh.shop/ws
- */
-function getWebSocketUrl() {
-  // localhost에서 실행 중이면 로컬 백엔드 WebSocket으로 연결한다.
-  if (window.location.hostname === "localhost") {
-    return "ws://localhost:8080/ws";
-  }
-
-  // 배포 환경은 보안 WebSocket 주소를 사용한다.
-  return "wss://api.esjh.shop/ws";
-}
 
 /*
  * 알림 WebSocket 클라이언트를 만드는 함수

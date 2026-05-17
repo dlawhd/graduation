@@ -1,4 +1,5 @@
 import { Client } from "@stomp/stompjs";
+import { getWebSocketUrl } from "./socketUrl";
 
 /*
  * jarOpenSocketApi.js 역할
@@ -11,15 +12,6 @@ import { Client } from "@stomp/stompjs";
  * - 서버가 JAR_OPENED 이벤트를 보내면 화면 쪽 함수에 알려준다.
  */
 
-function getWebSocketUrl() {
-  // 로컬 개발 환경이면 로컬 백엔드 WebSocket 주소 사용
-  if (window.location.hostname === "localhost") {
-    return "ws://localhost:8080/ws";
-  }
-
-  // 배포 환경에서는 https가 아니라 wss를 사용해야 한다.
-  return "wss://api.esjh.shop/ws";
-}
 
 /*
  * 저금통 오픈 WebSocket 클라이언트를 만든다.

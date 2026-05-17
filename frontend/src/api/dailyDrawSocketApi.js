@@ -1,4 +1,5 @@
 import { Client } from "@stomp/stompjs";
+import { getWebSocketUrl } from "./socketUrl";
 
 /*
  * dailyDrawSocketApi.js 역할
@@ -15,27 +16,6 @@ import { Client } from "@stomp/stompjs";
  * - 그래서 Daily Draw 실시간 연결 담당 코드는 이 파일에 모아두고,
  *   화면에서는 필요한 함수만 가져다 쓰는 게 깔끔하다.
  */
-
-/*
- * 현재 실행 환경에 맞는 WebSocket 주소를 만들어주는 함수
- *
- * 로컬:
- * - 프론트: http://localhost:5173 또는 http://localhost:3000
- * - 백엔드: ws://localhost:8080/ws
- *
- * 배포:
- * - 프론트: https://www.esjh.shop
- * - 백엔드: wss://api.esjh.shop/ws
- */
-function getWebSocketUrl() {
-  // 현재 브라우저 주소가 localhost면 로컬 백엔드 WebSocket으로 연결한다.
-  if (window.location.hostname === "localhost") {
-    return "ws://localhost:8080/ws";
-  }
-
-  // 배포 환경에서는 보안 WebSocket 주소인 wss를 사용한다.
-  return "wss://api.esjh.shop/ws";
-}
 
 /*
  * Daily Draw WebSocket 클라이언트를 만드는 함수

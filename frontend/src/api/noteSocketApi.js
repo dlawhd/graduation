@@ -1,4 +1,5 @@
 import { Client } from "@stomp/stompjs";
+import { getWebSocketUrl } from "./socketUrl";
 
 /*
  * noteSocketApi.js 역할
@@ -10,16 +11,6 @@ import { Client } from "@stomp/stompjs";
  * - /topic/jars/{jarId}/notes/{noteId} 주소를 구독하고
  * - 댓글/답글/리액션 변화가 오면 JarDetailPage.jsx에 알려줘.
  */
-
-function getWebSocketUrl() {
-  // 로컬 개발 환경
-  if (window.location.hostname === "localhost") {
-    return "ws://localhost:8080/ws";
-  }
-
-  // 배포 환경
-  return "wss://api.esjh.shop/ws";
-}
 
 /*
  * 쪽지 상세 WebSocket 클라이언트를 만든다.
