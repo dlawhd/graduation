@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @RestController
@@ -95,10 +96,16 @@ public class NoteController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
+        // page, size가 이상하면 PageRequest.of()까지 가지 않도록 먼저 막는다.
+        validatePageAndSize(page, size);
+
+        // 현재 로그인한 사용자 id를 꺼낸다.
         Long currentUserId = extractCurrentUserId(authentication);
 
+        // 서비스에 쪽지 목록 조회를 맡긴다.
         NoteListResponse response = noteService.listNotes(currentUserId, jarId, page, size);
 
+        // 공통 응답 형태로 감싸서 반환한다.
         return ApiResponse.of(response);
     }
 
@@ -115,5 +122,24 @@ public class NoteController {
                 noteService.getNoteDetail(currentUserId, jarId, noteId);
 
         return ApiResponse.of(response);
+    }
+
+    // page, size 요청값을 검사하는 메서드
+    // page는 0부터 시작하는 페이지 번호라서 음수가 들어오면 안 된다.
+    // size는 한 번에 가져올 쪽지 개수라서 1 이상 100 이하로 제한한다.
+    private void validatePageAndSize(int page, int size) {
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    BAD_REQUEST,
+                    "page는 0 이상이어야 해요."
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    BAD_REQUEST,
+                    "size는 1 이상 100 이하여야 해요."
+            );
+        }
     }
 }
