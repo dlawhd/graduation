@@ -45,7 +45,7 @@ export function createChatSocketClient({
 
     /*
      * debug는 WebSocket이 잘 연결되는지 콘솔에서 확인하는 용도
-     * 나중에 배포 안정화가 끝나면 꺼도 됌
+     * 최종적으로 다 끝나면 삭제
      */
     debug: (message) => {
       console.log("[STOMP]", message);

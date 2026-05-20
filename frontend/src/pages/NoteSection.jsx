@@ -1224,10 +1224,6 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
     try {
       const data = await noteApi.getNoteDetail(jar.jarId, noteId);
-
-      console.log("detail data =", data);
-      console.log("detail data.attachments =", data?.attachments);
-
       setDetailNote(data || null);
     } catch (e) {
       const serverMessage =
