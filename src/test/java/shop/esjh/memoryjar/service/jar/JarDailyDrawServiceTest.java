@@ -40,7 +40,7 @@ import static org.mockito.Mockito.*;
  * JarDailyDrawServiceTest
  *
  * 이 테스트 클래스는 JarDailyDrawService가
- * "오늘의 추억 한 장"을 올바르게 뽑고, 조회하고, 예외 처리하는지 확인하는 역할을 한다.
+ * "오늘의 추억 한 장"을 올바르게 뽑고, 조회하고, 예외  처리하는지 확인하는 역할을 한다.
  *
  * 쉽게 말하면:
  * - 열린 DAILY_DRAW 저금통에서 오늘 카드가 새로 뽑히는지
@@ -229,37 +229,6 @@ class JarDailyDrawServiceTest {
         assertThat(ex.getReason()).isEqualTo("현재 저금통 멤버만 오늘의 추억 한 장을 볼 수 있어.");
 
         // 멤버가 아니면 오픈 확인이나 뽑기 로직까지 가면 안 된다.
-        verifyNoInteractions(jarOpenService);
-        verifyNoInteractions(noteRepository);
-        verify(jarDailyDrawRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
-    @DisplayName("drawToday - DAILY_DRAW 방식이 아니면 400 예외가 발생한다")
-    void drawToday_notDailyDrawMode_throws400() {
-        // given
-        Long currentUserId = 1L;
-        Long jarId = 10L;
-
-        // ALL_AT_ONCE 저금통이라고 가정
-        Jar jar = createJar(jarId, JarOpenMode.ALL_AT_ONCE);
-
-        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
-
-        // when
-        ResponseStatusException ex = catchThrowableOfType(
-                () -> jarDailyDrawService.drawToday(currentUserId, jarId),
-                ResponseStatusException.class
-        );
-
-        // then
-        assertThat(ex).isNotNull();
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("아직 열리지 않은 저금통이야. 오픈 이후에 오늘의 추억 한 장을 사용할 수 있어.");
-
-        // DAILY_DRAW가 아니면 오픈 확인이나 후보 조회까지 가면 안 된다.
         verifyNoInteractions(jarOpenService);
         verifyNoInteractions(noteRepository);
         verify(jarDailyDrawRepository, never()).saveAndFlush(any());

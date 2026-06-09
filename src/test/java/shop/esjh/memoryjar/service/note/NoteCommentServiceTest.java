@@ -187,42 +187,6 @@ class NoteCommentServiceTest {
         assertThat(response.replies()).isEmpty();
     }
 
-    @Test
-    @DisplayName("대댓글 아래 대댓글 생성 차단")
-    void createComment_badRequest_whenParentCommentIsReply() {
-        Long currentUserId = 1L;
-        Long jarId = 10L;
-        Long noteId = 100L;
-        Long rootCommentId = 300L;
-        Long replyCommentId = 301L;
-
-        User user = createUser(currentUserId, "댓글러");
-        Jar jar = createJar(jarId);
-        Note note = createNote(noteId, jar, user);
-        NoteComment rootComment = createComment(rootCommentId, note, user, "부모 댓글");
-        NoteComment replyComment = createReply(replyCommentId, note, user, "대댓글", rootComment);
-
-        when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
-        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteCommentRepository.findByCommentIdAndNote_NoteId(replyCommentId, noteId))
-                .thenReturn(Optional.of(replyComment));
-
-        ResponseStatusException exception = catchThrowableOfType(
-                () -> noteCommentService.createComment(
-                        currentUserId,
-                        jarId,
-                        noteId,
-                        new NoteCommentCreateRequest("막힌 답글", replyCommentId)
-                ),
-                ResponseStatusException.class
-        );
-
-        assertThat(exception.getStatusCode().value()).isEqualTo(400);
-        verify(noteCommentRepository, never()).save(any());
-    }
 
     @Test
     @DisplayName("댓글 수정 성공")

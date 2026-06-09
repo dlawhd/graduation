@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -295,9 +295,12 @@ class NoteReactionServiceTest {
         );
 
         // then
-        // 지울 게 없어도 최신 상태는 다시 만들어서 프론트에 돌려준다.
-        verify(noteReactionRepository).flush();
+        // 기존 리액션이 없으면 삭제할 것이 없으므로 flush도 발생하지 않는다.
+        verify(noteReactionRepository, never()).flush();
         verify(noteReactionRepository, never()).delete(any());
+
+        // 삭제가 실제로 일어나지 않았으므로 WebSocket 이벤트도 보내지 않는다.
+        verify(noteRealtimeService, never()).sendNoteEventAfterCommit(anyLong(), anyLong(), any());
 
         assertThat(response.noteId()).isEqualTo(noteId);
         assertThat(response.myReaction()).isNull();
