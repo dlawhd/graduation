@@ -6,7 +6,6 @@ COPY gradlew .
 COPY gradle gradle
 COPY build.gradle.kts settings.gradle.kts ./
 RUN chmod +x gradlew
-RUN ./gradlew --no-daemon dependencies || true
 
 COPY src src
 RUN ./gradlew --no-daemon clean bootJar

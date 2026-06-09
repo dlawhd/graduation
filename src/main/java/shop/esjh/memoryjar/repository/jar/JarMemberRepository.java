@@ -68,4 +68,71 @@ public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
             @Param("jarId") Long jarId,
             @Param("userId") Long userId
     );
+
+    /**
+     * 저금통별 active 멤버 수 조회 결과를 담는 Projection입니다.
+     *
+     * Projection은 쉽게 말하면
+     * "엔티티 전체를 가져오지 않고, 필요한 값만 담는 작은 바구니"입니다.
+     *
+     * 여기서는 저금통 ID와 멤버 수만 필요합니다.
+     */
+    interface JarMemberCountView {
+        Long getJarId();
+        Long getMemberCount();
+    }
+
+    /**
+     * 내가 속한 저금통별 내 역할 조회 결과를 담는 Projection입니다.
+     *
+     * 저금통 목록에서는 JarMember 전체가 아니라
+     * jarId와 role만 있으면 화면을 만들 수 있습니다.
+     */
+    interface MyJarRoleView {
+        Long getJarId();
+        shop.esjh.memoryjar.enums.jar.JarRole getRole();
+    }
+
+    /**
+     * 여러 저금통의 active 멤버 수를 한 번에 조회합니다.
+     *
+     * 기존 방식:
+     * 저금통 20개면 count 쿼리 20번
+     *
+     * 개선 방식:
+     * 저금통 ID 20개를 한 번에 넘겨서 count 쿼리 1번
+     */
+    @Query("""
+            select jm.jar.jarId as jarId,
+                   count(jm) as memberCount
+            from JarMember jm
+            where jm.jar.jarId in :jarIds
+              and jm.deletedAt is null
+            group by jm.jar.jarId
+            """)
+    List<JarMemberCountView> countActiveMembersByJarIds(
+            @Param("jarIds") List<Long> jarIds
+    );
+
+    /**
+     * 여러 저금통에서 현재 사용자의 역할을 한 번에 조회합니다.
+     *
+     * 기존 방식:
+     * 저금통 20개면 내 멤버 정보 조회 쿼리 20번
+     *
+     * 개선 방식:
+     * 저금통 ID 20개와 userId를 한 번에 넘겨서 조회 쿼리 1번
+     */
+    @Query("""
+            select jm.jar.jarId as jarId,
+                   jm.role as role
+            from JarMember jm
+            where jm.jar.jarId in :jarIds
+              and jm.user.id = :userId
+              and jm.deletedAt is null
+            """)
+    List<MyJarRoleView> findMyRolesByJarIdsAndUserId(
+            @Param("jarIds") List<Long> jarIds,
+            @Param("userId") Long userId
+    );
 }

@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -24,6 +25,13 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    // WebSocket CONNECT / SUBSCRIBE / SEND 요청의 권한을 검사하는 문지기
+    private final WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor;
+
+    public WebSocketConfig(WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor) {
+        this.webSocketAuthChannelInterceptor = webSocketAuthChannelInterceptor;
+    }
+
     /*
      * 메시지 브로커 설정
      *
@@ -46,6 +54,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // 프론트가 서버의 @MessageMapping 메서드로 메시지를 보낼 때 사용할 주소 prefix
         registry.setApplicationDestinationPrefixes("/app");
+    }
+
+    /*
+     * WebSocket으로 들어오는 클라이언트 메시지를 검사하는 설정
+     *
+     * 여기서 등록한 interceptor는:
+     * - CONNECT
+     * - SUBSCRIBE
+     * - SEND
+     *
+     * 요청이 들어올 때마다 먼저 실행된다.
+     */
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(webSocketAuthChannelInterceptor);
     }
 
     /*

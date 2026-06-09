@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.service.chat.ChatSystemMessageService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +31,12 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 class JarOpenServiceTest {
+
+    @Mock
+    private JarOpenRealtimeService jarOpenRealtimeService;
+
+    @Mock
+    private ChatSystemMessageService chatSystemMessageService;
 
     @Mock
     private JarRepository jarRepository;
@@ -241,6 +248,157 @@ class JarOpenServiceTest {
         // then
         assertThat(openedCount).isEqualTo(1);
         verify(jarOpenEventRepository, times(1)).save(any(JarOpenEvent.class));
+    }
+
+    @Test
+    @DisplayName("GET 조회 보정 오픈 - openAt이 미래면 오픈 이벤트가 생기지 않는다")
+    void ensureOpenedIfDue_futureOpenAt_doesNotCreateOpenEvent() {
+        // given
+        // 아직 열릴 시간이 안 된 저금통 ID
+        Long jarId = 10L;
+
+        // openAt이 미래인 저금통을 만든다.
+        Jar futureJar = createJarWithOpenAtOnly(
+                LocalDateTime.now().plusDays(1)
+        );
+
+        // 첫 번째 existsByJar_JarId:
+        // 잠금 조회 전에 이미 열린 적 있는지 확인 → false
+        //
+        // 두 번째 existsByJar_JarId:
+        // 잠금 조회 후 동시에 다른 요청이 열었는지 다시 확인 → false
+        when(jarOpenEventRepository.existsByJar_JarId(jarId))
+                .thenReturn(false, false);
+
+        // 오픈 처리 중 저금통 row를 잠금 조회했을 때 futureJar를 반환한다.
+        when(jarRepository.findByJarIdForUpdate(jarId))
+                .thenReturn(Optional.of(futureJar));
+
+        // when
+        // GET 조회 중 호출되는 보정 오픈 메서드를 실행한다.
+        boolean result = jarOpenService.ensureOpenedIfDue(jarId);
+
+        // then
+        // 아직 오픈 시간이 안 됐으므로 false를 반환한다.
+        assertThat(result).isFalse();
+
+        // 오픈 이벤트가 저장되면 안 된다.
+        verify(jarOpenEventRepository, never()).save(any(JarOpenEvent.class));
+
+        // WebSocket 오픈 이벤트도 나가면 안 된다.
+        verify(jarOpenRealtimeService, never())
+                .sendJarOpenedEventAfterCommit(anyLong(), any());
+
+        // 채팅 시스템 메시지도 생성되면 안 된다.
+        verify(chatSystemMessageService, never())
+                .createAndSendJarOpenedMessage(any(Jar.class));
+    }
+
+    @Test
+    @DisplayName("GET 조회 보정 오픈 - openAt이 과거면 ACCESS_TRIGGERED 오픈 이벤트가 생긴다")
+    void ensureOpenedIfDue_pastOpenAt_createsAccessTriggeredOpenEvent() {
+        // given
+        // 이미 열릴 시간이 지난 저금통 ID
+        Long jarId = 10L;
+
+        LocalDateTime openAt = LocalDateTime.now().minusDays(1);
+
+        // openAt이 과거인 저금통을 만든다.
+        Jar dueJar = createJarWithIdAndOpenAt(jarId, openAt);
+
+        // 아직 오픈 이벤트가 없다고 가정한다.
+        when(jarOpenEventRepository.existsByJar_JarId(jarId))
+                .thenReturn(false, false);
+
+        // 잠금 조회 시 dueJar를 반환한다.
+        when(jarRepository.findByJarIdForUpdate(jarId))
+                .thenReturn(Optional.of(dueJar));
+
+        // save가 호출되면 저장된 엔티티를 그대로 반환하게 한다.
+        when(jarOpenEventRepository.save(any(JarOpenEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        // GET 조회 중 호출되는 보정 오픈 메서드를 실행한다.
+        boolean result = jarOpenService.ensureOpenedIfDue(jarId);
+
+        // then
+        // 열릴 시간이 지났으므로 true를 반환한다.
+        assertThat(result).isTrue();
+
+        // 저장된 오픈 이벤트를 직접 잡아서 내용 확인
+        ArgumentCaptor<JarOpenEvent> eventCaptor = ArgumentCaptor.forClass(JarOpenEvent.class);
+        verify(jarOpenEventRepository).save(eventCaptor.capture());
+
+        JarOpenEvent savedEvent = eventCaptor.getValue();
+
+        // 어떤 저금통이 열렸는지 확인
+        assertThat(savedEvent.getJar()).isEqualTo(dueJar);
+
+        // GET 조회로 인해 보정 오픈된 것이므로 ACCESS_TRIGGERED 여야 한다.
+        assertThat(savedEvent.getReason()).isEqualTo(JarOpenReason.ACCESS_TRIGGERED);
+
+        // openedAt은 실제 처리 시간이 아니라 원래 약속된 openAt으로 저장한다.
+        assertThat(savedEvent.getOpenedAt()).isEqualTo(openAt);
+
+        // WebSocket 오픈 이벤트가 한 번 발행되어야 한다.
+        verify(jarOpenRealtimeService, times(1))
+                .sendJarOpenedEventAfterCommit(eq(jarId), any());
+
+        // 채팅방 시스템 메시지도 한 번 생성되어야 한다.
+        verify(chatSystemMessageService, times(1))
+                .createAndSendJarOpenedMessage(dueJar);
+    }
+
+    @Test
+    @DisplayName("GET 조회 보정 오픈 - 이미 오픈 이벤트가 있으면 여러 번 조회해도 중복 생성되지 않는다")
+    void ensureOpenedIfDue_alreadyOpened_doesNotCreateDuplicateOpenEvent() {
+        // given
+        Long jarId = 10L;
+
+        LocalDateTime openAt = LocalDateTime.now().minusDays(1);
+        Jar dueJar = createJarWithIdAndOpenAt(jarId, openAt);
+
+        // 호출 흐름:
+        //
+        // 첫 번째 GET:
+        // 1) 아직 이벤트 없음 false
+        // 2) 잠금 잡은 뒤에도 이벤트 없음 false
+        // → 이벤트 1번 생성
+        //
+        // 두 번째 GET:
+        // 3) 이미 이벤트 있음 true
+        // → 바로 true 반환, save 안 함
+        when(jarOpenEventRepository.existsByJar_JarId(jarId))
+                .thenReturn(false, false, true);
+
+        when(jarRepository.findByJarIdForUpdate(jarId))
+                .thenReturn(Optional.of(dueJar));
+
+        when(jarOpenEventRepository.save(any(JarOpenEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        boolean firstResult = jarOpenService.ensureOpenedIfDue(jarId);
+        boolean secondResult = jarOpenService.ensureOpenedIfDue(jarId);
+
+        // then
+        assertThat(firstResult).isTrue();
+        assertThat(secondResult).isTrue();
+
+        // 오픈 이벤트는 딱 1번만 저장되어야 한다.
+        verify(jarOpenEventRepository, times(1)).save(any(JarOpenEvent.class));
+
+        // 잠금 조회도 첫 번째 호출에서만 필요하다.
+        verify(jarRepository, times(1)).findByJarIdForUpdate(jarId);
+
+        // WebSocket 이벤트도 딱 1번만 나가야 한다.
+        verify(jarOpenRealtimeService, times(1))
+                .sendJarOpenedEventAfterCommit(eq(jarId), any());
+
+        // 채팅 시스템 메시지도 딱 1번만 만들어져야 한다.
+        verify(chatSystemMessageService, times(1))
+                .createAndSendJarOpenedMessage(dueJar);
     }
 
     /*

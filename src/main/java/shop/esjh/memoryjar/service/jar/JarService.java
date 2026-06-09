@@ -31,8 +31,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 // 저금통 만들기
 // 내가 들어간 저금통 목록 보기, 저금통 상세 보기, 멤버 목록 보기, 초대코드 만들기, 초대코드로 참여하기
@@ -122,7 +124,7 @@ public class JarService {
     }
 
     // 내가 현재 참여 중인 저금통 목록을 가져옴
-    // 저금통마다 memberCount / myRole을 따로 조회해(나중에 성능 최적화가 필요하면 projection / query 한 방 조회 바꾸자)
+    // 저금통 목록 화면에 필요한 memberCount / myRole은 batch 조회로 가져와 N+1 쿼리를 줄인다.
     public JarListResponse listMyJars(Long currentUserId, int page, int size) {
 
         // page, size는 너무 이상한 값이 들어오지 않게 간단히 보정
@@ -134,30 +136,76 @@ public class JarService {
         // 내가 active 멤버로 들어가 있는 저금통 목록 가져오기
         Page<Jar> jarPage = jarRepository.findMyJarsByUserId(currentUserId, pageable);
 
-        // 각 저금통을 목록용 DTO로 변환
-        List<JarListItem> items = jarPage.getContent().stream()
-                .map(jar -> {
-                    long memberCount = jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(jar.getJarId());
+        // 현재 페이지에 있는 저금통들만 꺼낸다.
+        List<Jar> jars = jarPage.getContent();
 
-                    JarMember myMember = jarMemberRepository
-                            .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(jar.getJarId(), currentUserId)
-                            .orElseThrow(() -> new ResponseStatusException(
-                                    HttpStatus.FORBIDDEN,
-                                    "현재 저금통 멤버가 아니야."
-                            ));
+        // 현재 페이지에 저금통이 하나도 없으면 추가 조회 없이 빈 목록을 반환한다.
+        if (jars.isEmpty()) {
+            return new JarListResponse(
+                    List.of(),
+                    jarPage.getNumber(),
+                    jarPage.getSize(),
+                    jarPage.getTotalElements(),
+                    jarPage.getTotalPages()
+            );
+        }
+
+        // 현재 페이지에 있는 저금통 ID만 모은다.
+        // 예: [1, 2, 3, 4, 5]
+        List<Long> jarIds = jars.stream()
+                .map(Jar::getJarId)
+                .toList();
+
+        // 저금통별 멤버 수를 한 번에 조회한 뒤 Map으로 바꾼다.
+        // 예: {1=2, 2=5, 3=1}
+        Map<Long, Long> memberCountMap = jarMemberRepository.countActiveMembersByJarIds(jarIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        JarMemberRepository.JarMemberCountView::getJarId,
+                        JarMemberRepository.JarMemberCountView::getMemberCount
+                ));
+
+        // 저금통별 내 역할을 한 번에 조회한 뒤 Map으로 바꾼다.
+        // 예: {1=OWNER, 2=MEMBER, 3=ADMIN}
+        Map<Long, JarRole> myRoleMap = jarMemberRepository.findMyRolesByJarIdsAndUserId(jarIds, currentUserId)
+                .stream()
+                .collect(Collectors.toMap(
+                        JarMemberRepository.MyJarRoleView::getJarId,
+                        JarMemberRepository.MyJarRoleView::getRole
+                ));
+
+        // 각 저금통을 목록용 DTO로 변환한다.
+        List<JarListItem> items = jars.stream()
+                .map(jar -> {
+                    Long jarId = jar.getJarId();
+
+                    // 멤버 수가 없으면 0명으로 처리한다.
+                    // 정상 상황에서는 active 멤버가 있기 때문에 보통 0은 나오지 않는다.
+                    long memberCount = memberCountMap.getOrDefault(jarId, 0L);
+
+                    // 현재 사용자의 역할을 가져온다.
+                    JarRole myRole = myRoleMap.get(jarId);
+
+                    // 내가 속한 저금통 목록인데 역할이 없으면 데이터가 꼬인 상황이므로 막는다.
+                    if (myRole == null) {
+                        throw new ResponseStatusException(
+                                HttpStatus.FORBIDDEN,
+                                "현재 저금통 멤버가 아니야."
+                        );
+                    }
 
                     return new JarListItem(
-                            jar.getJarId(),
+                            jarId,
                             jar.getName(),
                             jar.getTheme(),
                             jar.getDescription(),
-                            (int) memberCount,
+                            Math.toIntExact(memberCount),
                             jar.getMaxMembers(),
                             toKstOffsetDateTime(jar.getOpenAt()),
                             jar.getOpenMode(),
                             jar.getLockLevel(),
                             isOpen(jar),
-                            myMember.getRole(),
+                            myRole,
                             toKstOffsetDateTime(jar.getUpdatedAt())
                     );
                 })
