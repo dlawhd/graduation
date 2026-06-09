@@ -75,4 +75,8 @@ dependencies {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+
+	// 테스트 실행 시 application-test.yml을 기본으로 읽게 한다.
+	// GitHub Actions, 로컬 Gradle 테스트에서 OAuth2/JWT 테스트용 설정이 빠지지 않도록 한다.
+	systemProperty("spring.profiles.active", "test")
 }

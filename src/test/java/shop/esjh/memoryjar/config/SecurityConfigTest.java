@@ -36,7 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 // SecurityConfig 전체 흐름을 보는 테스트라서 @SpringBootTest 를 사용
 @SpringBootTest(properties = {
-        "spring.flyway.enabled=false"
+        "spring.flyway.enabled=false",
+        "spring.jpa.hibernate.ddl-auto=none"
 })
 @AutoConfigureMockMvc
 class SecurityConfigTest {

@@ -405,7 +405,7 @@ class JarControllerTest {
                 "설명 바꿈",
                 JarTheme.SPRING,
                 5,
-                LocalDateTime.parse("2027-02-27T00:00:00+09:00"),
+                LocalDateTime.parse("2027-02-27T00:00:00"),
                 JarOpenMode.ALL_AT_ONCE,
                 JarLockLevel.META_ONLY
 
