@@ -38,6 +38,7 @@ jobs:
         run: ./gradlew test
         env:
           SPRING_PROFILES_ACTIVE: test
+          APP_FRONTEND_URL: http://localhost:5173
           APP_JWT_SECRET: local-test-secret-key-local-test-secret-key-123456
           APP_S3_REGION: ap-northeast-2
           APP_S3_BUCKET: local-memoryjar-bucket

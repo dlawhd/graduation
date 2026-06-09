@@ -20,5 +20,7 @@ spring:
             user-name-attribute: response
 
 app:
+  frontend-url: http://localhost:5173
+
   jwt:
     secret: test-test-test-test-test-test-test-test-test-test-test-test-test

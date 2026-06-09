@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.repository.support;
 
+import org.testcontainers.utility.DockerImageName;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.file.FileUpload;
 import shop.esjh.memoryjar.entity.jar.Jar;
@@ -22,7 +23,6 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MariaDBContainer;
-import org.testcontainers.junit.jupiter.Container;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,19 +32,40 @@ import java.util.List;
  */
 public abstract class AbstractMariaDbRepositoryTest {
 
-    @Container
-    static MariaDBContainer<?> mariaDBContainer =
-            new MariaDBContainer<>("mariadb:10.11")
-                    .withDatabaseName("testdb")
-                    .withUsername("test")
-                    .withPassword("test");
+    /**
+     * Repository 테스트 전체에서 공유하는 MariaDB 컨테이너입니다.
+     *
+     * static으로 한 번만 만들고,
+     * static block에서 직접 start() 해서 테스트 JVM 동안 유지합니다.
+     */
+    protected static final MariaDBContainer<?> mariaDBContainer;
 
+    static {
+        mariaDBContainer = new MariaDBContainer<>(
+                DockerImageName.parse("mariadb:10.11")
+        )
+                .withDatabaseName("testdb")
+                .withUsername("test")
+                .withPassword("test");
+
+        // 테스트가 시작되기 전에 MariaDB 컨테이너를 직접 실행합니다.
+        mariaDBContainer.start();
+    }
+
+    /**
+     * Spring Boot가 테스트 DB로 Testcontainers MariaDB를 사용하도록 연결 정보를 주입합니다.
+     */
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", mariaDBContainer::getJdbcUrl);
         registry.add("spring.datasource.username", mariaDBContainer::getUsername);
         registry.add("spring.datasource.password", mariaDBContainer::getPassword);
         registry.add("spring.datasource.driver-class-name", mariaDBContainer::getDriverClassName);
+
+        // Repository 테스트에서는 Flyway migration으로 테이블을 만들고,
+        // JPA는 검증만 하게 둡니다.
+        registry.add("spring.flyway.enabled", () -> "true");
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
     }
 
     @PersistenceContext
