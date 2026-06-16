@@ -43,7 +43,9 @@ export default function Home() {
     // --------------------------------------------------------
     async function checkSession() {
       try {
-        const res = await apiClient.get("/api/v1/me");
+        const res = await apiClient.get("/api/v1/me", {
+          _skipAuthRefresh: true,
+        });
         const me = res.data?.data;
 
         if (!ignore && me) {

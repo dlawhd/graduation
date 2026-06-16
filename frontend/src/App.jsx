@@ -175,7 +175,11 @@ export default function App() {
 
     async function loadMe() {
       try {
-        const res = await apiClient.get("/api/v1/me");
+        const shouldSkipAuthRefresh = location.pathname === "/";
+
+        const res = await apiClient.get("/api/v1/me", {
+          _skipAuthRefresh: shouldSkipAuthRefresh,
+        });
         const meData = res.data?.data || null;
 
         if (!ignore) {
