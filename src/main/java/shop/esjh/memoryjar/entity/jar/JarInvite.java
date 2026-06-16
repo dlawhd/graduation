@@ -76,7 +76,9 @@ public class JarInvite {
     }
 
     public boolean isExpired(LocalDateTime now) {
-        return this.expiresAt.isBefore(now);
+
+        // 현재 시간이 만료 시각과 같거나, 만료 시각보다 뒤라면 만료로 본다.
+        return now.isEqual(this.expiresAt) || now.isAfter(this.expiresAt);
     }
 
     public boolean isRevoked() {
