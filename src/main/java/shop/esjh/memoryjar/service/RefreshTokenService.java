@@ -9,13 +9,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 // refresh 토큰을 발급하고, 검증하고, 예전 refresh는 폐기하고 새 refresh로 바꿔주기(회전), 폐기하는 핵심 서비스
 @Service
 public class RefreshTokenService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
+
+    private LocalDateTime nowKst() {
+        return LocalDateTime.now(KST);
+    }
 
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
                                JwtProperties jwtProperties) {
@@ -27,6 +34,9 @@ public class RefreshTokenService {
     @Transactional
     public String issue(User user) {
 
+        // 현재 시간을 한국 시간으로 만든다.
+        LocalDateTime now = nowKst();
+
         // ✅ 브라우저에 저장할 refresh 토큰 원본 생성
         String raw = TokenCrypto.generateRefreshRaw();
 
@@ -37,7 +47,7 @@ public class RefreshTokenService {
         RefreshToken entity = RefreshToken.builder()
                 .user(user)
                 .tokenHash(hash)
-                .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpSeconds())) // 만료 시간(지금으로부터 14일 뒤)
+                .expiresAt(now.plusSeconds(jwtProperties.getRefreshExpSeconds())) // 만료 시간(지금으로부터 14일 뒤)
                 .build();
 
         refreshTokenRepository.save(entity);
@@ -47,6 +57,8 @@ public class RefreshTokenService {
     // ✅ /api/v1/auth/refresh 에서 refresh 토큰 검증 + 회전(rotation)
     @Transactional
     public Rotation rotate(String refreshRaw) {
+
+        LocalDateTime now = nowKst();
 
         // ✅ 브라우저가 보낸 refresh 원본을 해시로 변환
         String hash = TokenCrypto.sha256Hex(refreshRaw);
@@ -72,7 +84,7 @@ public class RefreshTokenService {
         RefreshToken next = RefreshToken.builder()
                 .user(user)
                 .tokenHash(newHash)
-                .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpSeconds()))
+                .expiresAt(now.plusSeconds(jwtProperties.getRefreshExpSeconds()))
                 .build();
 
         refreshTokenRepository.save(next);
@@ -84,6 +96,8 @@ public class RefreshTokenService {
     @Transactional
     public void revokeIfPresent(String refreshRaw) {
 
+        LocalDateTime now = nowKst();
+
         // ✅ refresh 토큰이 없으면 그냥 종료
         if (refreshRaw == null || refreshRaw.isBlank()) return;
 
@@ -93,7 +107,7 @@ public class RefreshTokenService {
         // ✅ DB에서 유효한 refresh 토큰 찾기
         // 있으면 revokeNow() 실행, 없으면 아무 일도 안 함
         refreshTokenRepository
-                .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash, LocalDateTime.now())
+                .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash, now)
                 .ifPresent(RefreshToken::revokeNow);
     }
 

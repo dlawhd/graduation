@@ -9,11 +9,14 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 public abstract class BaseEntity {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -28,7 +31,7 @@ public abstract class BaseEntity {
     private LocalDateTime deletedAt;
 
     public void softDelete() {
-        this.deletedAt = LocalDateTime.now();
+        this.deletedAt = LocalDateTime.now(KST);
     }
 
     public boolean isDeleted() {

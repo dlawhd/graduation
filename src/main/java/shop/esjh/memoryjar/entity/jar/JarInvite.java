@@ -12,6 +12,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import jakarta.persistence.EntityListeners;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -19,6 +20,8 @@ import java.time.LocalDateTime;
 @Table(name = "jar_invites")
 @EntityListeners(AuditingEntityListener.class)
 public class JarInvite {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -96,6 +99,6 @@ public class JarInvite {
     }
 
     public void revoke() {
-        this.revokedAt = LocalDateTime.now();
+        this.revokedAt = LocalDateTime.now(KST);
     }
 }

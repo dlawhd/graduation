@@ -27,6 +27,8 @@ import java.util.List;
 @Service
 public class JarOpenService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final JarRepository jarRepository;
     private final JarOpenEventRepository jarOpenEventRepository;
     private final JarOpenRealtimeService jarOpenRealtimeService;
@@ -71,7 +73,11 @@ public class JarOpenService {
      */
     @Transactional
     public int openDueJars() {
-        List<Jar> dueJars = jarRepository.findDueJarsWithoutOpenEvent(LocalDateTime.now());
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
+        // openAt이 현재 시간보다 지났고, 아직 오픈 기록이 없는 저금통을 찾는다.
+        List<Jar> dueJars = jarRepository.findDueJarsWithoutOpenEvent(now);
 
         int openedCount = 0;
 
@@ -114,7 +120,8 @@ public class JarOpenService {
         }
 
         // 4. 아직 오픈 시간이 안 됐으면 열지 않는다.
-        if (jar.getOpenAt().isAfter(LocalDateTime.now())) {
+        LocalDateTime now = LocalDateTime.now(KST);
+        if (jar.getOpenAt().isAfter(now)) {
             return false;
         }
 

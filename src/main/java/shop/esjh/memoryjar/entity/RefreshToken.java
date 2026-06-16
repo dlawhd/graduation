@@ -6,6 +6,7 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -30,6 +31,8 @@ import java.time.LocalDateTime;
         }
 )
 public class RefreshToken extends BaseEntity{
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -70,6 +73,6 @@ public class RefreshToken extends BaseEntity{
 
     // ✅ refresh 폐기된 시간을 저장하는 칸
     public void revokeNow() {
-        this.revokedAt = LocalDateTime.now();
+        this.revokedAt = LocalDateTime.now(KST);
     }
 }

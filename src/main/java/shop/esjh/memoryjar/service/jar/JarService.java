@@ -42,15 +42,14 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class JarService {
 
-    private final JarOpenService jarOpenService;
 
-    // 우리 서비스는 한국 시간 기준으로 응답을 맞춘다고 생각하고 +09:00으로 변환
-    private static final ZoneOffset KST_OFFSET = ZoneOffset.ofHours(9);
+    private final JarOpenService jarOpenService;
 
     // 초대코드 기본 정책
     // 요청값이 비어 있으면 이 기본값을 사용
     private static final int DEFAULT_EXPIRES_HOURS = 24;
     private static final int DEFAULT_MAX_USES = 1;
+
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final JarRepository jarRepository;
@@ -321,12 +320,14 @@ public class JarService {
         // 5. 중복되지 않는 초대코드 생성
         String code = generateUniqueInviteCode();
 
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // 6. 초대장 만들기
         JarInvite invite = JarInvite.builder()
                 .jar(jar)
                 .createdBy(currentUser)
                 .code(code)
-                .expiresAt(LocalDateTime.now().plusHours(expiresInHours))
+                .expiresAt(now.plusHours(expiresInHours))
                 .maxUses(maxUses)
                 .build();
 
@@ -345,7 +346,7 @@ public class JarService {
                 toKstOffsetDateTime(savedInvite.getExpiresAt()),
                 savedInvite.getMaxUses(),
                 savedInvite.getUsedCount(),
-                savedInvite.isAvailable(LocalDateTime.now()),
+                savedInvite.isAvailable(now),
                 toKstOffsetDateTime(savedInvite.getCreatedAt())
         );
     }
@@ -354,7 +355,7 @@ public class JarService {
     // 초대코드 검사, 이미 멤버인지 검사, 정원 초과 검사, 멤버 추가 또는 재활성화, usedCount 증가
     @Transactional
     public JarInviteJoinResponse joinByInvite(Long currentUserId, JarInviteJoinRequest request) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
 
         // 1. 현재 사용자 찾기
         User currentUser = getUserOrThrow(currentUserId);
@@ -550,6 +551,8 @@ public class JarService {
         // 2. 초대코드 목록 조회
         List<JarInvite> invites = jarInviteRepository.findAllByJarIdOrderByCreatedAtDesc(jarId);
 
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // 3. DTO로 변환
         List<JarInviteItem> items = invites.stream()
                 .map(invite -> new JarInviteItem(
@@ -559,7 +562,7 @@ public class JarService {
                         invite.getRevokedAt() == null ? null : toKstOffsetDateTime(invite.getRevokedAt()),
                         invite.getMaxUses(),
                         invite.getUsedCount(),
-                        invite.isAvailable(LocalDateTime.now()),
+                        invite.isAvailable(now),
                         invite.getCreatedBy().getId(),
                         toKstOffsetDateTime(invite.getCreatedAt())
                 ))
@@ -943,7 +946,7 @@ public class JarService {
         if (localDateTime == null) {
             return null;
         }
-        return localDateTime.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime();
+        return localDateTime.atZone(KST).toOffsetDateTime();
     }
     
     // 이제: 기록형 오픈 기준으로 판단
