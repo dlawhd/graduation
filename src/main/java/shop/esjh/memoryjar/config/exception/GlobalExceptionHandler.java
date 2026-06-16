@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.config.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import shop.esjh.memoryjar.dto.response.ErrorEnvelope;
 import shop.esjh.memoryjar.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 // 컨트롤러나 서비스에서 에러가 나면 이 클래스가 그 에러를 대신 받아서 사용자에게 보기 좋은 형태(JSON)로 정리해서 보냄
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -67,6 +69,11 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request
     ) {
+
+        // 예상하지 못한 서버 에러는 반드시 로그로 남긴다.
+        // ex를 같이 넘겨야 어느 파일, 몇 번째 줄에서 터졌는지까지 확인할 수 있다.
+        log.error("Unhandled exception occurred. path={}", request.getRequestURI(), ex);
+
         ErrorResponse error = ErrorResponse.of(
                 "INTERNAL_SERVER_ERROR",
                 "서버 내부 오류가 발생했습니다.",

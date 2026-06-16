@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.auth;
 
+import org.springframework.util.StringUtils;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
 import shop.esjh.memoryjar.service.AuthCookieService;
@@ -93,13 +94,21 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // ✅ 네이버 유저 고유 ID (우리 DB에서 "이 사람 누구인지" 구분할 때 사용)
         String providerId = (String) attributes.get("id");
 
-        // ✅ 혹시라도 id가 없으면 null 대신 unknown으로 넣어주는 방어 코드
-        if (providerId == null) {
-            providerId = "unknown";
+        // providerId는 네이버 사용자를 구분하는 핵심값이라 없으면 로그인 진행을 막는다.
+        if (!StringUtils.hasText(providerId)) {
+            throw new IllegalArgumentException("네이버 사용자 ID를 가져오지 못했습니다.");
         }
 
+        // email도 우리 서비스에서 회원 식별에 중요하므로 없으면 로그인 진행을 막는다.
+        if (!StringUtils.hasText(email)) {
+            throw new IllegalArgumentException("네이버 이메일을 가져오지 못했습니다.");
+        }
+
+        // name은 화면 표시용이라 없으면 기본값을 사용한다.
+        String safeName = StringUtils.hasText(name) ? name : "사용자";
+
         //✅ 우리 DB에 회원이 이미 있으면 가져오고,없으면 새로 만들어서 저장한 뒤 반환
-        User user = userService.findOrCreateNaverUser(providerId, email, name, birthyear);
+        User user = userService.findOrCreateNaverUser(providerId, email, safeName, birthyear);
 
         //✅ refreshToken은 accessToken이 만료됐을 때 새 accessToken을 다시 발급받는 데 쓰는 긴 수명의 토큰
         // 흐름 : 원본 refresh 문자열 생성 -> DB에는 해시값 저장 -> 브라우저에는 원본을 쿠키로 저장
@@ -112,9 +121,17 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         // ✅ JWT 안에 같이 넣고 싶은 정보(클레임)
         Map<String, Object> claims = new HashMap<>();
+
+        // 필수값은 검증이 끝났으므로 그대로 넣는다.
         claims.put("email", email);
-        claims.put("name", name);
-        claims.put("birthyear", birthyear);
+
+        // name은 null 방지용 기본값 처리된 safeName을 넣는다.
+        claims.put("name", safeName);
+
+        // birthyear는 선택값이라 값이 있을 때만 넣는다, null을 claims에 넣지 않기 위한 방어 코드다.
+        if (StringUtils.hasText(birthyear)) {
+            claims.put("birthyear", birthyear);
+        }
 
         // ✅ accessToken(JWT) 발급
         // accessToken은 실제 API 요청할 때 로그인한 사용자입니다를 증명하는 짧은 수명의 토큰

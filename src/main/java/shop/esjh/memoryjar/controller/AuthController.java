@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.controller;
 
+import org.springframework.util.StringUtils;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.AuthCookieService;
 import shop.esjh.memoryjar.service.RefreshTokenService;
@@ -80,9 +81,17 @@ public class AuthController {
 
         // ✅ accessToken 안에 넣을 사용자 정보(claims)
         Map<String, Object> claims = new HashMap<>();
+        // email은 사용자 정보로 넣는다.
         claims.put("email", user.getEmail());
+
+        // name은 사용자 정보로 넣는다.
         claims.put("name", user.getName());
-        claims.put("birthyear", String.valueOf(user.getBirthyear())); // 타입에 맞게 조정
+
+        // birthyear는 선택값이므로 값이 있을 때만 JWT claims에 넣는다.
+        // String.valueOf(null)을 쓰면 "null" 문자열이 들어갈 수 있어서 사용하지 않는다.
+        if (StringUtils.hasText(user.getBirthyear())) {
+            claims.put("birthyear", user.getBirthyear());
+        }
 
         // ✅ 새 accessToken 발급
         String newAccess = jwtTokenProvider.createAccessToken(subject, claims);

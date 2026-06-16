@@ -925,7 +925,7 @@ public class JarService {
             String code = UUID.randomUUID()
                     .toString()
                     .replace("-", "")
-                    .substring(0, 8)
+                    .substring(0, 12)
                     .toUpperCase();
 
             if (jarInviteRepository.findByCode(code).isEmpty()) {
