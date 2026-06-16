@@ -17,6 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.service.chat.ChatSystemMessageService;
 
+import java.time.ZoneId;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,8 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 class JarOpenServiceTest {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Mock
     private JarOpenRealtimeService jarOpenRealtimeService;
@@ -136,9 +139,12 @@ class JarOpenServiceTest {
     @Test
     @DisplayName("ensureOpenedIfDue - 아직 오픈 시간이 안 됐으면 false")
     void ensureOpenedIfDue_notDue_returnsFalse() {
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // given
         Long jarId = 2L;
-        Jar futureJar = createJarWithOpenAtOnly(LocalDateTime.now().plusDays(1));
+        Jar futureJar = createJarWithOpenAtOnly(now.plusDays(1));
 
         when(jarOpenEventRepository.existsByJar_JarId(jarId))
                 .thenReturn(false, false);
@@ -157,9 +163,12 @@ class JarOpenServiceTest {
     @Test
     @DisplayName("ensureOpenedIfDue - 열릴 시간이 지났으면 ACCESS_TRIGGERED 이유로 오픈 이벤트를 저장한다")
     void ensureOpenedIfDue_dueJar_savesAccessTriggeredEvent() {
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // given
         Long jarId = 1L;
-        Jar dueJar = createJarWithOpenAtOnly(LocalDateTime.now().minusDays(1));
+        Jar dueJar = createJarWithOpenAtOnly(now.minusDays(1));
 
         when(jarOpenEventRepository.existsByJar_JarId(jarId))
                 .thenReturn(false, false);
@@ -191,9 +200,12 @@ class JarOpenServiceTest {
     @Test
     @DisplayName("openDueJars - 열 수 있는 저금통만 열고 개수를 반환한다")
     void openDueJars_opensOnlyDueJars_andReturnsCount() {
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // given
-        Jar dueJar1 = createJarWithIdAndOpenAt(10L, LocalDateTime.now().minusHours(2));
-        Jar dueJar2 = createJarWithIdAndOpenAt(20L, LocalDateTime.now().minusHours(1));
+        Jar dueJar1 = createJarWithIdAndOpenAt(10L, now.minusHours(2));
+        Jar dueJar2 = createJarWithIdAndOpenAt(20L, now.minusHours(1));
 
         when(jarRepository.findDueJarsWithoutOpenEvent(any(LocalDateTime.class)))
                 .thenReturn(List.of(dueJar1, dueJar2));
@@ -222,9 +234,12 @@ class JarOpenServiceTest {
     @Test
     @DisplayName("openDueJars - 목록에 미래 저금통이 섞여 있어도 아직 시간이 안 됐으면 열지 않는다")
     void openDueJars_futureJarInList_isNotOpened() {
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // given
-        Jar dueJar = createJarWithIdAndOpenAt(10L, LocalDateTime.now().minusHours(2));
-        Jar futureJar = createJarWithIdAndOpenAt(20L, LocalDateTime.now().plusHours(2));
+        Jar dueJar = createJarWithIdAndOpenAt(10L, now.minusHours(2));
+        Jar futureJar = createJarWithIdAndOpenAt(20L, now.plusHours(2));
 
         when(jarRepository.findDueJarsWithoutOpenEvent(any(LocalDateTime.class)))
                 .thenReturn(List.of(dueJar, futureJar));
@@ -253,13 +268,16 @@ class JarOpenServiceTest {
     @Test
     @DisplayName("GET 조회 보정 오픈 - openAt이 미래면 오픈 이벤트가 생기지 않는다")
     void ensureOpenedIfDue_futureOpenAt_doesNotCreateOpenEvent() {
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // given
         // 아직 열릴 시간이 안 된 저금통 ID
         Long jarId = 10L;
 
         // openAt이 미래인 저금통을 만든다.
         Jar futureJar = createJarWithOpenAtOnly(
-                LocalDateTime.now().plusDays(1)
+                now.plusDays(1)
         );
 
         // 첫 번째 existsByJar_JarId:
@@ -297,11 +315,14 @@ class JarOpenServiceTest {
     @Test
     @DisplayName("GET 조회 보정 오픈 - openAt이 과거면 ACCESS_TRIGGERED 오픈 이벤트가 생긴다")
     void ensureOpenedIfDue_pastOpenAt_createsAccessTriggeredOpenEvent() {
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // given
         // 이미 열릴 시간이 지난 저금통 ID
         Long jarId = 10L;
 
-        LocalDateTime openAt = LocalDateTime.now().minusDays(1);
+        LocalDateTime openAt = now.minusDays(1);
 
         // openAt이 과거인 저금통을 만든다.
         Jar dueJar = createJarWithIdAndOpenAt(jarId, openAt);
@@ -353,10 +374,13 @@ class JarOpenServiceTest {
     @Test
     @DisplayName("GET 조회 보정 오픈 - 이미 오픈 이벤트가 있으면 여러 번 조회해도 중복 생성되지 않는다")
     void ensureOpenedIfDue_alreadyOpened_doesNotCreateDuplicateOpenEvent() {
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
         // given
         Long jarId = 10L;
 
-        LocalDateTime openAt = LocalDateTime.now().minusDays(1);
+        LocalDateTime openAt = now.minusDays(1);
         Jar dueJar = createJarWithIdAndOpenAt(jarId, openAt);
 
         // 호출 흐름:
