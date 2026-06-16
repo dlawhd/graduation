@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -128,7 +129,7 @@ class OAuth2SuccessHandlerTest {
     }
 
     @Test
-    void onAuthenticationSuccess_providerId가_없으면_unknown으로_회원조회한다() throws Exception {
+    void onAuthenticationSuccess_providerId가_없으면_예외를_던지고_로그인을_중단한다() {
         // given
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -136,7 +137,8 @@ class OAuth2SuccessHandlerTest {
         OAuth2AuthenticationToken authentication = mock(OAuth2AuthenticationToken.class);
         OAuth2User principal = mock(OAuth2User.class);
 
-        // ✅ id가 없는 네이버 응답
+        // id가 없는 네이버 응답
+        // 이제는 id가 없으면 "unknown"으로 대체하지 않고 로그인 실패로 처리한다.
         Map<String, Object> innerResponse = new HashMap<>();
         innerResponse.put("email", "user@example.com");
         innerResponse.put("name", "은서");
@@ -148,36 +150,24 @@ class OAuth2SuccessHandlerTest {
         when(authentication.getPrincipal()).thenReturn(principal);
         when(principal.getAttributes()).thenReturn(outerAttributes);
 
-        User user = mock(User.class);
-        when(user.getId()).thenReturn(99L);
+        // when & then
+        assertThatThrownBy(() ->
+                oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication)
+        )
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("네이버 사용자 ID를 가져오지 못했습니다.");
 
-        when(userService.findOrCreateNaverUser(
-                "unknown",
-                "user@example.com",
-                "은서",
-                "2000"
-        )).thenReturn(user);
+        // providerId가 없으면 회원 생성/조회까지 가면 안 된다.
+        verifyNoInteractions(userService);
 
-        when(refreshTokenService.issue(user)).thenReturn("refresh-token");
-        when(jwtTokenProvider.createAccessToken(eq("99"), anyMap())).thenReturn("access-token");
+        // 토큰 발급도 하면 안 된다.
+        verifyNoInteractions(refreshTokenService);
+        verifyNoInteractions(jwtTokenProvider);
 
-        // when
-        oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication);
+        // 쿠키 저장도 하면 안 된다.
+        verifyNoInteractions(authCookieService);
 
-        // then
-        // ✅ providerId가 null이면 unknown으로 바꿔서 회원 조회하는지 확인
-        verify(userService).findOrCreateNaverUser(
-                "unknown",
-                "user@example.com",
-                "은서",
-                "2000"
-        );
-
-        verify(refreshTokenService).issue(user);
-        verify(authCookieService).setRefreshCookie(response, "refresh-token");
-        verify(authCookieService).setAccessCookie(response, "access-token");
-
-        assertThat(response.getRedirectedUrl())
-                .isEqualTo("https://www.esjh.shop/login/success");
+        // 로그인 성공 페이지로 이동하면 안 된다.
+        assertThat(response.getRedirectedUrl()).isNull();
     }
 }
