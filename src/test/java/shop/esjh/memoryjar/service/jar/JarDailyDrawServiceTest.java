@@ -298,7 +298,7 @@ class JarDailyDrawServiceTest {
         // then
         assertThat(ex).isNotNull();
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("아직 뽑을 수 있는 추억 쪽지가 없어.");
+        assertThat(ex.getReason()).isEqualTo("아직 뽑을 수 있는 추억 쪽지가 없어요. 새로운 쪽지를 추가해주세요.");
 
         // 후보가 없으면 저장하면 안 된다.
         verify(noteRepository, never()).findDailyDrawCandidatesByJarId(anyLong(), any(Pageable.class));

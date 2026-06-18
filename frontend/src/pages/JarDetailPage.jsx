@@ -3163,6 +3163,21 @@ function MemoryDrawModal({
   // true면 결과를 바로 보여주지 않고, 가운데에서 쪽지 뽑기 연출을 먼저 보여준다.
   const [drawAnimationPlaying, setDrawAnimationPlaying] = useState(false);
 
+  // 사용자가 뽑기 기록에서 선택한 기록을 저장한다.
+  // null이면 기본으로 "오늘 뽑힌 추억"을 보여준다.
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
+
+  // 사용자가 뽑기 기록에서 선택한 쪽지의 "상세 정보"를 저장한다.
+  // 히스토리 목록 item은 요약 정보라서 사진 attachments가 없을 수 있기 때문에,
+  // 클릭할 때 상세 API로 다시 가져온 데이터를 여기에 넣는다.
+  const [selectedHistoryNote, setSelectedHistoryNote] = useState(null);
+
+  // 기록을 눌렀을 때 상세 정보를 불러오는 중인지 저장한다.
+  const [selectedHistoryLoading, setSelectedHistoryLoading] = useState(false);
+
+  // 기록 상세 조회에 실패했을 때 보여줄 안내 문구다.
+  const [selectedHistoryError, setSelectedHistoryError] = useState("");
+
   /*
    * 추억 쪽지 뽑기 버튼 클릭 함수
    *
@@ -3194,14 +3209,110 @@ function MemoryDrawModal({
     }
   }
 
+  /*
+   * 뽑기 기록 클릭 함수
+   *
+   * 역할:
+   * - 뽑기 기록을 눌러도 상세 화면으로 바로 넘어가지 않는다.
+   * - 대신 선택한 기록의 쪽지 상세 정보를 다시 불러와서 왼쪽 카드에 보여준다.
+   *
+   * 왜 상세 조회를 다시 하냐면?
+   * - history item은 목록용 요약 데이터라서 attachments가 없을 수 있다.
+   * - 사진은 note 상세 데이터에 들어있는 attachments를 써야 안정적으로 보인다.
+   */
+  async function handleSelectHistoryItem(item) {
+    if (!item?.noteId) return;
+
+    // 우선 어떤 기록을 선택했는지 저장한다.
+    setSelectedHistoryItem(item);
+    setSelectedHistoryNote(null);
+    setSelectedHistoryError("");
+
+    // 오늘 뽑힌 쪽지는 이미 today.dailyDraw.note 안에 상세 정보가 있다.
+    // 그래서 같은 쪽지를 다시 누른 경우에는 API를 또 부르지 않고 기존 상세 데이터를 사용한다.
+    const todayNote = today?.dailyDraw?.note;
+
+    if (todayNote && Number(todayNote.noteId) === Number(item.noteId)) {
+      setSelectedHistoryNote(todayNote);
+      return;
+    }
+
+    const currentJarId = jar?.jarId ?? jar?.id;
+
+    if (!currentJarId) {
+      setSelectedHistoryNote({
+        noteId: item.noteId,
+        title: item.title,
+        authorId: item.authorId,
+        authorName: item.authorName,
+        noteDate: item.noteDate,
+        location: item.location,
+        content: item.content,
+        attachments: Array.isArray(item.attachments) ? item.attachments : [],
+      });
+      return;
+    }
+
+    setSelectedHistoryLoading(true);
+
+    try {
+      const res = await apiClient.get(
+        `/api/v1/jars/${currentJarId}/notes/${item.noteId}`
+      );
+
+      setSelectedHistoryNote(res.data?.data || null);
+    } catch (e) {
+      // 상세 조회가 실패해도 화면이 깨지지 않게 요약 정보라도 보여준다.
+      setSelectedHistoryNote({
+        noteId: item.noteId,
+        title: item.title,
+        authorId: item.authorId,
+        authorName: item.authorName,
+        noteDate: item.noteDate,
+        location: item.location,
+        content: item.content,
+        attachments: Array.isArray(item.attachments) ? item.attachments : [],
+      });
+
+      setSelectedHistoryError(
+        "선택한 기록의 상세 정보를 불러오지 못해서 요약 정보만 보여줘요."
+      );
+    } finally {
+      setSelectedHistoryLoading(false);
+    }
+  }
+
   // Hook 선언이 끝난 뒤에 open 체크를 해야 한다.
   if (!open) return null;
 
   // 오늘 뽑기 결과를 안전하게 꺼낸다.
+  // today는 부모 컴포넌트가 넘겨준 dailyDrawToday 값이다.
   const dailyDraw = today?.dailyDraw ?? null;
 
-  // 오늘 뽑힌 쪽지 정보
-  const note = dailyDraw?.note ?? null;
+  // 오늘 뽑힌 쪽지 상세 정보
+  const todayNote = dailyDraw?.note ?? null;
+
+  // 왼쪽 카드가 어떤 뽑기 날짜를 보여줄지 정한다.
+  // 기록을 선택했으면 선택한 기록, 아니면 오늘 뽑기 결과를 보여준다.
+  const selectedDrawItem = selectedHistoryItem ?? dailyDraw;
+
+  // 왼쪽 카드에 실제로 보여줄 쪽지 정보다.
+  // 기록을 선택했으면 상세 조회로 가져온 selectedHistoryNote를 우선 사용한다.
+  // 아무 기록도 선택하지 않았으면 오늘 뽑힌 쪽지 todayNote를 사용한다.
+  const note = selectedHistoryItem
+    ? selectedHistoryNote ?? {
+        noteId: selectedHistoryItem.noteId,
+        title: selectedHistoryItem.title,
+        authorId: selectedHistoryItem.authorId,
+        authorName: selectedHistoryItem.authorName,
+        noteDate: selectedHistoryItem.noteDate,
+        location: selectedHistoryItem.location,
+        content: selectedHistoryItem.content,
+        attachments: Array.isArray(selectedHistoryItem.attachments)
+          ? selectedHistoryItem.attachments
+          : [],
+      }
+    : todayNote;
 
   // 오늘 카드에 이미지가 있으면 대표 이미지로 사용한다.
   const coverImage = Array.isArray(note?.attachments)
@@ -3519,9 +3630,9 @@ function MemoryDrawModal({
 
                 <div className="p-5">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
-                    {dailyDraw?.drawDate && (
+                    {selectedDrawItem?.drawDate && (
                       <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                        {dailyDraw.drawDate}
+                        {dailyDraw?.drawDate}
                       </span>
                     )}
 
@@ -3603,7 +3714,7 @@ function MemoryDrawModal({
                       <button
                         key={item.drawId}
                         type="button"
-                        onClick={() => onOpenNoteDetail?.(item.noteId)}
+                        onClick={() => handleSelectHistoryItem(item)}
                         className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${palette.softCard}`}
                       >
                         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -3798,7 +3909,7 @@ function DailyDrawSection({
             <div className="p-5">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                  {dailyDraw.drawDate}
+                  {dailyDraw?.drawDate}
                 </span>
 
                 {note.noteDate && (
@@ -3875,7 +3986,7 @@ function DailyDrawSection({
                   <button
                     key={item.drawId}
                     type="button"
-                    onClick={() => onOpenNoteDetail?.(item.noteId)}
+                    onClick={() => handleSelectHistoryItem(item)}
                     className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${palette.softCard}`}
                   >
                     <div className="mb-2 flex flex-wrap items-center gap-2">

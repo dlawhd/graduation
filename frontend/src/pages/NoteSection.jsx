@@ -37,6 +37,10 @@ const REACTION_ORDER = [
   "THANKFUL",
 ];
 
+// 쪽지 태그는 서버 DTO 기준 최대 10개까지 보낼 수 있다.
+// 프론트에서도 같은 숫자를 사용해서 안내 문구와 검증 기준을 맞춘다.
+const NOTE_TAG_LIMIT = 10;
+
 // 입력값이 문자열이면 앞뒤 공백을 정리해줘.
 function toSafeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -274,6 +278,17 @@ function PaperComposeModal({
   if (!open) return null;
 
   const tags = normalizeTags(form.tagsText);
+
+  // 현재 입력한 태그 개수가 최대 개수를 넘었는지 확인한다.
+  // 이 값으로 안내 숫자 색과 에러 문구를 같이 제어한다.
+  const isTagLimitExceeded = tags.length > NOTE_TAG_LIMIT;
+
+  const tagCounterClass = isTagLimitExceeded
+    ? "text-rose-500"
+    : tags.length === NOTE_TAG_LIMIT
+    ? "text-amber-500"
+    : "text-slate-400";
+
 
   const isFormStep = step === "form";
   const isPreviewStep = step === "preview";
@@ -565,21 +580,48 @@ function PaperComposeModal({
                   <span className="mb-2 block text-xs font-semibold text-slate-500">
                     태그 (선택)
                   </span>
-                  <input
-                    type="text"
-                    value={form.tagsText}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        tagsText: e.target.value,
-                      }))
-                    }
-                    placeholder="예: 여행, 봄, 웃음"
-                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                  />
-                  <p className="mt-2 text-xs text-slate-400">
-                    쉼표(,)로 구분해서 여러 개를 넣을 수 있어요.
-                  </p>
+                    <input
+                      type="text"
+                      value={form.tagsText}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        const nextTags = normalizeTags(nextValue);
+
+                        setForm((prev) => ({
+                          ...prev,
+                          tagsText: nextValue,
+                        }));
+
+                        // 태그 개수가 다시 10개 이하가 되면 에러 문구를 바로 지워준다.
+                        if (nextTags.length <= NOTE_TAG_LIMIT) {
+                          setFormError((prev) => ({ ...prev, tags: "" }));
+                        }
+                      }}
+                      placeholder="예: 여행, 봄, 웃음"
+                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                    />
+
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs text-slate-400">
+                        쉼표(,)로 구분해서 여러 개를 넣을 수 있어요. 최대 {NOTE_TAG_LIMIT}개까지 가능해요.
+                      </p>
+
+                      <p className={`text-xs font-black ${tagCounterClass}`}>
+                        {tags.length}/{NOTE_TAG_LIMIT}
+                      </p>
+                    </div>
+
+                    {isTagLimitExceeded && !formError?.tags && (
+                      <p className="mt-2 text-sm font-semibold text-rose-500">
+                        태그는 최대 {NOTE_TAG_LIMIT}개까지 입력할 수 있어요.
+                      </p>
+                    )}
+
+                    {formError?.tags && (
+                      <p className="mt-2 text-sm font-semibold text-rose-500">
+                        {formError.tags}
+                      </p>
+                    )}
                 </label>
 
                 <div className="flex flex-wrap justify-end gap-3 pt-2">
@@ -1061,6 +1103,7 @@ export default function NoteSection({
   const [formError, setFormError] = useState({
     title: "",
     content: "",
+    tags: "",
   });
 
   // 토스트 메시지를 저장하는 상태
@@ -1127,10 +1170,12 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
     const nextError = {
       title: "",
       content: "",
+      tags: "",
     };
 
     const title = toSafeText(form.title);
     const content = toSafeText(form.content);
+    const tags = normalizeTags(form.tagsText);
 
     if (!title) {
       nextError.title = "제목을 꼭 입력해 주세요.";
@@ -1140,10 +1185,14 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
       nextError.content = "내용을 꼭 입력해 주세요.";
     }
 
+    if (tags.length > NOTE_TAG_LIMIT) {
+      nextError.tags = `태그는 최대 ${NOTE_TAG_LIMIT}개까지 입력할 수 있어요.`;
+    }
+
     setFormError(nextError);
 
-    // 둘 다 비어있지 않으면 true
-    return !nextError.title && !nextError.content;
+    // 제목, 내용, 태그 조건을 모두 통과하면 true
+    return !nextError.title && !nextError.content && !nextError.tags;
   }
 
   // 화면 가운데에서 저금통 입구까지 쪽지를 날려 보내는 함수
@@ -1317,6 +1366,7 @@ function resetWriteForm() {
   setFormError({
     title: "",
     content: "",
+    tags: "",
   });
 
   setUploadError("");
@@ -1326,6 +1376,7 @@ function openComposer() {
   setFormError({
     title: "",
     content: "",
+    tags: "",
   });
 
   setComposerStep("form");
@@ -1371,7 +1422,7 @@ async function handleCreateNote() {
   const isValid = validateWriteForm(writeForm);
 
   if (!isValid) {
-    showToast("error", "제목과 내용을 입력한 뒤 다시 시도해 주세요.");
+    showToast("error", "입력값을 확인한 뒤 다시 시도해 주세요.");
     return;
   }
 

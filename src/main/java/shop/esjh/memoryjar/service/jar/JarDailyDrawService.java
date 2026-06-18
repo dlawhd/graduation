@@ -190,7 +190,7 @@ public class JarDailyDrawService {
         if (candidateCount <= 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "아직 뽑을 수 있는 추억 쪽지가 없어."
+                    "아직 뽑을 수 있는 추억 쪽지가 없어요. 새로운 쪽지를 추가해주세요."
             );
         }
 
