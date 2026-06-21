@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -121,6 +122,50 @@ class NoteCommentRepositoryTest extends AbstractMariaDbRepositoryTest {
 
         assertThat(noteCommentRepository.countByNote_NoteId(note.getNoteId())).isEqualTo(1L);
         assertThat(noteCommentRepository.findByCommentId(activeComment.getCommentId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("countCommentsByNoteIds는 여러 쪽지의 댓글 개수를 한 번에 조회한다")
+    void countCommentsByNoteIds_returnsCommentCountsInBatch() {
+        // given
+        User owner = saveUser("owner-comment-batch", "owner-comment-batch@example.com", "owner");
+        User commenter = saveUser("commenter-comment-batch", "commenter-comment-batch@example.com", "commenter");
+
+        Jar jar = saveJar(owner, "comment-batch-jar", LocalDateTime.now().plusDays(1));
+
+        Note firstNote = saveNote(jar, owner, "comment-batch-first-note", LocalDateTime.now());
+        Note secondNote = saveNote(jar, owner, "comment-batch-second-note", LocalDateTime.now().plusMinutes(1));
+        Note emptyNote = saveNote(jar, owner, "comment-batch-empty-note", LocalDateTime.now().plusMinutes(2));
+
+        saveComment(firstNote, owner, "첫 번째 쪽지 댓글 1");
+        saveComment(firstNote, commenter, "첫 번째 쪽지 댓글 2");
+        saveComment(secondNote, commenter, "두 번째 쪽지 댓글 1");
+
+        flushAndClear();
+
+        // when
+        List<NoteCommentRepository.CommentCountView> result = noteCommentRepository.countCommentsByNoteIds(
+                List.of(firstNote.getNoteId(), secondNote.getNoteId(), emptyNote.getNoteId())
+        );
+
+        // then
+        // 댓글이 있는 쪽지만 결과에 나온다.
+        // 댓글이 0개인 emptyNote는 GROUP BY 결과에 나오지 않는다.
+        assertThat(result)
+                .extracting(NoteCommentRepository.CommentCountView::getNoteId)
+                .containsExactlyInAnyOrder(firstNote.getNoteId(), secondNote.getNoteId());
+
+        assertThat(result)
+                .filteredOn(view -> view.getNoteId().equals(firstNote.getNoteId()))
+                .singleElement()
+                .extracting(NoteCommentRepository.CommentCountView::getCommentCount)
+                .isEqualTo(2L);
+
+        assertThat(result)
+                .filteredOn(view -> view.getNoteId().equals(secondNote.getNoteId()))
+                .singleElement()
+                .extracting(NoteCommentRepository.CommentCountView::getCommentCount)
+                .isEqualTo(1L);
     }
 
     private NoteComment saveComment(Note note, User user, String content) {

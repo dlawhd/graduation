@@ -1,5 +1,7 @@
 package shop.esjh.memoryjar.repository.note;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import shop.esjh.memoryjar.entity.note.NoteComment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -53,5 +55,31 @@ public interface NoteCommentRepository extends JpaRepository<NoteComment, Long> 
      */
     long countByNote_NoteId(Long noteId);
 
+    /*
+     * 여러 쪽지의 댓글 개수를 한 번에 조회한다.
+     *
+     * 왜 필요할까?
+     * - 쪽지 목록 화면에서는 여러 쪽지가 한 번에 보인다.
+     * - 쪽지마다 countByNote_NoteId를 반복 호출하면 쪽지 개수만큼 쿼리가 나갈 수 있다.
+     * - IN + GROUP BY로 한 번에 조회하면 DB 왕복 횟수를 줄일 수 있다.
+     *
+     * 주의할 점:
+     * - 댓글이 0개인 쪽지는 결과에 나오지 않을 수 있다.
+     * - 그래서 Service에서 getOrDefault(noteId, 0L)로 0개를 처리한다.
+     */
+    @Query("""
+        select c.note.noteId as noteId,
+               count(c.commentId) as commentCount
+        from NoteComment c
+        where c.note.noteId in :noteIds
+        group by c.note.noteId
+        """)
+    List<CommentCountView> countCommentsByNoteIds(@Param("noteIds") List<Long> noteIds);
+
+    interface CommentCountView {
+        Long getNoteId();
+
+        Long getCommentCount();
+    }
 
 }

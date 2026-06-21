@@ -480,10 +480,30 @@ public class NoteCommentService {
             return Map.of();
         }
 
+        /*
+         * 여러 쪽지의 댓글 개수를 한 번에 조회한다.
+         *
+         * 예전 방식:
+         * - 쪽지 목록에 20개가 있으면 countByNote_NoteId 쿼리가 20번 나갈 수 있었다.
+         *
+         * 개선 방식:
+         * - noteIds 전체를 IN 조건으로 한 번에 넘긴다.
+         * - DB가 noteId별 댓글 개수를 GROUP BY로 계산한다.
+         * - 댓글이 0개인 쪽지는 쿼리 결과에 없을 수 있으므로 서비스에서 0L을 채운다.
+         */
+        Map<Long, Long> countedMap = noteCommentRepository.countCommentsByNoteIds(noteIds).stream()
+                .collect(Collectors.toMap(
+                        NoteCommentRepository.CommentCountView::getNoteId,
+                        NoteCommentRepository.CommentCountView::getCommentCount
+                ));
+
+        // 기존 메서드처럼 요청받은 noteId는 모두 Map에 포함시킨다.
+        // 댓글이 없는 쪽지는 0L로 넣어 목록 DTO에서 안전하게 사용할 수 있게 한다.
         return noteIds.stream()
+                .distinct()
                 .collect(Collectors.toMap(
                         noteId -> noteId,
-                        noteCommentRepository::countByNote_NoteId
+                        noteId -> countedMap.getOrDefault(noteId, 0L)
                 ));
     }
 

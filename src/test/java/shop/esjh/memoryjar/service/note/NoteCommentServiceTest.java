@@ -252,15 +252,25 @@ class NoteCommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 개수 맵 조회 성공")
+    @DisplayName("댓글 개수 맵 조회 성공 - 여러 쪽지의 댓글 수를 batch로 조회한다")
     void getCommentCountMapByNoteIds_success() {
-        when(noteCommentRepository.countByNote_NoteId(10L)).thenReturn(2L);
-        when(noteCommentRepository.countByNote_NoteId(11L)).thenReturn(0L);
+        // given
+        // 10번 쪽지는 댓글 2개, 11번 쪽지는 댓글 0개인 상황이다.
+        // 실제 batch 쿼리는 댓글이 있는 10번 쪽지만 결과로 돌려줄 수 있다.
+        when(noteCommentRepository.countCommentsByNoteIds(List.of(10L, 11L)))
+                .thenReturn(List.of(commentCountView(10L, 2L)));
 
+        // when
         var result = noteCommentService.getCommentCountMapByNoteIds(List.of(10L, 11L));
 
+        // then
         assertThat(result).containsEntry(10L, 2L);
         assertThat(result).containsEntry(11L, 0L);
+
+        // 이번 개선의 핵심: 쪽지마다 count 쿼리를 반복하지 않는다.
+        verify(noteCommentRepository).countCommentsByNoteIds(List.of(10L, 11L));
+        verify(noteCommentRepository, never()).countByNote_NoteId(10L);
+        verify(noteCommentRepository, never()).countByNote_NoteId(11L);
     }
 
     private User createUser(Long id, String name) {
@@ -337,5 +347,19 @@ class NoteCommentServiceTest {
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.of(2026, 4, 15, 10, 10));
         ReflectionTestUtils.setField(comment, "updatedAt", LocalDateTime.of(2026, 4, 15, 10, 10));
         return comment;
+    }
+
+    private NoteCommentRepository.CommentCountView commentCountView(Long noteId, Long commentCount) {
+        return new NoteCommentRepository.CommentCountView() {
+            @Override
+            public Long getNoteId() {
+                return noteId;
+            }
+
+            @Override
+            public Long getCommentCount() {
+                return commentCount;
+            }
+        };
     }
 }
