@@ -1,6 +1,11 @@
 package shop.esjh.memoryjar.service.jar;
 
 
+import org.junit.jupiter.api.DisplayName;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import shop.esjh.memoryjar.dto.jar.request.*;
 import shop.esjh.memoryjar.dto.jar.response.*;
 import shop.esjh.memoryjar.entity.User;
@@ -29,6 +34,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -920,5 +926,261 @@ class JarServiceTest {
         assertThatThrownBy(() -> jarService.deleteJar(1L, 10L))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("저금통 삭제는 OWNER만");
+    }
+
+    @Test
+    void joinByInvite는_나갔던_ADMIN도_MEMBER로_초기화해서_재가입시킨다() {
+        // given
+        User currentUser = User.builder()
+                .id(1L)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-123")
+                .build();
+
+        User owner = User.builder()
+                .id(2L)
+                .name("주인")
+                .provider("NAVER")
+                .providerId("naver-999")
+                .build();
+
+        Jar jar = Jar.builder()
+                .owner(owner)
+                .name("우리 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(3)
+                .openAt(LocalDateTime.now().plusDays(30))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(jar, "jarId", 10L);
+
+        JarInvite invite = JarInvite.builder()
+                .jar(jar)
+                .createdBy(owner)
+                .code("ABCD1234")
+                .expiresAt(LocalDateTime.now().plusHours(24))
+                .maxUses(5)
+                .build();
+
+        // 예전에 ADMIN 권한을 가지고 있던 멤버를 준비합니다.
+        JarMember leftAdminMember = JarMember.createMember(jar, currentUser);
+        leftAdminMember.changeRole(JarRole.ADMIN);
+
+        // 저금통을 나간 상태로 만들어, 재가입 대상 row가 되게 합니다.
+        leftAdminMember.leave();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
+        when(jarInviteRepository.findByCodeForUpdate("ABCD1234")).thenReturn(Optional.of(invite));
+        when(jarRepository.findByJarIdForUpdate(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.findAnyByJarIdAndUserIdIncludingDeleted(10L, 1L))
+                .thenReturn(Optional.of(leftAdminMember));
+        when(jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(10L)).thenReturn(1L);
+
+        // when
+        JarInviteJoinResponse response = jarService.joinByInvite(
+                1L,
+                new JarInviteJoinRequest("ABCD1234")
+        );
+
+        // then
+        // 초대코드로 다시 들어오는 사람은 예전 ADMIN 권한을 이어받지 않고 MEMBER가 됩니다.
+        assertThat(response.myRole()).isEqualTo(JarRole.MEMBER);
+        assertThat(leftAdminMember.getRole()).isEqualTo(JarRole.MEMBER);
+
+        // 기존 row를 다시 살리는 흐름이므로 새 멤버를 추가 저장하지 않습니다.
+        verify(jarMemberRepository, never()).save(any(JarMember.class));
+    }
+
+    @Test
+    @DisplayName("listMyJars는 이미 열린 저금통을 batch로 확인하고 미래 저금통은 보정 오픈하지 않는다")
+    void listMyJars_usesBatchOpenedJarIdsAndSkipsFutureJars() {
+        // given
+        Long currentUserId = 1L;
+
+        User owner = User.builder()
+                .id(currentUserId)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-1")
+                .build();
+
+        Jar openedJar = Jar.builder()
+                .owner(owner)
+                .name("이미 열린 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(5)
+                .openAt(LocalDateTime.now().minusDays(1))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(openedJar, "jarId", 10L);
+
+        Jar futureJar = Jar.builder()
+                .owner(owner)
+                .name("아직 미래 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(5)
+                .openAt(LocalDateTime.now().plusDays(1))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(futureJar, "jarId", 20L);
+
+        Page<Jar> jarPage = new PageImpl<>(
+                List.of(openedJar, futureJar),
+                PageRequest.of(0, 20),
+                2
+        );
+
+        when(jarRepository.findMyJarsByUserId(eq(currentUserId), any(Pageable.class)))
+                .thenReturn(jarPage);
+
+        when(jarMemberRepository.countActiveMembersByJarIds(List.of(10L, 20L)))
+                .thenReturn(List.of(
+                        new TestJarMemberCountView(10L, 2L),
+                        new TestJarMemberCountView(20L, 1L)
+                ));
+
+        when(jarMemberRepository.findMyRolesByJarIdsAndUserId(List.of(10L, 20L), currentUserId))
+                .thenReturn(List.of(
+                        new TestMyJarRoleView(10L, JarRole.OWNER),
+                        new TestMyJarRoleView(20L, JarRole.MEMBER)
+                ));
+
+        // 10번 저금통은 이미 열린 기록이 있다고 가정한다.
+        when(jarOpenService.findOpenedJarIdSet(List.of(10L, 20L)))
+                .thenReturn(Set.of(10L));
+
+        // when
+        JarListResponse response = jarService.listMyJars(currentUserId, 0, 20);
+
+        // then
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(0).isOpen()).isTrue();
+        assertThat(response.items().get(1).isOpen()).isFalse();
+
+        // 미래 저금통은 아직 열릴 수 없으므로 ensureOpenedIfDue를 호출하지 않는다.
+        verify(jarOpenService, never()).ensureOpenedIfDue(20L);
+
+        // 이미 열린 저금통도 batch 결과로 판단했으므로 다시 보정 오픈하지 않는다.
+        verify(jarOpenService, never()).ensureOpenedIfDue(10L);
+    }
+
+    @Test
+    @DisplayName("listMyJars는 openAt이 지난 미오픈 저금통만 보정 오픈한다")
+    void listMyJars_opensOnlyDueUnopenedJars() {
+        // given
+        Long currentUserId = 1L;
+
+        User owner = User.builder()
+                .id(currentUserId)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-1")
+                .build();
+
+        Jar dueJar = Jar.builder()
+                .owner(owner)
+                .name("열릴 시간이 지난 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(5)
+                .openAt(LocalDateTime.now().minusHours(1))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(dueJar, "jarId", 10L);
+
+        Jar futureJar = Jar.builder()
+                .owner(owner)
+                .name("아직 미래 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(5)
+                .openAt(LocalDateTime.now().plusDays(1))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(futureJar, "jarId", 20L);
+
+        Page<Jar> jarPage = new PageImpl<>(
+                List.of(dueJar, futureJar),
+                PageRequest.of(0, 20),
+                2
+        );
+
+        when(jarRepository.findMyJarsByUserId(eq(currentUserId), any(Pageable.class)))
+                .thenReturn(jarPage);
+
+        when(jarMemberRepository.countActiveMembersByJarIds(List.of(10L, 20L)))
+                .thenReturn(List.of(
+                        new TestJarMemberCountView(10L, 1L),
+                        new TestJarMemberCountView(20L, 1L)
+                ));
+
+        when(jarMemberRepository.findMyRolesByJarIdsAndUserId(List.of(10L, 20L), currentUserId))
+                .thenReturn(List.of(
+                        new TestMyJarRoleView(10L, JarRole.OWNER),
+                        new TestMyJarRoleView(20L, JarRole.MEMBER)
+                ));
+
+        // 아직 열린 기록은 없다고 가정한다.
+        when(jarOpenService.findOpenedJarIdSet(List.of(10L, 20L)))
+                .thenReturn(Set.of());
+
+        // 10번은 openAt이 지났으므로 보정 오픈 성공.
+        when(jarOpenService.ensureOpenedIfDue(10L))
+                .thenReturn(true);
+
+        // when
+        JarListResponse response = jarService.listMyJars(currentUserId, 0, 20);
+
+        // then
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(0).isOpen()).isTrue();
+        assertThat(response.items().get(1).isOpen()).isFalse();
+
+        // 시간이 지난 저금통만 보정 오픈한다.
+        verify(jarOpenService).ensureOpenedIfDue(10L);
+
+        // 미래 저금통은 보정 오픈하지 않는다.
+        verify(jarOpenService, never()).ensureOpenedIfDue(20L);
+    }
+
+    private record TestJarMemberCountView(
+            Long jarId,
+            Long memberCount
+    ) implements JarMemberRepository.JarMemberCountView {
+
+        @Override
+        public Long getJarId() {
+            return jarId;
+        }
+
+        @Override
+        public Long getMemberCount() {
+            return memberCount;
+        }
+    }
+
+    private record TestMyJarRoleView(
+            Long jarId,
+            JarRole role
+    ) implements JarMemberRepository.MyJarRoleView {
+
+        @Override
+        public Long getJarId() {
+            return jarId;
+        }
+
+        @Override
+        public JarRole getRole() {
+            return role;
+        }
     }
 }

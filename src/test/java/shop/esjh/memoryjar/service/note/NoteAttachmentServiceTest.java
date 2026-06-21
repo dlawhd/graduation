@@ -66,8 +66,8 @@ class NoteAttachmentServiceTest {
         when(noteAttachmentRepository.findTopByNote_NoteIdOrderBySortOrderDesc(noteId))
                 .thenReturn(Optional.of(lastAttachment));
 
-        when(noteAttachmentRepository.existsByS3Key("notes/1/file2.png")).thenReturn(false);
-        when(noteAttachmentRepository.existsByS3Key("notes/1/file3.png")).thenReturn(false);
+        when(noteAttachmentRepository.findAllByS3KeyIn(List.of("notes/1/file2.png", "notes/1/file3.png")))
+                .thenReturn(List.of());
 
         // 현재 서비스는 file_uploads에서 실제 파일 정보를 가져오니까
         // FileUpload mock도 만들어줘야 해
@@ -128,6 +128,10 @@ class NoteAttachmentServiceTest {
 
         verify(upload1).markConsumed();
         verify(upload2).markConsumed();
+
+        // 여러 파일을 저장해도 s3Key 중복 검사는 IN 쿼리 1번으로 끝나야 한다.
+        verify(noteAttachmentRepository).findAllByS3KeyIn(List.of("notes/1/file2.png", "notes/1/file3.png"));
+        verify(noteAttachmentRepository, never()).existsByS3Key(any());
     }
 
     @Test
@@ -504,6 +508,48 @@ class NoteAttachmentServiceTest {
         assertThat(result).isEmpty();
         verify(noteRepository, never()).findByNoteId(any());
         verify(noteAttachmentRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("첨부파일 여러 개 저장 실패 - 이미 저장된 s3Key가 있으면 한 번에 검사하고 409를 반환한다")
+    void createAttachments_fail_alreadyAttachedS3Key() {
+        // given
+        Long currentUserId = 1L;
+        Long noteId = 1L;
+
+        when(noteRepository.findByNoteId(noteId)).thenReturn(Optional.of(note));
+        when(noteAttachmentRepository.countByNote_NoteId(noteId)).thenReturn(0L);
+
+        FileUpload upload = mock(FileUpload.class);
+
+        when(fileUploadRepository.findAllByUser_IdAndPurposeAndStatusAndS3KeyIn(
+                currentUserId,
+                FilePurpose.NOTE,
+                FileUploadStatus.COMPLETED,
+                List.of("notes/1/already.png")
+        )).thenReturn(List.of(upload));
+
+        NoteAttachment existingAttachment = mock(NoteAttachment.class);
+        when(noteAttachmentRepository.findAllByS3KeyIn(List.of("notes/1/already.png")))
+                .thenReturn(List.of(existingAttachment));
+
+        List<NoteAttachmentCreateRequest> requests = List.of(
+                new NoteAttachmentCreateRequest("notes/1/already.png")
+        );
+
+        // when / then
+        assertThatThrownBy(() -> noteAttachmentService.createAttachments(currentUserId, noteId, requests))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> {
+                    ResponseStatusException exception = (ResponseStatusException) ex;
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(exception.getReason()).isEqualTo("이미 저장된 첨부파일이야.");
+                });
+
+        // 이미 저장된 파일이면 새 첨부를 저장하지 않고, 업로드도 소비 처리하지 않는다.
+        verify(noteAttachmentRepository, never()).saveAll(anyList());
+        verify(upload, never()).markConsumed();
+        verify(noteAttachmentRepository, never()).existsByS3Key(any());
     }
 
     // 이 함수는 FileUpload mock을 쉽게 만드는 작은 도우미야.

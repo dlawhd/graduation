@@ -117,7 +117,7 @@ class NoteAttachmentRepositoryTest extends AbstractMariaDbRepositoryTest {
     }
 
     @Test
-    @DisplayName("existsByS3Key, findByS3Key, count 계열 메서드는 첨부 기본 조회를 지원한다")
+    @DisplayName("existsByS3Key, findByS3Key, findAllByS3KeyIn, count 계열 메서드는 첨부 기본 조회를 지원한다")
     void attachmentLookupMethods_supportLookupAndCount() {
         User owner = saveUser("owner-attachment-lookup", "owner-attachment-lookup@example.com", "owner");
         Jar jar = saveJar(owner, "attachment-lookup-jar", LocalDateTime.now().plusDays(1));
@@ -131,5 +131,12 @@ class NoteAttachmentRepositoryTest extends AbstractMariaDbRepositoryTest {
         assertThat(noteAttachmentRepository.findByS3Key("lookup/file-1.png")).isPresent();
         assertThat(noteAttachmentRepository.countByNote(note)).isEqualTo(2);
         assertThat(noteAttachmentRepository.countByNote_NoteId(note.getNoteId())).isEqualTo(2);
+
+        // 여러 s3Key 중 이미 첨부로 저장된 것만 한 번에 조회한다.
+        assertThat(noteAttachmentRepository.findAllByS3KeyIn(
+                List.of("lookup/file-0.png", "lookup/missing.png", "lookup/file-1.png")
+        ))
+                .extracting(NoteAttachment::getS3Key)
+                .containsExactlyInAnyOrder("lookup/file-0.png", "lookup/file-1.png");
     }
 }

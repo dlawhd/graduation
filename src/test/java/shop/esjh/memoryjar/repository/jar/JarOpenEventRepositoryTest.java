@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,5 +58,45 @@ class JarOpenEventRepositoryTest extends AbstractMariaDbRepositoryTest {
                 .get()
                 .extracting(JarOpenEvent::getReason)
                 .isEqualTo(JarOpenReason.ACCESS_TRIGGERED);
+    }
+
+    @Test
+    @DisplayName("findOpenedJarIdsByJarIds는 여러 저금통 중 오픈 이력이 있는 저금통 ID만 반환한다")
+    void findOpenedJarIdsByJarIds_returnsOnlyOpenedJarIds() {
+        // given
+        User owner = saveUser("owner-opened-list", "owner-opened-list@example.com", "owner");
+
+        Jar openedJar1 = saveJar(owner, "opened-jar-1", LocalDateTime.now().minusDays(2));
+        Jar unopenedJar = saveJar(owner, "unopened-jar", LocalDateTime.now().plusDays(1));
+        Jar openedJar2 = saveJar(owner, "opened-jar-2", LocalDateTime.now().minusDays(1));
+
+        jarOpenEventRepository.save(
+                JarOpenEvent.create(openedJar1, LocalDateTime.now().minusDays(2), JarOpenReason.ACCESS_TRIGGERED)
+        );
+        jarOpenEventRepository.save(
+                JarOpenEvent.create(openedJar2, LocalDateTime.now().minusDays(1), JarOpenReason.ACCESS_TRIGGERED)
+        );
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        List<Long> openedJarIds = jarOpenEventRepository.findOpenedJarIdsByJarIds(
+                List.of(
+                        openedJar1.getJarId(),
+                        unopenedJar.getJarId(),
+                        openedJar2.getJarId()
+                )
+        );
+
+        // then
+        assertThat(openedJarIds)
+                .containsExactlyInAnyOrder(
+                        openedJar1.getJarId(),
+                        openedJar2.getJarId()
+                );
+
+        assertThat(openedJarIds)
+                .doesNotContain(unopenedJar.getJarId());
     }
 }

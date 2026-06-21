@@ -37,6 +37,10 @@ public interface NoteAttachmentRepository extends JpaRepository<NoteAttachment, 
     // 왜 필요하냐면? files/complete 처리, 썸네일 생성 후 attachment 찾기, 특정 파일 상태 확인
     Optional<NoteAttachment> findByS3Key(String s3Key);
 
+    // 여러 S3 key 중 이미 첨부파일로 저장된 항목을 한 번에 조회함
+    // 첨부파일 여러 개를 연결할 때 existsByS3Key를 파일 개수만큼 반복 호출하지 않기 위해 사용함
+    List<NoteAttachment> findAllByS3KeyIn(List<String> s3Keys);
+
     // 특정 쪽지에 속한 첨부파일 개수를 셈
     //  왜 필요하냐면? 첨부 개수 제한(예: 최대 10개), 화면에서 첨부 개수 표시
     long countByNote(Note note);

@@ -14,14 +14,33 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     // 삭제되지 않은 쪽지 1개 찾기
     Optional<Note> findByNoteId(Long noteId);
 
-    // 특정 저금통의 쪽지 목록 조회
-    // 최신순으로 보여주려고 createdAt 내림차순 정렬
-    @Query("""
-            select n
-            from Note n
-            where n.jar.jarId = :jarId
-            order by n.createdAt desc
-            """)
+    /*
+     * 특정 저금통의 쪽지 목록을 조회한다.
+     *
+     * 왜 author를 join fetch 하냐면?
+     * - 쪽지 목록 응답에는 작성자 id와 이름이 필요하다.
+     * - Note.author는 LAZY라서 그냥 Note만 가져오면 작성자를 꺼낼 때 추가 조회가 생길 수 있다.
+     * - 그래서 쪽지와 작성자를 한 번에 가져와서 목록 조회 성능을 안정화한다.
+     *
+     * countQuery를 따로 둔 이유:
+     * - Page 조회는 전체 개수도 같이 세야 한다.
+     * - fetch join은 목록 조회에는 좋지만 count 쿼리에는 맞지 않아서,
+     *   개수 조회용 쿼리는 fetch join 없이 따로 작성한다.
+     */
+    @Query(
+            value = """
+                select n
+                from Note n
+                join fetch n.author
+                where n.jar.jarId = :jarId
+                order by n.createdAt desc
+                """,
+            countQuery = """
+                select count(n)
+                from Note n
+                where n.jar.jarId = :jarId
+                """
+    )
     Page<Note> findByJarId(@Param("jarId")
                            Long jarId, Pageable pageable);
 

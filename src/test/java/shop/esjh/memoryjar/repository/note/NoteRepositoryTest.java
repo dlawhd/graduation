@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.repository.note;
 
+import jakarta.persistence.PersistenceUnitUtil;
 import shop.esjh.memoryjar.config.JpaAuditConfig;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.jar.Jar;
@@ -84,5 +85,28 @@ class NoteRepositoryTest extends AbstractMariaDbRepositoryTest {
 
         assertThat(noteRepository.findByJarIdAndNoteId(jar.getJarId(), note.getNoteId())).isPresent();
         assertThat(noteRepository.findByJarIdAndNoteId(otherJar.getJarId(), note.getNoteId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByJarId는 작성자 정보를 함께 조회한다")
+    void findByJarId_fetchesAuthorToAvoidNPlusOne() {
+        User owner = saveUser("owner-note-author", "owner-note-author@example.com", "owner");
+        User author = saveUser("author-note-author", "author-note-author@example.com", "author");
+        Jar jar = saveJar(owner, "note-author-jar", LocalDateTime.now().plusDays(1));
+        saveNote(jar, author, "author-fetch-note", LocalDateTime.now());
+
+        flushAndClear();
+
+        Page<Note> result = noteRepository.findByJarId(jar.getJarId(), PageRequest.of(0, 10));
+
+        Note foundNote = result.getContent().get(0);
+        PersistenceUnitUtil persistenceUnitUtil = entityManager
+                .getEntityManagerFactory()
+                .getPersistenceUnitUtil();
+
+        // findByJarId는 목록 화면에서 작성자 이름을 바로 사용한다.
+        // 그래서 작성자를 미리 함께 가져와야 note.getAuthor().getName()에서 추가 쿼리가 늘어나지 않는다.
+        assertThat(persistenceUnitUtil.isLoaded(foundNote.getAuthor())).isTrue();
+        assertThat(foundNote.getAuthor().getName()).isEqualTo("author");
     }
 }

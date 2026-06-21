@@ -79,8 +79,9 @@ public class NoteAttachmentService {
             return List.of();
         }
 
-        // 1. 요청 안에서 같은 s3Key를 중복으로 보냈는지 검사
-        extractAndValidateS3Keys(requests);
+        // 1. 요청 안에서 s3Key가 비었거나 중복됐는지 검사하고, 앞뒤 공백을 제거한 목록을 받는다.
+        // 예: " notes/1/a.png " -> "notes/1/a.png"
+        List<String> requestedS3Keys = extractAndValidateS3Keys(requests);
 
         // 2. 쪽지 존재 확인
         Note note = getNoteOrThrow(noteId);
@@ -88,12 +89,7 @@ public class NoteAttachmentService {
         // 3. 개수 제한 확인
         validateAttachmentCount(noteId, requests.size());
 
-        // 4. 요청에서 s3Key 목록만 꺼내기
-        List<String> requestedS3Keys = requests.stream()
-                .map(NoteAttachmentCreateRequest::s3Key)
-                .toList();
-
-        // 5. 현재 사용자 + NOTE 목적 + COMPLETED 상태 업로드만 조회
+        // 4. 현재 사용자 + NOTE 목적 + COMPLETED 상태 업로드만 조회
         List<FileUpload> uploads = fileUploadRepository
                 .findAllByUser_IdAndPurposeAndStatusAndS3KeyIn(
                         currentUserId,
@@ -102,13 +98,17 @@ public class NoteAttachmentService {
                         requestedS3Keys
                 );
 
-        // 6. 조회 개수가 다르면 잘못된 파일이 섞인 것
+        // 5. 조회 개수가 다르면 잘못된 파일이 섞인 것
         if (uploads.size() != requestedS3Keys.size()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "complete가 끝난 내 NOTE 첨부만 연결할 수 있어."
             );
         }
+
+        // 6. 이미 다른 쪽지에 붙은 s3Key가 있는지 한 번에 확인한다.
+        // 예전에는 첨부파일 10개면 existsByS3Key 쿼리도 10번 나갈 수 있었다.
+        validateDuplicateS3Keys(requestedS3Keys);
 
         // 7. 찾기 쉽게 Map으로 바꾸기
         Map<String, FileUpload> uploadMap = uploads.stream()
@@ -128,9 +128,6 @@ public class NoteAttachmentService {
                         "유효하지 않은 첨부 파일이 포함되어 있어."
                 );
             }
-
-            // 이미 다른 note에 붙은 s3Key인지 확인
-            validateDuplicateS3Key(upload.getS3Key());
 
             // 이제는 file_uploads 값을 믿고 저장
             NoteAttachment attachment = NoteAttachment.builder()
@@ -272,16 +269,17 @@ public class NoteAttachmentService {
                 .orElse(0);
     }
 
-    // 같은 s3Key 중복 저장 방지
-    private void validateDuplicateS3Key(String s3Key) {
-        if (s3Key == null || s3Key.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "s3Key는 비어 있을 수 없어."
-            );
+    // 같은 s3Key가 이미 note_attachments에 저장되어 있는지 한 번에 검사
+    private void validateDuplicateS3Keys(List<String> s3Keys) {
+        if (s3Keys == null || s3Keys.isEmpty()) {
+            return;
         }
 
-        if (noteAttachmentRepository.existsByS3Key(s3Key)) {
+        // IN 조건으로 한 번에 조회한다.
+        // 예: s3Keys가 10개여도 DB에는 1번만 물어본다.
+        List<NoteAttachment> existingAttachments = noteAttachmentRepository.findAllByS3KeyIn(s3Keys);
+
+        if (!existingAttachments.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "이미 저장된 첨부파일이야."

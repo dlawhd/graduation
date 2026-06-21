@@ -35,7 +35,7 @@ spring:
       # port: 6379
 
 app:
-  frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
 
   jwt:
     access-exp-seconds: 1800      # 30분

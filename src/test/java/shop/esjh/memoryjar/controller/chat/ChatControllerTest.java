@@ -1,9 +1,11 @@
 package shop.esjh.memoryjar.controller.chat;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import shop.esjh.memoryjar.dto.chat.request.ChatMessageSendRequest;
 import shop.esjh.memoryjar.dto.chat.request.ChatReadRequest;
 import shop.esjh.memoryjar.dto.chat.response.ChatMessageListResponse;
 import shop.esjh.memoryjar.dto.chat.response.ChatMessageResponse;
+import shop.esjh.memoryjar.dto.chat.response.ChatSocketMessageResponse;
 import shop.esjh.memoryjar.dto.chat.response.ChatUnreadResponse;
 import shop.esjh.memoryjar.enums.chat.ChatMessageType;
 import shop.esjh.memoryjar.jwt.JwtAuthenticationFilter;
@@ -69,6 +71,10 @@ class ChatControllerTest {
 
     @MockitoBean
     private ChatService chatService;
+
+    @MockitoBean
+    private SimpMessagingTemplate messagingTemplate;
+
 
     /*
      * 현재 프로젝트의 다른 ControllerTest와 맞추기 위한 Mock Bean이다.
@@ -375,6 +381,46 @@ class ChatControllerTest {
         verify(chatService).getUnreadCount(
                 eq(1L),
                 eq(10L)
+        );
+    }
+
+    @Test
+    void sendMessage는_REST_fallback_메시지를_WebSocket_topic으로_전파한다() throws Exception {
+        // given
+        ChatMessageSendRequest request = new ChatMessageSendRequest("REST로 보낸 메시지");
+
+        ChatMessageResponse response = new ChatMessageResponse(
+                200L,
+                10L,
+                1L,
+                "은서",
+                ChatMessageType.TEXT,
+                "REST로 보낸 메시지",
+                true,
+                LocalDateTime.of(2026, 4, 24, 12, 10)
+        );
+
+        given(chatService.sendTextMessage(
+                eq(1L),
+                eq(10L),
+                any(ChatMessageSendRequest.class)
+        )).willReturn(response);
+
+        TestingAuthenticationToken auth = authenticatedUser();
+
+        // when
+        mockMvc.perform(post("/api/v1/jars/10/chat/messages")
+                        .principal(auth)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        // then
+        // REST fallback으로 저장된 메시지도 WebSocket 구독 주소로 방송되어야 한다.
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/jars/10/chat"),
+                any(ChatSocketMessageResponse.class)
         );
     }
 

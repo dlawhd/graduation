@@ -16,7 +16,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /*
  * JarOpenService 역할
@@ -153,6 +155,26 @@ public class JarOpenService {
 
         return true;
     }
+
+    /*
+     * 여러 저금통 중 이미 열린 저금통 ID를 한 번에 조회한다.
+     *
+     * 예전 방식:
+     * - 저금통 20개면 exists 쿼리도 20번 나갈 수 있었다.
+     *
+     * 개선 방식:
+     * - jarId 목록을 IN 조건으로 한 번에 조회한다.
+     * - 결과를 Set으로 바꿔 contains()로 빠르게 확인한다.
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> findOpenedJarIdSet(List<Long> jarIds) {
+        if (jarIds == null || jarIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return new HashSet<>(jarOpenEventRepository.findOpenedJarIdsByJarIds(jarIds));
+    }
+
 
     /*
      * DB에 저장된 LocalDateTime을 프론트 응답용 OffsetDateTime(+09:00)으로 바꿔준다.

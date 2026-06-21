@@ -29,11 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 // 저금통 만들기
@@ -173,6 +169,11 @@ public class JarService {
                         JarMemberRepository.MyJarRoleView::getRole
                 ));
 
+        // 현재 페이지 저금통들의 오픈 상태를 한 번에 계산한다.
+        // 예전처럼 DTO를 만들 때마다 isOpen(jar)를 호출하면,
+        // 저금통 개수만큼 ensureOpenedIfDue()가 실행될 수 있다.
+        Set<Long> openedJarIds = resolveOpenedJarIdsForList(jars, jarIds);
+
         // 각 저금통을 목록용 DTO로 변환한다.
         List<JarListItem> items = jars.stream()
                 .map(jar -> {
@@ -203,7 +204,7 @@ public class JarService {
                             toKstOffsetDateTime(jar.getOpenAt()),
                             jar.getOpenMode(),
                             jar.getLockLevel(),
-                            isOpen(jar),
+                            openedJarIds.contains(jarId),
                             myRole,
                             toKstOffsetDateTime(jar.getUpdatedAt())
                     );
@@ -428,10 +429,8 @@ public class JarService {
             joinedMember = existingMemberOpt.get();
             joinedMember.rejoin();
 
-            // 참고:
-            // 지금은 예전 role을 그대로 유지해.
-            // 재가입 시 항상 MEMBER로 바꾸고 싶다면 아래 한 줄을 열면 돼.
-            // joinedMember.changeRole(JarRole.MEMBER);
+            // 예전에 ADMIN이었더라도 다시 들어올 때는 MEMBER 권한으로 초기화한다.
+            joinedMember.changeRole(JarRole.MEMBER);
         } else {
             // 처음 들어오는 사람이면 새 row 생성
             joinedMember = JarMember.createMember(jar, currentUser);
@@ -948,7 +947,52 @@ public class JarService {
         }
         return localDateTime.atZone(KST).toOffsetDateTime();
     }
-    
+
+    /*
+     * 목록 화면에서 사용할 오픈 상태를 한 번에 계산한다.
+     *
+     * 핵심 목표:
+     * - 이미 열린 저금통은 jar_open_events를 IN 쿼리로 한 번에 확인한다.
+     * - 아직 안 열렸고 openAt이 지난 저금통만 보정 오픈 처리를 실행한다.
+     * - openAt이 아직 미래인 저금통은 굳이 ensureOpenedIfDue()를 호출하지 않는다.
+     *
+     * 쉽게 말하면,
+     * 저금통 목록 20개를 볼 때 20개 전부 문을 두드리는 게 아니라,
+     * 먼저 열린 저금통 목록을 한 번에 확인하고 필요한 것만 처리하는 방식이다.
+     */
+    private Set<Long> resolveOpenedJarIdsForList(List<Jar> jars, List<Long> jarIds) {
+        // 1. 이미 열린 저금통 ID를 한 번에 조회한다.
+        // 예: jarIds = [1, 2, 3] 이고 1번만 열렸다면 openedJarIds = [1]
+        Set<Long> openedJarIds = new HashSet<>(jarOpenService.findOpenedJarIdSet(jarIds));
+
+        // 2. 현재 시간을 한 번만 구한다.
+        // 저금통마다 now를 새로 만들지 않고 같은 기준 시간을 사용한다.
+        LocalDateTime now = LocalDateTime.now(KST);
+
+        // 3. 현재 페이지에 있는 저금통들을 하나씩 확인한다.
+        for (Jar jar : jars) {
+            Long jarId = jar.getJarId();
+
+            // 이미 열린 기록이 있으면 더 확인할 필요가 없다.
+            if (openedJarIds.contains(jarId)) {
+                continue;
+            }
+
+            // 아직 오픈 시간이 미래라면 열릴 수 없으므로 무거운 보정 로직을 건너뛴다.
+            if (jar.getOpenAt().isAfter(now)) {
+                continue;
+            }
+
+            // 오픈 시간이 지났는데 아직 열린 기록이 없다면 기존 보정 로직을 실행한다.
+            // ensureOpenedIfDue 내부에서 중복 오픈 방지와 채팅 시스템 메시지 생성을 처리한다.
+            if (jarOpenService.ensureOpenedIfDue(jarId)) {
+                openedJarIds.add(jarId);
+            }
+        }
+
+        return openedJarIds;
+    }
+
     // 이제: 기록형 오픈 기준으로 판단
     private boolean isOpen(Jar jar) {
         return jarOpenService.ensureOpenedIfDue(jar.getJarId());

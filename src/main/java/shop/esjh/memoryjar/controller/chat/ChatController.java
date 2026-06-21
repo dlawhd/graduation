@@ -1,9 +1,11 @@
 package shop.esjh.memoryjar.controller.chat;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import shop.esjh.memoryjar.dto.chat.request.ChatMessageSendRequest;
 import shop.esjh.memoryjar.dto.chat.request.ChatReadRequest;
 import shop.esjh.memoryjar.dto.chat.response.ChatMessageListResponse;
 import shop.esjh.memoryjar.dto.chat.response.ChatMessageResponse;
+import shop.esjh.memoryjar.dto.chat.response.ChatSocketMessageResponse;
 import shop.esjh.memoryjar.dto.chat.response.ChatUnreadResponse;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.chat.ChatService;
@@ -22,10 +24,17 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @RequestMapping("/api/v1/jars/{jarId}/chat")
 public class ChatController {
 
+    // REST fallback으로 저장된 메시지를 WebSocket 구독자에게 방송하기 위한 도구다.
+    private final SimpMessagingTemplate messagingTemplate;
+
     private final ChatService chatService;
 
-    public ChatController(ChatService chatService) {
+    public ChatController(
+            ChatService chatService,
+            SimpMessagingTemplate messagingTemplate
+    ) {
         this.chatService = chatService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /*
@@ -69,7 +78,11 @@ public class ChatController {
                 request
         );
 
-        // 3. 201 Created + 공통 성공 응답으로 반환하기
+        // 3. REST fallback으로 저장된 메시지도 WebSocket 구독자에게 알려준다.
+        // 이렇게 해야 WebSocket이 정상 연결된 다른 사용자 화면에도 새 메시지가 바로 보인다.
+        broadcastSavedMessage(jarId, response);
+
+        // 4. 201 Created + 공통 성공 응답으로 반환하기
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.of(response));
@@ -269,6 +282,24 @@ public class ChatController {
         throw new ResponseStatusException(
                 UNAUTHORIZED,
                 "인증 사용자 정보를 읽을 수 없습니다."
+        );
+    }
+
+    /*
+     * REST fallback으로 저장된 메시지를 WebSocket 채팅방에 방송한다.
+     *
+     * 예를 들어 A 사용자의 WebSocket이 끊겨 REST로 메시지를 보냈더라도,
+     * B 사용자가 /topic/jars/{jarId}/chat 을 구독 중이면 이 메시지를 바로 받을 수 있다.
+     */
+    private void broadcastSavedMessage(Long jarId, ChatMessageResponse response) {
+        // REST 응답 DTO에는 mine 값이 들어있다.
+        // WebSocket은 모든 사용자에게 같은 메시지를 보내므로 mine 값을 뺀 DTO로 바꿔서 보낸다.
+        ChatSocketMessageResponse socketMessage = ChatSocketMessageResponse.from(response);
+
+        // 같은 저금통 채팅방을 구독 중인 사용자들에게 새 메시지를 방송한다.
+        messagingTemplate.convertAndSend(
+                "/topic/jars/" + jarId + "/chat",
+                socketMessage
         );
     }
 }
