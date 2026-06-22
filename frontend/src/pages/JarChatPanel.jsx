@@ -198,6 +198,10 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   // 이후 메시지 더 불러오는 중인지
   const [loadingNewer, setLoadingNewer] = useState(false);
 
+  // 이후 메시지를 불러오는 중인지 ref로도 관리한다.
+  // 스크롤 이벤트가 빠르게 여러 번 발생할 때 중복 요청을 막기 위해 사용한다.
+  const loadingNewerRef = useRef(false);
+
   // 안 읽은 메시지 개수
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -644,7 +648,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
    * 이 함수는 현재 화면의 마지막 messageId 이후 메시지를 가져온다.
    */
   const handleLoadNewer = async () => {
-    if (!jarId || !hasNewer || loadingNewer) return;
+    if (!jarId || !hasNewer || loadingNewerRef.current) return;
 
     const afterMessageId = lastMessageIdRef.current;
 
@@ -654,14 +658,10 @@ export default function JarChatPanel({ jarId, currentUserId }) {
     }
 
     try {
+      loadingNewerRef.current = true;
       setLoadingNewer(true);
       setError("");
 
-      /*
-       * 아래쪽 메시지를 붙일 때는
-       * 사용자가 아래로 내려가고 있는 상황이므로
-       * 새로 붙은 메시지 쪽으로 자연스럽게 스크롤해도 괜찮다.
-       */
       shouldScrollToBottomRef.current = true;
 
       const data = await getNewChatMessages(jarId, {
@@ -678,13 +678,6 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       setMessages((prev) => mergeUniqueMessages(prev, newerItems));
 
-      /*
-       * 이번에도 DEFAULT_LIMIT만큼 꽉 차서 왔다면
-       * 뒤에 더 있을 수 있다.
-       *
-       * 28개처럼 limit보다 적게 오면
-       * 이제 뒤에 더 없다고 본다.
-       */
       setHasNewer(newerItems.length >= DEFAULT_LIMIT);
 
       const newestMessageId = getLastMessageId(newerItems);
@@ -702,7 +695,36 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       setError(serverMessage);
     } finally {
+      loadingNewerRef.current = false;
       setLoadingNewer(false);
+    }
+  };
+
+  /*
+   * 채팅창 스크롤 감지
+   *
+   * 사용자가 채팅창 아래쪽 근처까지 내리면
+   * "이후 채팅 더 보기" 버튼을 누르지 않아도
+   * 자동으로 이후 메시지를 불러온다.
+   */
+  const handleChatScroll = () => {
+    const box = scrollBoxRef.current;
+
+    if (!box) return;
+
+    // 스크롤이 바닥에서 얼마나 떨어져 있는지 계산한다.
+    const distanceFromBottom =
+      box.scrollHeight - box.scrollTop - box.clientHeight;
+
+    /*
+     * 아래에서 80px 이내까지 내려오면
+     * 이후 메시지를 자동으로 불러온다.
+     *
+     * hasNewer가 false면 더 가져올 메시지가 없다는 뜻이고,
+     * loadingNewer가 true면 이미 가져오는 중이므로 중복 요청을 막는다.
+     */
+    if (distanceFromBottom < 80 && hasNewer && !loadingNewer) {
+      handleLoadNewer();
     }
   };
 
@@ -911,6 +933,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       {/* 채팅 메시지 영역 */}
       <div
         ref={scrollBoxRef}
+        onScroll={handleChatScroll}
         className="h-[360px] overflow-y-auto rounded-[28px] border border-slate-100 bg-slate-50/70 p-4"
       >
         {/* 이전 메시지 더 보기 */}
@@ -1043,16 +1066,11 @@ export default function JarChatPanel({ jarId, currentUserId }) {
               );
             })}
 
-            {hasNewer && (
+            {loadingNewer && (
               <div className="flex justify-center pt-2">
-                <button
-                  type="button"
-                  onClick={handleLoadNewer}
-                  disabled={loadingNewer}
-                  className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-black text-emerald-600 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loadingNewer ? "불러오는 중..." : "이후 채팅 더 보기"}
-                </button>
+                <span className="rounded-full bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-600">
+                  이후 채팅 불러오는 중...
+                </span>
               </div>
             )}
           </div>
