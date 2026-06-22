@@ -112,6 +112,18 @@ function mergeUniqueMessages(oldMessages, newMessages) {
 }
 
 /*
+ * 첫 번째 안 읽은 메시지가 현재 화면에 있는지 확인한다.
+ *
+ * 서버가 firstUnreadMessageId를 내려줘도
+ * 현재 messages 안에 해당 메시지가 없으면 바로 스크롤할 수 없다.
+ */
+function hasMessageById(messages, messageId) {
+  if (!messageId) return false;
+
+  return messages.some((message) => Number(message.messageId) === Number(messageId));
+}
+
+/*
  * WebSocket으로 받은 메시지를 화면에서 쓰기 좋은 모양으로 바꿔주는 함수
  *
  * WebSocket 응답에는 mine 값이 없을 수 있다.
@@ -181,6 +193,22 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   // 안 읽은 메시지 개수
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // 첫 번째 안 읽은 메시지 ID
+  // 채팅방을 처음 열 때 이 메시지 위치로 이동하기 위해 사용한다.
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState(null);
+
+  // 아직 서버에 읽음 처리하지 않은 메시지 ID
+  // 먼저 첫 번째 안 읽은 메시지를 보여준 뒤, 화면 이동이 끝나면 읽음 처리한다.
+  const pendingReadMessageIdRef = useRef(null);
+
+  // 첫 번째 안 읽은 메시지 위치로 이미 이동했는지 기억한다.
+  // 새 메시지가 올 때마다 계속 첫 안 읽은 메시지로 튀는 것을 막기 위해 사용한다.
+  const unreadInitialScrollDoneRef = useRef(false);
+
+  // messageId별 DOM을 저장하는 ref
+  // 특정 메시지 위치로 스크롤하기 위해 사용한다.
+  const messageElementRefs = useRef({});
+
   // 채팅 메시지 영역 DOM 참조
   const scrollBoxRef = useRef(null);
 
@@ -212,6 +240,26 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   }, []);
 
   /*
+   * 특정 메시지 위치로 이동
+   *
+   * 첫 번째 안 읽은 메시지 ID가 있으면
+   * 채팅방을 열 때 그 메시지를 기준으로 화면을 보여준다.
+   */
+  const scrollToMessage = useCallback((messageId) => {
+    const target = messageElementRefs.current[messageId];
+
+    if (!target) {
+      scrollToBottom();
+      return;
+    }
+
+    target.scrollIntoView({
+      behavior: "auto",
+      block: "center",
+    });
+  }, [scrollToBottom]);
+
+  /*
    * 메시지가 바뀌면 필요할 때만 아래로 이동
    *
    * - 처음 조회
@@ -224,13 +272,35 @@ export default function JarChatPanel({ jarId, currentUserId }) {
    * 아래로 이동하면 사용자가 보던 위치가 튀어버려.
    */
   useEffect(() => {
+    // 로딩 중에는 아직 메시지 DOM이 없을 수 있으므로 스크롤하지 않는다.
+    if (loading) return;
+
     if (!shouldScrollToBottomRef.current) {
       shouldScrollToBottomRef.current = true;
       return;
     }
 
+    /*
+     * 첫 번째 안 읽은 메시지가 있으면 그 메시지 위치로 먼저 이동한다.
+     *
+     * 기존에는 채팅방을 열자마자 항상 맨 아래로 이동했지만,
+     * 이제는 안 읽은 메시지가 있으면 첫 안 읽은 메시지를 기준으로 보여준다.
+     */
+    if (
+      firstUnreadMessageId &&
+      !unreadInitialScrollDoneRef.current &&
+      hasMessageById(messages, firstUnreadMessageId)
+    ) {
+      unreadInitialScrollDoneRef.current = true;
+
+      window.requestAnimationFrame(() => {
+        scrollToMessage(firstUnreadMessageId);
+      });
+      return;
+    }
+
     window.requestAnimationFrame(scrollToBottom);
-  }, [messages, scrollToBottom]);
+  }, [messages, firstUnreadMessageId, loading, scrollToBottom, scrollToMessage]);
 
   /*
    * unread count 불러오기
@@ -246,6 +316,33 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setUnreadCount(0);
     }
   }, [jarId]);
+
+  /*
+   * 첫 번째 안 읽은 메시지 위치로 이동한 뒤 읽음 처리
+   *
+   * 순서가 중요하다.
+   * 1. 먼저 첫 번째 안 읽은 메시지 위치로 화면을 보여준다.
+   * 2. 그 다음 현재 불러온 마지막 메시지까지 읽음 처리한다.
+   */
+  useEffect(() => {
+    if (loading) return;
+    if (!jarId || !firstUnreadMessageId) return;
+    if (!hasMessageById(messages, firstUnreadMessageId)) return;
+
+    const targetReadMessageId = pendingReadMessageIdRef.current;
+
+    if (!targetReadMessageId) return;
+
+    pendingReadMessageIdRef.current = null;
+
+    window.requestAnimationFrame(() => {
+      markChatAsRead(jarId, targetReadMessageId)
+        .then(loadUnreadCount)
+        .catch(() => {
+          // 읽음 처리 실패해도 채팅 화면 자체는 유지한다.
+        });
+    });
+  }, [jarId, messages, firstUnreadMessageId, loading, loadUnreadCount]);
 
   /*
    * 마지막 메시지까지 읽음 처리
@@ -284,11 +381,27 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       const items = normalizeMessageItems(data);
 
+      const firstUnreadId = data?.firstUnreadMessageId ?? null;
+      const lastMessageId = getLastMessageId(items);
+
       setMessages(items);
       setHasNext(Boolean(data?.hasNext));
       setNextBeforeMessageId(data?.nextBeforeMessageId ?? null);
+      setFirstUnreadMessageId(firstUnreadId);
 
-      await markLatestMessageAsRead(items);
+      /*
+       * 안 읽은 메시지가 있으면 바로 맨 아래로 보내지 않는다.
+       * 먼저 첫 번째 안 읽은 메시지 위치로 이동하게 둔다.
+       */
+      if (firstUnreadId && hasMessageById(items, firstUnreadId)) {
+        shouldScrollToBottomRef.current = true;
+        unreadInitialScrollDoneRef.current = false;
+        pendingReadMessageIdRef.current = lastMessageId;
+      } else {
+        shouldScrollToBottomRef.current = true;
+        await markLatestMessageAsRead(items);
+      }
+
       await loadUnreadCount();
     } catch (e) {
       const serverMessage =
@@ -308,15 +421,45 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
   /*
    * jarId가 바뀌면 채팅 목록 새로 불러오기
+   *
+   * 다른 저금통 채팅방으로 이동할 때
+   * 이전 저금통의 메시지, unread 표시, 스크롤 위치 정보가 남아 있으면 안 된다.
+   *
+   * 그래서 jarId가 바뀔 때마다 채팅 관련 상태를 깨끗하게 초기화한 뒤
+   * 새 저금통의 채팅 목록을 다시 불러온다.
    */
   useEffect(() => {
+    // 이전 저금통의 채팅 메시지를 비운다.
     setMessages([]);
+
+    // 입력창에 남아 있던 글을 비운다.
     setDraft("");
+
+    // 이전 에러 메시지를 비운다.
     setError("");
+
+    // 안 읽은 메시지 개수를 초기화한다.
     setUnreadCount(0);
+
+    // 첫 번째 안 읽은 메시지 표시를 초기화한다.
+    setFirstUnreadMessageId(null);
+
+    // 아직 읽음 처리 대기 중이던 메시지 ID를 초기화한다.
+    pendingReadMessageIdRef.current = null;
+
+    // 첫 안 읽은 메시지로 이동했는지 여부를 초기화한다.
+    unreadInitialScrollDoneRef.current = false;
+
+    // 이전 채팅방의 메시지 DOM 위치 정보를 비운다.
+    messageElementRefs.current = {};
+
+    // 이전 메시지 더 보기 상태를 초기화한다.
     setHasNext(false);
+
+    // 이전 메시지 더 보기 커서를 초기화한다.
     setNextBeforeMessageId(null);
 
+    // 새 jarId 기준으로 채팅 목록을 다시 불러온다.
     loadInitialMessages();
   }, [jarId, loadInitialMessages]);
 
@@ -711,49 +854,88 @@ export default function JarChatPanel({ jarId, currentUserId }) {
             {messages.map((message) => {
               const isMine = Boolean(message.mine);
               const isSystem = message.type === "SYSTEM";
+              const isFirstUnread =
+                firstUnreadMessageId != null &&
+                Number(message.messageId) === Number(firstUnreadMessageId);
 
               if (isSystem) {
                 return (
-                  <div
-                    key={message.messageId}
-                    className="flex justify-center"
-                  >
-                    <div className="rounded-full bg-slate-200 px-4 py-2 text-xs font-bold text-slate-500">
-                      {message.content}
+                  <div key={message.messageId}>
+                    {isFirstUnread && (
+                      <div className="my-3 flex items-center gap-3">
+                        <div className="h-px flex-1 bg-emerald-200" />
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black text-emerald-700">
+                          여기부터 안 읽은 메시지예요
+                        </span>
+                        <div className="h-px flex-1 bg-emerald-200" />
+                      </div>
+                    )}
+
+                    <div
+                      ref={(element) => {
+                        if (element) {
+                          messageElementRefs.current[message.messageId] = element;
+                        } else {
+                          delete messageElementRefs.current[message.messageId];
+                        }
+                      }}
+                      className="flex justify-center"
+                    >
+                      <div className="rounded-full bg-slate-200 px-4 py-2 text-xs font-bold text-slate-500">
+                        {message.content}
+                      </div>
                     </div>
                   </div>
                 );
               }
 
               return (
-                <div
-                  key={message.messageId}
-                  className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                >
+                <div key={message.messageId}>
+                  {isFirstUnread && (
+                    <div className="my-3 flex items-center gap-3">
+                      <div className="h-px flex-1 bg-emerald-200" />
+                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black text-emerald-700">
+                        여기부터 안 읽은 메시지예요
+                      </span>
+                      <div className="h-px flex-1 bg-emerald-200" />
+                    </div>
+                  )}
+
                   <div
-                    className={`max-w-[78%] rounded-[24px] px-4 py-3 shadow-sm ${
-                      isMine
-                        ? "rounded-br-md bg-emerald-500 text-white"
-                        : "rounded-bl-md bg-white text-slate-800"
-                    }`}
+                    ref={(element) => {
+                      if (element) {
+                        messageElementRefs.current[message.messageId] = element;
+                      } else {
+                        delete messageElementRefs.current[message.messageId];
+                      }
+                    }}
+                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                   >
-                    {!isMine && (
-                      <p className="mb-1 text-xs font-black text-emerald-600">
-                        {message.senderName || "알 수 없음"}
-                      </p>
-                    )}
-
-                    <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed">
-                      {message.content}
-                    </p>
-
-                    <p
-                      className={`mt-2 text-right text-[11px] font-semibold ${
-                        isMine ? "text-emerald-50/90" : "text-slate-400"
+                    <div
+                      className={`max-w-[78%] rounded-[24px] px-4 py-3 shadow-sm ${
+                        isMine
+                          ? "rounded-br-md bg-emerald-500 text-white"
+                          : "rounded-bl-md bg-white text-slate-800"
                       }`}
                     >
-                      {formatChatTime(message.createdAt)}
-                    </p>
+                      {!isMine && (
+                        <p className="mb-1 text-xs font-black text-emerald-600">
+                          {message.senderName || "알 수 없음"}
+                        </p>
+                      )}
+
+                      <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed">
+                        {message.content}
+                      </p>
+
+                      <p
+                        className={`mt-2 text-right text-[11px] font-semibold ${
+                          isMine ? "text-emerald-50/90" : "text-slate-400"
+                        }`}
+                      >
+                        {formatChatTime(message.createdAt)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               );

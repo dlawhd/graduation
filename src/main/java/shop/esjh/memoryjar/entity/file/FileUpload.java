@@ -13,6 +13,7 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 // 파일 업로드 진행 상태를 저장
 // 실제 파일은 S3에 있고, DB에는 "누가", "무슨 용도로", "어떤 s3Key로", "완료됐는지"만 기록
@@ -23,6 +24,8 @@ import java.time.LocalDateTime;
 @SQLDelete(sql = "UPDATE file_uploads SET deleted_at = NOW(6) WHERE upload_id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class FileUpload extends BaseEntity {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -90,12 +93,12 @@ public class FileUpload extends BaseEntity {
     // 업로드 완료로 바꿀 때 쓰는 메서드
     public void markCompleted() {
         this.status = FileUploadStatus.COMPLETED;
-        this.completedAt = LocalDateTime.now();
+        this.completedAt = LocalDateTime.now(KST);
     }
 
     // note 등에 연결해서 다시 못 쓰게 막을 때 쓰는 메서드
     public void markConsumed() {
         this.status = FileUploadStatus.CONSUMED;
-        this.consumedAt = LocalDateTime.now();
+        this.consumedAt = LocalDateTime.now(KST);
     }
 }

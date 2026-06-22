@@ -399,6 +399,67 @@ class ChatServiceTest {
         assertThat(response.unreadCount()).isEqualTo(5L);
     }
 
+    @Test
+    void getMessages는_안읽은_메시지가_있으면_첫_안읽은_메시지부터_조회한다() {
+        // given
+        when(jarRepository.findByJarId(JAR_ID))
+                .thenReturn(Optional.of(jar));
+
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID))
+                .thenReturn(true);
+
+        ChatMessage lastReadMessage = createTextMessage(100L, otherUser, "마지막으로 읽은 메시지");
+
+        ChatReadState readState = ChatReadState.create(jar, currentUser);
+        readState.markAsRead(lastReadMessage);
+
+        when(chatReadStateRepository.findWithLastReadMessageByJarIdAndUserId(JAR_ID, USER_ID))
+                .thenReturn(Optional.of(readState));
+
+        when(chatMessageRepository.findFirstUnreadMessageIds(
+                eq(JAR_ID),
+                eq(USER_ID),
+                eq(100L),
+                any(Pageable.class)
+        )).thenReturn(List.of(101L));
+
+        ChatMessage unread101 = createTextMessage(101L, otherUser, "첫 번째 안 읽은 메시지");
+        ChatMessage unread102 = createTextMessage(102L, otherUser, "두 번째 안 읽은 메시지");
+
+        when(chatMessageRepository.findMessagesFrom(
+                eq(JAR_ID),
+                eq(101L),
+                any(Pageable.class)
+        )).thenReturn(List.of(unread101, unread102));
+
+        when(chatMessageRepository.existsByJar_JarIdAndMessageIdLessThan(JAR_ID, 101L))
+                .thenReturn(true);
+
+        // when
+        ChatMessageListResponse response = chatService.getMessages(
+                USER_ID,
+                JAR_ID,
+                null,
+                30
+        );
+
+        // then
+        assertThat(response.items())
+                .extracting(ChatMessageResponse::messageId)
+                .containsExactly(101L, 102L);
+
+        assertThat(response.lastReadMessageId()).isEqualTo(100L);
+        assertThat(response.firstUnreadMessageId()).isEqualTo(101L);
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextBeforeMessageId()).isEqualTo(101L);
+
+        verify(chatMessageRepository, never()).findMessagesBefore(
+                anyLong(),
+                any(),
+                any(Pageable.class)
+        );
+    }
+
     /*
      * 테스트용 User 생성 메서드
      *

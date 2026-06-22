@@ -105,15 +105,12 @@ public class ChatService {
      * GET /api/v1/jars/{jarId}/chat/messages?beforeMessageId=100&limit=30
      *
      * beforeMessageId가 null이면:
-     * - 최신 메시지부터 limit개 가져온다.
+     * - 채팅방 첫 진입이다.
+     * - 안 읽은 메시지가 있으면 첫 번째 안 읽은 메시지부터 보여준다.
+     * - 안 읽은 메시지가 없으면 기존처럼 최신 메시지를 보여준다.
      *
      * beforeMessageId가 있으면:
      * - 그 메시지보다 오래된 메시지를 가져온다.
-     *
-     * 중요한 점:
-     * - Repository에서는 최신순(DESC)으로 가져온다.
-     * - 프론트 채팅창에는 오래된순(ASC)이 보기 좋다.
-     * - 그래서 Service에서 오래된순으로 정렬해서 내려준다.
      */
     public ChatMessageListResponse getMessages(
             Long currentUserId,
@@ -135,41 +132,37 @@ public class ChatService {
         // 3. limit 정리
         int safeLimit = normalizeLimit(limit);
 
-        // 4. hasNext 계산을 위해 limit + 1개 조회
-        // 예: 30개 요청이면 31개를 가져와 보고,
-        // 31개가 있으면 "이전 메시지가 더 있다"고 판단한다.
-        List<ChatMessage> fetchedMessages = chatMessageRepository.findMessagesBefore(
+        // 4. 현재 사용자의 마지막 읽음 위치를 조회한다.
+        Long lastReadMessageId = findLastReadMessageId(jarId, currentUserId);
+
+        // 5. 첫 번째 안 읽은 메시지 ID를 조회한다.
+        Long firstUnreadMessageId = findFirstUnreadMessageId(
                 jarId,
-                beforeMessageId,
-                PageRequest.of(0, safeLimit + 1)
+                currentUserId,
+                lastReadMessageId
         );
 
-        // 5. 이전 메시지가 더 있는지 확인
-        boolean hasNext = fetchedMessages.size() > safeLimit;
+        // 6. 채팅방 첫 진입이고 안 읽은 메시지가 있으면
+        // 최신 메시지가 아니라 첫 번째 안 읽은 메시지부터 보여준다.
+        if (beforeMessageId == null && firstUnreadMessageId != null) {
+            return getMessagesFromFirstUnread(
+                    currentUserId,
+                    jarId,
+                    safeLimit,
+                    lastReadMessageId,
+                    firstUnreadMessageId
+            );
+        }
 
-        // 6. 실제 응답에는 safeLimit개까지만 담는다.
-        List<ChatMessage> limitedMessages = fetchedMessages.stream()
-                .limit(safeLimit)
-                .toList();
-
-        // 7. 채팅창에 보여주기 좋게 오래된순으로 정렬한다.
-        List<ChatMessage> orderedMessages = limitedMessages.stream()
-                .sorted(Comparator.comparing(ChatMessage::getMessageId))
-                .toList();
-
-        // 8. Entity 목록을 Response DTO 목록으로 변환한다.
-        List<ChatMessageResponse> items = orderedMessages.stream()
-                .map(message -> toChatMessageResponse(message, currentUserId))
-                .toList();
-
-        // 9. 다음 이전 메시지 조회에 쓸 커서 계산
-        // 가장 작은 messageId를 beforeMessageId로 보내면 그보다 오래된 메시지를 가져올 수 있다.
-        Long nextBeforeMessageId = orderedMessages.isEmpty()
-                ? null
-                : orderedMessages.get(0).getMessageId();
-
-        // 10. 목록 응답 반환
-        return ChatMessageListResponse.of(items, hasNext, nextBeforeMessageId);
+        // 7. 안 읽은 메시지가 없거나, 이전 메시지 더 보기 요청이면 기존 방식대로 조회한다.
+        return getLatestOrOlderMessages(
+                currentUserId,
+                jarId,
+                beforeMessageId,
+                safeLimit,
+                lastReadMessageId,
+                firstUnreadMessageId
+        );
     }
 
     /*
@@ -416,6 +409,135 @@ public class ChatService {
                 message.getContent(),
                 mine,
                 message.getCreatedAt()
+        );
+    }
+
+    /*
+     * 마지막 읽은 메시지 ID 조회
+     *
+     * 읽음 상태가 없으면 null을 반환한다.
+     * null은 "아직 읽음 책갈피가 없다"는 뜻이다.
+     */
+    private Long findLastReadMessageId(Long jarId, Long currentUserId) {
+        return chatReadStateRepository
+                .findWithLastReadMessageByJarIdAndUserId(jarId, currentUserId)
+                .map(ChatReadState::getLastReadMessageId)
+                .orElse(null);
+    }
+
+    /*
+     * 첫 번째 안 읽은 메시지 ID 조회
+     *
+     * unread 기준은 "마지막 읽은 메시지 이후"이면서
+     * "내가 보낸 메시지가 아닌 메시지"다.
+     */
+    private Long findFirstUnreadMessageId(
+            Long jarId,
+            Long currentUserId,
+            Long lastReadMessageId
+    ) {
+        return chatMessageRepository.findFirstUnreadMessageIds(
+                        jarId,
+                        currentUserId,
+                        lastReadMessageId,
+                        PageRequest.of(0, 1)
+                )
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    /*
+     * 첫 번째 안 읽은 메시지부터 채팅 목록 조회
+     *
+     * 사용 상황:
+     * - 채팅방을 처음 열었고
+     * - 사용자가 안 읽은 메시지가 있을 때
+     *
+     * 이렇게 하면 화면이 최신 메시지 맨 아래가 아니라
+     * 첫 번째 안 읽은 메시지를 기준으로 열릴 수 있다.
+     */
+    private ChatMessageListResponse getMessagesFromFirstUnread(
+            Long currentUserId,
+            Long jarId,
+            int safeLimit,
+            Long lastReadMessageId,
+            Long firstUnreadMessageId
+    ) {
+        List<ChatMessage> fetchedMessages = chatMessageRepository.findMessagesFrom(
+                jarId,
+                firstUnreadMessageId,
+                PageRequest.of(0, safeLimit)
+        );
+
+        List<ChatMessageResponse> items = fetchedMessages.stream()
+                .map(message -> toChatMessageResponse(message, currentUserId))
+                .toList();
+
+        Long nextBeforeMessageId = fetchedMessages.isEmpty()
+                ? null
+                : fetchedMessages.get(0).getMessageId();
+
+        boolean hasNext = nextBeforeMessageId != null
+                && chatMessageRepository.existsByJar_JarIdAndMessageIdLessThan(
+                jarId,
+                nextBeforeMessageId
+        );
+
+        return ChatMessageListResponse.of(
+                items,
+                hasNext,
+                nextBeforeMessageId,
+                lastReadMessageId,
+                firstUnreadMessageId
+        );
+    }
+
+    /*
+     * 기존 채팅 목록 조회
+     *
+     * 사용 상황:
+     * - 안 읽은 메시지가 없어서 최신 메시지를 보여줄 때
+     * - 위로 스크롤해서 이전 메시지를 더 불러올 때
+     */
+    private ChatMessageListResponse getLatestOrOlderMessages(
+            Long currentUserId,
+            Long jarId,
+            Long beforeMessageId,
+            int safeLimit,
+            Long lastReadMessageId,
+            Long firstUnreadMessageId
+    ) {
+        List<ChatMessage> fetchedMessages = chatMessageRepository.findMessagesBefore(
+                jarId,
+                beforeMessageId,
+                PageRequest.of(0, safeLimit + 1)
+        );
+
+        boolean hasNext = fetchedMessages.size() > safeLimit;
+
+        List<ChatMessage> limitedMessages = fetchedMessages.stream()
+                .limit(safeLimit)
+                .toList();
+
+        List<ChatMessage> orderedMessages = limitedMessages.stream()
+                .sorted(Comparator.comparing(ChatMessage::getMessageId))
+                .toList();
+
+        List<ChatMessageResponse> items = orderedMessages.stream()
+                .map(message -> toChatMessageResponse(message, currentUserId))
+                .toList();
+
+        Long nextBeforeMessageId = orderedMessages.isEmpty()
+                ? null
+                : orderedMessages.get(0).getMessageId();
+
+        return ChatMessageListResponse.of(
+                items,
+                hasNext,
+                nextBeforeMessageId,
+                lastReadMessageId,
+                firstUnreadMessageId
         );
     }
 }

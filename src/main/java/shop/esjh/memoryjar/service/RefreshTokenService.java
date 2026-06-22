@@ -65,7 +65,7 @@ public class RefreshTokenService {
 
         // ✅ 이 refresh 토큰이 진짜 사용 가능한 토큰인지 DB에서 찾기
         RefreshToken old = refreshTokenRepository
-                .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash, LocalDateTime.now())
+                .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash, now)
                 .orElseThrow(() -> new IllegalArgumentException("refresh 토큰이 유효하지 않음"));
 
         // ✅ 1) 기존 refresh 토큰 폐기

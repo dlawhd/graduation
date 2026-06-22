@@ -97,6 +97,67 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     Optional<ChatMessage> findTopByJar_JarIdOrderByMessageIdDesc(Long jarId);
 
     /*
+     * 특정 메시지부터 이후 메시지를 오래된순으로 조회한다.
+     *
+     * 사용 예:
+     * - 채팅방을 처음 열었는데 안 읽은 메시지가 있으면
+     * - 첫 번째 안 읽은 메시지부터 화면에 보여주고 싶을 때 사용한다.
+     */
+    @Query("""
+    select cm
+    from ChatMessage cm
+    left join fetch cm.sender
+    where cm.jar.jarId = :jarId
+    and cm.messageId >= :fromMessageId
+    order by cm.messageId asc
+""")
+    List<ChatMessage> findMessagesFrom(
+            @Param("jarId") Long jarId,
+            @Param("fromMessageId") Long fromMessageId,
+            Pageable pageable
+    );
+
+    /*
+     * 첫 번째 안 읽은 메시지 ID 조회
+     *
+     * lastReadMessageId가 null이면:
+     * - 아직 읽음 기록이 없다는 뜻
+     * - 내가 보낸 메시지가 아닌 첫 메시지를 찾는다.
+     *
+     * lastReadMessageId가 있으면:
+     * - 그 메시지 이후에서 내가 보낸 메시지가 아닌 첫 메시지를 찾는다.
+     */
+    @Query("""
+    select cm.messageId
+    from ChatMessage cm
+    where cm.jar.jarId = :jarId
+    and (
+        :lastReadMessageId is null
+        or cm.messageId > :lastReadMessageId
+    )
+    and (
+        cm.sender is null
+        or cm.sender.id <> :userId
+    )
+    order by cm.messageId asc
+""")
+    List<Long> findFirstUnreadMessageIds(
+            @Param("jarId") Long jarId,
+            @Param("userId") Long userId,
+            @Param("lastReadMessageId") Long lastReadMessageId,
+            Pageable pageable
+    );
+
+    /*
+     * 특정 메시지보다 오래된 메시지가 있는지 확인한다.
+     *
+     * 사용 예:
+     * - 첫 번째 안 읽은 메시지부터 목록을 내려줄 때
+     * - 위쪽에 더 오래된 메시지가 있으면 "이전 채팅 더 보기" 버튼을 보여준다.
+     */
+    boolean existsByJar_JarIdAndMessageIdLessThan(Long jarId, Long messageId);
+
+    /*
      * unread count 계산
      *
      * lastReadMessageId가 null이면:

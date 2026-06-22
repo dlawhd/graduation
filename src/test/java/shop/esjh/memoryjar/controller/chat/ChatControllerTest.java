@@ -184,6 +184,8 @@ class ChatControllerTest {
         ChatMessageListResponse response = ChatMessageListResponse.of(
                 List.of(message1, message2),
                 true,
+                101L,
+                100L,
                 101L
         );
 
@@ -209,7 +211,9 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$.data.items[1].senderName").value("은서"))
                 .andExpect(jsonPath("$.data.items[1].mine").value(true))
                 .andExpect(jsonPath("$.data.hasNext").value(true))
-                .andExpect(jsonPath("$.data.nextBeforeMessageId").value(101));
+                .andExpect(jsonPath("$.data.nextBeforeMessageId").value(101))
+                .andExpect(jsonPath("$.data.lastReadMessageId").value(100))
+                .andExpect(jsonPath("$.data.firstUnreadMessageId").value(101));
 
         verify(chatService).getMessages(
                 eq(1L),
