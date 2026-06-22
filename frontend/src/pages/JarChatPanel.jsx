@@ -190,6 +190,14 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   // 이전 메시지 더 보기용 커서
   const [nextBeforeMessageId, setNextBeforeMessageId] = useState(null);
 
+  // 이후 메시지가 더 있는지
+  // 첫 안 읽은 메시지부터 30개만 가져온 경우,
+  // 그 뒤에 이어지는 메시지가 더 있을 수 있다.
+  const [hasNewer, setHasNewer] = useState(false);
+
+  // 이후 메시지 더 불러오는 중인지
+  const [loadingNewer, setLoadingNewer] = useState(false);
+
   // 안 읽은 메시지 개수
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -390,6 +398,18 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setFirstUnreadMessageId(firstUnreadId);
 
       /*
+       * 첫 번째 안 읽은 메시지부터 가져왔는데
+       * 가져온 개수가 DEFAULT_LIMIT와 같으면
+       * 뒤에 이어지는 메시지가 더 있을 수 있다.
+       *
+       * 예:
+       * - 안 읽은 메시지 58개
+       * - 처음 30개만 조회
+       * - 나머지 28개를 아래쪽에서 더 불러와야 함
+       */
+      setHasNewer(Boolean(firstUnreadId) && items.length >= DEFAULT_LIMIT);
+
+      /*
        * 안 읽은 메시지가 있으면 바로 맨 아래로 보내지 않는다.
        * 먼저 첫 번째 안 읽은 메시지 위치로 이동하게 둔다.
        */
@@ -458,6 +478,12 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
     // 이전 메시지 더 보기 커서를 초기화한다.
     setNextBeforeMessageId(null);
+
+    // 이후 메시지 더 보기 상태를 초기화한다.
+    setHasNewer(false);
+
+    // 이후 메시지 로딩 상태를 초기화한다.
+    setLoadingNewer(false);
 
     // 새 jarId 기준으로 채팅 목록을 다시 불러온다.
     loadInitialMessages();
@@ -601,6 +627,82 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setError(serverMessage);
     } finally {
       setLoadingMore(false);
+    }
+  };
+
+  /*
+   * 이후 메시지 더 보기
+   *
+   * 첫 번째 안 읽은 메시지부터 채팅방을 열면,
+   * 처음에는 DEFAULT_LIMIT 개수만 내려온다.
+   *
+   * 예:
+   * - 안 읽은 메시지 58개
+   * - 처음 30개 표시
+   * - 아래로 내려가면 나머지 28개를 가져와야 함
+   *
+   * 이 함수는 현재 화면의 마지막 messageId 이후 메시지를 가져온다.
+   */
+  const handleLoadNewer = async () => {
+    if (!jarId || !hasNewer || loadingNewer) return;
+
+    const afterMessageId = lastMessageIdRef.current;
+
+    if (!afterMessageId) {
+      setHasNewer(false);
+      return;
+    }
+
+    try {
+      setLoadingNewer(true);
+      setError("");
+
+      /*
+       * 아래쪽 메시지를 붙일 때는
+       * 사용자가 아래로 내려가고 있는 상황이므로
+       * 새로 붙은 메시지 쪽으로 자연스럽게 스크롤해도 괜찮다.
+       */
+      shouldScrollToBottomRef.current = true;
+
+      const data = await getNewChatMessages(jarId, {
+        afterMessageId,
+        limit: DEFAULT_LIMIT,
+      });
+
+      const newerItems = normalizeMessageItems(data);
+
+      if (newerItems.length === 0) {
+        setHasNewer(false);
+        return;
+      }
+
+      setMessages((prev) => mergeUniqueMessages(prev, newerItems));
+
+      /*
+       * 이번에도 DEFAULT_LIMIT만큼 꽉 차서 왔다면
+       * 뒤에 더 있을 수 있다.
+       *
+       * 28개처럼 limit보다 적게 오면
+       * 이제 뒤에 더 없다고 본다.
+       */
+      setHasNewer(newerItems.length >= DEFAULT_LIMIT);
+
+      const newestMessageId = getLastMessageId(newerItems);
+
+      if (newestMessageId) {
+        await markChatAsRead(jarId, newestMessageId);
+        await loadUnreadCount();
+      }
+    } catch (e) {
+      const serverMessage =
+        e?.response?.data?.error?.message ||
+        e?.response?.data?.message ||
+        e?.message ||
+        "이후 채팅을 불러오지 못했어요.";
+
+      setError(serverMessage);
+    } finally {
+      setLoadingNewer(false);
     }
   };
 
@@ -940,9 +1042,22 @@ export default function JarChatPanel({ jarId, currentUserId }) {
                 </div>
               );
             })}
+
+            {hasNewer && (
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleLoadNewer}
+                  disabled={loadingNewer}
+                  className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-black text-emerald-600 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loadingNewer ? "불러오는 중..." : "이후 채팅 더 보기"}
+                </button>
+              </div>
+            )}
           </div>
         )}
-      </div>
+    </div>
 
       {/* 입력창 */}
       <form onSubmit={handleSubmit} className="mt-4 flex gap-3">
