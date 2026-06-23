@@ -141,7 +141,20 @@ class JarDailyDrawControllerTest {
         Long jarId = 10L;
 
         DailyDrawResponse dailyDraw = createDailyDrawResponse(false);
-        DailyDrawTodayResponse response = DailyDrawTodayResponse.found(dailyDraw);
+
+        /*
+         * 오늘 카드가 있는 상황이다.
+         *
+         * remainingCount = 아직 받을 수 있는 추억 수
+         * totalDrawableCount = Daily Draw 대상 전체 추억 수
+         * drawnCount = 이미 받은 추억 수
+         */
+        DailyDrawTodayResponse response = DailyDrawTodayResponse.found(
+                dailyDraw,
+                3L,
+                10L,
+                7L
+        );
 
         when(jarDailyDrawService.getTodayDraw(currentUserId, jarId))
                 .thenReturn(response);
@@ -153,6 +166,13 @@ class JarDailyDrawControllerTest {
                 .andExpect(jsonPath("$.data.hasTodayDraw").value(true))
                 .andExpect(jsonPath("$.data.dailyDraw.drawId").value(1L))
                 .andExpect(jsonPath("$.data.dailyDraw.note.noteId").value(100L))
+
+                // 새로 추가된 상태값 검증
+                .andExpect(jsonPath("$.data.hasRemainingNotes").value(true))
+                .andExpect(jsonPath("$.data.remainingCount").value(3))
+                .andExpect(jsonPath("$.data.totalDrawableCount").value(10))
+                .andExpect(jsonPath("$.data.drawnCount").value(7))
+
                 .andExpect(jsonPath("$.data.message").value("오늘의 추억 한 장이 공개되었어요."));
 
         verify(jarDailyDrawService).getTodayDraw(currentUserId, jarId);
@@ -165,7 +185,11 @@ class JarDailyDrawControllerTest {
         Long currentUserId = 1L;
         Long jarId = 10L;
 
-        DailyDrawTodayResponse response = DailyDrawTodayResponse.empty();
+        DailyDrawTodayResponse response = DailyDrawTodayResponse.empty(
+                5L,   // remainingCount: 아직 받을 수 있는 추억 5개
+                10L,  // totalDrawableCount: 전체 추억 10개
+                5L    // drawnCount: 이미 받은 추억 5개
+        );
 
         when(jarDailyDrawService.getTodayDraw(currentUserId, jarId))
                 .thenReturn(response);
@@ -176,7 +200,7 @@ class JarDailyDrawControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.hasTodayDraw").value(false))
                 .andExpect(jsonPath("$.data.dailyDraw").doesNotExist())
-                .andExpect(jsonPath("$.data.message").value("아직 오늘의 추억 한 장이 뽑히지 않았어요."));
+                .andExpect(jsonPath("$.data.message").value("아직 오늘 받은 추억이 없어요."));
 
         verify(jarDailyDrawService).getTodayDraw(currentUserId, jarId);
     }
