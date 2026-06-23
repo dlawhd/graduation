@@ -713,6 +713,35 @@ function getThemePalette(theme) {
   // 봄 테마
   if (theme === "SPRING") {
     return {
+      /*
+       * 봄 테마 페이지 배경
+       *
+       * 역할:
+       * - 화면 바깥을 연한 벚꽃/복숭아빛으로 바꿔서 봄 분위기를 만든다.
+       * - 카드 안쪽은 그대로 밝게 두고, 바깥 배경만 은은하게 바꾼다.
+       */
+      pageBg:
+        "bg-[linear-gradient(180deg,#FFF7FA_0%,#FFF1F5_42%,#FFF9F1_100%)]",
+
+      /*
+       * 봄 테마 외곽 장식
+       *
+       * 역할:
+       * - 분홍빛과 살구빛 블러로 벚꽃이 퍼지는 느낌을 준다.
+       */
+      pageGlowPrimary: "bg-rose-300/35",
+      pageGlowSecondary: "bg-pink-300/30",
+      pageGlowSoft: "bg-orange-200/25",
+
+      /*
+       * 봄 테마 작은 장식
+       *
+       * 역할:
+       * - 흰 별보다 분홍빛 점이 더 잘 보여서 벚꽃잎처럼 느껴진다.
+       */
+      pageStar:
+        "bg-rose-300/75 shadow-[0_0_14px_rgba(251,113,133,0.55)]",
+      pageSparkle: "text-rose-300/70",
       hero: "from-rose-100 via-pink-50 to-orange-50 border-rose-200",
       badge: "bg-gradient-to-r from-rose-400 to-orange-400 text-white",
       jarBody: "bg-gradient-to-b from-rose-100 via-pink-50 to-white border-rose-200",
@@ -752,6 +781,34 @@ function getThemePalette(theme) {
   // 겨울 테마
   if (theme === "WINTER") {
     return {
+      /*
+       * 겨울 테마 페이지 배경
+       *
+       * 역할:
+       * - 화면 바깥을 연한 하늘색/얼음빛으로 바꿔서 차분한 겨울 느낌을 준다.
+       */
+      pageBg:
+        "bg-[linear-gradient(180deg,#F0F9FF_0%,#EFF6FF_45%,#F8FAFC_100%)]",
+
+      /*
+       * 겨울 테마 외곽 장식
+       *
+       * 역할:
+       * - 하늘빛과 인디고빛 블러로 눈과 차가운 공기 느낌을 만든다.
+       */
+      pageGlowPrimary: "bg-sky-300/35",
+      pageGlowSecondary: "bg-cyan-300/30",
+      pageGlowSoft: "bg-indigo-200/25",
+
+      /*
+       * 겨울 테마 작은 장식
+       *
+       * 역할:
+       * - 작은 하늘빛 점으로 눈송이처럼 보이게 한다.
+       */
+      pageStar:
+        "bg-sky-300/75 shadow-[0_0_14px_rgba(125,211,252,0.6)]",
+      pageSparkle: "text-sky-300/70",
       hero: "from-sky-100 via-cyan-50 to-indigo-50 border-sky-200",
       badge: "bg-gradient-to-r from-sky-500 to-indigo-500 text-white",
       jarBody: "bg-gradient-to-b from-sky-100 via-cyan-50 to-white border-sky-200",
@@ -791,6 +848,34 @@ function getThemePalette(theme) {
   // 여름 테마
   if (theme === "SUMMER") {
     return {
+      /*
+       * 여름 테마 페이지 배경
+       *
+       * 역할:
+       * - 화면 바깥을 연한 초록/라임빛으로 바꿔서 싱그러운 여름 느낌을 준다.
+       */
+      pageBg:
+        "bg-[linear-gradient(180deg,#F3FFF8_0%,#ECFDF3_45%,#FFFBEB_100%)]",
+
+      /*
+       * 여름 테마 외곽 장식
+       *
+       * 역할:
+       * - 초록빛과 라임빛 블러로 햇살과 잎사귀 느낌을 만든다.
+       */
+      pageGlowPrimary: "bg-emerald-300/35",
+      pageGlowSecondary: "bg-lime-300/30",
+      pageGlowSoft: "bg-yellow-200/25",
+
+      /*
+       * 여름 테마 작은 장식
+       *
+       * 역할:
+       * - 작은 초록빛 점과 반짝이로 잎사귀/햇살 같은 느낌을 준다.
+       */
+      pageStar:
+        "bg-emerald-300/75 shadow-[0_0_14px_rgba(52,211,153,0.55)]",
+      pageSparkle: "text-emerald-300/70",
       hero: "from-emerald-100 via-lime-50 to-amber-50 border-emerald-200",
       badge: "bg-gradient-to-r from-emerald-500 to-lime-500 text-white",
       jarBody: "bg-gradient-to-b from-emerald-100 via-lime-50 to-white border-emerald-200",
@@ -830,6 +915,34 @@ function getThemePalette(theme) {
   // 가을 테마: 노을빛 단풍, 주황/분홍 느낌
   if (theme === "AUTUMN") {
     return {
+      /*
+       * 가을 테마 페이지 배경
+       *
+       * 역할:
+       * - 화면 바깥을 연한 노을/단풍빛으로 바꿔서 따뜻한 가을 분위기를 만든다.
+       */
+      pageBg:
+        "bg-[linear-gradient(180deg,#FFF7ED_0%,#FFFBEB_45%,#FFF1F2_100%)]",
+
+      /*
+       * 가을 테마 외곽 장식
+       *
+       * 역할:
+       * - 주황빛과 장미빛 블러로 노을이 번지는 느낌을 준다.
+       */
+      pageGlowPrimary: "bg-orange-300/35",
+      pageGlowSecondary: "bg-amber-300/30",
+      pageGlowSoft: "bg-rose-200/25",
+
+      /*
+       * 가을 테마 작은 장식
+       *
+       * 역할:
+       * - 작은 주황빛 점으로 단풍잎/노을 입자 같은 느낌을 준다.
+       */
+      pageStar:
+        "bg-orange-300/75 shadow-[0_0_14px_rgba(251,146,60,0.55)]",
+      pageSparkle: "text-orange-300/70",
       hero: "from-orange-100 via-amber-50 to-rose-50 border-orange-200",
       badge: "bg-gradient-to-r from-orange-500 to-rose-400 text-white",
       jarBody: "bg-gradient-to-b from-orange-100 via-amber-50 to-white border-orange-200",
@@ -868,6 +981,34 @@ function getThemePalette(theme) {
   // 이슬 테마: 아침 물방울, 민트/연하늘 느낌
   if (theme === "DEW") {
     return {
+      /*
+       * 이슬 테마 페이지 배경
+       *
+       * 역할:
+       * - 화면 바깥을 연한 민트/하늘빛으로 바꿔서 아침 이슬 분위기를 만든다.
+       */
+      pageBg:
+        "bg-[linear-gradient(180deg,#ECFEFF_0%,#F0FDFA_45%,#F0F9FF_100%)]",
+
+      /*
+       * 이슬 테마 외곽 장식
+       *
+       * 역할:
+       * - 민트빛과 하늘빛 블러로 물방울이 맺힌 듯한 느낌을 준다.
+       */
+      pageGlowPrimary: "bg-teal-300/35",
+      pageGlowSecondary: "bg-cyan-300/30",
+      pageGlowSoft: "bg-sky-200/25",
+
+      /*
+       * 이슬 테마 작은 장식
+       *
+       * 역할:
+       * - 작은 청록빛 점으로 물방울 반짝임처럼 보이게 한다.
+       */
+      pageStar:
+        "bg-teal-300/75 shadow-[0_0_14px_rgba(45,212,191,0.55)]",
+      pageSparkle: "text-teal-300/70",
       hero: "from-cyan-100 via-teal-50 to-sky-50 border-teal-200",
       badge: "bg-gradient-to-r from-teal-400 to-sky-400 text-white",
       jarBody: "bg-gradient-to-b from-cyan-100 via-teal-50 to-white border-teal-200",
@@ -906,6 +1047,34 @@ function getThemePalette(theme) {
   // 모래 테마: 해변 모래, 베이지/브라운 느낌
   if (theme === "SAND") {
     return {
+      /*
+       * 모래 테마 페이지 배경
+       *
+       * 역할:
+       * - 화면 바깥을 연한 베이지/모래빛으로 바꿔서 따뜻한 해변 분위기를 만든다.
+       */
+      pageBg:
+        "bg-[linear-gradient(180deg,#FFFBEB_0%,#FEF3C7_38%,#FFF7ED_100%)]",
+
+      /*
+       * 모래 테마 외곽 장식
+       *
+       * 역할:
+       * - 베이지빛과 주황빛 블러로 햇살이 비치는 모래 느낌을 준다.
+       */
+      pageGlowPrimary: "bg-amber-300/35",
+      pageGlowSecondary: "bg-yellow-300/30",
+      pageGlowSoft: "bg-orange-200/25",
+
+      /*
+       * 모래 테마 작은 장식
+       *
+       * 역할:
+       * - 작은 황금빛 점으로 모래알이 반짝이는 느낌을 준다.
+       */
+      pageStar:
+        "bg-amber-300/75 shadow-[0_0_14px_rgba(252,211,77,0.6)]",
+      pageSparkle: "text-amber-300/70",
       hero: "from-amber-100 via-yellow-50 to-orange-50 border-amber-200",
       badge: "bg-gradient-to-r from-amber-500 to-orange-400 text-white",
       jarBody: "bg-gradient-to-b from-amber-100 via-yellow-50 to-white border-amber-200",
@@ -944,6 +1113,36 @@ function getThemePalette(theme) {
   // 달빛 테마: 밤하늘, 남색/은빛 느낌
   if (theme === "MOONLIGHT") {
     return {
+      /*
+       * 페이지 전체 배경
+       *
+       * 역할:
+       * - 저금통 카드 안쪽이 아니라, 화면 바깥 전체 배경에 들어갈 색감이다.
+       * - 달빛 테마는 너무 어둡게 가지 않고, 연한 라벤더 + 블루그레이 느낌으로 잡는다.
+       */
+      pageBg:
+        "bg-[linear-gradient(180deg,#F8F7FF_0%,#F2F5FF_45%,#FBFCFF_100%)]",
+
+      /*
+       * 페이지 외곽 장식용 빛
+       *
+       * 역할:
+       * - 화면 상단/외곽에 흐릿한 달빛 느낌을 주기 위한 색이다.
+       * - 실제 내용 영역을 방해하지 않도록 opacity가 낮은 색만 사용한다.
+       */
+      pageGlowPrimary: "bg-indigo-300/45",
+      pageGlowSecondary: "bg-violet-300/40",
+      pageGlowSoft: "bg-sky-200/35",
+
+      /*
+       * 작은 별 점 장식 색
+       *
+       * 역할:
+       * - 달빛 테마에서 상단 주변에 아주 작은 별빛을 표현한다.
+       */
+      pageStar:
+        "bg-indigo-300/80 shadow-[0_0_14px_rgba(129,140,248,0.75)]",
+      pageSparkle: "text-indigo-300/70",
       hero: "from-indigo-100 via-slate-50 to-violet-50 border-indigo-200",
       badge: "bg-gradient-to-r from-indigo-700 to-slate-500 text-white",
       jarBody: "bg-gradient-to-b from-indigo-100 via-slate-50 to-white border-indigo-200",
@@ -982,6 +1181,34 @@ function getThemePalette(theme) {
   // 라벤더 테마
   // 새 값 LAVENDER와 예전 값 CUSTOM은 여기 기본 보라색 스타일을 사용한다.
   return {
+    /*
+     * 라벤더 테마 페이지 배경
+     *
+     * 역할:
+     * - 화면 바깥을 연한 보라/핑크빛으로 바꿔서 부드러운 라벤더 분위기를 만든다.
+     */
+    pageBg:
+      "bg-[linear-gradient(180deg,#FAF5FF_0%,#F5F3FF_45%,#FDF2F8_100%)]",
+
+    /*
+     * 라벤더 테마 외곽 장식
+     *
+     * 역할:
+     * - 보라빛과 분홍빛 블러로 향기처럼 퍼지는 느낌을 준다.
+     */
+    pageGlowPrimary: "bg-violet-300/35",
+    pageGlowSecondary: "bg-fuchsia-300/30",
+    pageGlowSoft: "bg-pink-200/25",
+
+    /*
+     * 라벤더 테마 작은 장식
+     *
+     * 역할:
+     * - 작은 보라빛 점으로 라벤더 꽃잎 같은 느낌을 준다.
+     */
+    pageStar:
+      "bg-violet-300/75 shadow-[0_0_14px_rgba(167,139,250,0.6)]",
+    pageSparkle: "text-violet-300/70",
     hero: "from-violet-100 via-fuchsia-50 to-pink-50 border-violet-200",
     badge: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white",
     jarBody: "bg-gradient-to-b from-violet-100 via-fuchsia-50 to-white border-violet-200",
@@ -4314,7 +4541,6 @@ function getInviteStatus(invite, palette) {
 
 export default function JarDetailPage() {
 
-
   // 지금 어떤 댓글 아래에 답글 입력창을 열었는지 저장
   const [replyTargetCommentId, setReplyTargetCommentId] = useState(null);
 
@@ -4358,7 +4584,7 @@ export default function JarDetailPage() {
   const { jarId } = useParams();
 
   // 현재 페이지로 넘어올 때 함께 전달된 state 읽기
-    const location = useLocation();
+  const location = useLocation();
 
   // 페이지 이동용
   const navigate = useNavigate();
@@ -6423,7 +6649,30 @@ function handleRestoreHiddenInvites() {
 }
 
   const openStatus = useMemo(() => getOpenStatus(jar), [jar]);
-  const palette = useMemo(() => getThemePalette(jar?.theme), [jar]);
+
+  const palette = useMemo(
+    () => getThemePalette(jar?.theme),
+    [jar?.theme]
+  );
+
+  /*
+   * 페이지 전체 배경 클래스
+   *
+   * 역할:
+   * - 테마에 pageBg가 있으면 그 배경을 사용한다.
+   * - 아직 pageBg를 만들지 않은 테마는 기존 분홍/주황 배경을 그대로 사용한다.
+   */
+  const pageBackgroundClass =
+    palette.pageBg ?? "bg-gradient-to-b from-rose-50 via-white to-orange-50";
+
+  /*
+   * 테마 배경 장식을 보여줄지 결정하는 값이다.
+   *
+   * 역할:
+   * - pageBg가 있는 테마라면 배경색과 외곽 장식을 보여준다.
+   * - 이제 달빛뿐 아니라 봄, 여름, 가을, 겨울, 라벤더, 이슬, 모래도 모두 적용된다.
+   */
+  const hasThemePageDecoration = Boolean(palette.pageBg);
 
   // 인원 진행률 계산
   const memberPercent = useMemo(() => {
@@ -6516,8 +6765,47 @@ function handleRestoreHiddenInvites() {
   // 로딩 화면
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-80px)] bg-gradient-to-b from-rose-50 via-white to-orange-50 px-6 py-10">
-        <div className="mx-auto max-w-6xl">
+      <div className={`relative min-h-[calc(100vh-80px)] overflow-hidden px-6 py-10 ${pageBackgroundClass}`}>
+        {/* 달빛 테마일 때만 보이는 페이지 외곽 장식 */}
+        {hasThemePageDecoration && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {/* 오른쪽 위 달빛 번짐 */}
+            <div
+              className={`absolute -right-10 -top-12 h-96 w-96 rounded-full blur-3xl ${palette.pageGlowPrimary}`}
+            />
+
+            {/* 왼쪽 위 보랏빛 번짐 */}
+            <div
+              cclassName={`absolute -left-10 top-24 h-72 w-72 rounded-full blur-3xl ${palette.pageGlowSecondary}`}
+            />
+
+            {/* 오른쪽 아래 아주 약한 안개빛 */}
+            <div
+              className={`absolute bottom-10 right-[18%] h-48 w-48 rounded-full blur-3xl ${palette.pageGlowSoft}`}
+            />
+
+            {/* 작은 별빛들 */}
+            {/* 작은 별빛들 */}
+            <span className={`absolute right-[16%] top-16 h-2 w-2 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute right-[23%] top-28 h-1.5 w-1.5 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute left-[10%] top-24 h-2 w-2 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute left-[18%] top-44 h-1.5 w-1.5 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute right-[32%] top-52 h-1.5 w-1.5 rounded-full ${palette.pageStar}`} />
+
+            {/* 별이 너무 점처럼만 보이지 않게 작은 테마 반짝이도 추가 */}
+            <span className={`absolute right-[12%] top-32 text-xs drop-shadow-sm ${palette.pageSparkle}`}>
+              ✦
+            </span>
+            <span className={`absolute left-[14%] top-36 text-[10px] drop-shadow-sm ${palette.pageSparkle}`}>
+              ✧
+            </span>
+            <span className={`absolute right-[38%] top-24 text-[10px] drop-shadow-sm ${palette.pageSparkle}`}>
+              ✦
+            </span>
+          </div>
+        )}
+
+        <div className="relative z-10 mx-auto max-w-6xl">
           <div className="animate-pulse rounded-[32px] border border-white bg-white/80 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
             <div className="mb-6 h-5 w-28 rounded-full bg-slate-200" />
             <div className="mb-4 h-10 w-72 rounded-2xl bg-slate-200" />
@@ -6571,8 +6859,47 @@ function handleRestoreHiddenInvites() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-gradient-to-b from-rose-50 via-white to-orange-50 px-6 py-10">
-      <div className="mx-auto max-w-6xl">
+      <div className={`relative min-h-[calc(100vh-80px)] overflow-hidden px-6 py-10 ${pageBackgroundClass}`}>
+        {/* 달빛 테마일 때만 보이는 페이지 외곽 장식 */}
+        {hasThemePageDecoration && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {/* 오른쪽 위 달빛 번짐 */}
+            <div
+              className={`absolute -right-10 -top-12 h-96 w-96 rounded-full blur-3xl ${palette.pageGlowPrimary}`}
+            />
+
+            {/* 왼쪽 위 보랏빛 번짐 */}
+            <div
+              className={`absolute -left-10 top-24 h-72 w-72 rounded-full blur-3xl ${palette.pageGlowSecondary}`}
+            />
+
+            {/* 오른쪽 아래 아주 약한 안개빛 */}
+            <div
+              className={`absolute bottom-10 right-[18%] h-48 w-48 rounded-full blur-3xl ${palette.pageGlowSoft}`}
+            />
+
+            {/* 작은 별빛들 */}
+            {/* 작은 별빛들 */}
+            <span className={`absolute right-[16%] top-16 h-2 w-2 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute right-[23%] top-28 h-1.5 w-1.5 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute left-[10%] top-24 h-2 w-2 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute left-[18%] top-44 h-1.5 w-1.5 rounded-full ${palette.pageStar}`} />
+            <span className={`absolute right-[32%] top-52 h-1.5 w-1.5 rounded-full ${palette.pageStar}`} />
+
+            {/* 별이 너무 점처럼만 보이지 않게 작은 테마 반짝이도 추가 */}
+            <span className={`absolute right-[12%] top-32 text-xs drop-shadow-sm ${palette.pageSparkle}`}>
+              ✦
+            </span>
+            <span className={`absolute left-[14%] top-36 text-[10px] drop-shadow-sm ${palette.pageSparkle}`}>
+              ✧
+            </span>
+            <span className={`absolute right-[38%] top-24 text-[10px] drop-shadow-sm ${palette.pageSparkle}`}>
+              ✦
+            </span>
+          </div>
+        )}
+
+        <div className="relative z-10 mx-auto max-w-6xl">
         {/* 상단 이동 링크 */}
         <div className="mb-5 flex items-center justify-between gap-3">
           <Link
