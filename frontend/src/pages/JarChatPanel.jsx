@@ -226,6 +226,10 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   // 이전 메시지 더 보기 중에는 아래로 자동 스크롤하면 안 되므로 구분용 ref
   const shouldScrollToBottomRef = useRef(true);
 
+  // 더보기로 메시지를 붙인 뒤 이동해야 할 메시지 ID
+  // 예: 30번 아래에 31~60번을 붙이면, 맨 아래 60번이 아니라 31번으로 이동해야 한다.
+  const pendingScrollMessageIdRef = useRef(null);
+
   /*
    * 마지막 messageId ref 갱신
    *
@@ -253,7 +257,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
    * 첫 번째 안 읽은 메시지 ID가 있으면
    * 채팅방을 열 때 그 메시지를 기준으로 화면을 보여준다.
    */
-  const scrollToMessage = useCallback((messageId) => {
+  const scrollToMessage = useCallback((messageId, block = "center") => {
     const target = messageElementRefs.current[messageId];
 
     if (!target) {
@@ -263,7 +267,10 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
     target.scrollIntoView({
       behavior: "auto",
-      block: "center",
+
+      // center: 첫 안 읽은 메시지를 화면 가운데에 보여줄 때 사용
+      // start: 더보기 후 바로 다음 메시지부터 이어서 보여줄 때 사용
+      block,
     });
   }, [scrollToBottom]);
 
@@ -283,6 +290,42 @@ export default function JarChatPanel({ jarId, currentUserId }) {
     // 로딩 중에는 아직 메시지 DOM이 없을 수 있으므로 스크롤하지 않는다.
     if (loading) return;
 
+    /*
+     * 이후 채팅 더 보기로 새 메시지를 붙인 직후에는
+     * 맨 아래로 보내지 않고, 새로 붙은 첫 메시지 위치로 이동한다.
+     *
+     * 예:
+     * 현재 화면에 1~30번이 있음
+     * 이후 채팅 더 보기 클릭
+     * 31~60번이 새로 붙음
+     *
+     * 이때 60번으로 가면 안 되고,
+     * 사용자가 이어서 읽을 수 있게 31번으로 이동해야 한다.
+     */
+    const pendingScrollMessageId = pendingScrollMessageIdRef.current;
+
+    if (
+      pendingScrollMessageId &&
+      hasMessageById(messages, pendingScrollMessageId)
+    ) {
+      // 한 번 이동했으면 같은 위치로 또 이동하지 않도록 비운다.
+      pendingScrollMessageIdRef.current = null;
+
+      // 다음 새 메시지나 전송 메시지에서는 다시 아래 이동이 가능하도록 복구한다.
+      shouldScrollToBottomRef.current = true;
+
+      // 메시지 DOM이 화면에 그려진 다음 31번 위치로 이동한다.
+      window.requestAnimationFrame(() => {
+        scrollToMessage(pendingScrollMessageId, "start");
+      });
+
+      return;
+    }
+
+    /*
+     * 이전 메시지 더 보기처럼 스크롤을 유지해야 하는 상황이면
+     * 여기서 아래 이동을 막고 끝낸다.
+     */
     if (!shouldScrollToBottomRef.current) {
       shouldScrollToBottomRef.current = true;
       return;
@@ -307,6 +350,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       return;
     }
 
+    // 일반 새 메시지, 내가 보낸 메시지는 맨 아래로 이동한다.
     window.requestAnimationFrame(scrollToBottom);
   }, [messages, firstUnreadMessageId, loading, scrollToBottom, scrollToMessage]);
 
@@ -485,6 +529,9 @@ export default function JarChatPanel({ jarId, currentUserId }) {
     // 이후 메시지 로딩 상태를 초기화한다.
     setLoadingNewer(false);
 
+    // 더보기 후 이동해야 했던 메시지 위치도 초기화한다.
+    pendingScrollMessageIdRef.current = null;
+
     // 새 jarId 기준으로 채팅 목록을 다시 불러온다.
     loadInitialMessages();
   }, [jarId, loadInitialMessages]);
@@ -657,13 +704,6 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setLoadingNewer(true);
       setError("");
 
-      /*
-       * 아래쪽 메시지를 붙일 때는
-       * 사용자가 아래로 내려가고 있는 상황이므로
-       * 새로 붙은 메시지 쪽으로 자연스럽게 스크롤해도 괜찮다.
-       */
-      shouldScrollToBottomRef.current = true;
-
       const data = await getNewChatMessages(jarId, {
         afterMessageId,
         limit: DEFAULT_LIMIT,
@@ -676,8 +716,20 @@ export default function JarChatPanel({ jarId, currentUserId }) {
         return;
       }
 
-      setMessages((prev) => mergeUniqueMessages(prev, newerItems));
+      /*
+       * 이후 메시지를 붙인 뒤에는 맨 아래로 보내면 안 된다.
+       *
+       * 예: 현재 1~30번을 보고 있고, 이후 메시지 31~60번을 가져왔다면
+       * 사용자가 이어서 읽을 수 있게 31번 위치로 이동해야 한다.
+       */
+      const firstNewerMessageId = newerItems[0]?.messageId ?? null;
 
+      if (firstNewerMessageId) {
+        pendingScrollMessageIdRef.current = firstNewerMessageId;
+        shouldScrollToBottomRef.current = false;
+      }
+
+      setMessages((prev) => mergeUniqueMessages(prev, newerItems));
       /*
        * 이번에도 DEFAULT_LIMIT만큼 꽉 차서 왔다면
        * 뒤에 더 있을 수 있다.
