@@ -3333,6 +3333,40 @@ function MemoryDrawModal({
       )
     : null;
 
+  /*
+   * 오늘의 추억 한 장 상태 계산
+   *
+   * 이 코드는 MemoryDrawModal 안에서만 사용한다.
+   * 그래서 컴포넌트 밖이 아니라 여기 안에 있어야 한다.
+   */
+  const totalDrawableCount = Number(today?.totalDrawableCount ?? 0);
+  const remainingCount = Number(today?.remainingCount ?? 0);
+  const drawnCount = Number(today?.drawnCount ?? 0);
+
+  const hasTodayDraw = Boolean(today?.hasTodayDraw && todayNote);
+  const hasRemainingNotes =
+    Boolean(today?.hasRemainingNotes) || remainingCount > 0;
+
+  const canReceiveTodayMemory =
+    jar?.isOpen &&
+    !selectedHistoryItem &&
+    !hasTodayDraw &&
+    hasRemainingNotes;
+
+  const hasNoDrawableNotes =
+    jar?.isOpen &&
+    !selectedHistoryItem &&
+    !hasTodayDraw &&
+    totalDrawableCount <= 0;
+
+  const isAllMemoriesReceived =
+    jar?.isOpen &&
+    !selectedHistoryItem &&
+    !hasTodayDraw &&
+    totalDrawableCount > 0 &&
+    !hasRemainingNotes &&
+    drawnCount > 0;
+
   return (
     <div
       className="fixed inset-0 z-[190] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
@@ -3665,7 +3699,7 @@ function MemoryDrawModal({
 
                 <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
                   저금통에 담겨 있던 추억 쪽지를 모두 꺼내봤어요.
-                  이제는 뽑기 기록에서 지난 추억을 다시 보거나,
+                  이제는 뽑기 기록에서 지난 추억을 다시 보거나
                   댓글과 채팅으로 이야기를 이어갈 수 있어요.
                 </p>
 
@@ -3680,13 +3714,7 @@ function MemoryDrawModal({
                 </div>
 
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleScrollToDrawHistory}
-                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
-                  >
-                    뽑기 기록 보기
-                  </button>
+
 
                   <button
                     type="button"
@@ -3915,44 +3943,6 @@ function MemoryDrawModal({
 }
 
 /*
- * 오늘의 추억 한 장 상태 계산
- *
- * 백엔드가 내려주는 개수 정보를 바탕으로
- * 화면을 4가지 상태로 나눈다.
- *
- * 1. 오늘 아직 안 받음 + 남은 쪽지 있음
- * 2. 오늘 이미 받음
- * 3. 더 이상 받을 쪽지 없음
- * 4. 애초에 담긴 쪽지가 없음
- */
-const totalDrawableCount = Number(today?.totalDrawableCount ?? 0);
-const remainingCount = Number(today?.remainingCount ?? 0);
-const drawnCount = Number(today?.drawnCount ?? 0);
-
-const hasTodayDraw = Boolean(today?.hasTodayDraw && todayNote);
-const hasRemainingNotes = Boolean(today?.hasRemainingNotes) || remainingCount > 0;
-
-const canReceiveTodayMemory =
-  jar?.isOpen &&
-  !selectedHistoryItem &&
-  !hasTodayDraw &&
-  hasRemainingNotes;
-
-const hasNoDrawableNotes =
-  jar?.isOpen &&
-  !selectedHistoryItem &&
-  !hasTodayDraw &&
-  totalDrawableCount <= 0;
-
-const isAllMemoriesReceived =
-  jar?.isOpen &&
-  !selectedHistoryItem &&
-  !hasTodayDraw &&
-  totalDrawableCount > 0 &&
-  !hasRemainingNotes &&
-  drawnCount > 0;
-
-/*
  * DailyDrawSection
  *
  * 이 컴포넌트는 "오늘의 추억 한 장" UI를 보여주는 역할을 해.
@@ -3989,6 +3979,37 @@ function DailyDrawSection({
         attachment?.contentType?.startsWith("image/")
       )
     : null;
+
+  /*
+   * 오늘의 추억 한 장 상태 계산
+   *
+   * 이 코드는 DailyDrawSection 안에서만 사용한다.
+   * MemoryDrawModal의 selectedHistoryItem 같은 값은 여기에는 없으므로 쓰지 않는다.
+   */
+  const totalDrawableCount = Number(today?.totalDrawableCount ?? 0);
+  const remainingCount = Number(today?.remainingCount ?? 0);
+  const drawnCount = Number(today?.drawnCount ?? 0);
+
+  const hasTodayDraw = Boolean(today?.hasTodayDraw && note);
+  const hasRemainingNotes =
+    Boolean(today?.hasRemainingNotes) || remainingCount > 0;
+
+  const canReceiveTodayMemory =
+    jar?.isOpen &&
+    !hasTodayDraw &&
+    hasRemainingNotes;
+
+  const hasNoDrawableNotes =
+    jar?.isOpen &&
+    !hasTodayDraw &&
+    totalDrawableCount <= 0;
+
+  const isAllMemoriesReceived =
+    jar?.isOpen &&
+    !hasTodayDraw &&
+    totalDrawableCount > 0 &&
+    !hasRemainingNotes &&
+    drawnCount > 0;
 
   return (
     <section
@@ -4089,10 +4110,10 @@ function DailyDrawSection({
           <button
             type="button"
             onClick={onDraw}
-            disabled={drawing || drawAnimationPlaying}
+            disabled={drawing}
             className={`mt-6 rounded-2xl px-6 py-3 text-sm font-black shadow-lg transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
           >
-            {drawing || drawAnimationPlaying ? "오늘의 추억 고르는 중..." : "오늘의 추억 받기"}
+            {drawing ? "오늘의 추억 고르는 중..." : "오늘의 추억 받기"}
           </button>
         </div>
       )}
