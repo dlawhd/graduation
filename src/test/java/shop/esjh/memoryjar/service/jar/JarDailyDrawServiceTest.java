@@ -298,7 +298,7 @@ class JarDailyDrawServiceTest {
         // then
         assertThat(ex).isNotNull();
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("아직 뽑을 수 있는 추억 쪽지가 없어요. 새로운 쪽지를 추가해주세요.");
+        assertThat(ex.getReason()).isEqualTo("더 이상 받을 수 있는 추억 쪽지가 없어요.");
 
         // 후보가 없으면 저장하면 안 된다.
         verify(noteRepository, never()).findDailyDrawCandidatesByJarId(anyLong(), any(Pageable.class));
@@ -306,7 +306,7 @@ class JarDailyDrawServiceTest {
     }
 
     @Test
-    @DisplayName("getTodayDraw - 오늘 카드가 없으면 hasTodayDraw=false를 반환한다")
+    @DisplayName("getTodayDraw - 오늘 카드가 없고 남은 쪽지가 있으면 hasTodayDraw=false를 반환한다")
     void getTodayDraw_empty_returnsFalse() {
         // given
         Long currentUserId = 1L;
@@ -319,6 +319,13 @@ class JarDailyDrawServiceTest {
                 .thenReturn(true);
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
 
+        /*
+         * 전체 쪽지는 10개이고,
+         * 아직 받을 수 있는 쪽지가 5개 남아 있는 상황이다.
+         */
+        when(noteRepository.countDrawableNotesByJarId(jarId)).thenReturn(10L);
+        when(noteRepository.countDailyDrawCandidatesByJarId(jarId)).thenReturn(5L);
+
         // 오늘 카드가 아직 없음
         when(jarDailyDrawRepository.findTodayWithNoteByJarIdAndDrawDate(eq(jarId), any(LocalDate.class)))
                 .thenReturn(Optional.empty());
@@ -330,7 +337,14 @@ class JarDailyDrawServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.hasTodayDraw()).isFalse();
         assertThat(result.dailyDraw()).isNull();
-        assertThat(result.message()).isEqualTo("아직 오늘의 추억 한 장이 뽑히지 않았어요.");
+
+        // 새로 추가된 상태값 확인
+        assertThat(result.hasRemainingNotes()).isTrue();
+        assertThat(result.remainingCount()).isEqualTo(5L);
+        assertThat(result.totalDrawableCount()).isEqualTo(10L);
+        assertThat(result.drawnCount()).isEqualTo(5L);
+
+        assertThat(result.message()).isEqualTo("아직 오늘 받은 추억이 없어요.");
     }
 
     @Test
@@ -351,6 +365,12 @@ class JarDailyDrawServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
+        /*
+         * 오늘 카드는 이미 있지만,
+         * 아직 받을 수 있는 추억이 3개 남아 있는 상황이다.
+         */
+        when(noteRepository.countDrawableNotesByJarId(jarId)).thenReturn(10L);
+        when(noteRepository.countDailyDrawCandidatesByJarId(jarId)).thenReturn(3L);
         when(jarDailyDrawRepository.findTodayWithNoteByJarIdAndDrawDate(eq(jarId), any(LocalDate.class)))
                 .thenReturn(Optional.of(draw));
         when(noteAttachmentRepository.findAllByNote_NoteIdOrderBySortOrderAsc(noteId))
@@ -366,6 +386,10 @@ class JarDailyDrawServiceTest {
         assertThat(result.dailyDraw().drawId()).isEqualTo(3000L);
         assertThat(result.dailyDraw().newlyDrawn()).isFalse();
         assertThat(result.dailyDraw().note().noteId()).isEqualTo(noteId);
+        assertThat(result.hasRemainingNotes()).isTrue();
+        assertThat(result.remainingCount()).isEqualTo(3L);
+        assertThat(result.totalDrawableCount()).isEqualTo(10L);
+        assertThat(result.drawnCount()).isEqualTo(7L);
     }
 
     @Test
@@ -409,6 +433,76 @@ class JarDailyDrawServiceTest {
         assertThat(result.items().get(0).authorName()).isEqualTo("은서");
 
         verify(jarDailyDrawRepository).findHistoryByJarId(eq(jarId), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("getTodayDraw - 담긴 쪽지가 없으면 totalDrawableCount=0을 반환한다")
+    void getTodayDraw_noNotes_returnsNoDrawableNotes() {
+        // given
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+
+        Jar jar = createJar(jarId, JarOpenMode.DAILY_DRAW);
+
+        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
+                .thenReturn(true);
+        when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
+
+        // 애초에 Daily Draw 대상으로 볼 쪽지가 없는 상황
+        when(noteRepository.countDrawableNotesByJarId(jarId)).thenReturn(0L);
+        when(noteRepository.countDailyDrawCandidatesByJarId(jarId)).thenReturn(0L);
+
+        when(jarDailyDrawRepository.findTodayWithNoteByJarIdAndDrawDate(eq(jarId), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+
+        // when
+        DailyDrawTodayResponse result = jarDailyDrawService.getTodayDraw(currentUserId, jarId);
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.hasTodayDraw()).isFalse();
+        assertThat(result.dailyDraw()).isNull();
+        assertThat(result.hasRemainingNotes()).isFalse();
+        assertThat(result.remainingCount()).isEqualTo(0L);
+        assertThat(result.totalDrawableCount()).isEqualTo(0L);
+        assertThat(result.drawnCount()).isEqualTo(0L);
+        assertThat(result.message()).isEqualTo("담긴 추억 쪽지가 없어요.");
+    }
+
+    @Test
+    @DisplayName("getTodayDraw - 모든 추억을 다 받았으면 hasRemainingNotes=false를 반환한다")
+    void getTodayDraw_allMemoriesReceived_returnsNoRemainingNotes() {
+        // given
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+
+        Jar jar = createJar(jarId, JarOpenMode.DAILY_DRAW);
+
+        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
+                .thenReturn(true);
+        when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
+
+        // 전체 10개 중 받을 수 있는 쪽지가 0개인 상황
+        when(noteRepository.countDrawableNotesByJarId(jarId)).thenReturn(10L);
+        when(noteRepository.countDailyDrawCandidatesByJarId(jarId)).thenReturn(0L);
+
+        when(jarDailyDrawRepository.findTodayWithNoteByJarIdAndDrawDate(eq(jarId), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+
+        // when
+        DailyDrawTodayResponse result = jarDailyDrawService.getTodayDraw(currentUserId, jarId);
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.hasTodayDraw()).isFalse();
+        assertThat(result.dailyDraw()).isNull();
+        assertThat(result.hasRemainingNotes()).isFalse();
+        assertThat(result.remainingCount()).isEqualTo(0L);
+        assertThat(result.totalDrawableCount()).isEqualTo(10L);
+        assertThat(result.drawnCount()).isEqualTo(10L);
+        assertThat(result.message()).isEqualTo("모든 추억을 다 열어봤어요.");
     }
 
     /*
