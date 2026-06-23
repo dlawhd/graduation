@@ -58,6 +58,22 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     );
 
     /*
+     * Daily Draw 대상으로 볼 수 있는 전체 쪽지 개수를 센다.
+     *
+     * 쉽게 말하면:
+     * - 이 저금통 안에 들어있는 쪽지가 총 몇 장인지 확인한다.
+     * - 이 값이 0이면 애초에 받을 추억 쪽지가 없는 상태다.
+     */
+    @Query("""
+        select count(n)
+        from Note n
+        where n.jar.jarId = :jarId
+        """)
+    long countDrawableNotesByJarId(
+            @Param("jarId") Long jarId
+    );
+
+    /*
      * Daily Draw 후보 쪽지 개수 세기
      *
      * 여기서 후보란?

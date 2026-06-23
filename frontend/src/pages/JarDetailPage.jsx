@@ -3158,6 +3158,8 @@ function MemoryDrawModal({
   onReload,
   onOpenNoteDetail,
   realtimeMessage,
+  onOpenAllNotes,
+  onOpenChat,
 }) {
   // 추억 쪽지 뽑기 애니메이션이 재생 중인지 저장한다.
   // true면 결과를 바로 보여주지 않고, 가운데에서 쪽지 뽑기 연출을 먼저 보여준다.
@@ -3177,6 +3179,16 @@ function MemoryDrawModal({
 
   // 기록 상세 조회에 실패했을 때 보여줄 안내 문구다.
   const [selectedHistoryError, setSelectedHistoryError] = useState("");
+
+  // 완료 화면에서 "뽑기 기록 보기"를 눌렀을 때 오른쪽 기록 영역으로 이동하기 위한 ref다.
+  const historyPanelRef = useRef(null);
+
+  function handleScrollToDrawHistory() {
+    historyPanelRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
 
   /*
    * 추억 쪽지 뽑기 버튼 클릭 함수
@@ -3505,11 +3517,11 @@ function MemoryDrawModal({
               </p>
 
               <h2 className="mt-2 text-2xl font-black text-slate-800">
-                추억 쪽지 뽑기
+                오늘의 추억 한 장
               </h2>
 
               <p className="mt-2 text-sm leading-7 text-slate-500">
-                저금통 안에 담긴 추억 중 한 장을 랜덤으로 열어볼 수 있어요.
+                저금통에 담겨 있던 추억 중 아직 열어보지 않은 한 장을 오늘의 추억으로 받아볼 수 있어요.
               </p>
             </div>
 
@@ -3538,12 +3550,12 @@ function MemoryDrawModal({
               <div className="mb-4 text-5xl">🔒</div>
 
               <h3 className="text-xl font-black">
-                아직 저금통이 열리지 않았어요
+                저금통이 열린 뒤 이용할 수 있어요
               </h3>
 
               <p className="mx-auto mt-3 max-w-md text-sm leading-7">
-                오픈 시간이 지나면 추억 쪽지를 뽑을 수 있어요.
-                조금만 더 기다려 주세요.
+                아직 저금통이 열리지 않았어요.
+                오픈 시간이 지나면 오늘의 추억 한 장을 받을 수 있어요.
               </p>
             </div>
           )}
@@ -3582,19 +3594,29 @@ function MemoryDrawModal({
             </div>
           )}
 
-          {/* 열린 저금통 + 아직 오늘 뽑은 쪽지가 없을 때 */}
-          {jar?.isOpen && !loading && !error && !note && (
+          {/* 열린 저금통 + 오늘 아직 받은 추억이 없고 + 남은 쪽지가 있을 때 */}
+          {jar?.isOpen && !loading && !error && canReceiveTodayMemory && (
             <div className={`relative overflow-hidden rounded-[30px] border p-8 text-center ${palette.panel}`}>
               <MemoryDrawNoteIcon palette={palette} />
 
               <h3 className="text-2xl font-black text-slate-800">
-                아직 뽑은 추억 쪽지가 없어요
+                아직 오늘 받은 추억이 없어요
               </h3>
 
               <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
-                버튼을 누르면 아직 뽑히지 않은 쪽지 중에서
-                추억 쪽지 한 장이 랜덤으로 공개돼요.
+                버튼을 누르면 저금통에 담겨 있던 추억 중
+                아직 열어보지 않은 한 장을 오늘의 추억으로 받아볼 수 있어요.
               </p>
+
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                  남은 추억 {remainingCount}개
+                </span>
+
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
+                  받은 추억 {drawnCount}개
+                </span>
+              </div>
 
               <button
                 type="button"
@@ -3602,8 +3624,147 @@ function MemoryDrawModal({
                 disabled={drawing || drawAnimationPlaying}
                 className={`mt-6 rounded-2xl px-6 py-3 text-sm font-black shadow-lg transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
               >
-                {drawing || drawAnimationPlaying ? "추억 쪽지 고르는 중..." : "추억 쪽지 뽑기"}
+                {drawing || drawAnimationPlaying ? "오늘의 추억 고르는 중..." : "오늘의 추억 받기"}
               </button>
+            </div>
+          )}
+
+          {/* 열린 저금통 + 애초에 담긴 쪽지가 하나도 없을 때 */}
+          {jar?.isOpen && !loading && !error && hasNoDrawableNotes && (
+            <div className={`rounded-[30px] border border-dashed px-6 py-10 text-center ${palette.emptyBox}`}>
+              <div className="mb-4 text-5xl">💌</div>
+
+              <h3 className="text-xl font-black">
+                담긴 추억 쪽지가 없어요
+              </h3>
+
+              <p className="mx-auto mt-3 max-w-md text-sm leading-7">
+                이 저금통에는 오픈 전에 담긴 쪽지가 없어서
+                오늘의 추억을 받을 수 없어요.
+              </p>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className={`mt-6 rounded-2xl border px-5 py-3 text-sm font-black transition ${palette.outlineButton}`}
+              >
+                전체 화면으로 돌아가기
+              </button>
+            </div>
+          )}
+
+          {/* 열린 저금통 + 더 이상 받을 쪽지가 없을 때 */}
+          {jar?.isOpen && !loading && !error && isAllMemoriesReceived && (
+            <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+              <article className={`rounded-[30px] border p-8 text-center ${palette.panel}`}>
+                <div className="mb-4 text-5xl">🎉</div>
+
+                <h3 className="text-2xl font-black text-slate-800">
+                  모든 추억을 다 열어봤어요
+                </h3>
+
+                <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
+                  저금통에 담겨 있던 추억 쪽지를 모두 꺼내봤어요.
+                  이제는 뽑기 기록에서 지난 추억을 다시 보거나,
+                  댓글과 채팅으로 이야기를 이어갈 수 있어요.
+                </p>
+
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                    전체 추억 {totalDrawableCount}개
+                  </span>
+
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
+                    받은 추억 {drawnCount}개
+                  </span>
+                </div>
+
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleScrollToDrawHistory}
+                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                  >
+                    뽑기 기록 보기
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onOpenAllNotes}
+                    className={`rounded-2xl px-4 py-2 text-sm font-bold shadow-sm transition hover:scale-[1.01] ${palette.primaryButton}`}
+                  >
+                    전체 추억 보러가기
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onOpenChat}
+                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                  >
+                    채팅하러가기
+                  </button>
+                </div>
+              </article>
+
+              <aside
+                ref={historyPanelRef}
+                className={`rounded-[30px] border p-5 ${palette.panel}`}
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-black text-slate-800">
+                      뽑기 기록
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      지금까지 받은 오늘의 추억들이에요.
+                    </p>
+                  </div>
+
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                    {history.length}개
+                  </span>
+                </div>
+
+                {history.length === 0 && (
+                  <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
+                    아직 뽑기 기록이 없어요.
+                  </div>
+                )}
+
+                {history.length > 0 && (
+                  <div className="space-y-3">
+                    {history.slice(0, 5).map((item) => (
+                      <button
+                        key={item.drawId}
+                        type="button"
+                        onClick={() => handleSelectHistoryItem(item)}
+                        className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${palette.softCard}`}
+                      >
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.activeChip}`}>
+                            {item.drawDate}
+                          </span>
+
+                          {item.noteDate && (
+                            <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}>
+                              {formatNoteDateOnly(item.noteDate)}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-sm font-black text-slate-800">
+                          {item.title || "제목 없는 추억"}
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          {item.authorName || `사용자 ${item.authorId}`}
+                          {item.location ? ` · ${item.location}` : ""}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </aside>
             </div>
           )}
 
@@ -3650,7 +3811,7 @@ function MemoryDrawModal({
                   </div>
 
                   <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-orange-400">
-                    오늘 뽑힌 추억
+                    오늘 받은 추억
                   </p>
 
                   <h3 className="text-2xl font-black text-slate-800">
@@ -3686,14 +3847,17 @@ function MemoryDrawModal({
               </article>
 
               {/* 공개 기록 */}
-              <aside className={`rounded-[30px] border p-5 ${palette.panel}`}>
+              <aside
+                ref={historyPanelRef}
+                className={`rounded-[30px] border p-5 ${palette.panel}`}
+              >
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-black text-slate-800">
                       뽑기 기록
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      지금까지 뽑힌 추억 쪽지들이에요.
+                      지금까지 받은 오늘의 추억들이에요.
                     </p>
                   </div>
 
@@ -3749,6 +3913,44 @@ function MemoryDrawModal({
     </div>
   );
 }
+
+/*
+ * 오늘의 추억 한 장 상태 계산
+ *
+ * 백엔드가 내려주는 개수 정보를 바탕으로
+ * 화면을 4가지 상태로 나눈다.
+ *
+ * 1. 오늘 아직 안 받음 + 남은 쪽지 있음
+ * 2. 오늘 이미 받음
+ * 3. 더 이상 받을 쪽지 없음
+ * 4. 애초에 담긴 쪽지가 없음
+ */
+const totalDrawableCount = Number(today?.totalDrawableCount ?? 0);
+const remainingCount = Number(today?.remainingCount ?? 0);
+const drawnCount = Number(today?.drawnCount ?? 0);
+
+const hasTodayDraw = Boolean(today?.hasTodayDraw && todayNote);
+const hasRemainingNotes = Boolean(today?.hasRemainingNotes) || remainingCount > 0;
+
+const canReceiveTodayMemory =
+  jar?.isOpen &&
+  !selectedHistoryItem &&
+  !hasTodayDraw &&
+  hasRemainingNotes;
+
+const hasNoDrawableNotes =
+  jar?.isOpen &&
+  !selectedHistoryItem &&
+  !hasTodayDraw &&
+  totalDrawableCount <= 0;
+
+const isAllMemoriesReceived =
+  jar?.isOpen &&
+  !selectedHistoryItem &&
+  !hasTodayDraw &&
+  totalDrawableCount > 0 &&
+  !hasRemainingNotes &&
+  drawnCount > 0;
 
 /*
  * DailyDrawSection
@@ -3861,25 +4063,36 @@ function DailyDrawSection({
       )}
 
       {/* 열린 저금통 + 오늘 카드 없음 */}
-      {jar?.isOpen && !loading && !error && !note && (
-        <div className={`rounded-[28px] border p-6 text-center ${palette.panel}`}>
-          <div className="mb-4 text-5xl">🎁</div>
+      {jar?.isOpen && !loading && !error && canReceiveTodayMemory && (
+        <div className={`relative overflow-hidden rounded-[30px] border p-8 text-center ${palette.panel}`}>
+          <MemoryDrawNoteIcon palette={palette} />
 
-          <h3 className="text-xl font-black text-slate-800">
-            아직 뽑은 추억 쪽지가 없어요
+          <h3 className="text-2xl font-black text-slate-800">
+            아직 오늘 받은 추억이 없어요
           </h3>
 
           <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
-            버튼을 누르면 아직 뽑히지 않은 쪽지 중에서 추억 쪽지 1장이 랜덤으로 공개돼요.
+            버튼을 누르면 저금통에 담겨 있던 추억 중
+            아직 열어보지 않은 한 장을 오늘의 추억으로 받아볼 수 있어요.
           </p>
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+              남은 추억 {remainingCount}개
+            </span>
+
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
+              받은 추억 {drawnCount}개
+            </span>
+          </div>
 
           <button
             type="button"
             onClick={onDraw}
-            disabled={drawing}
-            className={`mt-5 rounded-2xl px-5 py-3 text-sm font-black shadow-md transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+            disabled={drawing || drawAnimationPlaying}
+            className={`mt-6 rounded-2xl px-6 py-3 text-sm font-black shadow-lg transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
           >
-            {drawing ? "추억 쪽지 뽑는 중..." : "추억 쪽지 뽑기"}
+            {drawing || drawAnimationPlaying ? "오늘의 추억 고르는 중..." : "오늘의 추억 받기"}
           </button>
         </div>
       )}
@@ -5817,20 +6030,25 @@ async function handleDrawDailyDrawToday() {
     const data = await drawDailyDrawToday(jarId);
 
     /*
-     * POST 응답은 DailyDrawResponse 하나다.
-     * 그런데 화면 상태는 GET /today 응답처럼
-     * { hasTodayDraw, dailyDraw, message } 모양으로 들고 있으면 편하다.
+     * POST 응답은 방금 뽑힌 카드 정보다.
+     * 먼저 화면에 바로 보여주고,
+     * 그 다음 GET /today를 다시 호출해서
+     * remainingCount, drawnCount 같은 상태값까지 최신으로 맞춘다.
      */
-    setDailyDrawToday({
+    setDailyDrawToday((prev) => ({
+      ...(prev || {}),
       hasTodayDraw: true,
       dailyDraw: data,
       message: data?.newlyDrawn
         ? "오늘의 추억 한 장이 공개되었어요."
         : "이미 공개된 오늘의 추억 한 장을 보여드려요.",
-    });
+    }));
 
-    // 히스토리도 같이 최신화한다.
-    await loadDailyDrawHistory({ silent: true });
+    // 오늘 카드 상태와 히스토리를 다시 최신화한다.
+    await Promise.all([
+      loadDailyDrawToday({ silent: true }),
+      loadDailyDrawHistory({ silent: true }),
+    ]);
 
     // 저금통 확대 모달의 쪽지 목록도 최신화한다.
     await loadJarZoomNotes();
@@ -5914,6 +6132,32 @@ function handleCloseMemoryDraw() {
 async function handleOpenMemoryDrawNoteDetail(noteId) {
   setMemoryDrawOpen(false);
   await handleOpenDailyDrawNoteDetail(noteId);
+}
+
+/*
+ * 오늘의 추억 한 장 모달에서 전체 추억 보러가기를 눌렀을 때 사용한다.
+ *
+ * 역할:
+ * - 오늘의 추억 모달을 닫고
+ * - 기존 저금통 확대 모달을 열어서
+ * - 전체 쪽지 목록을 보여준다.
+ */
+async function handleOpenMemoryDrawAllNotes() {
+  setMemoryDrawOpen(false);
+  setJarZoomOpen(true);
+  await loadJarZoomNotes();
+}
+
+/*
+ * 오늘의 추억 한 장 모달에서 채팅하러가기를 눌렀을 때 사용한다.
+ *
+ * 역할:
+ * - 오늘의 추억 모달을 닫고
+ * - 저금통 채팅 모달을 연다.
+ */
+function handleOpenMemoryDrawChat() {
+  setMemoryDrawOpen(false);
+  handleOpenJarChat();
 }
 
 /*
@@ -6545,6 +6789,7 @@ function handleRestoreHiddenInvites() {
           onReactNote={handleReactInJarZoomDetail}
           reactingNoteId={jarZoomReactingNoteId}
         />
+
         <JarChatModal
           open={jarChatOpen}
           jar={jar}
@@ -6552,6 +6797,7 @@ function handleRestoreHiddenInvites() {
           currentUserId={me?.userId}
           onClose={handleCloseJarChat}
         />
+
         <MemoryDrawModal
           open={memoryDrawOpen}
           jar={jar}
@@ -6565,8 +6811,11 @@ function handleRestoreHiddenInvites() {
           onDraw={handleDrawDailyDrawToday}
           onReload={refreshDailyDraw}
           onOpenNoteDetail={handleOpenMemoryDrawNoteDetail}
+          onOpenAllNotes={handleOpenMemoryDrawAllNotes}
+          onOpenChat={handleOpenMemoryDrawChat}
           realtimeMessage={dailyDrawRealtimeMessage}
         />
+
         <JarOpenCelebrationModal
           open={jarOpenCelebrationOpen}
           jar={jar}
@@ -6575,6 +6824,7 @@ function handleRestoreHiddenInvites() {
           onClose={handleCloseJarOpenCelebration}
           onViewNotes={handleViewOpenedJarNotes}
         />
+
         <JarZoomNoteDetailModal
           open={jarZoomDetailOpen}
           note={jarZoomDetailNote}

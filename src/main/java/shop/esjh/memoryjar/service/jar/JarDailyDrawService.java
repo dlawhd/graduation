@@ -118,12 +118,26 @@ public class JarDailyDrawService {
         // 공개 방식이 ALL_AT_ONCE여도 추억 쪽지 뽑기는 사용할 수 있다.
         validateOpened(jarId);
 
-        // 5. 한국 날짜 기준 오늘 카드 조회
+        // 5. 오늘의 추억 한 장 화면에서 사용할 개수 정보를 계산한다.
+        long totalDrawableCount = noteRepository.countDrawableNotesByJarId(jarId); // 저금통에 담긴 전체 쪽지 수
+        long remainingCount = noteRepository.countDailyDrawCandidatesByJarId(jarId); // 아직 Daily Draw로 받지 않은 쪽지 수
+        long drawnCount = Math.max(totalDrawableCount - remainingCount, 0); // 이미 Daily Draw로 받은 쪽지 수
+
+        // 6. 한국 날짜 기준 오늘 카드 조회
         LocalDate today = todayKst();
 
         return jarDailyDrawRepository.findTodayWithNoteByJarIdAndDrawDate(jarId, today)
-                .map(draw -> DailyDrawTodayResponse.found(toDailyDrawResponse(draw, false)))
-                .orElseGet(DailyDrawTodayResponse::empty);
+                .map(draw -> DailyDrawTodayResponse.found(
+                        toDailyDrawResponse(draw, false),
+                        remainingCount,
+                        totalDrawableCount,
+                        drawnCount
+                ))
+                .orElseGet(() -> DailyDrawTodayResponse.empty(
+                        remainingCount,
+                        totalDrawableCount,
+                        drawnCount
+                ));
     }
 
     // 지난 날짜에 어떤 쪽지가 뽑혔는지 목록으로 보여준다.
@@ -190,7 +204,7 @@ public class JarDailyDrawService {
         if (candidateCount <= 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "아직 뽑을 수 있는 추억 쪽지가 없어요. 새로운 쪽지를 추가해주세요."
+                    "더 이상 받을 수 있는 추억 쪽지가 없어요."
             );
         }
 
