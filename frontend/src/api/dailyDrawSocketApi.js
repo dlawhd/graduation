@@ -45,10 +45,11 @@ export function createDailyDrawSocketClient({
     /*
      * 개발 중에는 연결 상태를 콘솔로 확인하면 좋다.
      * 배포 안정화가 끝나면 필요에 따라 주석 처리해도 된다.
-     */
+
     debug: (message) => {
       console.log("[DAILY_DRAW_STOMP]", message);
     },
+    */
 
     // 연결이 끊기면 3초 뒤 자동 재연결을 시도한다.
     reconnectDelay: 3000,
@@ -57,7 +58,7 @@ export function createDailyDrawSocketClient({
      * WebSocket 연결이 성공했을 때 실행된다.
      */
     onConnect: () => {
-      console.log("Daily Draw WebSocket 연결 성공");
+      // console.log("Daily Draw WebSocket 연결 성공");
 
       /*
        * 서버가 Daily Draw 이벤트를 보내는 주소

@@ -4961,9 +4961,9 @@ export default function JarDetailPage() {
         ]);
       },
 
-      onConnect: () => {
+      /* onConnect: () => {
         console.log("저금통 멤버 변화 구독 시작");
-      },
+      }, */
 
       onError: (error) => {
         console.error("저금통 멤버 WebSocket 오류", error);
@@ -4995,7 +4995,7 @@ export default function JarDetailPage() {
       jarId,
 
       onJarOpened: async (event) => {
-        console.log("저금통 오픈 이벤트 수신", event);
+        // console.log("저금통 오픈 이벤트 수신", event);
 
         // 1. 기존 자동 닫힘 타이머가 있으면 먼저 정리한다.
         // 같은 이벤트가 아주 드물게 중복으로 와도 타이머가 꼬이지 않게 하기 위함이다.
@@ -5036,9 +5036,9 @@ export default function JarDetailPage() {
         }
       },
 
-      onConnect: () => {
+      /* onConnect: () => {
         console.log("저금통 오픈 이벤트 구독 시작");
-      },
+      }, */
 
       onError: (error) => {
         console.error("저금통 오픈 WebSocket 오류", error);
@@ -5132,9 +5132,9 @@ export default function JarDetailPage() {
         }
       },
 
-      onConnect: () => {
+      /* onConnect: () => {
         console.log("쪽지 상세 변화 구독 시작");
-      },
+      }, */
 
       onError: (error) => {
         console.error("쪽지 상세 WebSocket 오류", error);
@@ -5335,7 +5335,7 @@ export default function JarDetailPage() {
       jarId,
 
       onDailyDrawRevealed: async (event) => {
-        console.log("Daily Draw 공개 이벤트 수신", event);
+        // console.log("Daily Draw 공개 이벤트 수신", event);
 
         /*
          * 1. 안내 문구를 잠깐 보여준다.
@@ -5380,9 +5380,9 @@ export default function JarDetailPage() {
         await loadJarZoomNotes();
       },
 
-      onConnect: () => {
+      /* onConnect: () => {
         console.log("Daily Draw 이벤트 구독 시작");
-      },
+      }, */
 
       onError: (error) => {
         console.error("Daily Draw WebSocket 오류", error);
@@ -6836,7 +6836,7 @@ function handleRestoreHiddenInvites() {
 
             {/* 왼쪽 위 보랏빛 번짐 */}
             <div
-              cclassName={`absolute -left-10 top-24 h-72 w-72 rounded-full blur-3xl ${palette.pageGlowSecondary}`}
+              className={`absolute -left-10 top-24 h-72 w-72 rounded-full blur-3xl ${palette.pageGlowSecondary}`}
             />
 
             {/* 오른쪽 아래 아주 약한 안개빛 */}
@@ -7135,8 +7135,6 @@ function handleRestoreHiddenInvites() {
                   <InfoItem label="저금통 ID" value={jar.jarId} className={palette.infoBox} />
                   <InfoItem label="내 역할" value={ROLE_LABEL[jar.myRole] || jar.myRole} className={palette.infoBox} />
                   <InfoItem label="테마" value={THEME_LABEL[jar.theme] || jar.theme} className={palette.infoBox} />
-                  <InfoItem label="잠금 레벨" value={LOCK_LEVEL_LABEL[jar.lockLevel] || jar.lockLevel} className={palette.infoBox} />
-                  <InfoItem label="공개 방식" value={OPEN_MODE_LABEL[jar.openMode] || jar.openMode} className={palette.infoBox} />
                   <InfoItem label="상태" value={jar.isOpen ? "공개됨" : "잠겨 있음"} className={palette.infoBox} />
                 </div>
               </div>

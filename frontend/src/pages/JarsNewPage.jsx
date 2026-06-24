@@ -50,17 +50,6 @@ const THEME_LABEL = {
   MOONLIGHT: "달빛",
 };
 
-const OPEN_MODE_LABEL = {
-  ALL_AT_ONCE: "한 번에 전체 공개",
-  DAILY_DRAW: "하루 1장 랜덤 공개",
-};
-
-const LOCK_LEVEL_LABEL = {
-  HIDDEN: "완전 비밀",
-  META_ONLY: "메타만 공개",
-  TITLE_ONLY: "제목만 공개",
-};
-
 // ==============================
 // 8가지 저금통 템플릿
 // ==============================
@@ -1331,6 +1320,22 @@ export default function JarsNewPage() {
     );
   }, [form.theme, defaultTemplate]);
 
+    /*
+     * selectedPreset 역할
+     *
+     * 사용자가 선택한 테마에 맞춰
+     * 저금통 정보 입력 카드의 배경색, 포인트 색을 정해주는 값이야.
+     *
+     * 쉽게 말하면:
+     * - 봄 저금통이면 분홍빛
+     * - 여름 저금통이면 초록빛
+     * - 겨울 저금통이면 파란빛
+     * 으로 입력 폼 분위기도 같이 맞춰준다.
+     */
+    const selectedPreset = useMemo(() => {
+      return getVisualPreset(form.theme);
+    }, [form.theme]);
+
     // 템플릿 카드를 누르면 그 템플릿의 theme 기본값이 form에 들어가게 함
     function handleTemplateClick(template) {
       setForm((prev) => ({
@@ -1396,8 +1401,8 @@ export default function JarsNewPage() {
           <h1 className="text-4xl font-black text-slate-800">새 저금통 만들기</h1>
 
           <p className="mt-4 text-base leading-8 text-slate-600">
-            먼저 분위기에 맞는 저금통을 골라봐. 고르는 순간 오른쪽 미리보기가 바로 바뀌고,
-            아래 설정을 조금만 다듬으면 바로 만들 수 있어.
+            먼저 분위기에 맞는 저금통을 골라봐요. 고르는 순간 오른쪽 미리보기가 바로 바뀌고
+            아래 설정을 조금만 다듬으면 바로 만들 수 있어요.
           </p>
         </section>
 
@@ -1467,139 +1472,173 @@ export default function JarsNewPage() {
         )}
 
         {/* 입력 폼 */}
-        <section className="mt-10 rounded-[24px] bg-white p-8 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
-          <h2 className="text-3xl font-black text-slate-800">저금통 정보 입력</h2>
-          <p className="mt-3 text-base text-slate-500">
-            선택한 스타일을 바탕으로 이름, 설명, 공개 방식을 원하는 대로 바꿔줘.
-          </p>
+        <section
+          className="relative mt-10 overflow-hidden rounded-[28px] border border-white/80 p-8 shadow-[0_18px_48px_rgba(15,23,42,0.10)]"
+          style={selectedPreset.previewCardStyle}
+        >
+          {/* 카드 안쪽에 은은하게 깔리는 빛 장식 */}
+          <div className="pointer-events-none absolute -right-20 -top-24 h-60 w-60 rounded-full bg-white/70 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-20 h-60 w-60 rounded-full bg-white/60 blur-3xl" />
 
-          <form onSubmit={handleSubmit} className="mt-8">
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-bold text-slate-700">
-                  저금통 이름
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  placeholder="예: 우리의 2026 추억 저금통"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-bold text-slate-700">
-                  설명
-                </label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  rows={4}
-                  placeholder="이 저금통에 어떤 추억을 담고 싶은지 적어보자."
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
-                />
-              </div>
-
+          <div className="relative">
+            {/* 제목 영역 */}
+            <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <label className="mb-2 block text-sm font-bold text-slate-700">
-                  테마
-                </label>
-                <select
-                  name="theme"
-                  value={form.theme}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
-                >
-                  <option value="SPRING">{THEME_LABEL.SPRING}</option>
-                  <option value="SUMMER">{THEME_LABEL.SUMMER}</option>
-                  <option value="AUTUMN">{THEME_LABEL.AUTUMN}</option>
-                  <option value="WINTER">{THEME_LABEL.WINTER}</option>
-                  <option value="LAVENDER">{THEME_LABEL.LAVENDER}</option>
-                  <option value="DEW">{THEME_LABEL.DEW}</option>
-                  <option value="SAND">{THEME_LABEL.SAND}</option>
-                  <option value="MOONLIGHT">{THEME_LABEL.MOONLIGHT}</option>
-                </select>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-xs font-extrabold text-slate-600 shadow-sm">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: selectedPreset.accentLine }}
+                  />
+                  {selectedTemplate.title} 정보 채우기
+                </div>
+
+                <h2 className="text-3xl font-black text-slate-800">
+                  저금통 정보 입력
+                </h2>
+
+                <p className="mt-3 text-base leading-7 text-slate-500">
+                  이름, 설명, 오픈 날짜만 정하면 바로 추억 저금통을 만들 수 있어.
+                </p>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-bold text-slate-700">
-                  최대 인원
-                </label>
-                <input
-                  type="number"
-                  name="maxMembers"
-                  value={form.maxMembers}
-                  onChange={handleChange}
-                  min={2}
-                  max={50}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
-                  required
-                />
-              </div>
+              {/* 현재 선택된 테마를 작게 보여주는 장식 카드 */}
+              <div className="hidden shrink-0 rounded-[22px] bg-white/80 px-5 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.08)] sm:block">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    {selectedTemplate.emoji}
+                  </div>
 
-
-              <div>
-                <label className="mb-2 block text-sm font-bold text-slate-700">
-                 오픈 날짜
-                </label>
-                <input
-                  type="datetime-local"
-                  name="openAt"
-                  value={form.openAt}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-bold text-slate-700">
-                  공개 방식
-                </label>
-                <select
-                  name="openMode"
-                  value={form.openMode}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
-                >
-                  <option value="ALL_AT_ONCE">{OPEN_MODE_LABEL.ALL_AT_ONCE}</option>
-                  <option value="DAILY_DRAW">{OPEN_MODE_LABEL.DAILY_DRAW}</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-bold text-slate-700">
-                  잠금 레벨
-                </label>
-                <select
-                  name="lockLevel"
-                  value={form.lockLevel}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-pink-300 focus:bg-white"
-                >
-                  <option value="HIDDEN">{LOCK_LEVEL_LABEL.HIDDEN}</option>
-                  <option value="META_ONLY">{LOCK_LEVEL_LABEL.META_ONLY}</option>
-                  <option value="TITLE_ONLY">{LOCK_LEVEL_LABEL.TITLE_ONLY}</option>
-                </select>
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-400">
+                      선택한 테마
+                    </p>
+                    <p className="text-lg font-black text-slate-800">
+                      {THEME_LABEL[form.theme]}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mt-8 flex justify-end">
-              <motion.button
-                type="submit"
-                disabled={loading}
-                whileHover={{ scale: loading ? 1 : 1.02 }}
-                whileTap={{ scale: loading ? 1 : 0.98 }}
-                className="rounded-2xl bg-gradient-to-r from-pink-500 to-orange-400 px-6 py-3 text-sm font-bold text-white shadow-md transition disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? "만드는 중..." : "저금통 만들기"}
-              </motion.button>
-            </div>
-          </form>
+            <form onSubmit={handleSubmit}>
+              <div className="grid gap-5 md:grid-cols-2">
+                {/* 저금통 이름 */}
+                <div className="md:col-span-2">
+                  <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: selectedPreset.accentLine }}
+                    />
+                    저금통 이름
+                  </label>
+
+                  <input
+                    type="text"
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    placeholder="예: 우리의 2026 추억 저금통"
+                    className="w-full rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
+                    required
+                  />
+                </div>
+
+                {/* 설명 */}
+                <div className="md:col-span-2">
+                  <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: selectedPreset.accentLine }}
+                    />
+                    설명
+                  </label>
+
+                  <textarea
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    rows={4}
+                    placeholder="이 저금통에 어떤 추억을 담고 싶은지 적어보자."
+                    className="w-full resize-none rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
+                  />
+                </div>
+
+                {/* 테마 */}
+                <div>
+                  <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
+                    <span className="text-base">🎨</span>
+                    테마
+                  </label>
+
+                  <select
+                    name="theme"
+                    value={form.theme}
+                    onChange={handleChange}
+                    className="w-full rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
+                  >
+                    <option value="SPRING">{THEME_LABEL.SPRING}</option>
+                    <option value="SUMMER">{THEME_LABEL.SUMMER}</option>
+                    <option value="AUTUMN">{THEME_LABEL.AUTUMN}</option>
+                    <option value="WINTER">{THEME_LABEL.WINTER}</option>
+                    <option value="LAVENDER">{THEME_LABEL.LAVENDER}</option>
+                    <option value="DEW">{THEME_LABEL.DEW}</option>
+                    <option value="SAND">{THEME_LABEL.SAND}</option>
+                    <option value="MOONLIGHT">{THEME_LABEL.MOONLIGHT}</option>
+                  </select>
+                </div>
+
+                {/* 최대 인원 */}
+                <div>
+                  <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
+                    <span className="text-base">👥</span>
+                    최대 인원
+                  </label>
+
+                  <input
+                    type="number"
+                    name="maxMembers"
+                    value={form.maxMembers}
+                    onChange={handleChange}
+                    min={2}
+                    max={50}
+                    className="w-full rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
+                    required
+                  />
+                </div>
+
+                {/* 오픈 날짜 */}
+                <div className="md:col-span-2">
+                  <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
+                    <span className="text-base">📅</span>
+                    오픈 날짜
+                  </label>
+
+                  <input
+                    type="datetime-local"
+                    name="openAt"
+                    value={form.openAt}
+                    onChange={handleChange}
+                    className="w-full rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 아래 안내 + 버튼 */}
+              {/* 저금통 만들기 버튼 */}
+              <div className="mt-8 flex justify-end">
+                <motion.button
+                  type="submit"
+                  disabled={loading}
+                  whileHover={{ scale: loading ? 1 : 1.03 }}
+                  whileTap={{ scale: loading ? 1 : 0.97 }}
+                  className="rounded-2xl bg-gradient-to-r from-pink-500 to-orange-400 px-7 py-3.5 text-sm font-black text-white shadow-[0_10px_22px_rgba(244,114,89,0.30)] transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "만드는 중..." : "저금통 만들기"}
+                </motion.button>
+              </div>
+            </form>
+          </div>
         </section>
       </div>
     </div>

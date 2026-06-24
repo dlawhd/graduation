@@ -25,16 +25,16 @@ export function createNoteSocketClient({
   const client = new Client({
     brokerURL: getWebSocketUrl(),
 
-    // 개발 중에는 연결 상태를 콘솔에서 확인할 수 있게 한다.
+    /* 개발 중에는 연결 상태를 콘솔에서 확인할 수 있게 한다.
     debug: (message) => {
       console.log("[NOTE_STOMP]", message);
-    },
+    },*/
 
     // 연결이 끊기면 3초 뒤 다시 연결한다.
     reconnectDelay: 3000,
 
     onConnect: () => {
-      console.log("쪽지 상세 WebSocket 연결 성공");
+      // console.log("쪽지 상세 WebSocket 연결 성공");
 
       /*
        * 서버가 쪽지 상세 이벤트를 보내는 주소:

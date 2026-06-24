@@ -5,6 +5,7 @@ import noteApi from "../api/noteApi";
 import fileApi from "../api/fileApi";
 import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
 import NoteIntoJarIcon from "../components/icons/NoteIntoJarIcon";
+import { createPortal } from "react-dom";
 
 // 잠금 레벨을 화면용으로 바꿔주는 작은 사전
 const LOCK_LEVEL_LABEL = {
@@ -127,30 +128,6 @@ function getLockGuide(jar) {
     };
   }
 
-  if (jar.lockLevel === "HIDDEN") {
-    return {
-      chip: LOCK_LEVEL_LABEL.HIDDEN,
-      title: "오픈 전에는 아주 조금만 보여요.",
-      description: "완전 비밀 상태라서 아직은 개수와 기본 흐름만 느낄 수 있어요.",
-      chipClass: "bg-amber-100 text-amber-700",
-    };
-  }
-
-  if (jar.lockLevel === "META_ONLY") {
-    return {
-      chip: LOCK_LEVEL_LABEL.META_ONLY,
-      title: "오픈 전에는 메타 정보만 보여요.",
-      description: "날짜, 장소, 태그 같은 힌트만 보고 자세한 내용은 오픈 뒤에 확인할 수 있어요.",
-      chipClass: "bg-amber-100 text-amber-700",
-    };
-  }
-
-  return {
-    chip: LOCK_LEVEL_LABEL.TITLE_ONLY,
-    title: "오픈 전에는 제목만 살짝 보여요.",
-    description: "제목은 볼 수 있지만 내용은 아직 잠겨 있어요.",
-    chipClass: "bg-amber-100 text-amber-700",
-  };
 }
 
 // 카드에서 제목을 어떻게 보여줄지 정하기
@@ -309,10 +286,12 @@ function PaperComposeModal({
 
   const disableClose = loading || phase === "submitting";
 
-  return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/55 px-4 py-4 sm:py-6">
+        {/* 새 쪽지 작성 모달 전체 배경 */}
+
       {/* 어두운 배경 */}
-      <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-[2px] paper-overlay-open" />
+      <div className="fixed inset-0 bg-slate-900/55 backdrop-blur-[2px] paper-overlay-open" />
 
       {/* 새 쪽지 모달 안쪽 스크롤바 디자인 */}
       <style>
@@ -344,8 +323,8 @@ function PaperComposeModal({
       </style>
 
       {/* 종이 본체 */}
-      <div className={`relative flex max-h-[88vh] w-full max-w-2xl origin-center ${paperAnimationClass}`}>
-        <div className="relative flex max-h-[88vh] w-full flex-col overflow-hidden rounded-[34px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.28)]">
+      <div className={`relative z-10 flex w-full max-w-2xl origin-top ${paperAnimationClass}`}>
+        <div className="relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-[34px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
           {/* 접힌 모서리 */}
           <div className="absolute right-0 top-0 h-16 w-16 rounded-bl-[28px] border-b border-l border-white/80 bg-white/80" />
 
@@ -358,8 +337,8 @@ function PaperComposeModal({
           <div className={`relative z-10 flex min-h-0 flex-1 flex-col ${contentAnimationClass}`}>
             {/* 헤더는 위에 고정된 영역처럼 분리 */}
             <div className="shrink-0 border-b border-amber-100/70 bg-[#fffdf8]/95 px-6 pb-4 pt-6">
-              <div className="flex items-center justify-between gap-3">
-              <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                 <p className="text-lg font-black text-slate-800">
                   {isFormStep && "새 쪽지 넣기"}
                   {isPreviewStep && "쪽지 미리보기"}
@@ -380,7 +359,7 @@ function PaperComposeModal({
                 type="button"
                 onClick={onClose}
                 disabled={disableClose}
-                className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 닫기
               </button>
@@ -802,7 +781,8 @@ function PaperComposeModal({
         </div>
       </div>
     </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -926,15 +906,7 @@ function NoteDetailModal({
         {!loading && !error && note && (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  jar?.isOpen
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-700"
-                }`}
-              >
-                {jar?.isOpen ? "내용 확인 가능" : LOCK_LEVEL_LABEL[jar?.lockLevel] || "잠금 중"}
-              </span>
+
 
               {note.noteDate && (
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>

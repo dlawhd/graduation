@@ -378,11 +378,6 @@ export default function App() {
               return [newNotification, ...prev].slice(0, 10);
             });
           },
-
-          onConnect: () => {
-            console.log("헤더 알림 WebSocket 연결 완료");
-          },
-
           /*
            * WebSocket 오류가 나도 화면이 완전히 망가지면 안 된다.
            * 그래서 오류가 나면 REST API로 unread count를 한 번 다시 맞춘다.

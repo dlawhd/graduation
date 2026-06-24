@@ -42,10 +42,10 @@ export function createNotificationSocketClient({
     /*
      * 개발 중에는 연결 상태를 콘솔로 확인하면 좋아.
      * 배포 안정화가 끝나면 필요에 따라 주석 처리해도 돼.
-     */
+     *
     debug: (message) => {
       console.log("[NOTIFICATION_STOMP]", message);
-    },
+    },*/
 
     // 연결이 끊기면 3초 뒤 자동 재연결
     reconnectDelay: 3000,
@@ -57,7 +57,7 @@ export function createNotificationSocketClient({
      * /topic/users/{userId}/notifications
      */
     onConnect: () => {
-      console.log("알림 WebSocket 연결 성공");
+      // console.log("알림 WebSocket 연결 성공");
 
       client.subscribe(`/topic/users/${userId}/notifications`, (message) => {
         try {

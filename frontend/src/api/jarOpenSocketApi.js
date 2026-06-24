@@ -37,16 +37,16 @@ export function createJarOpenSocketClient({
   const client = new Client({
     brokerURL: getWebSocketUrl(),
 
-    // 개발 중에는 연결 상태를 콘솔에서 확인하기 좋다.
+    /* 개발 중에는 연결 상태를 콘솔에서 확인하기 좋다.
     debug: (message) => {
       console.log("[JAR_OPEN_STOMP]", message);
-    },
+    },*/
 
     // 연결이 끊기면 3초 뒤 재연결 시도
     reconnectDelay: 3000,
 
     onConnect: () => {
-      console.log("저금통 오픈 WebSocket 연결 성공");
+      // console.log("저금통 오픈 WebSocket 연결 성공");
 
       /*
        * 서버가 보내는 주소:

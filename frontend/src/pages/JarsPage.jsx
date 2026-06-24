@@ -27,16 +27,6 @@ import MoonlightParticleIcon from "../components/icons/MoonlightParticleIcon";
 */
 
 // 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
-const OPEN_MODE_LABEL = {
-  ALL_AT_ONCE: "한 번에 전체 공개",
-  DAILY_DRAW: "하루 1장 랜덤",
-};
-
-const LOCK_LEVEL_LABEL = {
-  HIDDEN: "완전 잠금",
-  META_ONLY: "메타만 공개",
-  TITLE_ONLY: "제목만 공개",
-};
 
 const ROLE_LABEL = {
   OWNER: "방장",
@@ -533,22 +523,13 @@ export default function JarsPage() {
                     총 {totalElements}개
                   </span>
                 )}
-
-                <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500 shadow-sm">
-                  <span className={`h-2 w-2 rounded-full ${primaryPalette.heroDot}`} />
-                  참여 중인 저금통 한눈에 보기
-                </span>
               </div>
 
               <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
                 내 저금통 목록
               </h1>
 
-              <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base">
-                목록도 상세 페이지처럼 예쁘게 보이도록 바꿨어요.
-                <br className="hidden md:block" />
-                카드만 봐도 테마, 상태, D-day, 공개 방식, 인원 수가 바로 보이게 만들었어요.
-              </p>
+
             </div>
 
             {/* 새 저금통 만들기 버튼 */}
@@ -636,21 +617,13 @@ export default function JarsPage() {
                           <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.soft}`}>
                             {THEME_LABEL[jar.theme] || jar.theme}
                           </span>
-
                           <span className="rounded-full bg-white/85 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
                             내 역할: {ROLE_LABEL[jar.myRole] || jar.myRole}
                           </span>
-
-                          <span
-                            className={`rounded-full px-3 py-1 text-[11px] font-bold ${
-                              jar.isOpen
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {jar.isOpen ? "OPEN" : "LOCKED"}
+                          {/* 참여 인원 */}
+                          <span className="rounded-full bg-white/85 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+                          {jar.memberCount}/{jar.maxMembers}명
                           </span>
-
                           <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.badge}`}>
                             {ddayText}
                           </span>
@@ -675,22 +648,6 @@ export default function JarsPage() {
                             상세 보기 →
                           </span>
                         </div>
-
-                        {/* 작은 정보칩 */}
-                        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
-                          <span className="rounded-full bg-white/85 px-3 py-1 shadow-sm">
-                            {OPEN_MODE_LABEL[jar.openMode] || jar.openMode}
-                          </span>
-
-                          <span className="rounded-full bg-white/85 px-3 py-1 shadow-sm">
-                            {LOCK_LEVEL_LABEL[jar.lockLevel] || jar.lockLevel}
-                          </span>
-
-                          <span className="rounded-full bg-white/85 px-3 py-1 shadow-sm">
-                            {jar.memberCount}/{jar.maxMembers}명
-                          </span>
-                        </div>
-
                         {/* 날짜 정보 박스 */}
                         <div className="mt-5 grid gap-3 md:grid-cols-2">
                           <div className={`rounded-2xl border px-4 py-3 shadow-sm ${palette.infoBox}`}>
@@ -702,14 +659,7 @@ export default function JarsPage() {
                             </p>
                           </div>
 
-                          <div className={`rounded-2xl border px-4 py-3 shadow-sm ${palette.infoBox}`}>
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                              LAST UPDATE
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-slate-700">
-                              {formatDate(jar.updatedAt)}
-                            </p>
-                          </div>
+
                         </div>
 
                         {/* 하단 진행 바 */}

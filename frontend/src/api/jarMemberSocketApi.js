@@ -25,16 +25,17 @@ export function createJarMemberSocketClient({
   const client = new Client({
     brokerURL: getWebSocketUrl(),
 
-    // 개발 중에는 연결 상태를 보기 좋게 콘솔에 찍어준다.
+    /* 개발 중에는 연결 상태를 보기 좋게 콘솔에 찍어준다.
     debug: (message) => {
       console.log("[JAR_MEMBER_STOMP]", message);
     },
+    */
 
     // 연결이 끊기면 3초 뒤 자동 재연결
     reconnectDelay: 3000,
 
     onConnect: () => {
-      console.log("저금통 멤버 WebSocket 연결 성공");
+      // console.log("저금통 멤버 WebSocket 연결 성공");
 
       /*
        * 서버가 멤버 변화 이벤트를 보내는 주소:

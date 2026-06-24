@@ -46,10 +46,9 @@ export function createChatSocketClient({
     /*
      * debug는 WebSocket이 잘 연결되는지 콘솔에서 확인하는 용도
      * 최종적으로 다 끝나면 삭제
-     */
     debug: (message) => {
       console.log("[STOMP]", message);
-    },
+    },*/
 
     /*
      * 연결이 끊겼을 때 자동으로 다시 연결을 시도하는 시간
@@ -61,7 +60,7 @@ export function createChatSocketClient({
      * 서버와 연결에 성공했을 때 실행된다.
      */
     onConnect: () => {
-      console.log("채팅 WebSocket 연결 성공");
+      // console.log("채팅 WebSocket 연결 성공");
 
       /*
        * 이 저금통 채팅방을 구독한다.
