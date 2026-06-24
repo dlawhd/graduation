@@ -23,7 +23,14 @@ import DewParticleIcon from "../components/icons/DewParticleIcon";
 import SandParticleIcon from "../components/icons/SandParticleIcon";
 import MoonlightParticleIcon from "../components/icons/MoonlightParticleIcon";
 import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
-
+import SpringPageDecorationIcon from "../components/decoration/SpringPageDecorationIcon";
+import SummerPageDecorationIcon from "../components/decoration/SummerPageDecorationIcon";
+import AutumnPageDecorationIcon from "../components/decoration/AutumnPageDecorationIcon";
+import WinterPageDecorationIcon from "../components/decoration/WinterPageDecorationIcon";
+import LavenderPageDecorationIcon from "../components/decoration/LavenderPageDecorationIcon";
+import DewPageDecorationIcon from "../components/decoration/DewPageDecorationIcon";
+import SandPageDecorationIcon from "../components/decoration/SandPageDecorationIcon";
+import MoonlightPageDecorationIcon from "../components/decoration/MoonlightPageDecorationIcon";
 import {
   createJarMemberSocketClient,
   disconnectJarMemberSocket,
@@ -1288,6 +1295,49 @@ function getThemeIcon(theme, size = 64) {
 
   // LAVENDER 또는 CUSTOM 기본값
   return <LavenderIcon size={size} />;
+}
+
+/*
+ * getThemePageDecorationIcon 역할
+ *
+ * 저금통 상세 페이지 바깥 배경에 보여줄
+ * 테마별 귀여운 SVG 장식 컴포넌트를 골라주는 함수다.
+ *
+ * getThemeIcon과 다른 점:
+ * - getThemeIcon은 저금통 중앙 대표 아이콘을 반환한다.
+ * - getThemePageDecorationIcon은 페이지 바깥 배경 장식용 컴포넌트를 반환한다.
+ */
+function getThemePageDecorationIcon(theme) {
+  if (theme === "SPRING") {
+    return SpringPageDecorationIcon;
+  }
+
+  if (theme === "SUMMER") {
+    return SummerPageDecorationIcon;
+  }
+
+  if (theme === "AUTUMN") {
+    return AutumnPageDecorationIcon;
+  }
+
+  if (theme === "WINTER") {
+    return WinterPageDecorationIcon;
+  }
+
+  if (theme === "DEW") {
+    return DewPageDecorationIcon;
+  }
+
+  if (theme === "SAND") {
+    return SandPageDecorationIcon;
+  }
+
+  if (theme === "MOONLIGHT") {
+    return MoonlightPageDecorationIcon;
+  }
+
+  // LAVENDER 또는 CUSTOM 기본값
+  return LavenderPageDecorationIcon;
 }
 
 /*
@@ -6674,6 +6724,16 @@ function handleRestoreHiddenInvites() {
    */
   const hasThemePageDecoration = Boolean(palette.pageBg);
 
+  /*
+   * 현재 저금통 테마에 맞는 페이지 장식 SVG 컴포넌트다.
+   *
+   * 역할:
+   * - SPRING이면 SpringPageDecorationIcon
+   * - SUMMER이면 SummerPageDecorationIcon
+   * - 없는 테마면 null을 반환해서 화면에 아무것도 그리지 않는다.
+   */
+  const ThemePageDecorationIcon = getThemePageDecorationIcon(jar?.theme);
+
   // 인원 진행률 계산
   const memberPercent = useMemo(() => {
     if (!jar?.maxMembers) return 0;
@@ -6802,6 +6862,22 @@ function handleRestoreHiddenInvites() {
             <span className={`absolute right-[38%] top-24 text-[10px] drop-shadow-sm ${palette.pageSparkle}`}>
               ✦
             </span>
+             {/* 테마 대표 SVG 장식 */}
+                {ThemePageDecorationIcon && (
+                  <>
+                    <ThemePageDecorationIcon
+                      className={`absolute left-[8%] top-20 h-9 w-9 rotate-[-12deg] ${palette.pageSparkle}`}
+                    />
+
+                    <ThemePageDecorationIcon
+                      className={`absolute right-[9%] top-44 h-11 w-11 rotate-[10deg] ${palette.pageSparkle}`}
+                    />
+
+                    <ThemePageDecorationIcon
+                      className={`absolute bottom-24 right-[22%] h-8 w-8 rotate-[-6deg] ${palette.pageSparkle}`}
+                    />
+                  </>
+                )}
           </div>
         )}
 
@@ -6896,6 +6972,22 @@ function handleRestoreHiddenInvites() {
             <span className={`absolute right-[38%] top-24 text-[10px] drop-shadow-sm ${palette.pageSparkle}`}>
               ✦
             </span>
+             {/* 테마 대표 SVG 장식 */}
+                {ThemePageDecorationIcon && (
+                  <>
+                    <ThemePageDecorationIcon
+                      className={`absolute left-[8%] top-20 h-9 w-9 rotate-[-12deg] ${palette.pageSparkle}`}
+                    />
+
+                    <ThemePageDecorationIcon
+                      className={`absolute right-[9%] top-44 h-11 w-11 rotate-[10deg] ${palette.pageSparkle}`}
+                    />
+
+                    <ThemePageDecorationIcon
+                      className={`absolute bottom-24 right-[22%] h-8 w-8 rotate-[-6deg] ${palette.pageSparkle}`}
+                    />
+                  </>
+                )}
           </div>
         )}
 
