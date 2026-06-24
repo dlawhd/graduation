@@ -1,6 +1,7 @@
 // src/pages/JarDetailPage.jsx
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import { getChatUnreadCount } from "../api/chatApi";
@@ -53,17 +54,6 @@ import {
   disconnectDailyDrawSocket,
 } from "../api/dailyDrawSocketApi";
 
-// 영어 enum 값을 화면용 한글로 바꿔주는 작은 사전
-const OPEN_MODE_LABEL = {
-  ALL_AT_ONCE: "한 번에 전체 공개",
-  DAILY_DRAW: "하루 1장 랜덤 공개",
-};
-
-const LOCK_LEVEL_LABEL = {
-  HIDDEN: "완전 비밀",
-  META_ONLY: "메타만 공개",
-  TITLE_ONLY: "제목만 공개",
-};
 
 const ROLE_LABEL = {
   OWNER: "방장",
@@ -2038,9 +2028,9 @@ function JarZoomNoteDetailModal({
 
     if (!open) return null;
 
-    return (
+    return createPortal(
       // 화면 전체를 덮는 어두운 배경 영역
-      <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-900/60 px-4 py-6">
+      <div className="fixed inset-0 z-[9994] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/60 px-4 py-4 sm:py-6">
         {/* 쪽지 상세 모달 안쪽 스크롤바를 부드럽게 보이게 하는 CSS */}
         <style>
           {`
@@ -2079,7 +2069,7 @@ function JarZoomNoteDetailModal({
           overflow-hidden
           - 둥근 모서리 밖으로 내용이나 스크롤바가 튀어나가지 않게 막는다.
         */}
-        <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+        <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
           {/* 상단 제목/닫기 영역은 스크롤되지 않게 고정 */}
           <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6">
             <div className="flex items-start justify-between gap-3">
@@ -2304,7 +2294,7 @@ function JarZoomNoteDetailModal({
         </div>
         {currentImage && (
           <div
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80"
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80"
             onClick={() => setSelectedIndex(null)}
           >
             {selectedIndex > 0 && (
@@ -2392,7 +2382,8 @@ function JarZoomNoteDetailModal({
             </button>
           </div>
         )}
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -2533,8 +2524,8 @@ function JarZoomModal({
   // Hook과 함수 선언이 끝난 뒤에 return null 처리
     if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/55 px-4 py-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[9991] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/55 px-4 py-4 sm:py-6">
       <style>
         {`
           @keyframes jarZoomPop {
@@ -2631,7 +2622,7 @@ function JarZoomModal({
       </style>
 
       <div
-       className={`jar-zoom-pop flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm`}
+        className="jar-zoom-pop relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm sm:max-h-[calc(100dvh-3rem)]"
       >
         {/* 상단 제목/닫기 영역은 스크롤되지 않게 분리 */}
         <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6 lg:px-8 lg:pt-8">
@@ -3007,7 +2998,8 @@ function JarZoomModal({
         </div>
       </div>
     </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -3028,9 +3020,9 @@ function JarChatModal({ open, jar, palette, currentUserId, onClose }) {
   // 그래서 닫혀 있을 때는 채팅 polling도 돌지 않게 만들 수 있어
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-900/55 px-4 py-6"
+      className="fixed inset-0 z-[9992] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/55 px-4 py-4 sm:py-6"
       onMouseDown={onClose}
     >
       <style>
@@ -3054,7 +3046,7 @@ function JarChatModal({ open, jar, palette, currentUserId, onClose }) {
 
       {/* 모달 본체 */}
       <div
-        className="jar-chat-pop flex max-h-[88vh] w-full max-w-4xl flex-col rounded-[34px] border border-white/70 bg-white/95 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm"
+        className="jar-chat-pop relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm sm:max-h-[calc(100dvh-3rem)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* 모달 상단 */}
@@ -3084,7 +3076,7 @@ function JarChatModal({ open, jar, palette, currentUserId, onClose }) {
         <section
           className={`min-h-0 flex-1 overflow-hidden rounded-[30px] border p-4 shadow-sm ${palette.panel}`}
         >
-          <div className="max-h-[68vh] overflow-y-auto rounded-[24px] bg-white/70">
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-[24px] bg-white/70">
             <JarChatPanel
               jarId={jar?.jarId}
               currentUserId={currentUserId}
@@ -3092,7 +3084,8 @@ function JarChatModal({ open, jar, palette, currentUserId, onClose }) {
           </div>
         </section>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -3644,9 +3637,9 @@ function MemoryDrawModal({
     !hasRemainingNotes &&
     drawnCount > 0;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[190] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[9993] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-950/70 px-4 py-4 backdrop-blur-sm sm:py-6"
       onMouseDown={onClose}
     >
       <style>
@@ -3767,7 +3760,7 @@ function MemoryDrawModal({
       </style>
 
       <div
-        className="memory-draw-pop relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-[36px] border border-white/70 bg-white/95 shadow-[0_35px_100px_rgba(0,0,0,0.35)]"
+        className="memory-draw-pop relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[36px] border border-white/70 bg-white/95 shadow-[0_35px_100px_rgba(0,0,0,0.35)] sm:max-h-[calc(100dvh-3rem)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* 상단 영역 */}
@@ -4215,7 +4208,8 @@ function MemoryDrawModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -4542,6 +4536,109 @@ function InfoItem({ label, value, className = "" }) {
   );
 }
 
+/*
+ * JarMenuModal 역할
+ *
+ * 저금통 상세 페이지에서 버튼을 눌렀을 때
+ * 정보를 화면 앞으로 띄워주는 공통 모달이야.
+ *
+ * 쉽게 말하면:
+ * - 한 눈에 보는 저금통 정보
+ * - 멤버 목록
+ * - 초대 관리
+ * 를 모두 같은 모양의 팝업으로 보여주기 위한 재사용 상자야.
+ */
+function JarMenuModal({
+  open,
+  title,
+  description,
+  badge,
+  palette,
+  onClose,
+  children,
+  maxWidthClass = "max-w-4xl",
+}) {
+  // open이 false면 화면에 아무것도 만들지 않는다.
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9995] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/55 px-4 py-4 sm:py-6"
+      onMouseDown={onClose}
+    >
+      {/* 모달 안쪽 스크롤바를 부드럽게 보이게 하는 CSS */}
+      <style>
+        {`
+          .jar-menu-modal-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+          }
+
+          .jar-menu-modal-scroll::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          .jar-menu-modal-scroll::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 16px 0;
+          }
+
+          .jar-menu-modal-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.95);
+          }
+        `}
+      </style>
+
+      {/* 모달 본체 */}
+      <div
+        className={`relative z-10 flex max-h-[calc(100dvh-2rem)] w-full ${maxWidthClass} flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm sm:max-h-[calc(100dvh-3rem)]`}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* 제목 영역은 고정 */}
+        <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <p className="text-lg font-black text-slate-800">
+                  {title}
+                </p>
+
+                {badge && (
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+                    {badge}
+                  </span>
+                )}
+              </div>
+
+              {description && (
+                <p className="text-sm leading-6 text-slate-500">
+                  {description}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+
+        {/* 내용만 스크롤 */}
+        <div className="jar-menu-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-5">
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // 초대코드 상태를 판단해서, 각 저금통 테마에 맞는 색까지 같이 돌려주는 함수
 function getInviteStatus(invite, palette) {
   if (!invite) {
@@ -4717,6 +4814,15 @@ export default function JarDetailPage() {
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
   const [jarChatOpen, setJarChatOpen] = useState(false);
+
+  // 한 눈에 보는 저금통 정보 모달 상태
+  const [jarInfoOpen, setJarInfoOpen] = useState(false);
+
+  // 멤버 목록 모달 상태
+  const [memberListOpen, setMemberListOpen] = useState(false);
+
+  // 초대 관리 모달 상태
+  const [inviteManageOpen, setInviteManageOpen] = useState(false);
 
   // 추억 쪽지 뽑기 모달 상태
   // false면 닫힘, true면 열림
@@ -7026,9 +7132,7 @@ function handleRestoreHiddenInvites() {
                   {ROLE_LABEL[jar.myRole] || jar.myRole}
                 </span>
 
-                <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-slate-600 shadow-sm">
-                  {OPEN_MODE_LABEL[jar.openMode] || jar.openMode}
-                </span>
+
               </div>
 
               <h1 className="mb-3 text-3xl font-black leading-tight text-slate-800 md:text-4xl">
@@ -7051,7 +7155,8 @@ function handleRestoreHiddenInvites() {
                 </p>
               </div>
 
-              <div className="relative mb-6">
+
+              <div className="relative mb-6 flex flex-col items-center">
                 <JarVisual
                   jar={jar}
                   jarRef={jarVisualRef}
@@ -7059,12 +7164,13 @@ function handleRestoreHiddenInvites() {
                   interactive
                 />
 
-                <div className="mt-4 flex flex-col items-center justify-center gap-3 lg:absolute lg:right-0 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2">
+                {/* 저금통 아래 주요 버튼들 */}
+                <div className="mt-20 grid w-full max-w-xl gap-3 sm:grid-cols-3">
                   {/* 새 쪽지 작성 버튼 */}
                   <button
                     type="button"
                     onClick={handleOpenNoteComposer}
-                    className={`w-[152px] rounded-2xl px-5 py-3 text-sm font-bold shadow-[0_16px_36px_rgba(15,23,42,0.16)] transition hover:scale-[1.02] ${palette.primaryButton}`}
+                    className={`w-full rounded-2xl px-4 py-3 text-sm font-bold shadow-[0_16px_36px_rgba(15,23,42,0.16)] transition hover:scale-[1.02] ${palette.primaryButton}`}
                   >
                     새 쪽지 쓰기
                   </button>
@@ -7073,7 +7179,7 @@ function handleRestoreHiddenInvites() {
                   <button
                     type="button"
                     onClick={handleOpenJarChat}
-                    className={`relative w-[152px] rounded-2xl border px-5 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
+                    className={`relative w-full rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
                   >
                     저금통 채팅
 
@@ -7088,7 +7194,7 @@ function handleRestoreHiddenInvites() {
                   <button
                     type="button"
                     onClick={handleOpenMemoryDraw}
-                    className={`relative w-[152px] rounded-2xl border px-5 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
+                    className={`relative w-full rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
                   >
                     추억 쪽지 뽑기
 
@@ -7101,53 +7207,54 @@ function handleRestoreHiddenInvites() {
                 </div>
               </div>
 
-              <div className={`mb-6 rounded-[28px] border p-5 shadow-sm backdrop-blur-sm ${palette.panel}`}>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-extrabold text-slate-800">
-                    참여 인원 현황
-                  </p>
-                  <p className="text-sm font-bold text-slate-500">
-                    {jar.memberCount} / {jar.maxMembers}명
-                  </p>
-                </div>
 
-                <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className={`h-full rounded-full ${palette.badge}`}
-                    style={{ width: `${memberPercent}%` }}
-                  />
-                </div>
-
-                <p className="mt-3 text-xs text-slate-500">
-                  이 저금통은 최대 {jar.maxMembers}명까지 함께할 수 있어요.
-                </p>
-              </div>
             </section>
 
             {/* 오른쪽: 정보 카드들 */}
+            {/* 오른쪽: 버튼형 메뉴 카드들 */}
             <aside className="space-y-5">
               <div className={`rounded-[30px] border p-6 shadow-sm backdrop-blur-sm ${palette.panel}`}>
-                <p className="mb-4 text-sm font-extrabold text-slate-800">
-                  한눈에 보는 저금통 정보
+                <p className="mb-2 text-sm font-extrabold text-slate-800">
+                  저금통 메뉴
                 </p>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <InfoItem label="저금통 ID" value={jar.jarId} className={palette.infoBox} />
-                  <InfoItem label="내 역할" value={ROLE_LABEL[jar.myRole] || jar.myRole} className={palette.infoBox} />
-                  <InfoItem label="테마" value={THEME_LABEL[jar.theme] || jar.theme} className={palette.infoBox} />
-                  <InfoItem label="상태" value={jar.isOpen ? "공개됨" : "잠겨 있음"} className={palette.infoBox} />
-                </div>
-              </div>
-
-              <div className={`rounded-[30px] border p-6 shadow-sm backdrop-blur-sm ${palette.panel}`}>
-                <p className="mb-4 text-sm font-extrabold text-slate-800">
-                  시간 정보
+                <p className="mb-5 text-xs leading-6 text-slate-500">
+                  필요한 정보와 관리 기능을 버튼으로 열어서 볼 수 있어요.
                 </p>
 
-                <div className="space-y-3">
-                  <InfoItem label="생성일" value={formatDate(jar.createdAt)} className={palette.infoBox} />
-                  <InfoItem label="최근 수정일" value={formatDate(jar.updatedAt)} className={palette.infoBox} />
-                  <InfoItem label="오픈일" value={formatDate(jar.openAt)} className={palette.infoBox} />
+                <div className="grid gap-3">
+                  {/* 저금통 정보 + 시간 정보를 합친 모달 열기 */}
+                  <button
+                    type="button"
+                    onClick={() => setJarInfoOpen(true)}
+                    className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] ${palette.primaryButton}`}
+                  >
+                    한 눈에 보는 저금통 정보
+                  </button>
+
+                  {/* 멤버 목록 모달 열기 */}
+                  <button
+                    type="button"
+                    onClick={() => setMemberListOpen(true)}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-bold transition hover:scale-[1.01] ${palette.outlineButton}`}
+                  >
+                    멤버 목록
+                    <span className="ml-2 text-xs opacity-80">
+                      {members.length}명
+                    </span>
+                  </button>
+
+                  {/* 초대 관리 모달 열기 */}
+                  <button
+                    type="button"
+                    onClick={() => setInviteManageOpen(true)}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-bold transition hover:scale-[1.01] ${palette.outlineButton}`}
+                  >
+                    초대 관리
+                    <span className="ml-2 text-xs opacity-80">
+                      활성 {activeInviteCount}개
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -7163,15 +7270,17 @@ function handleRestoreHiddenInvites() {
                   >
                     목록으로 돌아가기
                   </Link>
-                    {canEditJar && (
-                      <button
-                        type="button"
-                        onClick={() => setEditOpen(true)}
-                        className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] ${palette.primaryButton}`}
-                      >
-                        저금통 설정 수정하기
-                      </button>
-                    )}
+
+                  {canEditJar && (
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(true)}
+                      className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] ${palette.primaryButton}`}
+                    >
+                      저금통 설정 수정하기
+                    </button>
+                  )}
+
                   {canLeaveJar && (
                     <button
                       type="button"
@@ -7182,6 +7291,7 @@ function handleRestoreHiddenInvites() {
                       {leaveLoading ? "나가는 중..." : "저금통 나가기"}
                     </button>
                   )}
+
                   {canDelete && (
                     <button
                       onClick={handleDelete}
@@ -7197,6 +7307,51 @@ function handleRestoreHiddenInvites() {
                       삭제는 방장만 할 수 있어요.
                     </div>
                   )}
+                </div>
+              </div>
+              {/* 오른쪽 아래: 저금통 현황 카드 */}
+              <div className={`rounded-[30px] border p-6 shadow-sm backdrop-blur-sm ${palette.panel}`}>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-extrabold text-slate-800">
+                      저금통 현황
+                    </p>
+
+                    <p className="mt-1 text-xs leading-6 text-slate-500">
+                      지금 저금통의 참여 상태를 빠르게 확인할 수 있어요.
+                    </p>
+                  </div>
+
+
+                </div>
+
+                {/* 참여 인원 */}
+                <div className={`rounded-2xl border px-4 py-4 ${palette.infoBox}`}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                      Members
+                    </p>
+
+                    <p className="text-sm font-black text-slate-700">
+                      {jar.memberCount} / {jar.maxMembers}명
+                    </p>
+                  </div>
+
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={`h-full rounded-full ${palette.badge}`}
+                      style={{ width: `${memberPercent}%` }}
+                    />
+                  </div>
+
+                  <p className="mt-3 text-xs leading-6 text-slate-500">
+                    이 저금통은 최대 {jar.maxMembers}명까지 함께할 수 있어요.
+                  </p>
+                </div>
+
+                {/* 오픈 상태 한 줄 안내 */}
+                <div className={`mt-3 rounded-2xl border border-dashed px-4 py-3 text-xs leading-6 ${palette.hintBox}`}>
+                  {openStatus.description}
                 </div>
               </div>
             </aside>
@@ -7262,6 +7417,63 @@ function handleRestoreHiddenInvites() {
           onClose={handleCloseJarOpenCelebration}
           onViewNotes={handleViewOpenedJarNotes}
         />
+        <JarMenuModal
+          open={jarInfoOpen}
+          title="한 눈에 보는 저금통 정보"
+          description="저금통 기본 정보와 시간 정보를 한 번에 확인할 수 있어요."
+          badge={jar?.isOpen ? "OPEN" : "LOCKED"}
+          palette={palette}
+          onClose={() => setJarInfoOpen(false)}
+          maxWidthClass="max-w-3xl"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* 저금통 ID는 화면에 보여주지 않는다.
+                DB와 API에서는 jarId가 그대로 유지되므로 내부 식별에는 문제가 없다. */}
+            <InfoItem
+              label="내 역할"
+              value={ROLE_LABEL[jar.myRole] || jar.myRole}
+              className={palette.infoBox}
+            />
+
+            <InfoItem
+              label="테마"
+              value={THEME_LABEL[jar.theme] || jar.theme}
+              className={palette.infoBox}
+            />
+
+            <InfoItem
+              label="상태"
+              value={jar.isOpen ? "공개됨" : "잠겨 있음"}
+              className={palette.infoBox}
+            />
+
+            <InfoItem
+              label="참여 인원"
+              value={`${jar.memberCount} / ${jar.maxMembers}명`}
+              className={palette.infoBox}
+            />
+
+            <InfoItem
+              label="생성일"
+              value={formatDate(jar.createdAt)}
+              className={palette.infoBox}
+            />
+
+            <InfoItem
+              label="최근 수정일"
+              value={formatDate(jar.updatedAt)}
+              className={palette.infoBox}
+            />
+
+            <div className="sm:col-span-2">
+              <InfoItem
+                label="오픈일"
+                value={formatDate(jar.openAt)}
+                className={palette.infoBox}
+              />
+            </div>
+          </div>
+        </JarMenuModal>
 
         <JarZoomNoteDetailModal
           open={jarZoomDetailOpen}
@@ -7301,662 +7513,642 @@ function handleRestoreHiddenInvites() {
           onToggleReplies={handleToggleReplies}
           focusedCommentId={focusedCommentId}
         />
-        <div className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                            {/* 멤버 목록 */}
-                            <section className={`rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}>
-                              <div className="mb-5 flex items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-extrabold text-slate-800">
-                                    멤버 목록
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    지금 이 저금통에 함께 들어와 있는 사람들이에요.
-                                  </p>
-                                </div>
 
-                                <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                                  {members.length}명
-                                </span>
-                              </div>
+        {/* 멤버 목록 모달 */}
+        <JarMenuModal
+          open={memberListOpen}
+          title="멤버 목록"
+          description="지금 이 저금통에 함께 들어와 있는 사람들을 확인하고 관리할 수 있어요."
+          badge={`${members.length}명`}
+          palette={palette}
+          onClose={() => setMemberListOpen(false)}
+          maxWidthClass="max-w-4xl"
+        >
+        <section className={`rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-extrabold text-slate-800">
+                멤버 목록
+              </p>
+              <p className="text-xs text-slate-500">
+                지금 이 저금통에 함께 들어와 있는 사람들이에요.
+              </p>
+            </div>
 
-                              {membersLoading && (
-                                <div className="space-y-3">
-                                  {[1, 2, 3].map((item) => (
-                                    <div
-                                      key={item}
-                                      className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
-                                    >
-                                      <div className="flex items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3">
-                                          <div className="h-12 w-12 rounded-full bg-slate-200" />
-                                          <div className="space-y-2">
-                                            <div className="h-4 w-24 rounded-full bg-slate-200" />
-                                            <div className="h-3 w-32 rounded-full bg-slate-100" />
-                                          </div>
-                                        </div>
-                                        <div className="h-7 w-16 rounded-full bg-slate-200" />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
+              {members.length}명
+            </span>
+          </div>
 
-                              {!membersLoading && membersError && (
-                                <div className={`rounded-2xl border border-dashed px-4 py-4 text-sm ${palette.emptyBox}`}>
-                                  {membersError}
-                                </div>
-                              )}
+          {membersLoading && (
+            <div className="space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className={`animate-pulse rounded-2xl border p-4 ${palette.softCard}`}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-slate-200" />
+                      <div className="space-y-2">
+                        <div className="h-4 w-24 rounded-full bg-slate-200" />
+                        <div className="h-3 w-32 rounded-full bg-slate-100" />
+                      </div>
+                    </div>
+                    <div className="h-7 w-16 rounded-full bg-slate-200" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-                              {!membersLoading && !membersError && sortedMembers.length === 0 && (
-                                <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
-                                  아직 멤버 정보가 없어요.
-                                </div>
-                              )}
+          {!membersLoading && membersError && (
+            <div className={`rounded-2xl border border-dashed px-4 py-4 text-sm ${palette.emptyBox}`}>
+              {membersError}
+            </div>
+          )}
 
-                              {!membersLoading && !membersError && sortedMembers.length > 0 && (
-                                <div className="space-y-3">
-                                  {sortedMembers.map((member) => {
-                                    const roleChipClass =
-                                      member.role === "OWNER"
-                                        ? "bg-amber-100 text-amber-700"
-                                        : member.role === "ADMIN"
-                                        ? "bg-sky-100 text-sky-700"
-                                        : "bg-slate-100 text-slate-600";
+          {!membersLoading && !membersError && sortedMembers.length === 0 && (
+            <div className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}>
+              아직 멤버 정보가 없어요.
+            </div>
+          )}
 
-                                    return (
-                                      <div
-                                        key={member.userId}
-                                        className={`flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${palette.softCard}`}
-                                      >
-                                        <div className="flex items-center gap-4">
-                                          {member.profileImageUrl ? (
-                                            <img
-                                              src={member.profileImageUrl}
-                                              alt={member.name || "멤버 프로필"}
-                                              className="h-12 w-12 rounded-full object-cover"
-                                            />
-                                          ) : (
-                                            <div className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-black ${palette.avatar}`}>
-                                              {(member.name || "?").slice(0, 1)}
-                                            </div>
-                                          )}
+          {!membersLoading && !membersError && sortedMembers.length > 0 && (
+            <div className="space-y-3">
+              {sortedMembers.map((member) => {
+                const roleChipClass =
+                  member.role === "OWNER"
+                    ? "bg-amber-100 text-amber-700"
+                    : member.role === "ADMIN"
+                    ? "bg-sky-100 text-sky-700"
+                    : "bg-slate-100 text-slate-600";
 
-                                          <div>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                              <p className="text-sm font-bold text-slate-800">
-                                                {member.name || `사용자 ${member.userId}`}
-                                              </p>
+                return (
+                  <div
+                    key={member.userId}
+                    className={`flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${palette.softCard}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {member.profileImageUrl ? (
+                        <img
+                          src={member.profileImageUrl}
+                          alt={member.name || "멤버 프로필"}
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-black ${palette.avatar}`}>
+                          {(member.name || "?").slice(0, 1)}
+                        </div>
+                      )}
 
-                                              {member.userId === jar.ownerId && (
-                                                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
-                                                  소유자
-                                                </span>
-                                              )}
-                                            </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-bold text-slate-800">
+                            {member.name || `사용자 ${member.userId}`}
+                          </p>
 
-                                            <p className="mt-1 text-xs text-slate-500">
-                                              참여 시작: {formatDate(member.joinedAt)}
-                                            </p>
-                                          </div>
-                                        </div>
+                          {member.userId === jar.ownerId && (
+                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                              소유자
+                            </span>
+                          )}
+                        </div>
 
-                                        <div className="flex flex-wrap items-center justify-end gap-2">
-                                          {canChangeMemberRole && member.role !== "OWNER" ? (
-                                            <select
-                                              value={member.role}
-                                              disabled={roleUpdateLoadingId === member.userId || kickLoadingId === member.userId}
-                                              onChange={(e) => {
-                                                const nextRole = e.target.value;
+                        <p className="mt-1 text-xs text-slate-500">
+                          참여 시작: {formatDate(member.joinedAt)}
+                        </p>
+                      </div>
+                    </div>
 
-                                                if (nextRole === member.role) return;
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {canChangeMemberRole && member.role !== "OWNER" ? (
+                        <select
+                          value={member.role}
+                          disabled={roleUpdateLoadingId === member.userId || kickLoadingId === member.userId}
+                          onChange={(e) => {
+                            const nextRole = e.target.value;
 
-                                                handleChangeMemberRole(member.userId, nextRole);
-                                              }}
-                                              className={`rounded-full border px-3 py-2 text-xs font-bold outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.input}`}
-                                            >
-                                              <option value="ADMIN">관리자</option>
-                                              <option value="MEMBER">멤버</option>
-                                            </select>
-                                          ) : (
-                                            <span
-                                              className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${roleChipClass}`}
-                                            >
-                                              {ROLE_LABEL[member.role] || member.role}
-                                            </span>
-                                          )}
+                            if (nextRole === member.role) return;
 
-                                          {canKickMembers && member.role !== "OWNER" && (
-                                            <button
-                                              type="button"
-                                              disabled={kickLoadingId === member.userId || roleUpdateLoadingId === member.userId}
-                                              onClick={() =>
-                                                handleKickMember(member.userId, member.name, member.role)
-                                              }
-                                              className={`rounded-full px-3 py-2 text-xs font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
-                                            >
-                                              {kickLoadingId === member.userId ? "강퇴 중..." : "강퇴"}
-                                            </button>
-                                          )}
+                            handleChangeMemberRole(member.userId, nextRole);
+                          }}
+                          className={`rounded-full border px-3 py-2 text-xs font-bold outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.input}`}
+                        >
+                          <option value="ADMIN">관리자</option>
+                          <option value="MEMBER">멤버</option>
+                        </select>
+                      ) : (
+                        <span
+                          className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${roleChipClass}`}
+                        >
+                          {ROLE_LABEL[member.role] || member.role}
+                        </span>
+                      )}
 
-                                          {roleUpdateLoadingId === member.userId && (
-                                            <span className="text-xs font-semibold text-slate-500">
-                                              변경 중...
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </section>
+                      {canKickMembers && member.role !== "OWNER" && (
+                        <button
+                          type="button"
+                          disabled={kickLoadingId === member.userId || roleUpdateLoadingId === member.userId}
+                          onClick={() =>
+                            handleKickMember(member.userId, member.name, member.role)
+                          }
+                          className={`rounded-full px-3 py-2 text-xs font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.dangerBtn}`}
+                        >
+                          {kickLoadingId === member.userId ? "강퇴 중..." : "강퇴"}
+                        </button>
+                      )}
 
-                            {/* 초대 관리 */}
-                            <section
-                              className={`rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}
-                            >
-                              <div className="mb-5 flex items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-extrabold text-slate-800">
-                                    초대 관리
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    초대코드를 만들고, 보고, 필요하면 바로 폐기할 수 있어요.
-                                  </p>
-                                </div>
+                      {roleUpdateLoadingId === member.userId && (
+                        <span className="text-xs font-semibold text-slate-500">
+                          변경 중...
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+        </JarMenuModal>
 
-                                <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
-                                  활성 {activeInviteCount}개
-                                </span>
-                              </div>
+        {/* 초대 관리 모달 */}
+        <JarMenuModal
+          open={inviteManageOpen}
+          title="초대 관리"
+          description="초대코드를 만들고, 보고, 필요하면 바로 폐기할 수 있어요."
+          badge={`활성 ${activeInviteCount}개`}
+          palette={palette}
+          onClose={() => setInviteManageOpen(false)}
+          maxWidthClass="max-w-5xl"
+        >
+        <section className={`rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-extrabold text-slate-800">
+                초대 관리
+              </p>
+              <p className="text-xs text-slate-500">
+                초대코드를 만들고, 보고, 필요하면 바로 폐기할 수 있어요.
+              </p>
+            </div>
 
-                              {!canManageInvites && (
-                                <div className={`rounded-2xl border border-dashed px-4 py-6 text-sm leading-7 ${palette.emptyBox}`}>
-                                  초대 관리는 방장(OWNER) 또는 관리자(ADMIN)만 볼 수 있어요.
-                                </div>
-                              )}
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
+              활성 {activeInviteCount}개
+            </span>
+          </div>
 
-                              {canManageInvites && (
-                                <>
-                                  <form
-                                    onSubmit={handleCreateInvite}
-                                    className={`mb-5 rounded-2xl border p-4 ${palette.inviteCard}`}
-                                  >
-                                    <p className="mb-4 text-sm font-bold text-slate-800">
-                                      새 초대코드 만들기
+          {!canManageInvites && (
+            <div className={`rounded-2xl border border-dashed px-4 py-6 text-sm leading-7 ${palette.emptyBox}`}>
+              초대 관리는 방장(OWNER) 또는 관리자(ADMIN)만 볼 수 있어요.
+            </div>
+          )}
+
+          {canManageInvites && (
+            <>
+              <form
+                onSubmit={handleCreateInvite}
+                className={`mb-5 rounded-2xl border p-4 ${palette.inviteCard}`}
+              >
+                <p className="mb-4 text-sm font-bold text-slate-800">
+                  새 초대코드 만들기
+                </p>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold text-slate-500">
+                      유효 시간(시간)
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="168"
+                      value={inviteForm.expiresInHours}
+                      onChange={(e) =>
+                        setInviteForm((prev) => ({
+                          ...prev,
+                          expiresInHours: e.target.value,
+                        }))
+                      }
+                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold text-slate-500">
+                      최대 사용 횟수
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={inviteForm.maxUses}
+                      onChange={(e) =>
+                        setInviteForm((prev) => ({
+                          ...prev,
+                          maxUses: e.target.value,
+                        }))
+                      }
+                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={createInviteLoading}
+                  className={`mt-4 w-full rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+                >
+                  {createInviteLoading
+                    ? "초대코드 만드는 중..."
+                    : "초대코드 만들기"}
+                </button>
+              </form>
+
+              {invitesLoading && (
+                <div className="space-y-3">
+                  {[1, 2].map((item) => (
+                    <div
+                      key={item}
+                      className={`animate-pulse rounded-2xl border p-4 ${palette.inviteCard}`}
+                    >
+                      <div className="mb-4 flex items-center justify-between gap-4">
+                        <div className="space-y-2">
+                          <div className="h-3 w-20 rounded-full bg-slate-200" />
+                          <div className="h-6 w-32 rounded-full bg-slate-200" />
+                        </div>
+                        <div className="h-7 w-20 rounded-full bg-slate-200" />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="h-20 rounded-2xl bg-white" />
+                        <div className="h-20 rounded-2xl bg-white" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!invitesLoading && invitesError && (
+                <div className={`rounded-2xl border border-dashed px-4 py-4 text-sm ${palette.emptyBox}`}>
+                  {invitesError}
+                </div>
+              )}
+
+              {hiddenRevokedCount > 0 && (
+                <div
+                  className={`mb-4 flex flex-col gap-3 rounded-2xl border border-dashed px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${palette.hintBox}`}
+                >
+                  <p className="text-sm">
+                    숨긴 폐기 코드가 <b>{hiddenRevokedCount}개</b> 있어요.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleRestoreHiddenInvites}
+                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                  >
+                    숨긴 코드 다시 보기
+                  </button>
+                </div>
+              )}
+
+              {!invitesLoading &&
+                !invitesError &&
+                visibleInvites.length === 0 && (
+                  <div
+                    className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}
+                  >
+                    보이는 초대코드가 없어요.
+                  </div>
+                )}
+
+              {!invitesLoading &&
+                !invitesError &&
+                visibleInvites.length > 0 && (
+                  <>
+                    <div className="space-y-3">
+                      {pagedInvites.map((invite) => {
+                        const status = getInviteStatus(
+                          invite,
+                          palette
+                        );
+
+                        return (
+                          <div
+                            key={invite.inviteId}
+                            className={`rounded-2xl border p-4 ${palette.inviteCard}`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                  초대코드
+                                </p>
+                                <p className="mt-1 text-lg font-black tracking-[0.22em] text-slate-800">
+                                  {invite.code}
+                                </p>
+
+                                  {/* 초대코드 밑에 실제 공유할 링크도 같이 보여줘 */}
+                                  <div className={`mt-3 rounded-2xl border px-4 py-3 ${palette.inviteInfoBox}`}>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                      초대 링크
                                     </p>
-
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                      <label className="block">
-                                        <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                          유효 시간(시간)
-                                        </span>
-                                        <input
-                                          type="number"
-                                          min="1"
-                                          max="168"
-                                          value={inviteForm.expiresInHours}
-                                          onChange={(e) =>
-                                            setInviteForm((prev) => ({
-                                              ...prev,
-                                              expiresInHours: e.target.value,
-                                            }))
-                                          }
-                                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                        />
-                                      </label>
-
-                                      <label className="block">
-                                        <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                          최대 사용 횟수
-                                        </span>
-                                        <input
-                                          type="number"
-                                          min="1"
-                                          max="50"
-                                          value={inviteForm.maxUses}
-                                          onChange={(e) =>
-                                            setInviteForm((prev) => ({
-                                              ...prev,
-                                              maxUses: e.target.value,
-                                            }))
-                                          }
-                                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                        />
-                                      </label>
-                                    </div>
-
-                                    <button
-                                      type="submit"
-                                      disabled={createInviteLoading}
-                                      className={`mt-4 w-full rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-                                    >
-                                      {createInviteLoading
-                                        ? "초대코드 만드는 중..."
-                                        : "초대코드 만들기"}
-                                    </button>
-                                  </form>
-
-                                  {invitesLoading && (
-                                    <div className="space-y-3">
-                                      {[1, 2].map((item) => (
-                                        <div
-                                          key={item}
-                                          className={`animate-pulse rounded-2xl border p-4 ${palette.inviteCard}`}
-                                        >
-                                          <div className="mb-4 flex items-center justify-between gap-4">
-                                            <div className="space-y-2">
-                                              <div className="h-3 w-20 rounded-full bg-slate-200" />
-                                              <div className="h-6 w-32 rounded-full bg-slate-200" />
-                                            </div>
-                                            <div className="h-7 w-20 rounded-full bg-slate-200" />
-                                          </div>
-                                          <div className="grid gap-3 sm:grid-cols-2">
-                                            <div className="h-20 rounded-2xl bg-white" />
-                                            <div className="h-20 rounded-2xl bg-white" />
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {!invitesLoading && invitesError && (
-                                    <div className={`rounded-2xl border border-dashed px-4 py-4 text-sm ${palette.emptyBox}`}>
-                                      {invitesError}
-                                    </div>
-                                  )}
-
-                                  {hiddenRevokedCount > 0 && (
-                                    <div
-                                      className={`mb-4 flex flex-col gap-3 rounded-2xl border border-dashed px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${palette.hintBox}`}
-                                    >
-                                      <p className="text-sm">
-                                        숨긴 폐기 코드가 <b>{hiddenRevokedCount}개</b> 있어요.
-                                      </p>
-
-                                      <button
-                                        type="button"
-                                        onClick={handleRestoreHiddenInvites}
-                                        className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
-                                      >
-                                        숨긴 코드 다시 보기
-                                      </button>
-                                    </div>
-                                  )}
-
-                                  {!invitesLoading &&
-                                    !invitesError &&
-                                    visibleInvites.length === 0 && (
-                                      <div
-                                        className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}
-                                      >
-                                        보이는 초대코드가 없어요.
-                                      </div>
-                                    )}
-
-                                  {!invitesLoading &&
-                                    !invitesError &&
-                                    visibleInvites.length > 0 && (
-                                      <>
-                                        <div className="space-y-3">
-                                          {pagedInvites.map((invite) => {
-                                            const status = getInviteStatus(
-                                              invite,
-                                              palette
-                                            );
-
-                                            return (
-                                              <div
-                                                key={invite.inviteId}
-                                                className={`rounded-2xl border p-4 ${palette.inviteCard}`}
-                                              >
-                                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                                  <div>
-                                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                                      초대코드
-                                                    </p>
-                                                    <p className="mt-1 text-lg font-black tracking-[0.22em] text-slate-800">
-                                                      {invite.code}
-                                                    </p>
-
-                                                      {/* 초대코드 밑에 실제 공유할 링크도 같이 보여줘 */}
-                                                      <div className={`mt-3 rounded-2xl border px-4 py-3 ${palette.inviteInfoBox}`}>
-                                                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                                                          초대 링크
-                                                        </p>
-                                                        <p className="mt-2 break-all text-sm font-semibold text-slate-700">
-                                                          {getInviteUrl(invite.code)}
-                                                        </p>
-                                                      </div>
-                                                  </div>
-
-                                                  <div className="flex items-center gap-2">
-                                                    <span
-                                                      className={`rounded-full px-3 py-1 text-xs font-bold ${status.className}`}
-                                                    >
-                                                      {status.label}
-                                                    </span>
-
-                                                    {invite.revokedAt && (
-                                                      <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                          handleHideRevokedInvite(
-                                                            invite.inviteId
-                                                          )
-                                                        }
-                                                        title="화면에서 숨기기"
-                                                        aria-label="폐기된 초대코드 숨기기"
-                                                        className={`flex h-8 w-8 items-center justify-center rounded-full border text-base font-bold transition ${palette.outlineButton}`}
-                                                      >
-                                                        ×
-                                                      </button>
-                                                    )}
-                                                  </div>
-                                                </div>
-
-                                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                                  <InfoItem
-                                                    label="만료 시간"
-                                                    value={formatDate(
-                                                      invite.expiresAt
-                                                    )}
-                                                    className={
-                                                      palette.inviteInfoBox
-                                                    }
-                                                  />
-                                                  <InfoItem
-                                                    label="사용 횟수"
-                                                    value={`${invite.usedCount} / ${invite.maxUses}`}
-                                                    className={
-                                                      palette.inviteInfoBox
-                                                    }
-                                                  />
-                                                  <InfoItem
-                                                    label="만든 시간"
-                                                    value={formatDate(
-                                                      invite.createdAt
-                                                    )}
-                                                    className={
-                                                      palette.inviteInfoBox
-                                                    }
-                                                  />
-                                                  <InfoItem
-                                                    label="폐기 시간"
-                                                    value={formatDate(
-                                                      invite.revokedAt
-                                                    )}
-                                                    className={
-                                                      palette.inviteInfoBox
-                                                    }
-                                                  />
-                                                </div>
-
-                                                <div className="mt-4 flex flex-wrap gap-2">
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => handleCopyInviteCode(invite.code)}
-                                                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
-                                                  >
-                                                    코드 복사
-                                                  </button>
-
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => handleCopyInviteUrl(invite.code)}
-                                                    className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
-                                                  >
-                                                    링크 복사
-                                                  </button>
-
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => handleRevokeInvite(invite.inviteId)}
-                                                    disabled={!invite.isActive || revokeLoadingId === invite.inviteId}
-                                                    className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${
-                                                      invite.isActive
-                                                        ? palette.dangerBtn
-                                                        : "bg-slate-200 text-slate-500"
-                                                    }`}
-                                                  >
-                                                    {revokeLoadingId === invite.inviteId
-                                                      ? "폐기 중..."
-                                                      : invite.isActive
-                                                      ? "초대코드 폐기"
-                                                      : "종료된 코드"}
-                                                  </button>
-                                                </div>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-
-                                        <div className="mt-5 flex flex-col gap-3 border-t border-white/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                                          <p className="text-xs font-semibold text-slate-500">
-                                            {invitePage} / {invitePageCount} 페이지
-                                          </p>
-
-                                          <div className="flex flex-wrap items-center gap-2">
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                setInvitePage((prev) =>
-                                                  Math.max(1, prev - 1)
-                                                )
-                                              }
-                                              disabled={invitePage === 1}
-                                              className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineButton}`}
-                                            >
-                                              이전
-                                            </button>
-
-                                            {Array.from(
-                                              { length: invitePageCount },
-                                              (_, index) => index + 1
-                                            ).map((pageNumber) => (
-                                              <button
-                                                key={pageNumber}
-                                                type="button"
-                                                onClick={() =>
-                                                  setInvitePage(pageNumber)
-                                                }
-                                                className={`rounded-2xl px-3 py-2 text-sm font-bold transition ${
-                                                  pageNumber === invitePage
-                                                    ? palette.primaryButton
-                                                    : palette.outlineButton
-                                                }`}
-                                              >
-                                                {pageNumber}
-                                              </button>
-                                            ))}
-
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                setInvitePage((prev) =>
-                                                  Math.min(
-                                                    invitePageCount,
-                                                    prev + 1
-                                                  )
-                                                )
-                                              }
-                                              disabled={
-                                                invitePage === invitePageCount
-                                              }
-                                              className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineButton}`}
-                                            >
-                                              다음
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </>
-                                    )}
-                                </>
-                                )}
-                            </section>
-                          </div>
-                          {editOpen && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4 py-6">
-                              <div className="w-full max-w-2xl rounded-[32px] border border-white/70 bg-white p-6 shadow-2xl">
-                                <div className="mb-5 flex items-center justify-between">
-                                  <div>
-                                    <p className="text-lg font-black text-slate-800">저금통 설정 수정</p>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                      이름부터 오픈 방식, 잠금 레벨, 오픈일까지 한 번에 바꿀 수 있어요.
+                                    <p className="mt-2 break-all text-sm font-semibold text-slate-700">
+                                      {getInviteUrl(invite.code)}
                                     </p>
                                   </div>
+                              </div>
 
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-bold ${status.className}`}
+                                >
+                                  {status.label}
+                                </span>
+
+                                {invite.revokedAt && (
                                   <button
                                     type="button"
-                                    onClick={() => setEditOpen(false)}
-                                    className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+                                    onClick={() =>
+                                      handleHideRevokedInvite(
+                                        invite.inviteId
+                                      )
+                                    }
+                                    title="화면에서 숨기기"
+                                    aria-label="폐기된 초대코드 숨기기"
+                                    className={`flex h-8 w-8 items-center justify-center rounded-full border text-base font-bold transition ${palette.outlineButton}`}
                                   >
-                                    닫기
+                                    ×
                                   </button>
-                                </div>
-
-                                <form onSubmit={handleUpdateJar} className="space-y-4">
-                                  <div className="grid gap-4 sm:grid-cols-2">
-                                    <label className="block">
-                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                        저금통 이름
-                                      </span>
-                                      <input
-                                        type="text"
-                                        value={editForm.name}
-                                        onChange={(e) =>
-                                          setEditForm((prev) => ({ ...prev, name: e.target.value }))
-                                        }
-                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                      />
-                                    </label>
-
-                                    <label className="block">
-                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                        최대 인원
-                                      </span>
-                                      <input
-                                        type="number"
-                                        min="2"
-                                        max="50"
-                                        value={editForm.maxMembers}
-                                        onChange={(e) =>
-                                          setEditForm((prev) => ({ ...prev, maxMembers: e.target.value }))
-                                        }
-                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                      />
-                                    </label>
-                                  </div>
-
-                                  <label className="block">
-                                    <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                      설명
-                                    </span>
-                                    <textarea
-                                      rows="4"
-                                      value={editForm.description}
-                                      onChange={(e) =>
-                                        setEditForm((prev) => ({ ...prev, description: e.target.value }))
-                                      }
-                                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                    />
-                                  </label>
-
-                                  <div className="grid gap-4 sm:grid-cols-2">
-                                    <label className="block">
-                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                        테마
-                                      </span>
-                                      <select
-                                        value={editForm.theme}
-                                        onChange={(e) =>
-                                          setEditForm((prev) => ({ ...prev, theme: e.target.value }))
-                                        }
-                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                      >
-                                        {Object.entries(THEME_LABEL).map(([value, label]) => (
-                                          <option key={value} value={value}>
-                                            {label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </label>
-
-                                    <label className="block">
-                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                        공개 방식
-                                      </span>
-                                      <select
-                                        value={editForm.openMode}
-                                        onChange={(e) =>
-                                          setEditForm((prev) => ({ ...prev, openMode: e.target.value }))
-                                        }
-                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                      >
-                                        {Object.entries(OPEN_MODE_LABEL).map(([value, label]) => (
-                                          <option key={value} value={value}>
-                                            {label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </label>
-
-                                    <label className="block">
-                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                        잠금 레벨
-                                      </span>
-                                      <select
-                                        value={editForm.lockLevel}
-                                        onChange={(e) =>
-                                          setEditForm((prev) => ({ ...prev, lockLevel: e.target.value }))
-                                        }
-                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                      >
-                                        {Object.entries(LOCK_LEVEL_LABEL).map(([value, label]) => (
-                                          <option key={value} value={value}>
-                                            {label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </label>
-
-                                    <label className="block">
-                                      <span className="mb-2 block text-xs font-semibold text-slate-500">
-                                        오픈일
-                                      </span>
-                                      <input
-                                        type="datetime-local"
-                                        value={editForm.openAt}
-                                        onChange={(e) =>
-                                          setEditForm((prev) => ({ ...prev, openAt: e.target.value }))
-                                        }
-                                        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                                      />
-                                    </label>
-                                  </div>
-
-                                  <div className="flex flex-wrap justify-end gap-3 pt-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditOpen(false)}
-                                      className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${palette.outlineBtn}`}
-                                    >
-                                      취소
-                                    </button>
-
-                                    <button
-                                      type="submit"
-                                      disabled={editLoading}
-                                      className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-                                    >
-                                      {editLoading ? "수정하는 중..." : "설정 저장하기"}
-                                    </button>
-                                  </div>
-                                </form>
+                                )}
                               </div>
                             </div>
-                          )}
+
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                              <InfoItem
+                                label="만료 시간"
+                                value={formatDate(
+                                  invite.expiresAt
+                                )}
+                                className={
+                                  palette.inviteInfoBox
+                                }
+                              />
+                              <InfoItem
+                                label="사용 횟수"
+                                value={`${invite.usedCount} / ${invite.maxUses}`}
+                                className={
+                                  palette.inviteInfoBox
+                                }
+                              />
+                              <InfoItem
+                                label="만든 시간"
+                                value={formatDate(
+                                  invite.createdAt
+                                )}
+                                className={
+                                  palette.inviteInfoBox
+                                }
+                              />
+                              <InfoItem
+                                label="폐기 시간"
+                                value={formatDate(
+                                  invite.revokedAt
+                                )}
+                                className={
+                                  palette.inviteInfoBox
+                                }
+                              />
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyInviteCode(invite.code)}
+                                className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                              >
+                                코드 복사
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCopyInviteUrl(invite.code)}
+                                className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
+                              >
+                                링크 복사
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeInvite(invite.inviteId)}
+                                disabled={!invite.isActive || revokeLoadingId === invite.inviteId}
+                                className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${
+                                  invite.isActive
+                                    ? palette.dangerBtn
+                                    : "bg-slate-200 text-slate-500"
+                                }`}
+                              >
+                                {revokeLoadingId === invite.inviteId
+                                  ? "폐기 중..."
+                                  : invite.isActive
+                                  ? "초대코드 폐기"
+                                  : "종료된 코드"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-5 flex flex-col gap-3 border-t border-white/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-semibold text-slate-500">
+                        {invitePage} / {invitePageCount} 페이지
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setInvitePage((prev) =>
+                              Math.max(1, prev - 1)
+                            )
+                          }
+                          disabled={invitePage === 1}
+                          className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineButton}`}
+                        >
+                          이전
+                        </button>
+
+                        {Array.from(
+                          { length: invitePageCount },
+                          (_, index) => index + 1
+                        ).map((pageNumber) => (
+                          <button
+                            key={pageNumber}
+                            type="button"
+                            onClick={() =>
+                              setInvitePage(pageNumber)
+                            }
+                            className={`rounded-2xl px-3 py-2 text-sm font-bold transition ${
+                              pageNumber === invitePage
+                                ? palette.primaryButton
+                                : palette.outlineButton
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setInvitePage((prev) =>
+                              Math.min(
+                                invitePageCount,
+                                prev + 1
+                              )
+                            )
+                          }
+                          disabled={
+                            invitePage === invitePageCount
+                          }
+                          className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineButton}`}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+            </>
+            )}
+        </section>
+        </JarMenuModal>
+
       </div>
-    </div>
+      {editOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4 py-6">
+          <div className="w-full max-w-2xl rounded-[32px] border border-white/70 bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-lg font-black text-slate-800">저금통 설정 수정</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  이름부터 오픈 방식, 잠금 레벨, 오픈일까지 한 번에 바꿀 수 있어요.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+              >
+                닫기
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateJar} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold text-slate-500">
+                    저금통 이름
+                  </span>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold text-slate-500">
+                    최대 인원
+                  </span>
+                  <input
+                    type="number"
+                    min="2"
+                    max="50"
+                    value={editForm.maxMembers}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, maxMembers: e.target.value }))
+                    }
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold text-slate-500">
+                  설명
+                </span>
+                <textarea
+                  rows="4"
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, description: e.target.value }))
+                  }
+                  className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold text-slate-500">
+                    테마
+                  </span>
+                  <select
+                    value={editForm.theme}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, theme: e.target.value }))
+                    }
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                  >
+                    {Object.entries(THEME_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold text-slate-500">
+                    오픈일
+                  </span>
+                  <input
+                    type="datetime-local"
+                    value={editForm.openAt}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, openAt: e.target.value }))
+                    }
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(false)}
+                  className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${palette.outlineBtn}`}
+                >
+                  취소
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
+                >
+                  {editLoading ? "수정하는 중..." : "설정 저장하기"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      </div>
   );
 }
