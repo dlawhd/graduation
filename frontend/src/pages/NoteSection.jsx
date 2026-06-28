@@ -7,13 +7,6 @@ import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
 import NoteIntoJarIcon from "../components/icons/NoteIntoJarIcon";
 import { createPortal } from "react-dom";
 
-// 잠금 레벨을 화면용으로 바꿔주는 작은 사전
-const LOCK_LEVEL_LABEL = {
-  HIDDEN: "완전 비밀",
-  META_ONLY: "메타만 공개",
-  TITLE_ONLY: "제목만 공개",
-};
-
 // 리액션 enum 값을 화면용 이모지/이름으로 바꿔주는 표
 const REACTION_META = {
   LOVE: { emoji: "❤️", label: "사랑해" },
