@@ -13,27 +13,11 @@ import JarOpenCelebrationModal from "../features/jarDetail/components/JarOpenCel
 import JarZoomNoteDetailModal from "../features/jarDetail/components/JarZoomNoteDetailModal";
 import JarZoomModal from "../features/jarDetail/components/JarZoomModal";
 import MemoryDrawModal from "../features/jarDetail/components/MemoryDrawModal";
-import {
-  createJarMemberSocketClient,
-  disconnectJarMemberSocket,
-} from "../api/jarMemberSocketApi";
-import {
-  createNoteSocketClient,
-  disconnectNoteSocket,
-} from "../api/noteSocketApi";
-import {
-  createJarOpenSocketClient,
-  disconnectJarOpenSocket,
-} from "../api/jarOpenSocketApi";
-import {
-  drawDailyDrawToday,
-  getDailyDrawToday,
-  getDailyDrawHistory,
-} from "../api/dailyDrawApi";
-import {
-  createDailyDrawSocketClient,
-  disconnectDailyDrawSocket,
-} from "../api/dailyDrawSocketApi";
+import { useJarDetail } from "../features/jarDetail/hooks/useJarDetail";
+import { useJarMembers } from "../features/jarDetail/hooks/useJarMembers";
+import { useJarInvites } from "../features/jarDetail/hooks/useJarInvites";
+import { useJarDailyDraw } from "../features/jarDetail/hooks/useJarDailyDraw";
+import { useJarRealtimeEvents } from "../features/jarDetail/hooks/useJarRealtimeEvents";
 import {
   ROLE_LABEL,
   THEME_LABEL,
@@ -44,7 +28,6 @@ import {
   toKstOffsetDateTime,
 } from "../features/jarDetail/utils/jarDetailDateUtils";
 import {
-  getCurrentUserIdFromMe,
   normalizeCommentItems,
   getTotalCommentCount,
   normalizeCommentContent,
@@ -55,9 +38,6 @@ import {
     getThemePageDecorationIcon,
     getThemePalette,
 } from "../features/jarDetail/theme/jarDetailTheme";
-
-// 초대코드는 한 번에 2개씩만 보여줄 거야.
-const INVITES_PER_PAGE = 2;
 
 // 오픈 상태를 사람이 읽기 쉽게 정리해주는 함수
 function getOpenStatus(jar) {
@@ -147,9 +127,6 @@ export default function JarDetailPage() {
   // 어떤 댓글의 답글 목록을 펼쳐서 보고 있는지 저장
   const [replyExpandedMap, setReplyExpandedMap] = useState({});
 
-  // 현재 로그인 사용자 정보
-  const [me, setMe] = useState(null);
-
   // 현재 상세 모달에서 보고 있는 댓글 목록
   const [jarZoomComments, setJarZoomComments] = useState([]);
 
@@ -181,13 +158,6 @@ export default function JarDetailPage() {
   // 페이지 이동용
   const navigate = useNavigate();
 
-  // 서버에서 받아온 상세 정보 저장
-  const [jar, setJar] = useState(null);
-
-  // 상세 로딩 / 에러
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
   // 알림에서 들어왔을 때 어느 댓글을 강조할지 저장
   const [focusedCommentId, setFocusedCommentId] = useState(null);
 
@@ -206,28 +176,6 @@ export default function JarDetailPage() {
   // 다음 단계에서 쪽지가 저금통으로 들어가는 좌표 잡을 때 쓸 준비물
   const jarVisualRef = useRef(null);
 
-  // 멤버 목록 상태
-  const [members, setMembers] = useState([]);
-  const [membersLoading, setMembersLoading] = useState(true);
-  const [membersError, setMembersError] = useState("");
-
-  // 초대 목록 상태
-  const [invites, setInvites] = useState([]);
-  const [invitesLoading, setInvitesLoading] = useState(false);
-  const [invitesError, setInvitesError] = useState("");
-
-  // 초대 생성 폼 상태
-  const [inviteForm, setInviteForm] = useState({
-    expiresInHours: "24",
-    maxUses: "1",
-  });
-
-  const [createInviteLoading, setCreateInviteLoading] = useState(false);
-  const [revokeLoadingId, setRevokeLoadingId] = useState(null);
-  const [roleUpdateLoadingId, setRoleUpdateLoadingId] = useState(null);
-  const [kickLoadingId, setKickLoadingId] = useState(null);
-  const [leaveLoading, setLeaveLoading] = useState(false);
-
   const [jarZoomDetailOpen, setJarZoomDetailOpen] = useState(false);
   const [jarZoomDetailNoteId, setJarZoomDetailNoteId] = useState(null);
   const [jarZoomDetailNote, setJarZoomDetailNote] = useState(null);
@@ -239,22 +187,6 @@ export default function JarDetailPage() {
   const [jarZoomNotes, setJarZoomNotes] = useState([]);
   const [jarZoomLoading, setJarZoomLoading] = useState(false);
   const [jarZoomError, setJarZoomError] = useState("");
-
-  const [dailyDrawToday, setDailyDrawToday] = useState(null);
-  const [dailyDrawHistory, setDailyDrawHistory] = useState([]);
-  const [dailyDrawLoading, setDailyDrawLoading] = useState(false);
-  const [dailyDrawDrawing, setDailyDrawDrawing] = useState(false);
-  const [dailyDrawError, setDailyDrawError] = useState("");
-
-  // 사용자가 마지막으로 확인한 추억 쪽지 뽑기 결과를 저장한다.
-  // 예: "2026-05-10:12"
-  const [memoryDrawSeenKey, setMemoryDrawSeenKey] = useState("");
-
-  // Daily Draw WebSocket 이벤트를 받았을 때 잠깐 보여줄 안내 문구
-  const [dailyDrawRealtimeMessage, setDailyDrawRealtimeMessage] = useState("");
-
-  // 안내 문구를 몇 초 뒤 자동으로 지울 때 사용할 타이머 보관함
-  const dailyDrawRealtimeMessageTimerRef = useRef(null);
 
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
@@ -293,15 +225,6 @@ export default function JarDetailPage() {
 
   const [jarZoomReactingNoteId, setJarZoomReactingNoteId] = useState(null);
 
-  // 초대코드 목록은 2개씩 페이지처럼 보여줄 거야.
-  const [invitePage, setInvitePage] = useState(1);
-
-  // 사용자가 화면에서 숨긴 폐기 코드 id 목록
-  const [hiddenInviteIds, setHiddenInviteIds] = useState([]);
-
-  // localStorage에서 숨김 목록을 다 읽었는지 표시하는 값
-  const [hiddenInvitesReady, setHiddenInvitesReady] = useState(false);
-
   // 설정 수정 모달 상태
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -318,386 +241,106 @@ export default function JarDetailPage() {
     openAt: "",
   });
 
+  // useJarDetail: 저금통 상세/내 정보
+  const { jar, setJar, me, loading, error, loadJarDetail } = useJarDetail(jarId);
 
-  // 저금통마다 숨김 목록을 따로 저장하려고 key를 jarId 기준으로 만들어줘.
-  const hiddenInviteStorageKey = `jar-detail-hidden-revoked-invites:${jarId}`;
+  // useJarMembers: 멤버 목록/강퇴/역할 변경/나가기
+  const {
+    members,
+    membersLoading,
+    membersError,
+    loadMembers,
+    sortedMembers,
+    roleUpdateLoadingId,
+    kickLoadingId,
+    leaveLoading,
+    canLeaveJar,
+    canChangeMemberRole,
+    canKickMembers,
+    handleLeaveJar,
+    handleChangeMemberRole,
+    handleKickMember,
+  } = useJarMembers({
+    jarId,
+    jar,
+    navigate,
+    loadJarDetail,
+  });
 
-  /*
-   * 현재 오늘 뽑힌 추억 쪽지를 구분하는 값이다.
-   *
-   * 예:
-   * - drawDate가 2026-05-10
-   * - drawId가 12
-   * - 그러면 "2026-05-10:12" 형태로 저장한다.
-   *
-   * 이렇게 해두면 사용자가 이 결과를 봤는지 쉽게 비교할 수 있다.
-   */
-  const currentMemoryDrawKey = useMemo(() => {
-    const draw = dailyDrawToday?.dailyDraw;
+  // useJarInvites: 초대코드 생성/조회/폐기/숨김
+  const {
+    invites,
+    invitesLoading,
+    invitesError,
+    inviteForm,
+    setInviteForm,
+    createInviteLoading,
+    revokeLoadingId,
+    invitePage,
+    setInvitePage,
+    canManageInvites,
+    activeInviteCount,
+    visibleInvites,
+    invitePageCount,
+    pagedInvites,
+    hiddenRevokedCount,
+    getInviteUrl,
+    handleCreateInvite,
+    handleCopyInviteUrl,
+    handleCopyInviteCode,
+    handleRevokeInvite,
+    handleHideRevokedInvite,
+    handleRestoreHiddenInvites,
+  } = useJarInvites({ jarId, jar });
 
-    if (!draw?.drawId) {
-      return "";
-    }
+  // useJarDailyDraw: 오늘의 추억 한 장
+  const {
+    dailyDrawToday,
+    dailyDrawHistory,
+    dailyDrawLoading,
+    dailyDrawDrawing,
+    dailyDrawError,
+    dailyDrawRealtimeMessage,
+    setDailyDrawRealtimeMessage,
+    dailyDrawRealtimeMessageTimerRef,
+    showMemoryDrawBadge,
+    loadDailyDrawToday,
+    loadDailyDrawHistory,
+    refreshDailyDraw,
+    handleDrawDailyDrawToday,
+  } = useJarDailyDraw({
+    jarId,
+    jar,
+    memoryDrawOpen,
+    loadJarZoomNotes,
+  });
 
-    return `${draw.drawDate || "today"}:${draw.drawId}`;
-  }, [dailyDrawToday]);
-
-  /*
-   * 저금통마다 본 기록을 따로 저장하기 위한 localStorage key다.
-   *
-   * 이유:
-   * - 21번 저금통에서 본 뽑기 결과와
-   * - 22번 저금통에서 본 뽑기 결과는 따로 관리해야 하기 때문이다.
-   */
-  const memoryDrawSeenStorageKey = `memory-draw-seen:${jarId}`;
-
-  /*
-   * 버튼 위에 1 배지를 보여줄지 결정한다.
-   *
-   * 조건:
-   * - 오늘 뽑힌 쪽지가 있어야 한다.
-   * - 그런데 내가 마지막으로 본 결과와 다르면 1을 보여준다.
-   */
-  const showMemoryDrawBadge =
-    !!currentMemoryDrawKey && memoryDrawSeenKey !== currentMemoryDrawKey;
-
-  // 상세 데이터 불러오기
-  async function loadJarDetail({ silent = false } = {}) {
-    // silent가 false일 때만 전체 화면 로딩을 켠다.
-    // 실시간 이벤트로 조용히 갱신할 때는 화면 전체를 깜빡이게 하지 않기 위해서다.
-    if (!silent) {
-      setLoading(true);
-    }
-
-    setError("");
-
-    try {
-      const res = await apiClient.get(`/api/v1/jars/${jarId}`);
-      const data = res.data?.data;
-      setJar(data || null);
-    } catch (e) {
-      const serverMessage =
-        e?.response?.data?.error?.message ||
-        e?.response?.data?.message ||
-        e?.message ||
-        "저금통 정보를 불러오지 못했어요.";
-
-      setError(serverMessage);
-      setJar(null);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }
-
-  // 멤버 목록 불러오기
-  async function loadMembers() {
-    setMembersLoading(true);
-    setMembersError("");
-
-    try {
-      const res = await apiClient.get(`/api/v1/jars/${jarId}/members`);
-      const items = res.data?.data?.items || [];
-      setMembers(items);
-    } catch (e) {
-      const serverMessage =
-        e?.response?.data?.error?.message ||
-        e?.response?.data?.message ||
-        e?.message ||
-        "멤버 목록을 불러오지 못했어요.";
-
-      setMembersError(serverMessage);
-      setMembers([]);
-    } finally {
-      setMembersLoading(false);
-    }
-  }
-
-  async function loadMe() {
-    try {
-      const res = await apiClient.get("/api/v1/me");
-      setMe(res.data?.data || null);
-    } catch {
-      setMe(null);
-    }
-  }
-
-  // 초대 목록 불러오기
-  async function loadInvites() {
-    setInvitesLoading(true);
-    setInvitesError("");
-
-    try {
-      const res = await apiClient.get(`/api/v1/jars/${jarId}/invites`);
-      const items = res.data?.data?.items || [];
-      setInvites(items);
-      // 이미 서버에 없어진 코드나, 폐기 상태가 아닌 코드는 숨김 목록에서 정리해줘.
-            setHiddenInviteIds((prev) =>
-              prev.filter((hiddenId) =>
-                items.some(
-                  (invite) =>
-                    Number(invite.inviteId) === Number(hiddenId) && invite.revokedAt
-                )
-              )
-            );
-    } catch (e) {
-      const serverMessage =
-        e?.response?.data?.error?.message ||
-        e?.response?.data?.message ||
-        e?.message ||
-        "초대 목록을 불러오지 못했어요.";
-
-      setInvitesError(serverMessage);
-      setInvites([]);
-    } finally {
-      setInvitesLoading(false);
-    }
-  }
-
-  // 페이지 열리면 상세 + 멤버 목록 로드
-  useEffect(() => {
-    loadJarDetail();
-    loadMembers();
-    loadMe();
-  }, [jarId]);
-
-  /*
-   * 저금통 멤버 변화 WebSocket 연결
-   *
-   * 누가 들어오거나, 나가거나, 강퇴되거나, 역할이 바뀌면
-   * 현재 저금통 상세 화면을 보고 있는 사람들의 멤버 목록/상세 정보를 자동 갱신한다.
-   */
-  useEffect(() => {
-    if (!jarId) return;
-
-    const currentUserId = getCurrentUserIdFromMe(me);
-
-    // 아직 내 정보가 없으면 WebSocket 연결을 만들지 않는다.
-    // 이유: 내가 강퇴/나가기 대상인지 정확히 판단하려면 내 userId가 필요하기 때문.
-    if (!currentUserId) return;
-
-    const client = createJarMemberSocketClient({
-      jarId,
-
-      onMemberEventReceived: async (event) => {
-        const eventType = event?.type;
-        const targetUserId = Number(event?.targetUserId);
-
-        /*
-         * 내가 강퇴된 경우:
-         * - 더 이상 이 저금통을 볼 권한이 없으니
-         * - 상세 정보를 다시 불러오지 말고 바로 목록으로 보낸다.
-         */
-        if (
-          (eventType === "MEMBER_KICKED" || eventType === "MEMBER_LEFT") &&
-          targetUserId === currentUserId
-        ) {
-          if (eventType === "MEMBER_KICKED") {
-            window.alert("이 저금통에서 내보내졌어요.");
-          }
-
-          navigate("/jars", { replace: true });
-          return;
-        }
-
-        /*
-         * 다른 사람이 들어오거나, 나가거나, 역할이 바뀐 경우:
-         * - 멤버 목록 갱신
-         * - 인원 수, 내 역할 등 상세 정보 갱신
-         */
-        await Promise.allSettled([
-          loadMembers(),
-          loadJarDetail({ silent: true }),
-        ]);
-      },
-
-      /* onConnect: () => {
-        console.log("저금통 멤버 변화 구독 시작");
-      }, */
-
-      onError: (error) => {
-        console.error("저금통 멤버 WebSocket 오류", error);
-      },
-    });
-
-    client.activate();
-
-    return () => {
-      disconnectJarMemberSocket(client);
-    };
-  }, [jarId, me?.userId, me?.id, navigate]);
-
-
-  /*
-   * 저금통 오픈 WebSocket 연결
-   *
-   * 역할:
-   * - 서버가 /topic/jars/{jarId}/open 으로 보내는 JAR_OPENED 이벤트를 받는다.
-   * - 이벤트를 받으면 화면을 새로고침하지 않고 OPEN 상태로 바꾼다.
-   * - 쪽지 목록을 다시 불러와서 오픈 전 마스킹을 풀 준비를 한다.
-   * - 가운데에 저금통 오픈 축하 모달을 띄운다.
-   */
-  useEffect(() => {
-    // jarId가 없으면 어떤 저금통을 구독할지 모르니까 연결하지 않는다.
-    if (!jarId) return;
-
-    const client = createJarOpenSocketClient({
-      jarId,
-
-      onJarOpened: async (event) => {
-        // console.log("저금통 오픈 이벤트 수신", event);
-
-        // 1. 기존 자동 닫힘 타이머가 있으면 먼저 정리한다.
-        // 같은 이벤트가 아주 드물게 중복으로 와도 타이머가 꼬이지 않게 하기 위함이다.
-        if (jarOpenCelebrationTimerRef.current) {
-          window.clearTimeout(jarOpenCelebrationTimerRef.current);
-        }
-
-        // 2. 화면의 저금통 상태를 즉시 OPEN으로 바꾼다.
-        // API 재조회가 끝나기 전에도 상단 뱃지와 상태 문구가 바로 바뀐다.
-        setJar((prev) => {
-          if (!prev) return prev;
-
-          return {
-            ...prev,
-            isOpen: true,
-          };
-        });
-
-        // 3. NoteSection을 다시 마운트해서 쪽지 목록을 새로 불러오게 한다.
-        // 오픈 전에는 잠겨 있던 내용이 오픈 후에는 보여야 하기 때문이다.
-        setNoteSectionRefreshKey((prev) => prev + 1);
-
-        // 4. 오픈 축하 모달을 띄운다.
-        setJarOpenCelebrationEvent(event);
-        setJarOpenCelebrationOpen(true);
-
-        // 5. 서버 기준 최신 상세/쪽지 정보를 다시 맞춘다.
-        // 실패해도 화면 전체를 깨지 않도록 Promise.allSettled를 사용한다.
-        await Promise.allSettled([
-          loadJarDetail({ silent: true }),
-          loadJarZoomNotes(),
-        ]);
-
-        // 6. 만약 사용자가 이미 쪽지 상세 모달을 보고 있었다면
-        // 해당 쪽지도 다시 불러와서 잠금 상태를 최신으로 맞춘다.
-        if (jarZoomDetailOpen && jarZoomDetailNoteId) {
-          await handleOpenJarZoomNoteDetail(jarZoomDetailNoteId);
-        }
-      },
-
-      /* onConnect: () => {
-        console.log("저금통 오픈 이벤트 구독 시작");
-      }, */
-
-      onError: (error) => {
-        console.error("저금통 오픈 WebSocket 오류", error);
-      },
-    });
-
-    client.activate();
-
-    return () => {
-      disconnectJarOpenSocket(client);
-
-      if (jarOpenCelebrationTimerRef.current) {
-        window.clearTimeout(jarOpenCelebrationTimerRef.current);
-      }
-    };
-  }, [jarId, jarZoomDetailOpen, jarZoomDetailNoteId]);
-
-  /*
-   * 쪽지 상세 모달 WebSocket 연결
-   *
-   * 언제 연결하냐면?
-   * - 저금통 확대 모달에서 특정 쪽지 상세 모달을 열었을 때만 연결한다.
-   *
-   * 왜 항상 연결하지 않냐면?
-   * - 모든 쪽지를 전부 구독하면 연결이 너무 많아진다.
-   * - 지금 보고 있는 쪽지 하나만 구독하는 게 깔끔하다.
-   */
-  useEffect(() => {
-    // 쪽지 상세 모달이 닫혀 있으면 연결하지 않는다.
-    if (!jarZoomDetailOpen) return;
-
-    // 어떤 쪽지를 보고 있는지 없으면 연결하지 않는다.
-    if (!jarId || !jarZoomDetailNoteId) return;
-
-    const client = createNoteSocketClient({
-      jarId,
-      noteId: jarZoomDetailNoteId,
-
-      onNoteEventReceived: async (event) => {
-        const eventType = event?.type;
-        const eventNoteId = Number(event?.noteId);
-
-        // 혹시 다른 쪽지 이벤트가 들어오면 무시한다.
-        if (!eventNoteId || eventNoteId !== Number(jarZoomDetailNoteId)) {
-          return;
-        }
-
-        /*
-         * 댓글/답글/수정/삭제 이벤트
-         *
-         * 처음 버전에서는 event 내용으로 직접 화면을 조작하지 않고,
-         * 댓글 목록을 다시 조회한다.
-         *
-         * 이유:
-         * - 부모 댓글/답글 트리 구조를 안전하게 맞출 수 있다.
-         * - 삭제/수정 후 정렬도 서버 기준과 정확히 맞는다.
-         */
-        if (
-          eventType === "COMMENT_CREATED" ||
-          eventType === "COMMENT_REPLIED" ||
-          eventType === "COMMENT_UPDATED" ||
-          eventType === "COMMENT_DELETED"
-        ) {
-          const refreshedComments = await loadJarZoomComments(eventNoteId);
-          patchCommentCountEverywhere(
-            eventNoteId,
-            getTotalCommentCount(refreshedComments)
-          );
-          return;
-        }
-
-        /*
-         * 리액션 이벤트
-         *
-         * 주의:
-         * WebSocket 이벤트에 들어있는 actorUserId는 "누가 눌렀는지"이고,
-         * myReaction은 사용자마다 다르다.
-         *
-         * 그래서 이벤트를 받으면 각 사용자가 자기 기준으로
-         * GET /reactions를 다시 조회해야 한다.
-         */
-        if (eventType === "REACTION_CHANGED") {
-          const res = await apiClient.get(
-            `/api/v1/jars/${jarId}/notes/${eventNoteId}/reactions`
-          );
-
-          const summary = res.data?.data;
-
-          patchJarZoomDetailNote(eventNoteId, summary);
-          patchJarZoomNoteInList(eventNoteId, summary);
-        }
-      },
-
-      /* onConnect: () => {
-        console.log("쪽지 상세 변화 구독 시작");
-      }, */
-
-      onError: (error) => {
-        console.error("쪽지 상세 WebSocket 오류", error);
-      },
-    });
-
-    client.activate();
-
-    return () => {
-      disconnectNoteSocket(client);
-    };
-  }, [jarId, jarZoomDetailOpen, jarZoomDetailNoteId]);
+  // seJarRealtimeEvents: WebSocket 실시간 이벤트
+  useJarRealtimeEvents({
+    jarId,
+    jar,
+    me,
+    navigate,
+    loadMembers,
+    loadJarDetail,
+    setJar,
+    jarOpenCelebrationTimerRef,
+    setJarOpenCelebrationEvent,
+    setJarOpenCelebrationOpen,
+    setNoteSectionRefreshKey,
+    loadJarZoomNotes,
+    jarZoomDetailOpen,
+    jarZoomDetailNoteId,
+    handleOpenJarZoomNoteDetail,
+    loadJarZoomComments,
+    patchCommentCountEverywhere,
+    patchJarZoomDetailNote,
+    patchJarZoomNoteInList,
+    loadDailyDrawToday,
+    loadDailyDrawHistory,
+    dailyDrawRealtimeMessageTimerRef,
+    setDailyDrawRealtimeMessage,
+  });
 
   // 알림에서 /jars/:jarId 로 들어왔을 때
   // 1) 저금통 확대 모달 열고
@@ -833,213 +476,6 @@ export default function JarDetailPage() {
     };
   }, [jarId, jarChatOpen]);
 
-  /*
-   * 추억 쪽지 뽑기 자동 조회
-   *
-   * 역할:
-   * - 저금통 상세 정보가 로드된 뒤
-   * - 저금통이 열린 상태라면
-   * - 오늘 뽑힌 쪽지와 뽑기 기록을 불러온다.
-   *
-   * 이제 openMode와 상관없이 사용할 수 있다.
-   */
-  useEffect(() => {
-    if (!jarId || !jar) return;
-
-    // 아직 저금통이 열리지 않았다면 뽑기 API를 호출하지 않는다.
-    if (!jar.isOpen) {
-      setDailyDrawToday(null);
-      setDailyDrawHistory([]);
-      setDailyDrawError("");
-      setDailyDrawLoading(false);
-      return;
-    }
-
-    refreshDailyDraw();
-  }, [jarId, jar?.isOpen]);
-
-  /*
-   * Daily Draw WebSocket 연결
-   *
-   * 역할:
-   * - 같은 저금통을 보고 있는 다른 멤버가 "오늘의 추억 한 장"을 뽑으면
-   * - 서버가 /topic/jars/{jarId}/daily-draw 로 이벤트를 보내준다.
-   * - 프론트는 그 이벤트를 받고 오늘 카드/히스토리를 다시 조회해서
-   *   새로고침 없이 화면을 최신 상태로 맞춘다.
-   *
-   * 중요한 점:
-   * - WebSocket 이벤트에는 "오늘 카드가 공개됐다"는 소식만 담는다.
-   * - 실제 카드 내용은 기존 REST API로 다시 가져온다.
-   * - 그래야 기존 권한 검증 로직을 그대로 재사용할 수 있어서 더 안전하다.
-   */
-  useEffect(() => {
-    // jarId가 없으면 어떤 저금통을 구독할지 모르니까 연결하지 않는다.
-    if (!jarId) return;
-
-    // 저금통 상세 정보가 아직 없으면 연결하지 않는다.
-    if (!jar) return;
-
-    // 아직 열리지 않은 저금통이면 오늘 카드를 뽑을 수 없으므로 구독하지 않는다.
-    if (!jar.isOpen) return;
-
-    const client = createDailyDrawSocketClient({
-      jarId,
-
-      onDailyDrawRevealed: async (event) => {
-        // console.log("Daily Draw 공개 이벤트 수신", event);
-
-        /*
-         * 1. 안내 문구를 잠깐 보여준다.
-         *
-         * A 사용자가 뽑은 경우에도 A 화면에 이벤트가 다시 올 수 있고,
-         * B/C 같은 다른 멤버 화면에도 이벤트가 온다.
-         *
-         * 그래서 문구는 너무 강한 alert가 아니라
-         * 화면 안의 작은 안내 박스로만 보여준다.
-         */
-        setDailyDrawRealtimeMessage(
-          event?.message || "오늘의 추억 한 장이 공개되어 화면을 최신으로 맞췄어요."
-        );
-
-        // 기존 타이머가 있으면 먼저 정리한다.
-        if (dailyDrawRealtimeMessageTimerRef.current) {
-          window.clearTimeout(dailyDrawRealtimeMessageTimerRef.current);
-        }
-
-        // 4초 뒤 안내 문구를 자동으로 지운다.
-        dailyDrawRealtimeMessageTimerRef.current = window.setTimeout(() => {
-          setDailyDrawRealtimeMessage("");
-        }, 4000);
-
-        /*
-         * 2. 오늘 카드와 히스토리를 다시 조회한다.
-         *
-         * WebSocket 이벤트 payload에 카드 본문을 담지 않았기 때문에
-         * 기존 REST API를 다시 호출해서 서버 기준 최신 데이터를 가져온다.
-         */
-        await Promise.allSettled([
-          loadDailyDrawToday({ silent: true }),
-          loadDailyDrawHistory({ silent: true }),
-        ]);
-
-        /*
-         * 3. 저금통 확대 모달의 쪽지 목록도 최신화한다.
-         *
-         * 이미 모달을 열어둔 상태라면 오른쪽 쪽지 목록도 자연스럽게 최신 상태가 된다.
-         * 모달이 닫혀 있어도 큰 문제는 없지만, 다음에 열었을 때 더 최신 상태가 될 수 있다.
-         */
-        await loadJarZoomNotes();
-      },
-
-      /* onConnect: () => {
-        console.log("Daily Draw 이벤트 구독 시작");
-      }, */
-
-      onError: (error) => {
-        console.error("Daily Draw WebSocket 오류", error);
-      },
-    });
-
-    client.activate();
-
-    return () => {
-      disconnectDailyDrawSocket(client);
-
-      // 페이지를 벗어나거나 구독 조건이 바뀌면 안내 문구 타이머도 정리한다.
-      if (dailyDrawRealtimeMessageTimerRef.current) {
-        window.clearTimeout(dailyDrawRealtimeMessageTimerRef.current);
-      }
-    };
-  }, [jarId, jar?.isOpen]);
-
-  // 상세 정보를 받아온 뒤, OWNER / ADMIN 이면 초대 목록도 로드
-  useEffect(() => {
-    if (!jar) return;
-
-    const canManage = jar.myRole === "OWNER" || jar.myRole === "ADMIN";
-
-    if (canManage) {
-      loadInvites();
-      return;
-    }
-
-    setInvites([]);
-    setInvitesError("");
-    setInvitesLoading(false);
-  }, [jarId, jar?.myRole]);
-
-    // 페이지를 다시 열어도, 내가 숨긴 폐기 코드는 그대로 안 보이게 저장값을 꺼내와.
-    useEffect(() => {
-      try {
-        const saved = localStorage.getItem(hiddenInviteStorageKey);
-        const parsed = saved ? JSON.parse(saved) : [];
-
-        // 혹시 문자열로 저장돼 있어도 숫자로 통일해줘.
-        const normalized = Array.isArray(parsed)
-          ? parsed.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
-          : [];
-
-        setHiddenInviteIds(normalized);
-      } catch {
-        setHiddenInviteIds([]);
-      } finally {
-        // 이제 숨김 목록을 다 읽었으니 준비 완료
-        setHiddenInvitesReady(true);
-      }
-    }, [hiddenInviteStorageKey]);
-
-    /*
-     * 페이지에 들어왔을 때,
-     * 이 저금통의 추억 쪽지 뽑기 결과를 이미 봤는지 확인한다.
-     */
-    useEffect(() => {
-      if (!jarId) return;
-
-      try {
-        const saved = localStorage.getItem(memoryDrawSeenStorageKey);
-        setMemoryDrawSeenKey(saved || "");
-      } catch {
-        setMemoryDrawSeenKey("");
-      }
-    }, [jarId, memoryDrawSeenStorageKey]);
-
-    /*
-     * 추억 쪽지 뽑기 모달을 열었고,
-     * 현재 뽑힌 결과가 있으면 "봤다"고 저장한다.
-     *
-     * 그래서 모달을 한 번 열어서 확인하면
-     * 버튼의 1 배지가 사라진다.
-     */
-    useEffect(() => {
-      if (!memoryDrawOpen) return;
-      if (!currentMemoryDrawKey) return;
-
-      try {
-        localStorage.setItem(memoryDrawSeenStorageKey, currentMemoryDrawKey);
-      } catch {
-        // localStorage 저장 실패는 화면을 멈출 정도의 문제는 아니므로 넘어간다.
-      }
-
-      setMemoryDrawSeenKey(currentMemoryDrawKey);
-    }, [memoryDrawOpen, currentMemoryDrawKey, memoryDrawSeenStorageKey]);
-
-
-
-    // 숨긴 코드 목록이 바뀔 때마다 브라우저에 저장해 둬.
-    useEffect(() => {
-      // 아직 localStorage에서 기존 숨김 목록을 읽기 전이면 저장하지 않아.
-      if (!hiddenInvitesReady) return;
-
-      try {
-        localStorage.setItem(
-          hiddenInviteStorageKey,
-          JSON.stringify(hiddenInviteIds)
-        );
-      } catch {
-        // 저장 실패는 앱이 멈출 일은 아니라서 조용히 넘어가도 괜찮아.
-      }
-    }, [hiddenInviteStorageKey, hiddenInviteIds, hiddenInvitesReady]);
-
     useEffect(() => {
       if (!jar) return;
 
@@ -1085,40 +521,6 @@ export default function JarDetailPage() {
       window.alert(serverMessage);
     } finally {
       setDeleteLoading(false);
-    }
-  }
-
-  async function handleLeaveJar() {
-    if (!canLeaveJar) {
-      window.alert("방장은 저금통을 바로 나갈 수 없어요.");
-      return;
-    }
-
-    const ok = window.confirm(
-      "정말 이 저금통에서 나갈까요?\n나가면 다시 초대를 받아야 들어올 수 있어요."
-    );
-
-    if (!ok) return;
-
-    setLeaveLoading(true);
-
-    try {
-      await fetchCsrf();
-
-      await apiClient.post(`/api/v1/jars/${jarId}/leave`);
-
-      window.alert("저금통에서 나갔어요.");
-      navigate("/jars", { replace: true });
-    } catch (e) {
-      const serverMessage =
-        e?.response?.data?.error?.message ||
-        e?.response?.data?.message ||
-        e?.message ||
-        "저금통 나가기에 실패했어요.";
-
-      window.alert(serverMessage);
-    } finally {
-      setLeaveLoading(false);
     }
   }
 
@@ -1764,156 +1166,6 @@ async function loadChatUnreadCount() {
 }
 
 /*
- * Daily Draw 오늘 카드 조회
- *
- * 역할:
- * - 서버에 "오늘 뽑힌 카드가 있어?"라고 물어본다.
- * - 있으면 dailyDrawToday에 저장한다.
- * - 없으면 hasTodayDraw=false 상태가 저장된다.
- */
-async function loadDailyDrawToday({ silent = false } = {}) {
-  if (!jarId) return;
-
-  if (!silent) {
-    setDailyDrawLoading(true);
-  }
-
-  setDailyDrawError("");
-
-  try {
-    const data = await getDailyDrawToday(jarId);
-    setDailyDrawToday(data || null);
-  } catch (e) {
-    const serverMessage =
-      e?.response?.data?.error?.message ||
-      e?.response?.data?.message ||
-      e?.message ||
-      "오늘의 추억 한 장을 불러오지 못했어요.";
-
-    setDailyDrawError(serverMessage);
-    setDailyDrawToday(null);
-  } finally {
-    if (!silent) {
-      setDailyDrawLoading(false);
-    }
-  }
-}
-
-/*
- * Daily Draw 히스토리 조회
- *
- * 역할:
- * - 지금까지 어떤 날짜에 어떤 쪽지가 뽑혔는지 서버에서 가져온다.
- */
-async function loadDailyDrawHistory({ silent = false } = {}) {
-  if (!jarId) return;
-
-  if (!silent) {
-    setDailyDrawLoading(true);
-  }
-
-  setDailyDrawError("");
-
-  try {
-    const data = await getDailyDrawHistory(jarId, 0, 20);
-    const items = Array.isArray(data?.items) ? data.items : [];
-
-    setDailyDrawHistory(items);
-  } catch (e) {
-    const serverMessage =
-      e?.response?.data?.error?.message ||
-      e?.response?.data?.message ||
-      e?.message ||
-      "Daily Draw 기록을 불러오지 못했어요.";
-
-    setDailyDrawError(serverMessage);
-    setDailyDrawHistory([]);
-  } finally {
-    if (!silent) {
-      setDailyDrawLoading(false);
-    }
-  }
-}
-
-/*
- * Daily Draw 전체 새로고침
- *
- * 역할:
- * - 오늘 카드와 히스토리를 한 번에 다시 맞춘다.
- */
-async function refreshDailyDraw() {
-  setDailyDrawLoading(true);
-  setDailyDrawError("");
-
-  try {
-    await Promise.all([
-      loadDailyDrawToday({ silent: true }),
-      loadDailyDrawHistory({ silent: true }),
-    ]);
-  } finally {
-    setDailyDrawLoading(false);
-  }
-}
-
-/*
- * 오늘의 추억 한 장 뽑기
- *
- * 역할:
- * - 사용자가 "오늘의 추억 한 장 뽑기" 버튼을 누르면 실행된다.
- * - 서버가 아직 안 뽑힌 쪽지 중 랜덤 1장을 골라 저장한다.
- * - 이미 오늘 카드가 있으면 기존 카드를 그대로 돌려준다.
- */
-async function handleDrawDailyDrawToday() {
-  if (!jarId) return;
-
-  if (!jar?.isOpen) {
-    window.alert("저금통이 열린 뒤에 오늘의 추억 한 장을 뽑을 수 있어요.");
-    return;
-  }
-
-  setDailyDrawDrawing(true);
-  setDailyDrawError("");
-
-  try {
-    const data = await drawDailyDrawToday(jarId);
-
-    /*
-     * POST 응답은 방금 뽑힌 카드 정보다.
-     * 먼저 화면에 바로 보여주고,
-     * 그 다음 GET /today를 다시 호출해서
-     * remainingCount, drawnCount 같은 상태값까지 최신으로 맞춘다.
-     */
-    setDailyDrawToday((prev) => ({
-      ...(prev || {}),
-      hasTodayDraw: true,
-      dailyDraw: data,
-      message: data?.newlyDrawn
-        ? "오늘의 추억 한 장이 공개되었어요."
-        : "이미 공개된 오늘의 추억 한 장을 보여드려요.",
-    }));
-
-    // 오늘 카드 상태와 히스토리를 다시 최신화한다.
-    await Promise.all([
-      loadDailyDrawToday({ silent: true }),
-      loadDailyDrawHistory({ silent: true }),
-    ]);
-
-    // 저금통 확대 모달의 쪽지 목록도 최신화한다.
-    await loadJarZoomNotes();
-  } catch (e) {
-    const serverMessage =
-      e?.response?.data?.error?.message ||
-      e?.response?.data?.message ||
-      e?.message ||
-      "오늘의 추억 한 장 뽑기에 실패했어요.";
-
-    setDailyDrawError(serverMessage);
-  } finally {
-    setDailyDrawDrawing(false);
-  }
-}
-
-/*
  * Daily Draw 카드에서 쪽지 상세 열기
  *
  * 역할:
@@ -2042,213 +1294,6 @@ async function handleViewOpenedJarNotes() {
   await handleOpenJarZoom();
 }
 
-async function handleChangeMemberRole(targetUserId, nextRole) {
-  if (!canChangeMemberRole) {
-    window.alert("멤버 역할 변경은 방장만 할 수 있어요.");
-    return;
-  }
-
-  const ok = window.confirm(
-    `이 멤버의 역할을 ${ROLE_LABEL[nextRole] || nextRole}(으)로 바꿀까요?`
-  );
-
-  if (!ok) return;
-
-  setRoleUpdateLoadingId(targetUserId);
-
-  try {
-    await fetchCsrf();
-
-    await apiClient.patch(`/api/v1/jars/${jarId}/members/${targetUserId}/role`, {
-      role: nextRole,
-    });
-
-    await loadMembers();
-    await loadJarDetail();
-
-    window.alert("멤버 역할을 변경했어요.");
-  } catch (e) {
-    const serverMessage =
-      e?.response?.data?.error?.message ||
-      e?.response?.data?.message ||
-      e?.message ||
-      "멤버 역할 변경에 실패했어요.";
-
-    window.alert(serverMessage);
-  } finally {
-    setRoleUpdateLoadingId(null);
-  }
-}
-
-async function handleKickMember(targetUserId, targetName, targetRole) {
-  if (!canKickMembers) {
-    window.alert("멤버 강퇴는 방장 또는 관리자만 할 수 있어요.");
-    return;
-  }
-
-  if (targetRole === "OWNER") {
-    window.alert("방장은 강퇴할 수 없어요.");
-    return;
-  }
-
-  const ok = window.confirm(
-    `${targetName || "이 멤버"}님을 저금통에서 내보낼까요?`
-  );
-
-  if (!ok) return;
-
-  setKickLoadingId(targetUserId);
-
-  try {
-    await fetchCsrf();
-
-    await apiClient.post(`/api/v1/jars/${jarId}/members/${targetUserId}/kick`);
-
-    await loadMembers();
-    await loadJarDetail();
-
-    window.alert("멤버를 강퇴했어요.");
-  } catch (e) {
-    const serverMessage =
-      e?.response?.data?.error?.message ||
-      e?.response?.data?.message ||
-      e?.message ||
-      "멤버 강퇴에 실패했어요.";
-
-    window.alert(serverMessage);
-  } finally {
-    setKickLoadingId(null);
-  }
-}
-
-async function handleCreateInvite(e) {
-  e.preventDefault();
-
-  const expiresInHours = Math.min(
-    168,
-    Math.max(1, Number(inviteForm.expiresInHours || 24))
-  );
-
-  const maxUses = Math.min(
-    50,
-    Math.max(1, Number(inviteForm.maxUses || 1))
-  );
-
-  setCreateInviteLoading(true);
-
-  try {
-    await fetchCsrf();
-
-    const res = await apiClient.post(`/api/v1/jars/${jarId}/invites`, {
-      expiresInHours,
-      maxUses,
-    });
-
-    const created = res.data?.data;
-
-    await loadInvites();
-
-    // 새 코드를 만들면 첫 페이지로 보내서 바로 보이게 해줘.
-    setInvitePage(1);
-
-    const createdInviteUrl = created?.code ? getInviteUrl(created.code) : "";
-
-    window.alert(
-      created?.code
-        ? `초대코드가 만들어졌어요.\n코드: ${created.code}\n링크: ${createdInviteUrl}`
-        : "초대코드가 만들어졌어요."
-    );
-  } catch (e) {
-    const serverMessage =
-      e?.response?.data?.error?.message ||
-      e?.response?.data?.message ||
-      e?.message ||
-      "초대코드 생성에 실패했어요.";
-
-    window.alert(serverMessage);
-  } finally {
-    setCreateInviteLoading(false);
-  }
-}
-
-// 초대코드로 실제 공유용 링크를 만드는 함수
-function getInviteUrl(code) {
-  if (!code) return "";
-
-  // 지금 접속한 주소를 기준으로 자동으로 맞춰줘.
-  // 로컬이면 localhost:3000, 배포면 www.esjh.shop 이 돼.
-  return `${window.location.origin}/invite/${code}`;
-}
-
-// 초대 링크를 복사하는 함수
-async function handleCopyInviteUrl(code) {
-  try {
-    const inviteUrl = getInviteUrl(code);
-
-    await navigator.clipboard.writeText(inviteUrl);
-    window.alert("초대 링크를 복사했어요.");
-  } catch (e) {
-    window.alert("링크 복사에 실패했어요. 다시 한 번 시도해 주세요.");
-  }
-}
-
-async function handleCopyInviteCode(code) {
-  try {
-    await navigator.clipboard.writeText(code);
-    window.alert("초대코드를 복사했어요.");
-  } catch (e) {
-    window.alert("복사에 실패했어요. 다시 한 번 시도해 주세요.");
-  }
-}
-
-async function handleRevokeInvite(inviteId) {
-  const ok = window.confirm("이 초대코드를 폐기할까요?");
-
-  if (!ok) return;
-
-  setRevokeLoadingId(inviteId);
-
-  try {
-    await fetchCsrf();
-    await apiClient.post(`/api/v1/jars/${jarId}/invites/${inviteId}/revoke`);
-
-    await loadInvites();
-    window.alert("초대코드를 폐기했어요.");
-  } catch (e) {
-    const serverMessage =
-      e?.response?.data?.error?.message ||
-      e?.response?.data?.message ||
-      e?.message ||
-      "초대코드 폐기에 실패했어요.";
-
-    window.alert(serverMessage);
-  } finally {
-    setRevokeLoadingId(null);
-  }
-}
-
-// 폐기된 코드만 X 버튼으로 화면에서 숨길 수 있어.
-function handleHideRevokedInvite(inviteId) {
-  const targetInvite = invites.find((invite) => invite.inviteId === inviteId);
-
-  if (!targetInvite?.revokedAt) {
-    window.alert("폐기된 초대코드만 화면에서 숨길 수 있어요.");
-    return;
-  }
-
-    setHiddenInviteIds((prev) => {
-      const normalizedId = Number(inviteId);
-
-      if (prev.includes(normalizedId)) return prev;
-      return [...prev, normalizedId];
-    });
-}
-
-// 숨겼던 폐기 코드들을 다시 보고 싶을 때 사용해.
-function handleRestoreHiddenInvites() {
-  setHiddenInviteIds([]);
-}
-
   const openStatus = useMemo(() => getOpenStatus(jar), [jar]);
 
   const palette = useMemo(
@@ -2297,82 +1342,6 @@ function handleRestoreHiddenInvites() {
   // 수정 가능한 사람 체크
   const canEditJar = jar?.myRole === "OWNER" || jar?.myRole === "ADMIN";
 
-  // 방장이 아니고, 현재 어떤 역할이든 있으면 나가기 가능
-  const canLeaveJar = !!jar?.myRole && jar.myRole !== "OWNER";
-
-  // 역할 변경은 현재 백엔드 규칙상 OWNER만 가능
-  const canChangeMemberRole = jar?.myRole === "OWNER";
-
-  // 강퇴는 OWNER 또는 ADMIN 이 할 수 있어.
-  const canKickMembers = jar?.myRole === "OWNER" || jar?.myRole === "ADMIN";
-
-    const canManageInvites =
-      jar?.myRole === "OWNER" || jar?.myRole === "ADMIN";
-
-    const sortedMembers = useMemo(() => {
-      const roleOrder = {
-        OWNER: 0,
-        ADMIN: 1,
-        MEMBER: 2,
-      };
-
-      return [...members].sort((a, b) => {
-        const aOrder = roleOrder[a.role] ?? 99;
-        const bOrder = roleOrder[b.role] ?? 99;
-        return aOrder - bOrder;
-      });
-    }, [members]);
-
-    const activeInviteCount = useMemo(() => {
-      return invites.filter((invite) => invite.isActive).length;
-    }, [invites]);
-
-    // X로 숨긴 초대코드는 목록에서 빼줄 거야.
-    const visibleInvites = useMemo(() => {
-      // 숨김 목록을 아직 읽기 전이면 일단 그대로 계산하지 않도록 막아줘.
-      if (!hiddenInvitesReady) return [];
-
-      return invites.filter(
-        (invite) => !hiddenInviteIds.includes(Number(invite.inviteId))
-      );
-    }, [invites, hiddenInviteIds, hiddenInvitesReady]);
-
-    // 새로 만든 초대코드가 먼저 보이도록 최신순 정렬
-    const orderedInvites = useMemo(() => {
-      return [...visibleInvites].sort((a, b) => {
-        const aTime = new Date(a.createdAt || 0).getTime();
-        const bTime = new Date(b.createdAt || 0).getTime();
-        return bTime - aTime;
-      });
-    }, [visibleInvites]);
-
-    // 총 페이지 수 계산
-    const invitePageCount = useMemo(() => {
-      return Math.max(1, Math.ceil(orderedInvites.length / INVITES_PER_PAGE));
-    }, [orderedInvites]);
-
-    // 현재 페이지에 보여줄 2개만 잘라서 꺼내기
-    const pagedInvites = useMemo(() => {
-      const startIndex = (invitePage - 1) * INVITES_PER_PAGE;
-      return orderedInvites.slice(
-        startIndex,
-        startIndex + INVITES_PER_PAGE
-      );
-    }, [orderedInvites, invitePage]);
-
-    // 숨긴 폐기 코드가 몇 개인지 세기
-    const hiddenRevokedCount = useMemo(() => {
-      return invites.filter((invite) =>
-        hiddenInviteIds.includes(invite.inviteId)
-      ).length;
-    }, [invites, hiddenInviteIds]);
-
-    // 현재 페이지가 범위를 벗어나면 마지막 페이지로 자동 보정
-    useEffect(() => {
-      if (invitePage > invitePageCount) {
-        setInvitePage(invitePageCount);
-      }
-    }, [invitePage, invitePageCount]);
   // 로딩 화면
   if (loading) {
     return (

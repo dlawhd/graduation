@@ -9,14 +9,6 @@ import SpringIcon from "../components/icons/SpringIcon";
 import SummerIcon from "../components/icons/SummerIcon";
 import AutumnIcon from "../components/icons/AutumnIcon";
 import WinterIcon from "../components/icons/WinterIcon";
-import SpringParticleIcon from "../components/icons/SpringParticleIcon";
-import SummerParticleIcon from "../components/icons/SummerParticleIcon";
-import AutumnParticleIcon from "../components/icons/AutumnParticleIcon";
-import WinterParticleIcon from "../components/icons/WinterParticleIcon";
-import LavenderParticleIcon from "../components/icons/LavenderParticleIcon";
-import DewParticleIcon from "../components/icons/DewParticleIcon";
-import SandParticleIcon from "../components/icons/SandParticleIcon";
-import MoonlightParticleIcon from "../components/icons/MoonlightParticleIcon";
 
 /*
   JarsPage 역할
