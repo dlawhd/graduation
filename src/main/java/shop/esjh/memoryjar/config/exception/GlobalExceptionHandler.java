@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.config.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import shop.esjh.memoryjar.dto.response.ErrorEnvelope;
 import shop.esjh.memoryjar.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -63,6 +64,31 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(statusCode).body(ErrorEnvelope.of(error));
     }
 
+    /*
+     * 요청 JSON을 읽지 못했을 때 처리하는 예외 핸들러
+     *
+     * 예를 들어:
+     * - 존재하지 않는 테마인 COUPLE을 보낸 경우
+     * - 잘못된 날짜 형식을 보낸 경우
+     * - JSON 문법이 깨진 경우
+     *
+     * 이런 요청은 서버 자체의 문제가 아니라
+     * 클라이언트가 보낸 값의 형식 문제이므로 500이 아니라 400을 반환한다.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorEnvelope> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request
+    ) {
+        ErrorResponse error = ErrorResponse.of(
+                "BAD_REQUEST",
+                "요청 값의 형식이 올바르지 않습니다. 테마나 날짜 값을 확인해 주세요.",
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.badRequest()
+                .body(ErrorEnvelope.of(error));
+    }
     // ✅ 그 밖의 모든 예외 처리
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorEnvelope> handleException(

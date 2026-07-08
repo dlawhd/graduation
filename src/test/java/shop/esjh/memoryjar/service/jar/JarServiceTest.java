@@ -797,6 +797,184 @@ class JarServiceTest {
     }
 
     @Test
+    @DisplayName("열린 저금통에서도 기존 오픈 정책 값이 같으면 테마를 수정할 수 있다")
+    void updateJar_allowsThemeChangeWhenOpenPolicyValuesAreUnchanged() {
+        /*
+         * given
+         *
+         * 이미 열려 있는 저금통이라고 가정한다.
+         *
+         * 프론트가 openAt, openMode, lockLevel을 함께 보내지만
+         * 기존 값과 모두 같고 테마만 달라진 상황이다.
+         */
+
+        User owner = User.builder()
+                .id(1L)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-123")
+                .build();
+
+        LocalDateTime originalOpenAt =
+                LocalDateTime.of(2026, 7, 1, 18, 0);
+
+        Jar jar = Jar.builder()
+                .owner(owner)
+                .name("우리 저금통")
+                .description("원래 설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(3)
+                .openAt(originalOpenAt)
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+
+        ReflectionTestUtils.setField(jar, "jarId", 10L);
+        ReflectionTestUtils.setField(
+                jar,
+                "updatedAt",
+                LocalDateTime.of(2026, 7, 10, 10, 0)
+        );
+
+        JarMember ownerMember = JarMember.createOwner(jar, owner);
+
+        /*
+         * 오픈 정책 값은 기존 값과 똑같고,
+         * 테마만 SPRING에서 WINTER로 바꾼다.
+         */
+        JarUpdateRequest request = new JarUpdateRequest(
+                "우리 저금통",
+                "원래 설명",
+                JarTheme.WINTER,
+                3,
+                originalOpenAt,
+                JarOpenMode.ALL_AT_ONCE,
+                JarLockLevel.HIDDEN
+        );
+
+        when(
+                jarMemberRepository
+                        .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)
+        ).thenReturn(Optional.of(ownerMember));
+
+        when(jarRepository.findByJarId(10L))
+                .thenReturn(Optional.of(jar));
+
+        when(
+                jarMemberRepository
+                        .countByJar_JarIdAndDeletedAtIsNull(10L)
+        ).thenReturn(1L);
+
+        when(jarRepository.save(any(Jar.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        /*
+         * when
+         *
+         * 저금통 수정 실행
+         */
+        JarUpdateResponse response =
+                jarService.updateJar(1L, 10L, request);
+
+        /*
+         * then
+         *
+         * 테마가 정상적으로 바뀌어야 한다.
+         */
+        assertThat(jar.getTheme()).isEqualTo(JarTheme.WINTER);
+        assertThat(response.jarId()).isEqualTo(10L);
+
+        /*
+         * 오픈 정책 값이 실제로 달라지지 않았기 때문에
+         * 이미 열린 저금통인지 확인하는 기능도 호출하지 않아야 한다.
+         */
+        verify(
+                jarOpenService,
+                never()
+        ).ensureOpenedIfDue(anyLong());
+    }
+
+    @Test
+    @DisplayName("열린 저금통에서 오픈 날짜를 실제로 바꾸면 수정할 수 없다")
+    void updateJar_rejectsActualOpenPolicyChangeAfterJarOpened() {
+        /*
+         * given
+         *
+         * 기존 오픈 날짜와 다른 날짜를 요청하는 상황이다.
+         */
+
+        User owner = User.builder()
+                .id(1L)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-123")
+                .build();
+
+        LocalDateTime originalOpenAt =
+                LocalDateTime.of(2026, 7, 1, 18, 0);
+
+        Jar jar = Jar.builder()
+                .owner(owner)
+                .name("우리 저금통")
+                .description("원래 설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(3)
+                .openAt(originalOpenAt)
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+
+        ReflectionTestUtils.setField(jar, "jarId", 10L);
+
+        JarMember ownerMember = JarMember.createOwner(jar, owner);
+
+        /*
+         * 기존 날짜와 다른 오픈 날짜를 보낸다.
+         */
+        JarUpdateRequest request = new JarUpdateRequest(
+                null,
+                null,
+                null,
+                null,
+                originalOpenAt.plusDays(1),
+                null,
+                null
+        );
+
+        when(
+                jarMemberRepository
+                        .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)
+        ).thenReturn(Optional.of(ownerMember));
+
+        when(jarRepository.findByJarId(10L))
+                .thenReturn(Optional.of(jar));
+
+        /*
+         * 이미 열린 저금통이라고 가정한다.
+         */
+        when(jarOpenService.ensureOpenedIfDue(10L))
+                .thenReturn(true);
+
+        /*
+         * when & then
+         *
+         * 실제 오픈 정책을 바꾸므로 오류가 발생해야 한다.
+         */
+        assertThatThrownBy(
+                () -> jarService.updateJar(1L, 10L, request)
+        )
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining(
+                        "이미 열린 저금통은 오픈 정책을 다시 바꿀 수 없어."
+                );
+
+        /*
+         * 오류가 발생했으므로 저금통 저장은 실행되면 안 된다.
+         */
+        verify(jarRepository, never()).save(any(Jar.class));
+    }
+
+    @Test
     void updateJar는_현재멤버수보다_maxMembers를_작게_줄이면_예외가_난다() {
         // given
         User owner = User.builder()

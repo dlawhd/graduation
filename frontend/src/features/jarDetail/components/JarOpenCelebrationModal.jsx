@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { formatDate } from "../utils/jarDetailDateUtils";
 import { getThemeIcon } from "../theme/jarDetailTheme";
 
@@ -29,8 +30,16 @@ export default function JarOpenCelebrationModal({
   // 오픈 축하 모달에서도 이모지가 아니라 우리가 만든 대표 SVG 아이콘을 사용한다.
   const themeIcon = getThemeIcon(jar?.theme, 82);
 
-  return (
-    <div className="fixed inset-0 z-[240] flex items-center justify-center overflow-hidden bg-slate-950/75 px-4 py-6 backdrop-blur-sm">
+  /*
+   * 축하 모달을 document.body 바로 아래에 표시한다.
+   *
+   * 이렇게 하면:
+   * - 상세 페이지 부모 요소의 크기나 z-index에 영향을 받지 않고
+   * - 상단 헤더보다 앞으로 나오며
+   * - 화면을 확대해도 모달 전체를 위아래로 스크롤할 수 있다.
+   */
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-950/75 px-4 pb-8 pt-12 backdrop-blur-sm sm:pt-14">
       <style>
         {`
           @keyframes jarOpenBackdropFade {
@@ -186,7 +195,7 @@ export default function JarOpenCelebrationModal({
       </div>
 
       {/* 가운데 무대 */}
-      <div className="jar-open-stage relative w-full max-w-2xl rounded-[38px] border border-white/30 bg-white/95 px-6 py-8 text-center shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
+      <div className="jar-open-stage relative my-auto w-full max-w-2xl rounded-[38px] border border-white/30 bg-white/95 px-6 py-8 text-center shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
         <button
           type="button"
           onClick={onClose}
@@ -312,6 +321,7 @@ export default function JarOpenCelebrationModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

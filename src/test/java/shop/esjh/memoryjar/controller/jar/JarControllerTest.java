@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 
@@ -453,5 +454,56 @@ class JarControllerTest {
                         .with(csrf()))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
+    }
+
+    @Test
+    void updateJar는_지원하지않는_예전테마가_들어오면_400을_반환한다() throws Exception {
+        /*
+         * given
+         *
+         * COUPLE은 예전에 사용하던 테마 값이고
+         * 현재 JarTheme enum에는 존재하지 않는다.
+         */
+        String invalidRequestJson = """
+            {
+              "theme": "COUPLE"
+            }
+            """;
+
+        TestingAuthenticationToken auth = new TestingAuthenticationToken(
+                Map.of(
+                        "userId", 1L,
+                        "email", "user@test.com",
+                        "name", "은서"
+                ),
+                null,
+                "ROLE_USER"
+        );
+
+        /*
+         * when & then
+         *
+         * 잘못된 테마는 서버 내부 오류인 500이 아니라
+         * 잘못된 요청인 400으로 응답해야 한다.
+         */
+        mockMvc.perform(
+                        patch("/api/v1/jars/10")
+                                .principal(auth)
+                                .with(csrf())
+                                .contentType("application/json")
+                                .content(invalidRequestJson)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+                .andExpect(
+                        jsonPath("$.error.message")
+                                .value("요청 값의 형식이 올바르지 않습니다. 테마나 날짜 값을 확인해 주세요.")
+                );
+
+        /*
+         * DTO를 만들기 전에 요청 해석이 실패하므로
+         * JarService는 호출되지 않아야 한다.
+         */
+        verifyNoInteractions(jarService);
     }
 }

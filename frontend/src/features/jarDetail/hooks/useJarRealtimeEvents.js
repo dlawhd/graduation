@@ -39,8 +39,7 @@ export function useJarRealtimeEvents({
   loadJarDetail,
   setJar,
   jarOpenCelebrationTimerRef,
-  setJarOpenCelebrationEvent,
-  setJarOpenCelebrationOpen,
+  showJarOpenCelebration,
   setNoteSectionRefreshKey,
   loadJarZoomNotes,
   jarZoomDetailOpen,
@@ -125,9 +124,15 @@ export function useJarRealtimeEvents({
           };
         });
 
+        /*
+         * WebSocket 이벤트를 받았을 때도
+         * JarDetailPage의 공통 모달 열기 함수를 사용한다.
+         *
+         * REST와 WebSocket이 거의 동시에 오픈을 발견해도
+         * 공통 함수가 모달 중복 표시를 막아준다.
+         */
         setNoteSectionRefreshKey((prev) => prev + 1);
-        setJarOpenCelebrationEvent(event);
-        setJarOpenCelebrationOpen(true);
+        showJarOpenCelebration(event);
 
         await Promise.allSettled([
           loadJarDetail({ silent: true }),
@@ -153,7 +158,12 @@ export function useJarRealtimeEvents({
         window.clearTimeout(jarOpenCelebrationTimerRef.current);
       }
     };
-  }, [jarId, jarZoomDetailOpen, jarZoomDetailNoteId]);
+  }, [
+    jarId,
+    jarZoomDetailOpen,
+    jarZoomDetailNoteId,
+    showJarOpenCelebration,
+  ]);
 
   /*
    * 쪽지 상세 모달 WebSocket 연결

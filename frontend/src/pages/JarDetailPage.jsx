@@ -1,6 +1,5 @@
 // src/pages/JarDetailPage.jsx
 
-import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import { getChatUnreadCount } from "../api/chatApi";
@@ -21,6 +20,8 @@ import { useJarRealtimeEvents } from "../features/jarDetail/hooks/useJarRealtime
 import {
   ROLE_LABEL,
   THEME_LABEL,
+  EDITABLE_THEME_OPTIONS,
+  normalizeJarTheme,
 } from "../features/jarDetail/constants/jarDetailLabels";
 import {
   formatDate,
@@ -38,6 +39,13 @@ import {
     getThemePageDecorationIcon,
     getThemePalette,
 } from "../features/jarDetail/theme/jarDetailTheme";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
 
 // 오픈 상태를 사람이 읽기 쉽게 정리해주는 함수
 function getOpenStatus(jar) {
@@ -220,6 +228,18 @@ export default function JarDetailPage() {
   // 오픈 축하 모달을 몇 초 뒤 자동으로 닫을 때 사용할 타이머 보관함이다.
   const jarOpenCelebrationTimerRef = useRef(null);
 
+  /*
+   * previousJarOpenStateRef 역할
+   *
+   * REST 조회 전에는 저금통이 잠겨 있었고,
+   * 새 REST 조회 후에는 열렸는지 비교하기 위한 기억 상자야.
+   *
+   * 예:
+   * false → true
+   * 이렇게 바뀌면 저금통이 방금 열렸다고 판단할 수 있다.
+   */
+  const previousJarOpenStateRef = useRef(null);
+
   // 채팅방 밖에서 보여줄 안 읽은 채팅 개수
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
@@ -241,8 +261,375 @@ export default function JarDetailPage() {
     openAt: "",
   });
 
-  // useJarDetail: 저금통 상세/내 정보
-  const { jar, setJar, me, loading, error, loadJarDetail } = useJarDetail(jarId);
+// useJarDetail: 저금통 상세 정보와 내 정보
+const {
+  jar,
+  setJar,
+  me,
+  loading,
+  error,
+  loadJarDetail,
+} = useJarDetail(jarId);
+
+/*
+ * 현재 로그인한 사용자 ID
+ *
+ * 서버 응답에 따라 userId 또는 id라는 이름으로 올 수 있어서
+ * 두 가지를 순서대로 확인한다.
+ */
+const currentUserId = me?.userId ?? me?.id ?? null;
+
+/*
+ * 현재 저금통의 축하 모달 확인 기록 키
+ *
+ * 사용자와 저금통 번호를 함께 넣기 때문에
+ * 다른 저금통에서 본 기록과 섞이지 않는다.
+ *
+ * 예:
+ * 사용자 1번의 저금통 71번
+ * → memoryjar:jar-open-celebration:1:71
+ *
+ * 사용자 1번의 저금통 72번
+ * → memoryjar:jar-open-celebration:1:72
+ */
+const jarOpenCelebrationStorageKey = useMemo(() => {
+  if (!currentUserId || !jarId) {
+    return null;
+  }
+
+  return `memoryjar:jar-open-celebration:${currentUserId}:${Number(jarId)}`;
+}, [currentUserId, jarId]);
+
+/*
+ * showJarOpenCelebration 역할
+ *
+ * WebSocket과 REST가 공통으로 사용하는
+ * 저금통 오픈 축하 모달 열기 함수야.
+ *
+ * 중요한 규칙:
+ * - 항상 현재 주소의 jarId를 사용한다.
+ * - 다른 저금통의 확인 기록과 섞이지 않는다.
+ * - 사용자가 실제로 닫기 전에는 확인 완료로 저장하지 않는다.
+ */
+const showJarOpenCelebration = useCallback(
+  (event = null) => {
+    /*
+     * 로그인 사용자나 저금통 번호가 아직 준비되지 않았다면
+     * 데이터가 준비된 뒤 다시 실행되도록 잠시 멈춘다.
+     */
+    if (!currentUserId || !jarId || !jarOpenCelebrationStorageKey) {
+      return;
+    }
+
+    /*
+     * 현재 축하 모달이 이미 열려 있다면
+     * REST와 WebSocket이 동시에 한 번 더 열지 않도록 막는다.
+     */
+    if (jarOpenCelebrationOpen) {
+      return;
+    }
+
+    /*
+     * 현재 브라우저 탭에서 이 저금통의 축하 모달을
+     * 이미 확인했는지 검사한다.
+     */
+    try {
+      const alreadySeen =
+        sessionStorage.getItem(jarOpenCelebrationStorageKey) === "seen";
+
+      if (alreadySeen) {
+        return;
+      }
+    } catch {
+      /*
+       * 브라우저 저장소를 사용할 수 없어도
+       * 축하 모달 자체는 정상적으로 보여준다.
+       */
+    }
+
+    /*
+     * event.jarId나 이전 jar 객체 대신
+     * 현재 주소의 jarId를 기준으로 처리한다.
+     *
+     * /jars/71에서 /jars/72로 이동할 때
+     * 이전 71번 정보가 잠깐 남아 있어도 안전하다.
+     */
+    const currentJarId = Number(jarId);
+
+    setJarOpenCelebrationEvent({
+      jarId: currentJarId,
+      eventType: "JAR_OPENED",
+      isOpen: true,
+      openedAt: event?.openedAt ?? jar?.openAt ?? null,
+      message: event?.message ?? "저금통이 열렸어요.",
+    });
+
+    /*
+     * 여기서는 아직 sessionStorage에 기록하지 않는다.
+     *
+     * 사용자가 모달을 실제로 닫았을 때만
+     * 확인 기록을 남긴다.
+     */
+    setJarOpenCelebrationOpen(true);
+  },
+  [
+    currentUserId,
+    jarId,
+    jar?.openAt,
+    jarOpenCelebrationStorageKey,
+    jarOpenCelebrationOpen,
+  ]
+);
+
+/*
+ * 저금통 주소가 바뀔 때
+ * 이전 저금통의 축하 모달 상태를 초기화한다.
+ */
+useEffect(() => {
+  // 이전 저금통의 모달을 닫는다.
+  setJarOpenCelebrationOpen(false);
+
+  // 이전 저금통의 이벤트 정보를 지운다.
+  setJarOpenCelebrationEvent(null);
+
+  // REST 상태 비교값도 새 저금통 기준으로 초기화한다.
+  previousJarOpenStateRef.current = null;
+
+  /*
+   * 이전 저금통에서 사용하던 타이머가 남아 있다면 제거한다.
+   */
+  if (jarOpenCelebrationTimerRef.current) {
+    window.clearTimeout(jarOpenCelebrationTimerRef.current);
+    jarOpenCelebrationTimerRef.current = null;
+  }
+}, [jarId]);
+
+  /*
+   * REST 오픈 상태 감지 역할
+   *
+   * WebSocket 이벤트를 놓쳤더라도
+   * GET /api/v1/jars/{jarId} 응답의 isOpen이 true라면
+   * 축하 모달을 보여주는 fallback이야.
+   *
+   * 처리할 수 있는 상황:
+   * - 저금통이 열린 뒤 상세 페이지에 들어온 경우
+   * - WebSocket이 잠시 끊어진 경우
+   * - WebSocket 재연결 중에 열린 경우
+   * - 서버 재시작 중에 열린 경우
+   */
+  useEffect(() => {
+    if (!jar) {
+      return;
+    }
+
+    /*
+     * jarId가 바뀐 직후에는 잠깐 이전 저금통 정보가 남아 있을 수 있다.
+     * 현재 주소의 jarId와 응답의 jarId가 다르면 처리하지 않는다.
+     */
+    if (Number(jar.jarId) !== Number(jarId)) {
+      return;
+    }
+
+    const currentIsOpen = Boolean(jar.isOpen);
+    const previousIsOpen = previousJarOpenStateRef.current;
+
+    /*
+     * 다음 REST 조회 때 비교할 수 있도록 현재 상태를 기억한다.
+     */
+    previousJarOpenStateRef.current = currentIsOpen;
+
+    if (!currentIsOpen) {
+      return;
+    }
+
+    /*
+     * jar 객체가 아니라 현재 URL의 jarId를 사용한다.
+     *
+     * 다른 저금통으로 이동하는 짧은 순간에
+     * 이전 jar 데이터가 섞이는 것을 막는다.
+     */
+    showJarOpenCelebration({
+      jarId: Number(jarId),
+      eventType: "JAR_OPENED",
+      isOpen: true,
+      openedAt: jar.openAt,
+      message: "저금통이 열렸어요.",
+    });
+
+    /*
+     * 잠금 상태에서 열린 상태로 처음 바뀐 경우
+     * NoteSection도 다시 조회하게 만든다.
+     *
+     * null → true:
+     * 이미 열린 뒤 상세 페이지에 처음 들어온 경우
+     *
+     * false → true:
+     * 상세 페이지를 보고 있는 중에 저금통이 열린 경우
+     */
+    if (previousIsOpen !== true) {
+      setNoteSectionRefreshKey((prev) => prev + 1);
+    }
+  }, [
+    jarId,
+    jar?.jarId,
+    jar?.isOpen,
+    jar?.openAt,
+    currentUserId,
+    showJarOpenCelebration,
+  ]);
+
+  /*
+   * 오픈 시간 REST 보정 조회 역할
+   *
+   * 저금통이 아직 잠겨 있다면 openAt 시간까지 기다렸다가
+   * GET /api/v1/jars/{jarId}를 다시 호출한다.
+   *
+   * WebSocket을 놓쳐도 이 REST 요청으로
+   * 서버의 최신 isOpen 상태를 가져올 수 있다.
+   */
+  useEffect(() => {
+    if (!jarId) {
+      return;
+    }
+
+    if (!jar?.openAt) {
+      return;
+    }
+
+    /*
+     * 이미 열린 저금통은 더 확인할 필요가 없다.
+     */
+    if (jar.isOpen) {
+      return;
+    }
+
+    const openAtTime = new Date(jar.openAt).getTime();
+
+    /*
+     * 날짜 값이 잘못된 경우 타이머를 만들지 않는다.
+     */
+    if (!Number.isFinite(openAtTime)) {
+      return;
+    }
+
+    let stopped = false;
+    let timeoutId = null;
+
+    /*
+     * 브라우저 setTimeout이 한 번에 기다릴 수 있는
+     * 안전한 최대 시간은 약 24일 정도다.
+     *
+     * 오픈일이 더 멀면 최대 시간만 기다린 뒤
+     * 남은 시간을 다시 계산한다.
+     */
+    const MAX_SAFE_TIMEOUT = 2_147_000_000;
+
+    /*
+     * 오픈 시간이 지난 뒤 조회가 실패하거나
+     * 서버 시간이 아직 도달하지 않은 경우에는 5초 뒤 다시 확인한다.
+     */
+    let checkedAfterOpenTime = false;
+
+    async function checkJarOpenState() {
+      /*
+       * GET 상세 API 안에서 서버가 오픈 시간을 다시 확인한다.
+       *
+       * 서버의 ensureOpenedIfDue()가 실행되므로
+       * 스케줄러가 늦어도 이 조회가 저금통을 보정 오픈할 수 있다.
+       */
+      await loadJarDetail({ silent: true });
+    }
+
+    function scheduleNextCheck() {
+      if (stopped) {
+        return;
+      }
+
+      const remainingTime = openAtTime - Date.now();
+
+      let delay;
+
+      if (remainingTime > 0) {
+        /*
+         * 오픈 시간보다 약 0.5초 뒤에 조회한다.
+         * 너무 정확히 같은 순간 요청하면 서버 시간과 미세하게 어긋날 수 있기 때문이다.
+         */
+        delay = Math.min(
+          remainingTime + 500,
+          MAX_SAFE_TIMEOUT
+        );
+      } else if (!checkedAfterOpenTime) {
+        /*
+         * 이미 오픈 시간이 지났다면 처음에는 빠르게 확인한다.
+         */
+        delay = 500;
+      } else {
+        /*
+         * 일시적인 네트워크 문제 등이 있으면 5초 뒤 다시 확인한다.
+         */
+        delay = 5000;
+      }
+
+      timeoutId = window.setTimeout(async () => {
+        if (Date.now() >= openAtTime) {
+          checkedAfterOpenTime = true;
+        }
+
+        await checkJarOpenState();
+
+        /*
+         * REST 응답으로 jar.isOpen=true가 되면
+         * 이 Effect가 다시 실행되면서 cleanup이 호출된다.
+         *
+         * 아직 잠겨 있으면 다음 확인을 예약한다.
+         */
+        if (!stopped) {
+          scheduleNextCheck();
+        }
+      }, delay);
+    }
+
+    /*
+     * 탭을 다른 곳에 두었다가 돌아온 경우에도
+     * 즉시 서버 상태를 다시 확인한다.
+     */
+    function refreshWhenReturningToPage() {
+      if (document.visibilityState === "visible") {
+        checkJarOpenState();
+      }
+    }
+
+    scheduleNextCheck();
+
+    window.addEventListener("focus", refreshWhenReturningToPage);
+    document.addEventListener(
+      "visibilitychange",
+      refreshWhenReturningToPage
+    );
+
+    return () => {
+      stopped = true;
+
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+
+      window.removeEventListener(
+        "focus",
+        refreshWhenReturningToPage
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshWhenReturningToPage
+      );
+    };
+  }, [
+    jarId,
+    jar?.openAt,
+    jar?.isOpen,
+    loadJarDetail,
+  ]);
 
   // useJarMembers: 멤버 목록/강퇴/역할 변경/나가기
   const {
@@ -325,8 +712,7 @@ export default function JarDetailPage() {
     loadJarDetail,
     setJar,
     jarOpenCelebrationTimerRef,
-    setJarOpenCelebrationEvent,
-    setJarOpenCelebrationOpen,
+    showJarOpenCelebration,
     setNoteSectionRefreshKey,
     loadJarZoomNotes,
     jarZoomDetailOpen,
@@ -482,7 +868,13 @@ export default function JarDetailPage() {
       setEditForm({
         name: jar.name ?? "",
         description: jar.description ?? "",
-        theme: jar.theme ?? "LAVENDER",
+
+        /*
+         * 오래된 저금통이 COUPLE 같은 예전 테마를 가지고 있어도
+         * 현재 서버가 지원하는 SPRING 같은 값으로 바꿔서 폼에 넣는다.
+         */
+        theme: normalizeJarTheme(jar.theme),
+
         maxMembers: String(jar.maxMembers ?? 2),
         openMode: jar.openMode ?? "ALL_AT_ONCE",
         lockLevel: jar.lockLevel ?? "HIDDEN",
@@ -556,15 +948,49 @@ async function handleUpdateJar(e) {
   try {
     await fetchCsrf();
 
-    await apiClient.patch(`/api/v1/jars/${jarId}`, {
+    /*
+     * 저금통 수정 요청 데이터 만들기
+     *
+     * 이름, 설명, 테마, 최대 인원은 기본 수정 정보이므로 항상 보낸다.
+     *
+     * openAt, openMode, lockLevel은
+     * 기존 값과 달라졌을 때만 요청에 넣는다.
+     *
+     * 이렇게 하면 테마만 수정했는데도 서버가
+     * 오픈 정책 변경으로 잘못 판단하는 일을 막을 수 있다.
+     */
+    const updatePayload = {
       name: trimmedName,
       description: trimmedDescription,
       theme: editForm.theme,
       maxMembers,
-      openAt: editForm.openAt,
-      openMode: editForm.openMode,
-      lockLevel: editForm.lockLevel,
-    });
+    };
+
+    /*
+     * 서버에서 받은 openAt은 +09:00 같은 시간대 정보가 들어 있을 수 있어.
+     *
+     * datetime-local 입력값과 같은 모양으로 바꾼 뒤 비교해야
+     * 같은 시간을 서로 다르다고 잘못 판단하지 않는다.
+     */
+    const originalOpenAt = formatDateTimeLocalValue(jar.openAt);
+
+    // 오픈 날짜가 실제로 바뀌었을 때만 전송
+    if (editForm.openAt !== originalOpenAt) {
+      updatePayload.openAt = editForm.openAt;
+    }
+
+    // 오픈 방식이 실제로 바뀌었을 때만 전송
+    if (editForm.openMode !== jar.openMode) {
+      updatePayload.openMode = editForm.openMode;
+    }
+
+    // 잠금 단계가 실제로 바뀌었을 때만 전송
+    if (editForm.lockLevel !== jar.lockLevel) {
+      updatePayload.lockLevel = editForm.lockLevel;
+    }
+
+    // 완성된 수정 데이터를 서버에 전송
+    await apiClient.patch(`/api/v1/jars/${jarId}`, updatePayload);
 
     await loadJarDetail();
     await loadMembers();
@@ -1272,13 +1698,35 @@ async function handleCloseJarChat() {
 
 /*
  * 저금통 오픈 축하 모달 닫기
- * 사용자가 X 버튼을 누르거나 "조금 있다 보기"를 누르면 실행된다.
+ *
+ * 사용자가 X 버튼이나 “조금 있다 보기”를 눌렀을 때 실행된다.
+ *
+ * 모달을 실제로 확인한 시점이므로
+ * 여기서 현재 저금통의 확인 기록을 저장한다.
  */
 function handleCloseJarOpenCelebration() {
+  /*
+   * 현재 사용자 + 현재 저금통 전용 키에만 기록한다.
+   *
+   * 다른 새 저금통은 jarId가 다르기 때문에
+   * 이 기록의 영향을 받지 않는다.
+   */
+  if (jarOpenCelebrationStorageKey) {
+    try {
+      sessionStorage.setItem(
+        jarOpenCelebrationStorageKey,
+        "seen"
+      );
+    } catch {
+      // 저장소 사용이 불가능해도 모달 닫기는 정상적으로 처리한다.
+    }
+  }
+
   setJarOpenCelebrationOpen(false);
 
   if (jarOpenCelebrationTimerRef.current) {
     window.clearTimeout(jarOpenCelebrationTimerRef.current);
+    jarOpenCelebrationTimerRef.current = null;
   }
 }
 
@@ -2515,13 +2963,25 @@ async function handleViewOpenedJarNotes() {
                   <select
                     value={editForm.theme}
                     onChange={(e) =>
-                      setEditForm((prev) => ({ ...prev, theme: e.target.value }))
+                      setEditForm((prev) => ({
+                        ...prev,
+                        theme: e.target.value,
+                      }))
                     }
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   >
-                    {Object.entries(THEME_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
+                    {/*
+                     * 현재 백엔드에서 지원하는 8개 테마만 보여준다.
+                     *
+                     * 예전 값인 COUPLE, FAMILY, FRIEND, CUSTOM은
+                     * 서버가 받지 못하므로 선택 목록에 넣지 않는다.
+                     */}
+                    {EDITABLE_THEME_OPTIONS.map((themeOption) => (
+                      <option
+                        key={themeOption.value}
+                        value={themeOption.value}
+                      >
+                        {themeOption.label}
                       </option>
                     ))}
                   </select>

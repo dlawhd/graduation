@@ -772,13 +772,40 @@ public class JarService {
                         "저금통을 찾을 수 없어."
                 ));
 
-        // 2-1. 오픈 정책(openAt/openMode/lockLevel)을 바꾸려는 요청인지 먼저 확인
-        boolean wantsToChangeOpenPolicy =
-                request.openAt() != null ||
-                        request.openMode() != null ||
-                        request.lockLevel() != null;
+        /*
+         * 오픈 정책 변경 여부를 확인하는 부분
+         *
+         * 단순히 요청값이 들어왔는지만 확인하면 안 돼.
+         *
+         * 예를 들어 프론트가 기존 openAt 값을 그대로 다시 보내더라도
+         * 실제 값이 바뀐 것은 아니기 때문이야.
+         *
+         * 그래서:
+         * - 요청값이 존재하고
+         * - 기존 DB 값과 다를 때만
+         * 실제 오픈 정책 변경으로 판단한다.
+         */
 
-        // 2-2. 오픈 정책을 바꾸려는 경우에만 "이미 열렸는지" 확인
+        // 오픈 날짜가 실제로 달라졌는지 확인
+        boolean openAtChanged =
+                request.openAt() != null
+                        && !Objects.equals(request.openAt(), jar.getOpenAt());
+
+        // 오픈 방식이 실제로 달라졌는지 확인
+        boolean openModeChanged =
+                request.openMode() != null
+                        && request.openMode() != jar.getOpenMode();
+
+        // 잠금 단계가 실제로 달라졌는지 확인
+        boolean lockLevelChanged =
+                request.lockLevel() != null
+                        && request.lockLevel() != jar.getLockLevel();
+
+        // 세 값 중 하나라도 실제로 달라졌을 때만 오픈 정책 변경으로 판단
+        boolean wantsToChangeOpenPolicy =
+                openAtChanged || openModeChanged || lockLevelChanged;
+
+        // 실제로 오픈 정책을 바꾸는 경우에만 이미 열린 저금통인지 검사
         if (wantsToChangeOpenPolicy) {
             boolean alreadyOpened = jarOpenService.ensureOpenedIfDue(jarId);
 
