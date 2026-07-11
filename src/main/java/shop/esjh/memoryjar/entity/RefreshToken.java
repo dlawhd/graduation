@@ -71,8 +71,13 @@ public class RefreshToken extends BaseEntity{
         return revokedAt == null && expiresAt.isAfter(now);
     }
 
-    // ✅ refresh 폐기된 시간을 저장하는 칸
-    public void revokeNow() {
-        this.revokedAt = LocalDateTime.now(KST);
+    /*
+     * refresh 토큰을 더 이상 사용할 수 없도록 폐기해.
+     *
+     * 서비스가 사용하는 기준 시간을 그대로 받아서
+     * 만료 검사 시간과 폐기 시간을 일치시켜.
+     */
+    public void revoke(LocalDateTime revokedAt) {
+        this.revokedAt = revokedAt;
     }
 }

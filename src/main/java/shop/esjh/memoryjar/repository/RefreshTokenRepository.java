@@ -1,5 +1,9 @@
 package shop.esjh.memoryjar.repository;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import shop.esjh.memoryjar.entity.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -20,4 +24,25 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             String tokenHash,
             LocalDateTime now
     );
+
+    /*
+     * refresh 토큰 회전용 잠금 조회야.
+     *
+     * PESSIMISTIC_WRITE:
+     * - 먼저 조회한 요청이 이 토큰 행을 잠가.
+     * - 다른 요청은 첫 번째 요청의 작업이 끝날 때까지 기다려.
+     *
+     * 중요한 점:
+     * 쿼리 조건에 revokedAt이나 expiresAt을 넣지 않아.
+     *
+     * 기다리던 두 번째 요청이 잠금을 얻은 뒤,
+     * 토큰의 최신 폐기 상태를 직접 검사해야 하기 때문이야.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT refreshToken
+            FROM RefreshToken refreshToken
+            WHERE refreshToken.tokenHash = :tokenHash
+            """)
+    Optional<RefreshToken> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
 }

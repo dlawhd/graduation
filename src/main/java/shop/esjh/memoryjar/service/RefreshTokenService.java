@@ -16,10 +16,17 @@ import java.time.ZoneId;
 public class RefreshTokenService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final String INVALID_REFRESH_TOKEN_MESSAGE = "refresh 토큰이 유효하지 않음";
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
 
+    /*
+     * 현재 한국 시간을 반환해.
+     *
+     * 토큰의 만료 검사와 폐기 시간을 같은 시간대로 맞추기 위해
+     * 한 곳에서 시간을 생성해.
+     */
     private LocalDateTime nowKst() {
         return LocalDateTime.now(KST);
     }
@@ -54,64 +61,124 @@ public class RefreshTokenService {
         return raw; // ✅ 쿠키에 넣어줄 원본 refresh 토큰 반환
     }
 
-    // ✅ /api/v1/auth/refresh 에서 refresh 토큰 검증 + 회전(rotation)
+    /*
+     * 기존 refresh 토큰을 새 refresh 토큰으로 교체해.
+     *
+     * 처리 순서:
+     * 1. 토큰 원본을 해시값으로 변환
+     * 2. 해당 DB 행에 쓰기 잠금 적용
+     * 3. 잠금을 얻은 뒤 최신 토큰 상태 검사
+     * 4. 기존 토큰 폐기
+     * 5. 새 토큰 생성 및 저장
+     *
+     * 같은 토큰으로 요청이 동시에 들어와도
+     * 먼저 잠금을 얻은 한 요청만 성공할 수 있어.
+     */
     @Transactional
     public Rotation rotate(String refreshRaw) {
+        validateRefreshRaw(refreshRaw);
 
         LocalDateTime now = nowKst();
-
-        // ✅ 브라우저가 보낸 refresh 원본을 해시로 변환
         String hash = TokenCrypto.sha256Hex(refreshRaw);
 
-        // ✅ 이 refresh 토큰이 진짜 사용 가능한 토큰인지 DB에서 찾기
-        RefreshToken old = refreshTokenRepository
-                .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash, now)
-                .orElseThrow(() -> new IllegalArgumentException("refresh 토큰이 유효하지 않음"));
+        /*
+         * 여기에서 DB 행 잠금을 얻어.
+         *
+         * 요청 A가 먼저 잠금을 얻으면 요청 B는 기다려야 해.
+         */
+        RefreshToken oldToken = refreshTokenRepository
+                .findByTokenHashForUpdate(hash)
+                .orElseThrow(this::invalidRefreshTokenException);
 
-        // ✅ 1) 기존 refresh 토큰 폐기
-        old.revokeNow();
+        /*
+         * 잠금을 얻은 다음 최신 상태를 검사해야 해.
+         *
+         * 요청 B는 기다리는 동안 요청 A가 토큰을 폐기했을 수 있으므로
+         * 반드시 잠금 이후에 검사해야 해.
+         */
+        if (!oldToken.isActive(now)) {
+            throw invalidRefreshTokenException();
+        }
 
-        // ✅ 2) 새 refresh 토큰도 같은 회원에게 발급해야 하니까 기존 토큰의 주인(user) 가져오기
-        User user = old.getUser();
+        // 기존 refresh 토큰을 폐기해.
+        oldToken.revoke(now);
 
-        // ✅ 새 refresh 토큰 원본 생성
+        // 새 토큰도 동일한 사용자의 토큰으로 만들어야 해.
+        User user = oldToken.getUser();
+
+        // 새로운 refresh 토큰 원본을 생성해.
         String newRaw = TokenCrypto.generateRefreshRaw();
 
-        // ✅ 새 refresh 토큰 해시 생성
+        // DB 저장을 위해 새로운 토큰도 해시값으로 바꿔.
         String newHash = TokenCrypto.sha256Hex(newRaw);
 
-        // ✅ 새 refresh 토큰 엔티티 만들기
-        RefreshToken next = RefreshToken.builder()
+        RefreshToken nextToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(newHash)
-                .expiresAt(now.plusSeconds(jwtProperties.getRefreshExpSeconds()))
+                .expiresAt(
+                        now.plusSeconds(
+                                jwtProperties.getRefreshExpSeconds()
+                        )
+                )
                 .build();
 
-        refreshTokenRepository.save(next);
+        refreshTokenRepository.save(nextToken);
 
         return new Rotation(user, newRaw);
     }
 
-    // ✅ 로그아웃 시 refresh 토큰 폐기
+    /*
+     * 로그아웃할 때 refresh 토큰이 존재하면 폐기해.
+     *
+     * rotate()와 logout()이 동시에 실행될 수도 있으므로
+     * 로그아웃 처리에도 동일한 DB 잠금을 사용해.
+     */
     @Transactional
     public void revokeIfPresent(String refreshRaw) {
+        if (refreshRaw == null || refreshRaw.isBlank()) {
+            return;
+        }
 
         LocalDateTime now = nowKst();
-
-        // ✅ refresh 토큰이 없으면 그냥 종료
-        if (refreshRaw == null || refreshRaw.isBlank()) return;
-
-        // ✅ 원본 refresh 토큰을 해시로 변환
         String hash = TokenCrypto.sha256Hex(refreshRaw);
 
-        // ✅ DB에서 유효한 refresh 토큰 찾기
-        // 있으면 revokeNow() 실행, 없으면 아무 일도 안 함
         refreshTokenRepository
-                .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash, now)
-                .ifPresent(RefreshToken::revokeNow);
+                .findByTokenHashForUpdate(hash)
+                .filter(refreshToken -> refreshToken.isActive(now))
+                .ifPresent(refreshToken -> refreshToken.revoke(now));
     }
 
-    // 메서드 결과를 여러 개 묶어서 전달하는 작은 데이터 클래스로도 쓰임
-    // rotate()에서 여러 값을 반환해야 하는데 자바 메서드는 보통 한 개만 반환하니까 둘을 묶어서 깔끔하게 반환
-    public record Rotation(User user, String newRefreshRaw) {}
+
+    /*
+     * refresh 토큰 원본이 비어 있는지 검사해.
+     *
+     * Controller에서도 검사하지만,
+     * 서비스가 다른 곳에서 직접 호출될 가능성까지 방어해.
+     */
+    private void validateRefreshRaw(String refreshRaw) {
+        if (refreshRaw == null || refreshRaw.isBlank()) {
+            throw invalidRefreshTokenException();
+        }
+    }
+
+    /*
+     * 유효하지 않은 refresh 토큰 예외를 한 곳에서 만들어.
+     *
+     * 같은 예외 메시지를 여러 곳에서 반복하지 않도록 정리한 거야.
+     */
+    private IllegalArgumentException invalidRefreshTokenException() {
+        return new IllegalArgumentException(
+                INVALID_REFRESH_TOKEN_MESSAGE
+        );
+    }
+
+    /*
+     * rotate()가 사용자와 새 refresh 토큰 원본을
+     * 함께 반환하기 위한 작은 결과 객체야.
+     */
+    public record Rotation(
+            User user,
+            String newRefreshRaw
+    ) {
+    }
 }
