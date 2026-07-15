@@ -90,6 +90,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setAllowedOriginPatterns(
                         "http://localhost:3000",
                         "http://localhost:5173",
+                        "https://esjh.shop",
                         "https://www.esjh.shop",
                         "https://*.vercel.app"
                 );
