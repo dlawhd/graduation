@@ -64,13 +64,19 @@ export function createJarOpenSocketClient({
       onConnect?.();
     },
 
+    /*
+     * STOMP 서버가 ERROR 프레임을 보냈을 때
+     * 실제 화면 담당자에게 오류 정보를 전달한다.
+     */
     onStompError: (frame) => {
-      console.error("저금통 오픈 WebSocket STOMP 오류", frame);
       onError?.(frame);
     },
 
+    /*
+     * WebSocket 연결 자체에서 오류가 발생했을 때
+     * 실제 화면 담당자에게 오류 정보를 전달한다.
+     */
     onWebSocketError: (event) => {
-      console.error("저금통 오픈 WebSocket 연결 오류", event);
       onError?.(event);
     },
   });

@@ -217,6 +217,16 @@ export default function JarDetailPage() {
   // 서버에서 JAR_OPENED 이벤트가 오면 true로 바뀌고, 화면 가운데 오픈 연출이 뜬다.
   const [jarOpenCelebrationOpen, setJarOpenCelebrationOpen] = useState(false);
 
+  /*
+   * jarOpenCelebrationOpenRef 역할
+   *
+   * 축하 모달이 이미 열렸는지 즉시 확인하는 기억 상자야.
+   *
+   * state를 useCallback 의존성에 넣지 않아도 되기 때문에
+   * 모달이 열릴 때 WebSocket 연결이 새로 만들어지는 것을 막아준다.
+   */
+  const jarOpenCelebrationOpenRef = useRef(false);
+
   // 방금 받은 저금통 오픈 이벤트 정보를 저장한다.
   // 예: { jarId, eventType: "JAR_OPENED", isOpen: true, openedAt, message }
   const [jarOpenCelebrationEvent, setJarOpenCelebrationEvent] = useState(null);
@@ -311,28 +321,28 @@ const jarOpenCelebrationStorageKey = useMemo(() => {
  * - 다른 저금통의 확인 기록과 섞이지 않는다.
  * - 사용자가 실제로 닫기 전에는 확인 완료로 저장하지 않는다.
  */
+/*
+ * showJarOpenCelebration 역할
+ *
+ * REST 조회와 WebSocket 이벤트가 공통으로 사용하는
+ * 저금통 오픈 축하 모달 열기 함수야.
+ */
 const showJarOpenCelebration = useCallback(
   (event = null) => {
-    /*
-     * 로그인 사용자나 저금통 번호가 아직 준비되지 않았다면
-     * 데이터가 준비된 뒤 다시 실행되도록 잠시 멈춘다.
-     */
     if (!currentUserId || !jarId || !jarOpenCelebrationStorageKey) {
       return;
     }
 
     /*
-     * 현재 축하 모달이 이미 열려 있다면
-     * REST와 WebSocket이 동시에 한 번 더 열지 않도록 막는다.
+     * 모달이 이미 열려 있다면 중복으로 열지 않는다.
+     *
+     * state 대신 Ref를 사용해서
+     * 이 함수가 불필요하게 다시 만들어지는 것도 막는다.
      */
-    if (jarOpenCelebrationOpen) {
+    if (jarOpenCelebrationOpenRef.current) {
       return;
     }
 
-    /*
-     * 현재 브라우저 탭에서 이 저금통의 축하 모달을
-     * 이미 확인했는지 검사한다.
-     */
     try {
       const alreadySeen =
         sessionStorage.getItem(jarOpenCelebrationStorageKey) === "seen";
@@ -341,19 +351,9 @@ const showJarOpenCelebration = useCallback(
         return;
       }
     } catch {
-      /*
-       * 브라우저 저장소를 사용할 수 없어도
-       * 축하 모달 자체는 정상적으로 보여준다.
-       */
+      // 저장소를 사용할 수 없어도 모달은 정상적으로 보여준다.
     }
 
-    /*
-     * event.jarId나 이전 jar 객체 대신
-     * 현재 주소의 jarId를 기준으로 처리한다.
-     *
-     * /jars/71에서 /jars/72로 이동할 때
-     * 이전 71번 정보가 잠깐 남아 있어도 안전하다.
-     */
     const currentJarId = Number(jarId);
 
     setJarOpenCelebrationEvent({
@@ -365,11 +365,13 @@ const showJarOpenCelebration = useCallback(
     });
 
     /*
-     * 여기서는 아직 sessionStorage에 기록하지 않는다.
+     * 먼저 Ref에 열림 상태를 기록한다.
      *
-     * 사용자가 모달을 실제로 닫았을 때만
-     * 확인 기록을 남긴다.
+     * REST와 WebSocket 이벤트가 거의 동시에 들어와도
+     * 두 번째 요청은 여기에서 중단된다.
      */
+    jarOpenCelebrationOpenRef.current = true;
+
     setJarOpenCelebrationOpen(true);
   },
   [
@@ -377,7 +379,6 @@ const showJarOpenCelebration = useCallback(
     jarId,
     jar?.openAt,
     jarOpenCelebrationStorageKey,
-    jarOpenCelebrationOpen,
   ]
 );
 
@@ -386,18 +387,14 @@ const showJarOpenCelebration = useCallback(
  * 이전 저금통의 축하 모달 상태를 초기화한다.
  */
 useEffect(() => {
-  // 이전 저금통의 모달을 닫는다.
-  setJarOpenCelebrationOpen(false);
+  // 새 저금통에서는 축하 모달 표시 여부를 다시 판단한다.
+  jarOpenCelebrationOpenRef.current = false;
 
-  // 이전 저금통의 이벤트 정보를 지운다.
+  setJarOpenCelebrationOpen(false);
   setJarOpenCelebrationEvent(null);
 
-  // REST 상태 비교값도 새 저금통 기준으로 초기화한다.
   previousJarOpenStateRef.current = null;
 
-  /*
-   * 이전 저금통에서 사용하던 타이머가 남아 있다면 제거한다.
-   */
   if (jarOpenCelebrationTimerRef.current) {
     window.clearTimeout(jarOpenCelebrationTimerRef.current);
     jarOpenCelebrationTimerRef.current = null;
@@ -1699,18 +1696,10 @@ async function handleCloseJarChat() {
 /*
  * 저금통 오픈 축하 모달 닫기
  *
- * 사용자가 X 버튼이나 “조금 있다 보기”를 눌렀을 때 실행된다.
- *
- * 모달을 실제로 확인한 시점이므로
- * 여기서 현재 저금통의 확인 기록을 저장한다.
+ * 사용자가 모달을 확인한 기록을 저장하고
+ * 화면 상태와 Ref를 모두 닫힘 상태로 맞춘다.
  */
 function handleCloseJarOpenCelebration() {
-  /*
-   * 현재 사용자 + 현재 저금통 전용 키에만 기록한다.
-   *
-   * 다른 새 저금통은 jarId가 다르기 때문에
-   * 이 기록의 영향을 받지 않는다.
-   */
   if (jarOpenCelebrationStorageKey) {
     try {
       sessionStorage.setItem(
@@ -1718,10 +1707,14 @@ function handleCloseJarOpenCelebration() {
         "seen"
       );
     } catch {
-      // 저장소 사용이 불가능해도 모달 닫기는 정상적으로 처리한다.
+      // 저장소 사용이 불가능해도 모달은 정상적으로 닫는다.
     }
   }
 
+  // WebSocket과 REST의 중복 실행 방지 Ref도 닫힘으로 돌린다.
+  jarOpenCelebrationOpenRef.current = false;
+
+  // 실제 화면 모달도 닫는다.
   setJarOpenCelebrationOpen(false);
 
   if (jarOpenCelebrationTimerRef.current) {
