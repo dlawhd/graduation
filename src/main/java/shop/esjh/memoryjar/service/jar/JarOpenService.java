@@ -1,20 +1,15 @@
 package shop.esjh.memoryjar.service.jar;
 
-import shop.esjh.memoryjar.dto.jar.response.JarOpenSocketEventResponse;
 import shop.esjh.memoryjar.entity.jar.Jar;
-import shop.esjh.memoryjar.entity.jar.JarOpenEvent;
 import shop.esjh.memoryjar.enums.jar.JarOpenReason;
 import shop.esjh.memoryjar.repository.jar.JarOpenEventRepository;
 import shop.esjh.memoryjar.repository.jar.JarRepository;
-import shop.esjh.memoryjar.service.chat.ChatSystemMessageService;
-import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
@@ -23,69 +18,103 @@ import java.util.Set;
 /*
  * JarOpenService 역할
  *
- * 이 서비스는 저금통이 열릴 시간이 됐는지 확인하고,
- * 실제로 열렸다면 jar_open_events 테이블에 "열림 기록"을 남기는 역할을 한다.
+ * 이 서비스는 저금통 오픈 작업의 전체 흐름을 조정한다.
+ *
+ * 주요 역할:
+ * 1. 이미 열린 저금통인지 조회한다.
+ * 2. 조회 시점 보정 오픈을 JarOpenProcessor에 요청한다.
+ * 3. 스케줄러가 찾은 여러 저금통을 하나씩 독립적으로 처리한다.
+ * 4. 한 저금통이 실패해도 다음 저금통 처리를 계속한다.
+ *
+ * 실제 오픈 기록 저장과 SYSTEM 채팅 저장은
+ * 저금통별 새 트랜잭션을 만드는 JarOpenProcessor가 담당한다.
  */
 @Service
 public class JarOpenService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final Logger log =
+            LoggerFactory.getLogger(JarOpenService.class);
+
+    private static final ZoneId KST =
+            ZoneId.of("Asia/Seoul");
 
     private final JarRepository jarRepository;
     private final JarOpenEventRepository jarOpenEventRepository;
-    private final JarOpenRealtimeService jarOpenRealtimeService;
-    private final ChatSystemMessageService chatSystemMessageService;
+    private final JarOpenProcessor jarOpenProcessor;
 
     public JarOpenService(
             JarRepository jarRepository,
             JarOpenEventRepository jarOpenEventRepository,
-            JarOpenRealtimeService jarOpenRealtimeService,
-            ChatSystemMessageService chatSystemMessageService
+            JarOpenProcessor jarOpenProcessor
     ) {
         this.jarRepository = jarRepository;
         this.jarOpenEventRepository = jarOpenEventRepository;
-        this.jarOpenRealtimeService = jarOpenRealtimeService;
-        this.chatSystemMessageService = chatSystemMessageService;
+        this.jarOpenProcessor = jarOpenProcessor;
     }
 
-    // 이미 열렸는지 "jar_open_events 기록" 기준으로 확인한다.
+    // jar_open_events 기록을 기준으로
+    // 이미 열린 저금통인지 확인한다.
     @Transactional(readOnly = true)
     public boolean isOpened(Long jarId) {
         return jarOpenEventRepository.existsByJar_JarId(jarId);
     }
 
     /*
-     * 사용자가 저금통을 조회했을 때 호출된다.
+     * 사용자가 저금통을 조회했을 때
+     * 오픈 시간이 지났다면 보정 오픈한다.
      *
-     * 예:
-     * - 스케줄러가 아직 못 열었는데
-     * - 사용자가 오픈 시간 이후에 상세 화면에 들어옴
-     *
-     * 이 경우에도 바로 열림 기록을 남겨서 화면이 열린 상태로 보이게 한다.
+     * 별도 Spring Bean인 JarOpenProcessor를 호출해야
+     * REQUIRES_NEW 트랜잭션이 정상적으로 적용된다.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean ensureOpenedIfDue(Long jarId) {
-        return openIfDue(jarId, JarOpenReason.ACCESS_TRIGGERED);
+        return jarOpenProcessor.openIfDue(
+                jarId,
+                JarOpenReason.ACCESS_TRIGGERED
+        );
     }
 
     /*
-     * 스케줄러가 1분마다 호출한다.
+     * 스케줄러가 호출하는 여러 저금통 오픈 처리 메서드
      *
-     * openAt이 지난 저금통을 찾아서 미리 열어준다.
+     * 이 메서드 자체에는 @Transactional을 붙이지 않는다.
+     * 각 저금통은 JarOpenProcessor의 REQUIRES_NEW에서 따로 처리한다.
      */
-    @Transactional
     public int openDueJars() {
 
         LocalDateTime now = LocalDateTime.now(KST);
 
-        // openAt이 현재 시간보다 지났고, 아직 오픈 기록이 없는 저금통을 찾는다.
-        List<Jar> dueJars = jarRepository.findDueJarsWithoutOpenEvent(now);
+        // 오픈 시간이 지났고
+        // 아직 오픈 기록이 없는 저금통 목록을 조회한다.
+        List<Jar> dueJars =
+                jarRepository.findDueJarsWithoutOpenEvent(now);
 
         int openedCount = 0;
 
         for (Jar jar : dueJars) {
-            if (openIfDue(jar.getJarId(), JarOpenReason.SCHEDULED)) {
-                openedCount++;
+            Long jarId = jar.getJarId();
+
+            try {
+                // 저금통 한 개마다 새로운 트랜잭션을 시작한다.
+                boolean opened = jarOpenProcessor.openIfDue(
+                        jarId,
+                        JarOpenReason.SCHEDULED
+                );
+
+                if (opened) {
+                    openedCount++;
+                }
+            } catch (RuntimeException exception) {
+                /*
+                 * 한 저금통이 실패해도 여기서 예외를 잡는다.
+                 *
+                 * JarOpenProcessor의 트랜잭션은 이미 롤백됐고,
+                 * 반복문은 다음 저금통 처리를 계속한다.
+                 */
+                log.error(
+                        "[JAR_OPEN_FAILED] 저금통 자동 오픈 실패. jarId={}",
+                        jarId,
+                        exception
+                );
             }
         }
 
@@ -93,78 +122,8 @@ public class JarOpenService {
     }
 
     /*
-     * 실제로 저금통을 여는 공통 메서드
-     *
-     * 이 메서드는 두 곳에서 사용된다.
-     * 1. 사용자가 조회했을 때 ensureOpenedIfDue()
-     * 2. 스케줄러가 돌 때 openDueJars()
-     */
-    private boolean openIfDue(Long jarId, JarOpenReason reason) {
-
-        // 1. 이미 열림 기록이 있으면 다시 열지 않는다.
-        // 이미 열린 상태이므로 true를 반환한다.
-        if (jarOpenEventRepository.existsByJar_JarId(jarId)) {
-            return true;
-        }
-
-        // 2. 저금통 row를 잠금 조회한다.
-        // 동시에 여러 요청이 와도 오픈 기록이 중복으로 생기지 않게 막기 위해서다.
-        Jar jar = jarRepository.findByJarIdForUpdate(jarId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "저금통을 찾을 수 없어."
-                ));
-
-        // 3. 잠금을 잡은 뒤 한 번 더 확인한다.
-        // 거의 동시에 들어온 다른 요청이 이미 열었을 수도 있기 때문이다.
-        if (jarOpenEventRepository.existsByJar_JarId(jarId)) {
-            return true;
-        }
-
-        // 4. 아직 오픈 시간이 안 됐으면 열지 않는다.
-        LocalDateTime now = LocalDateTime.now(KST);
-        if (jar.getOpenAt().isAfter(now)) {
-            return false;
-        }
-
-        // 5. 오픈 기록을 저장한다.
-        // openedAt은 실제 처리 시간이 아니라 원래 약속한 openAt으로 남긴다.
-        JarOpenEvent event = JarOpenEvent.create(
-                jar,
-                jar.getOpenAt(),
-                reason
-        );
-
-        jarOpenEventRepository.save(event);
-
-        // 6. 프론트가 받을 WebSocket 이벤트를 만든다.
-        JarOpenSocketEventResponse socketEvent = JarOpenSocketEventResponse.jarOpened(
-                jar.getJarId(),
-                toKstOffsetDateTime(event.getOpenedAt())
-        );
-
-        // 7. 저금통 상세 화면 구독자들에게 "저금통 열렸어!" 이벤트를 보낸다.
-        jarOpenRealtimeService.sendJarOpenedEventAfterCommit(
-                jar.getJarId(),
-                socketEvent
-        );
-
-        // 8. 채팅방에도 SYSTEM 메시지를 남긴다.
-        // 기존 채팅 구독 주소 /topic/jars/{jarId}/chat 으로도 실시간 전송된다.
-        chatSystemMessageService.createAndSendJarOpenedMessage(jar);
-
-        return true;
-    }
-
-    /*
-     * 여러 저금통 중 이미 열린 저금통 ID를 한 번에 조회한다.
-     *
-     * 예전 방식:
-     * - 저금통 20개면 exists 쿼리도 20번 나갈 수 있었다.
-     *
-     * 개선 방식:
-     * - jarId 목록을 IN 조건으로 한 번에 조회한다.
-     * - 결과를 Set으로 바꿔 contains()로 빠르게 확인한다.
+     * 여러 저금통 중 이미 열린 저금통 ID를
+     * 한 번에 조회한다.
      */
     @Transactional(readOnly = true)
     public Set<Long> findOpenedJarIdSet(List<Long> jarIds) {
@@ -172,23 +131,8 @@ public class JarOpenService {
             return Set.of();
         }
 
-        return new HashSet<>(jarOpenEventRepository.findOpenedJarIdsByJarIds(jarIds));
-    }
-
-
-    /*
-     * DB에 저장된 LocalDateTime을 프론트 응답용 OffsetDateTime(+09:00)으로 바꿔준다.
-     *
-     * DB 값은 한국 시간 벽시계값이라고 보고,
-     * 화면에는 +09:00 정보가 붙은 시간으로 내려준다.
-     */
-    private OffsetDateTime toKstOffsetDateTime(LocalDateTime localDateTime) {
-        if (localDateTime == null) {
-            return null;
-        }
-
-        return localDateTime
-                .atZone(ZoneId.of("Asia/Seoul"))
-                .toOffsetDateTime();
+        return new HashSet<>(
+                jarOpenEventRepository.findOpenedJarIdsByJarIds(jarIds)
+        );
     }
 }
