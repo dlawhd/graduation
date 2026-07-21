@@ -24,11 +24,14 @@ import {
   readAllNotifications,
   readNotification,
 } from "./api/notificationApi";
+
 import {
-  createNotificationSocketClient,
-  disconnectNotificationSocket,
+  subscribeNotificationSocket,
 } from "./api/notificationSocketApi";
 
+import {
+  useStompClient,
+} from "./realtime/StompClientProvider";
 // 작은 enum 한글화
 const ROLE_LABEL = {
   OWNER: "방장",
@@ -128,6 +131,15 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  /*
+   * 앱 전체에서 공유하는 STOMP 연결 기능을 꺼낸다.
+   */
+  const {
+    start,
+    stop,
+    subscribe,
+  } = useStompClient();
+
   // 현재 로그인한 사용자 정보
   const [me, setMe] = useState(null);
 
@@ -208,6 +220,44 @@ export default function App() {
       ignore = true;
     };
   }, [location.pathname]);
+
+  /*
+   * 로그인 상태에 맞춰 공용 STOMP 연결을 시작하거나 종료한다.
+   */
+  useEffect(() => {
+    /*
+     * 아직 /api/v1/me 확인 중이라면
+     * 로그인 여부를 판단하지 않는다.
+     */
+    if (checkingAuth) {
+      return;
+    }
+
+    const currentUserId = getCurrentUserId(me);
+
+    if (currentUserId) {
+      /*
+       * 로그인된 경우 공용 WebSocket 연결을
+       * 한 번만 시작한다.
+       */
+      start();
+      return;
+    }
+
+    /*
+     * 로그아웃 상태라면 연결과
+     * 이전 topic 등록을 모두 정리한다.
+     */
+    stop({
+      clearSubscriptions: true,
+    });
+  }, [
+    checkingAuth,
+    me?.userId,
+    me?.id,
+    start,
+    stop,
+  ]);
 
   // --------------------------------------------------------
   // 로그인된 상태일 때 내 저금통 미리보기 3개 불러오기
@@ -328,76 +378,76 @@ export default function App() {
         loadUnreadCount();
       }, [me, loadUnreadCount]);
 
-      // --------------------------------------------------------
-      // 알림 WebSocket 연결
-      // - 로그인한 사용자에게 새 알림이 오면 헤더 뱃지와 목록을 즉시 갱신
-      // --------------------------------------------------------
+      /*
+       * 알림 WebSocket topic 구독
+       *
+       * 공용 연결은 그대로 유지하고
+       * 로그인 사용자의 알림 topic만 구독한다.
+       */
       useEffect(() => {
         const currentUserId = getCurrentUserId(me);
 
-        // 로그인하지 않았거나 userId가 없으면 WebSocket 연결을 만들지 않는다.
         if (!currentUserId) {
           return;
         }
 
-        /*
-         * 알림 WebSocket 클라이언트를 만든다.
-         * 서버가 /topic/users/{userId}/notifications 로 보내는 알림을 받는다.
-         */
-        const client = createNotificationSocketClient({
-          userId: currentUserId,
+        const unsubscribe =
+          subscribeNotificationSocket({
+            subscribe,
+            userId: currentUserId,
 
-          /*
-           * 새 알림을 받았을 때 실행된다.
-           *
-           * 하는 일:
-           * 1. unreadCount를 1 올린다.
-           * 2. 알림 목록 맨 앞에 새 알림을 추가한다.
-           * 3. 같은 알림이 이미 있으면 중복 추가하지 않는다.
-           */
-          onNotificationReceived: (newNotification) => {
-            if (!newNotification?.notificationId) {
+            onNotificationReceived:
+              (newNotification) => {
+                if (
+                  !newNotification?.notificationId
+                ) {
+                  loadUnreadCount();
+                  return;
+                }
+
+                setUnreadCount(
+                  (prev) =>
+                    Number(prev || 0) + 1
+                );
+
+                setNotifications((prev) => {
+                  const alreadyExists = prev.some(
+                    (item) =>
+                      item.notificationId ===
+                      newNotification.notificationId
+                  );
+
+                  if (alreadyExists) {
+                    return prev;
+                  }
+
+                  return [
+                    newNotification,
+                    ...prev,
+                  ].slice(0, 10);
+                });
+              },
+
+            onError: () => {
+              /*
+               * WebSocket 오류가 발생해도
+               * REST API로 알림 개수를 다시 맞춘다.
+               */
               loadUnreadCount();
-              return;
-            }
-
-            // 새 알림은 기본적으로 안 읽은 알림이므로 뱃지 숫자를 1 올린다.
-            setUnreadCount((prev) => Number(prev || 0) + 1);
-
-            // 드롭다운 목록 맨 앞에 새 알림을 꽂는다.
-            setNotifications((prev) => {
-              const alreadyExists = prev.some(
-                (item) => item.notificationId === newNotification.notificationId
-              );
-
-              if (alreadyExists) {
-                return prev;
-              }
-
-              // 헤더 드롭다운은 너무 길 필요 없으니 최근 10개만 유지한다.
-              return [newNotification, ...prev].slice(0, 10);
-            });
-          },
-          /*
-           * WebSocket 오류가 나도 화면이 완전히 망가지면 안 된다.
-           * 그래서 오류가 나면 REST API로 unread count를 한 번 다시 맞춘다.
-           */
-          onError: () => {
-            loadUnreadCount();
-          },
-        });
-
-        // 실제 연결 시작
-        client.activate();
+            },
+          });
 
         /*
-         * App이 정리되거나 로그아웃되어 me가 바뀌면 연결을 끊는다.
-         * 연결을 안 끊으면 같은 알림을 여러 번 받을 수 있다.
+         * App 또는 로그인 사용자가 바뀌면
+         * 전체 연결이 아니라 알림 topic만 해제한다.
          */
-        return () => {
-          disconnectNotificationSocket(client);
-        };
-      }, [me, loadUnreadCount]);
+        return unsubscribe;
+      }, [
+        me?.userId,
+        me?.id,
+        loadUnreadCount,
+        subscribe,
+      ]);
 
       // --------------------------------------------------------
       // 창으로 다시 돌아왔을 때 unread count 새로고침

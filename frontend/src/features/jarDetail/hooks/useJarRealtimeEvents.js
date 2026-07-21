@@ -1,21 +1,20 @@
 import { useEffect, useRef } from "react";
 import apiClient from "../../../api/apiClient";
 import {
-  createDailyDrawSocketClient,
-  disconnectDailyDrawSocket,
+  subscribeDailyDrawSocket,
 } from "../../../api/dailyDrawSocketApi";
 import {
-  createJarMemberSocketClient,
-  disconnectJarMemberSocket,
+  subscribeJarMemberSocket,
 } from "../../../api/jarMemberSocketApi";
 import {
-  createJarOpenSocketClient,
-  disconnectJarOpenSocket,
+  subscribeJarOpenSocket,
 } from "../../../api/jarOpenSocketApi";
 import {
-  createJarNoteSocketClient,
-  disconnectJarNoteSocket,
+  subscribeJarNoteSocket,
 } from "../../../api/noteSocketApi";
+import {
+  useStompClient,
+} from "../../../realtime/StompClientProvider";
 import {
   getCurrentUserIdFromMe,
 } from "../utils/jarDetailUtils";
@@ -56,6 +55,14 @@ export function useJarRealtimeEvents({
   setDailyDrawRealtimeMessage,
 }) {
 
+  // 앱 전체가 함께 사용하는 공용 STOMP 구독 함수다.
+  const { subscribe } = useStompClient();
+
+  // 로그인 사용자 ID를 한 번 계산해서 모든 실시간 구독이 같이 사용한다.
+  const currentUserId =
+    getCurrentUserIdFromMe(me);
+
+
   /*
    * jarOpenEventLatestRef 역할
    *
@@ -67,6 +74,18 @@ export function useJarRealtimeEvents({
    * - 화면 상태만 최신 값으로 갈아 끼운다.
    */
   const jarOpenEventLatestRef = useRef(null);
+
+  /*
+   * dailyDrawEventLatestRef 역할
+   *
+   * Daily Draw WebSocket을 다시 구독하지 않고도
+   * 가장 최신 함수와 타이머를 사용할 수 있게 보관하는 상자다.
+   *
+   * 쉽게 말하면:
+   * - WebSocket 구독은 그대로 유지하고
+   * - 화면에서 사용하는 함수만 최신 값으로 바꿔준다.
+   */
+  const dailyDrawEventLatestRef = useRef(null);
 
   /*
    * noteEventLatestRef 역할
@@ -137,51 +156,84 @@ export function useJarRealtimeEvents({
   ]);
 
   /*
-   * 저금통 멤버 변화 WebSocket 연결
+   * 저금통 멤버 변화 topic 구독
+   *
+   * 공용 WebSocket 연결은 그대로 유지하고,
+   * 현재 저금통의 멤버 변화 topic만 구독한다.
    */
   useEffect(() => {
     if (!jarId) return;
-
-    const currentUserId = getCurrentUserIdFromMe(me);
-
     if (!currentUserId) return;
 
-    const client = createJarMemberSocketClient({
-      jarId,
+    const unsubscribe =
+      subscribeJarMemberSocket({
+        // Provider가 내려준 공용 구독 함수를 전달한다.
+        subscribe,
+        jarId,
 
-      onMemberEventReceived: async (event) => {
-        const eventType = event?.type;
-        const targetUserId = Number(event?.targetUserId);
+        onMemberEventReceived: async (event) => {
+          const eventType = event?.type;
+          const targetUserId = Number(
+            event?.targetUserId
+          );
 
-        if (
-          (eventType === "MEMBER_KICKED" || eventType === "MEMBER_LEFT") &&
-          targetUserId === currentUserId
-        ) {
-          if (eventType === "MEMBER_KICKED") {
-            window.alert("이 저금통에서 내보내졌어요.");
+          /*
+           * 내가 강퇴되거나 나간 이벤트라면
+           * 더 이상 현재 저금통을 볼 수 없으므로 목록으로 이동한다.
+           */
+          if (
+            (
+              eventType === "MEMBER_KICKED" ||
+              eventType === "MEMBER_LEFT"
+            ) &&
+            targetUserId === Number(currentUserId)
+          ) {
+            if (eventType === "MEMBER_KICKED") {
+              window.alert(
+                "이 저금통에서 내보내졌어요."
+              );
+            }
+
+            navigate("/jars", {
+              replace: true,
+            });
+
+            return;
           }
 
-          navigate("/jars", { replace: true });
-          return;
-        }
+          /*
+           * 다른 멤버의 가입, 탈퇴, 권한 변경이라면
+           * 멤버 목록과 저금통 정보를 최신으로 맞춘다.
+           */
+          await Promise.allSettled([
+            loadMembers(),
+            loadJarDetail({
+              silent: true,
+            }),
+          ]);
+        },
 
-        await Promise.allSettled([
-          loadMembers(),
-          loadJarDetail({ silent: true }),
-        ]);
-      },
+        onError: (error) => {
+          console.error(
+            "저금통 멤버 WebSocket 오류",
+            error
+          );
+        },
+      });
 
-      onError: (error) => {
-        console.error("저금통 멤버 WebSocket 오류", error);
-      },
-    });
-
-    client.activate();
-
-    return () => {
-      disconnectJarMemberSocket(client);
-    };
-  }, [jarId, me?.userId, me?.id, navigate]);
+    /*
+     * 상세 페이지를 벗어날 때
+     * 전체 WebSocket 연결이 아니라 멤버 topic만 해제한다.
+     */
+    return unsubscribe;
+  }, [
+    jarId,
+    currentUserId,
+    navigate,
+    loadMembers,
+    loadJarDetail,
+    subscribe,
+  ]);
 
   /*
    * 저금통 오픈 WebSocket 연결
@@ -196,16 +248,17 @@ export function useJarRealtimeEvents({
       return;
     }
 
-    /*
-     * cleanup이 실행됐는지 기억한다.
-     *
-     * 페이지 이동이나 저금통 변경으로 종료한 WebSocket에서
-     * 뒤늦게 error 이벤트가 발생해도 불필요한 오류 로그를 남기지 않는다.
-     */
+    if (!currentUserId) {
+      return;
+    }
+
     let disconnectedByCleanup = false;
 
-    const client = createJarOpenSocketClient({
-      jarId,
+    const unsubscribe =
+      subscribeJarOpenSocket({
+        // 공용 STOMP 구독 함수를 전달한다.
+        subscribe,
+        jarId,
 
       onJarOpened: async (event) => {
         /*
@@ -307,30 +360,39 @@ export function useJarRealtimeEvents({
       },
     });
 
-    client.activate();
-
     return () => {
-      /*
-       * 먼저 우리가 의도해서 종료한다는 것을 표시한다.
-       *
-       * deactivate 과정에서 error 이벤트가 발생해도
-       * 위의 onError에서 무시할 수 있다.
-       */
       disconnectedByCleanup = true;
 
-      disconnectJarOpenSocket(client);
+      /*
+       * 전체 WebSocket 연결은 유지하고
+       * 오픈 topic만 해제한다.
+       */
+      unsubscribe();
 
-      const latest = jarOpenEventLatestRef.current;
+      const latest =
+        jarOpenEventLatestRef.current;
 
-      if (latest?.jarOpenCelebrationTimerRef.current) {
+      if (
+        latest
+          ?.jarOpenCelebrationTimerRef
+          .current
+      ) {
         window.clearTimeout(
-          latest.jarOpenCelebrationTimerRef.current
+          latest
+            .jarOpenCelebrationTimerRef
+            .current
         );
 
-        latest.jarOpenCelebrationTimerRef.current = null;
+        latest
+          .jarOpenCelebrationTimerRef
+          .current = null;
       }
     };
-  }, [jarId]);
+  }, [
+    jarId,
+    currentUserId,
+    subscribe,
+  ]);
 
   /*
    * 저금통 전체 쪽지 WebSocket 연결
@@ -349,14 +411,20 @@ export function useJarRealtimeEvents({
       return;
     }
 
+    if (!currentUserId) {
+      return;
+    }
+
     /*
      * 페이지 이동으로 연결을 정리한 뒤
      * 늦게 도착한 이벤트를 처리하지 않기 위한 표시다.
      */
     let disconnectedByCleanup = false;
 
-    const client = createJarNoteSocketClient({
-      jarId,
+    const unsubscribe = subscribeJarNoteSocket({
+        // 공용 STOMP 구독 함수를 전달한다.
+        subscribe,
+        jarId,
 
       onNoteEventReceived: async (event) => {
         if (disconnectedByCleanup) {
@@ -506,65 +574,168 @@ export function useJarRealtimeEvents({
       },
     });
 
-    // WebSocket 연결 시작
-    client.activate();
-
     return () => {
-      /*
-       * 페이지 이동 또는 jarId 변경으로
-       * 연결을 의도적으로 종료한다.
-       */
       disconnectedByCleanup = true;
 
-      disconnectJarNoteSocket(client);
+      /*
+       * 공용 연결은 유지하고
+       * 쪽지 topic만 해제한다.
+       */
+      unsubscribe();
     };
-  }, [jarId]);
+  }, [
+    jarId,
+    currentUserId,
+    subscribe,
+  ]);
 
   /*
-   * Daily Draw WebSocket 연결
+   * Daily Draw에서 사용하는 함수와 상태를
+   * 항상 최신 값으로 Ref에 저장한다.
+   *
+   * 이 Effect는 WebSocket을 해제하거나 다시 구독하지 않는다.
+   */
+  useEffect(() => {
+    dailyDrawEventLatestRef.current = {
+      setDailyDrawRealtimeMessage,
+      dailyDrawRealtimeMessageTimerRef,
+      loadDailyDrawToday,
+      loadDailyDrawHistory,
+      loadJarZoomNotes,
+    };
+  }, [
+    setDailyDrawRealtimeMessage,
+    dailyDrawRealtimeMessageTimerRef,
+    loadDailyDrawToday,
+    loadDailyDrawHistory,
+    loadJarZoomNotes,
+  ]);
+
+  /*
+   * Daily Draw topic 구독
+   *
+   * 공용 WebSocket 연결은 그대로 유지하고,
+   * 현재 저금통의 Daily Draw topic만 구독한다.
+   *
+   * 중요한 점:
+   * - jarId가 바뀔 때
+   * - 로그인 사용자가 바뀔 때
+   * - 저금통이 열리거나 잠길 때
+   *
+   * 위 상황에서만 구독 상태를 변경한다.
+   *
+   * 화면 함수가 새로 만들어졌다는 이유로
+   * WebSocket을 다시 구독하지 않는다.
    */
   useEffect(() => {
     if (!jarId) return;
-    if (!jar) return;
-    if (!jar.isOpen) return;
+    if (!currentUserId) return;
+    if (!jar?.isOpen) return;
 
-    const client = createDailyDrawSocketClient({
-      jarId,
+    const unsubscribe =
+      subscribeDailyDrawSocket({
+        // 공용 STOMP Client의 구독 함수를 전달한다.
+        subscribe,
+        jarId,
 
-      onDailyDrawRevealed: async (event) => {
-        setDailyDrawRealtimeMessage(
-          event?.message || "오늘의 추억 한 장이 공개되어 화면을 최신으로 맞췄어요."
+        onDailyDrawRevealed: async (event) => {
+          /*
+           * 이벤트가 도착한 순간의
+           * 가장 최신 함수와 Ref를 꺼낸다.
+           */
+          const latest =
+            dailyDrawEventLatestRef.current;
+
+          if (!latest) {
+            return;
+          }
+
+          /*
+           * 사용자에게 실시간 갱신 안내 문구를 보여준다.
+           */
+          latest.setDailyDrawRealtimeMessage(
+            event?.message ||
+              "오늘의 추억 한 장이 공개되어 화면을 최신으로 맞췄어요."
+          );
+
+          /*
+           * 이전 안내 문구 제거 타이머가 남아 있다면
+           * 새로운 타이머를 만들기 전에 먼저 제거한다.
+           */
+          if (
+            latest.dailyDrawRealtimeMessageTimerRef
+              .current
+          ) {
+            window.clearTimeout(
+              latest
+                .dailyDrawRealtimeMessageTimerRef
+                .current
+            );
+          }
+
+          /*
+           * 안내 문구를 4초 뒤 자동으로 지운다.
+           */
+          latest.dailyDrawRealtimeMessageTimerRef.current =
+            window.setTimeout(() => {
+              latest.setDailyDrawRealtimeMessage("");
+            }, 4000);
+
+          /*
+           * WebSocket 이벤트를 신호로 사용하고,
+           * 실제 최신 데이터는 REST API로 다시 조회한다.
+           */
+          await Promise.allSettled([
+            latest.loadDailyDrawToday({
+              silent: true,
+            }),
+            latest.loadDailyDrawHistory({
+              silent: true,
+            }),
+          ]);
+
+          await latest.loadJarZoomNotes();
+        },
+
+        onError: (error) => {
+          console.error(
+            "Daily Draw WebSocket 오류",
+            error
+          );
+        },
+      });
+
+    /*
+     * 상세 페이지를 나가거나,
+     * jarId 또는 로그인 사용자가 바뀌거나,
+     * 저금통이 잠금 상태가 되면
+     * Daily Draw topic만 구독 해제한다.
+     */
+    return () => {
+      unsubscribe();
+
+      const latest =
+        dailyDrawEventLatestRef.current;
+
+      if (
+        latest
+          ?.dailyDrawRealtimeMessageTimerRef
+          ?.current
+      ) {
+        window.clearTimeout(
+          latest
+            .dailyDrawRealtimeMessageTimerRef
+            .current
         );
 
-        if (dailyDrawRealtimeMessageTimerRef.current) {
-          window.clearTimeout(dailyDrawRealtimeMessageTimerRef.current);
-        }
-
-        dailyDrawRealtimeMessageTimerRef.current = window.setTimeout(() => {
-          setDailyDrawRealtimeMessage("");
-        }, 4000);
-
-        await Promise.allSettled([
-          loadDailyDrawToday({ silent: true }),
-          loadDailyDrawHistory({ silent: true }),
-        ]);
-
-        await loadJarZoomNotes();
-      },
-
-      onError: (error) => {
-        console.error("Daily Draw WebSocket 오류", error);
-      },
-    });
-
-    client.activate();
-
-    return () => {
-      disconnectDailyDrawSocket(client);
-
-      if (dailyDrawRealtimeMessageTimerRef.current) {
-        window.clearTimeout(dailyDrawRealtimeMessageTimerRef.current);
+        latest.dailyDrawRealtimeMessageTimerRef.current =
+          null;
       }
     };
-  }, [jarId, jar?.isOpen]);
+  }, [
+    jarId,
+    currentUserId,
+    jar?.isOpen,
+    subscribe,
+  ]);
 }

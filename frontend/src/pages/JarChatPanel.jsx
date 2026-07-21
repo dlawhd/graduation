@@ -8,10 +8,13 @@ import {
   sendChatMessage,
 } from "../api/chatApi";
 import {
-  createChatSocketClient,
-  disconnectChatSocket,
+  subscribeChatSocket,
   sendChatSocketMessage,
 } from "../api/chatSocketApi";
+
+import {
+  useStompClient,
+} from "../realtime/StompClientProvider";
 
 /*
  * JarChatPanel 역할
@@ -156,6 +159,14 @@ function isBlankMessage(value) {
 }
 
 export default function JarChatPanel({ jarId, currentUserId }) {
+
+  // 앱 전체가 공유하는 연결 상태, 구독 함수, 전송 함수를 사용한다.
+  const {
+    connected: webSocketConnected,
+    subscribe,
+    publish,
+  } = useStompClient();
+
   // 채팅 메시지 목록
   const [messages, setMessages] = useState([]);
 
@@ -173,16 +184,6 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
   // 입력창 값
   const [draft, setDraft] = useState("");
-
-  // WebSocket 연결 성공 여부
-  // true면 WebSocket으로 새 메시지를 받고,
-  // false면 기존 Polling 방식으로 새 메시지를 확인한다.
-  const [webSocketConnected, setWebSocketConnected] = useState(false);
-
-  // STOMP 클라이언트를 저장하는 ref
-  // ref를 쓰는 이유:
-  // 화면이 다시 렌더링돼도 WebSocket 연결 객체를 유지하기 위해서다.
-  const socketClientRef = useRef(null);
 
   // 이전 메시지가 더 있는지
   const [hasNext, setHasNext] = useState(false);
@@ -537,109 +538,98 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   }, [jarId, loadInitialMessages]);
 
   /*
-   * WebSocket 연결
+   * 채팅 topic 구독
    *
-   * 채팅 모달이 열리면 JarChatPanel이 화면에 생긴다.
-   * 이때 WebSocket에 연결하고,
-   * 이 저금통 채팅방 topic을 구독한다.
+   * 공용 STOMP 연결은 App 전체에서 한 번만 유지한다.
    *
-   * 중요한 점:
-   * - jarId가 있어야 어떤 저금통 채팅방인지 알 수 있다.
-   * - currentUserId가 있어야 내가 보낸 메시지인지 정확히 계산할 수 있다.
+   * 채팅 패널이 화면에 있는 동안:
+   * - 현재 저금통의 채팅 topic을 구독하고
+   * - 새 메시지를 실시간으로 받는다.
    *
-   * 모달을 닫으면 JarChatPanel이 사라지므로
-   * cleanup에서 WebSocket 연결을 끊는다.
+   * 채팅 패널이 사라지면:
+   * - 전체 WebSocket 연결은 유지하고
+   * - 채팅 topic만 구독 해제한다.
    */
   useEffect(() => {
-    // jarId가 없으면 어떤 저금통 채팅방인지 알 수 없다.
-    // currentUserId가 아직 없으면 mine 계산이 틀릴 수 있어서 연결하지 않는다.
-    if (!jarId || currentUserId == null) return;
-
-    // 기존 연결이 남아 있으면 먼저 끊어준다.
-    // 같은 저금통에 중복 연결되는 것을 막기 위해서다.
-    if (socketClientRef.current) {
-      disconnectChatSocket(socketClientRef.current);
-      socketClientRef.current = null;
+    if (
+      !jarId ||
+      currentUserId == null
+    ) {
+      return;
     }
 
-    // 새 연결을 시작하기 전에는 일단 연결 안 된 상태로 표시한다.
-    setWebSocketConnected(false);
+    const unsubscribe =
+      subscribeChatSocket({
+        subscribe,
+        jarId,
 
-    // STOMP WebSocket 클라이언트를 만든다.
-    const client = createChatSocketClient({
-      jarId,
+        onMessageReceived: (message) => {
+          const normalizedMessage =
+            normalizeSocketMessage(
+              message,
+              currentUserId
+            );
 
-      /*
-       * 서버가 /topic/jars/{jarId}/chat 으로 메시지를 보내면 이 함수가 실행된다.
-       */
-      onMessageReceived: (message) => {
-        // WebSocket 메시지에는 mine 값이 없으므로
-        // senderId와 currentUserId를 비교해서 mine을 만든다.
-        const normalizedMessage = normalizeSocketMessage(
-          message,
-          currentUserId
-        );
+          if (!normalizedMessage) {
+            return;
+          }
 
-        if (!normalizedMessage) return;
+          shouldScrollToBottomRef.current =
+            true;
 
-        // 새 메시지가 오면 채팅창을 아래로 내려야 자연스럽다.
-        shouldScrollToBottomRef.current = true;
+          setMessages((prev) => {
+            return mergeUniqueMessages(
+              prev,
+              [normalizedMessage]
+            );
+          });
 
-        // 새 메시지를 기존 메시지 목록에 합친다.
-        // messageId 기준으로 중복 제거도 같이 한다.
-        setMessages((prev) => {
-          return mergeUniqueMessages(prev, [normalizedMessage]);
-        });
+          const nextReadMessageId =
+            Math.max(
+              Number(
+                lastMessageIdRef.current ||
+                  0
+              ),
+              Number(
+                normalizedMessage.messageId ||
+                  0
+              )
+            );
 
-        /*
-         * 새 메시지를 화면에서 받았으니 읽음 처리한다.
-         *
-         * 주의:
-         * setMessages 안에서는 API 호출을 하지 않는 게 안전하다.
-         * 그래서 읽음 처리는 setMessages 밖에서 처리한다.
-         */
-        const nextReadMessageId = Math.max(
-          Number(lastMessageIdRef.current || 0),
-          Number(normalizedMessage.messageId || 0)
-        );
+          if (nextReadMessageId > 0) {
+            markChatAsRead(
+              jarId,
+              nextReadMessageId
+            )
+              .then(loadUnreadCount)
+              .catch(() => {
+                /*
+                 * 읽음 처리 실패해도
+                 * 채팅 화면은 유지한다.
+                 */
+              });
+          }
+        },
 
-        if (nextReadMessageId > 0) {
-          markChatAsRead(jarId, nextReadMessageId)
-            .then(loadUnreadCount)
-            .catch(() => {
-              // 읽음 처리 실패해도 채팅 화면은 유지한다.
-            });
-        }
-      },
+        onError: () => {
+          /*
+           * 공용 connected 상태가 false가 되면
+           * 기존 Polling이 자동으로 다시 동작한다.
+           */
+        },
+      });
 
-      // WebSocket 연결 성공
-      onConnect: () => {
-        setWebSocketConnected(true);
-      },
-
-      // WebSocket 연결 실패
-      // 이 경우 기존 Polling이 fallback으로 계속 돈다.
-      onError: () => {
-        setWebSocketConnected(false);
-      },
-    });
-
-    // 만든 STOMP 클라이언트를 ref에 저장한다.
-    socketClientRef.current = client;
-
-    // 실제 WebSocket 연결을 시작한다.
-    client.activate();
-
-    // 채팅 모달을 닫거나 jarId/currentUserId가 바뀌면 연결을 끊는다.
-    return () => {
-      setWebSocketConnected(false);
-      disconnectChatSocket(client);
-
-      if (socketClientRef.current === client) {
-        socketClientRef.current = null;
-      }
-    };
-  }, [jarId, currentUserId, loadUnreadCount]);
+    /*
+     * 채팅 모달을 닫으면
+     * 전체 연결이 아니라 채팅 topic만 해제한다.
+     */
+    return unsubscribe;
+  }, [
+    jarId,
+    currentUserId,
+    loadUnreadCount,
+    subscribe,
+  ]);
 
   /*
    * 이전 메시지 더 보기
@@ -792,33 +782,43 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setDraft("");
 
       /*
-       * 1순위: WebSocket 전송
-       *
-       * 주의:
-       * 여기서 setMessages로 바로 추가하지 않는다.
-       * 왜냐하면 서버가 다시 WebSocket으로 보내주기 때문이다.
-       *
-       * 여기서 바로 추가하고,
-       * WebSocket으로 받은 것도 또 추가하면
-       * 같은 메시지가 2번 보일 수 있다.
+       * WebSocket 연결 상태라면 먼저 실시간 전송을 시도한다.
        */
-      if (webSocketConnected && socketClientRef.current?.connected) {
-        sendChatSocketMessage({
-          client: socketClientRef.current,
-          jarId,
-          content: originalContent,
-        });
+      if (webSocketConnected) {
+        try {
+          sendChatSocketMessage({
+            publish,
+            jarId,
+            content: originalContent,
+          });
 
-        return;
+          /*
+           * 서버가 채팅 topic으로 같은 메시지를 다시 보내므로
+           * 여기서는 화면에 직접 추가하지 않는다.
+           */
+          return;
+        } catch (webSocketError) {
+          /*
+           * 화면에서는 연결된 것으로 보였지만
+           * 실제 전송 순간 연결이 끊겼을 수 있다.
+           *
+           * 이때 아래 REST 전송으로 자연스럽게 넘어간다.
+           */
+          console.warn(
+            "채팅 WebSocket 전송 실패, REST로 다시 전송합니다.",
+            webSocketError
+          );
+        }
       }
 
       /*
-       * 2순위: REST fallback
-       *
-       * WebSocket 연결이 안 된 경우에도
-       * 기존 Polling 채팅은 계속 동작해야 한다.
+       * WebSocket을 사용할 수 없거나 전송에 실패하면
+       * REST API로 메시지를 저장한다.
        */
-      const savedMessage = await sendChatMessage(jarId, originalContent);
+      const savedMessage = await sendChatMessage(
+        jarId,
+        originalContent
+      );
 
       const normalizedMessage = {
         ...savedMessage,
@@ -827,9 +827,23 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       shouldScrollToBottomRef.current = true;
 
-      setMessages((prev) => mergeUniqueMessages(prev, [normalizedMessage]));
+      setMessages((prev) =>
+        mergeUniqueMessages(prev, [normalizedMessage])
+      );
 
-      await markLatestMessageAsRead([...messages, normalizedMessage]);
+      /*
+       * 방금 서버에 저장된 메시지 번호까지 읽었다고 처리한다.
+       *
+       * 오래된 messages 배열을 사용할 필요가 없어서
+       * Polling과 전송이 겹쳐도 더 안전하다.
+       */
+      if (normalizedMessage?.messageId) {
+        await markChatAsRead(
+          jarId,
+          normalizedMessage.messageId
+        );
+      }
+
       await loadUnreadCount();
     } catch (e) {
       const serverMessage =
