@@ -142,36 +142,64 @@ public class NoteCommentService {
         }
 
         // 9. 응답 DTO 만들기
-        NoteCommentItem response = toItem(savedComment, List.of());
+        NoteCommentItem response =
+                toItem(savedComment, List.of());
 
-        // 10. 댓글/답글 작성 이벤트 만들기
+        /*
+         * 10. 저장 내용을 DB에 먼저 반영한 뒤
+         * 해당 쪽지의 최신 댓글 개수를 센다.
+         *
+         * 이 숫자를 WebSocket 이벤트에 넣으면
+         * 프론트가 쪽지 목록 전체를 다시 조회하지 않아도 된다.
+         */
+        noteCommentRepository.flush();
+
+        long commentCount =
+                noteCommentRepository.countByNote_NoteId(noteId);
+
+        // 11. 댓글 또는 답글 작성 이벤트 만들기
         NoteRealtimeEventResponse realtimeEvent;
 
         if (parentComment == null) {
-            // 일반 댓글이면 COMMENT_CREATED 이벤트
-            realtimeEvent = NoteRealtimeEventResponse.commentCreated(
-                    jarId,
-                    noteId,
-                    currentUser.getId(),
-                    currentUser.getName(),
-                    savedComment.getCommentId()
-            );
+            /*
+             * 부모 댓글이 없으면 일반 댓글이다.
+             */
+            realtimeEvent =
+                    NoteRealtimeEventResponse.commentCreated(
+                            jarId,
+                            noteId,
+                            currentUser.getId(),
+                            currentUser.getName(),
+                            savedComment.getCommentId(),
+                            commentCount
+                    );
         } else {
-            // 답글이면 COMMENT_REPLIED 이벤트
-            realtimeEvent = NoteRealtimeEventResponse.commentReplied(
-                    jarId,
-                    noteId,
-                    currentUser.getId(),
-                    currentUser.getName(),
-                    savedComment.getCommentId(),
-                    parentComment.getCommentId()
-            );
+            /*
+             * 부모 댓글이 있으면 답글이다.
+             */
+            realtimeEvent =
+                    NoteRealtimeEventResponse.commentReplied(
+                            jarId,
+                            noteId,
+                            currentUser.getId(),
+                            currentUser.getName(),
+                            savedComment.getCommentId(),
+                            parentComment.getCommentId(),
+                            commentCount
+                    );
         }
 
-        // 11. DB 커밋 성공 후 WebSocket으로 쪽지 상세 화면에 알려주기
-        noteRealtimeService.sendNoteEventAfterCommit(jarId, noteId, realtimeEvent);
+        /*
+         * 12. DB 커밋 성공 후
+         * 저금통 쪽지 목록과 상세 화면에 변경 사실을 알린다.
+         */
+        noteRealtimeService.sendNoteEventAfterCommit(
+                jarId,
+                noteId,
+                realtimeEvent
+        );
 
-        // 12. 기존 REST 응답은 그대로 반환
+        // 13. 기존 REST 응답은 그대로 반환한다.
         return response;
     }
 
@@ -321,20 +349,25 @@ public class NoteCommentService {
         String actorName = comment.getUser().getName();
 
         /*
-         * 8. 삭제 대상 댓글과 그 아래 답글들을 전부 삭제한다.
-         *
-         * 핵심:
-         * - 먼저 자식 답글들을 삭제한다.
-         * - 그 다음 현재 댓글을 삭제한다.
-         *
-         * 이유:
-         * - 부모를 먼저 삭제하면 자식 답글을 찾기 애매해질 수 있다.
-         * - 아래에서부터 지우면 댓글 트리가 깔끔하게 정리된다.
+         * 8. 현재 댓글과 그 아래 모든 답글을 삭제한다.
          */
         deleteCommentWithChildren(comment);
 
-        // 9. 댓글 삭제 이벤트 보내기
-        // 프론트는 이 이벤트를 받으면 댓글 목록을 다시 조회해서 화면을 최신 상태로 맞춘다.
+        /*
+         * 9. 삭제 내용을 DB에 먼저 반영한 뒤
+         * 남아 있는 최신 댓글 개수를 다시 센다.
+         *
+         * 부모 댓글을 삭제하면 답글도 함께 삭제될 수 있으므로
+         * 단순히 기존 개수에서 1만 빼면 정확하지 않을 수 있다.
+         */
+        noteCommentRepository.flush();
+
+        long commentCount =
+                noteCommentRepository.countByNote_NoteId(noteId);
+
+        /*
+         * 10. 최신 댓글 개수를 포함한 삭제 이벤트를 전송한다.
+         */
         noteRealtimeService.sendNoteEventAfterCommit(
                 jarId,
                 noteId,
@@ -344,7 +377,8 @@ public class NoteCommentService {
                         currentUserId,
                         actorName,
                         deletedCommentId,
-                        parentCommentId
+                        parentCommentId,
+                        commentCount
                 )
         );
     }

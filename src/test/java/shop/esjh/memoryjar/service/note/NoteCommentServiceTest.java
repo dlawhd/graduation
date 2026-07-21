@@ -11,12 +11,15 @@ import shop.esjh.memoryjar.entity.note.NoteComment;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.jar.JarOpenMode;
 import shop.esjh.memoryjar.enums.jar.JarTheme;
+import shop.esjh.memoryjar.enums.note.NoteRealtimeEventType;
 import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.repository.jar.JarMemberRepository;
 import shop.esjh.memoryjar.repository.jar.JarRepository;
 import shop.esjh.memoryjar.repository.note.NoteCommentRepository;
 import shop.esjh.memoryjar.repository.note.NoteRepository;
 import shop.esjh.memoryjar.service.notification.NotificationService;
+import shop.esjh.memoryjar.dto.note.response.NoteRealtimeEventResponse;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class NoteCommentServiceTest {
@@ -57,7 +61,6 @@ class NoteCommentServiceTest {
     @Mock
     private UserRepository userRepository;
 
-    @Mock
     private NoteCommentService noteCommentService;
 
     @Mock
@@ -79,8 +82,9 @@ class NoteCommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 생성 성공")
+    @DisplayName("댓글 생성 성공 - 최신 댓글 개수를 WebSocket 이벤트에 담는다")
     void createComment_success() {
+        // given
         Long currentUserId = 1L;
         Long jarId = 10L;
         Long noteId = 100L;
@@ -89,32 +93,147 @@ class NoteCommentServiceTest {
         Jar jar = createJar(jarId);
         Note note = createNote(noteId, jar, user);
 
-        when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
-        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteCommentRepository.save(any(NoteComment.class))).thenAnswer(invocation -> {
-            NoteComment comment = invocation.getArgument(0);
-            ReflectionTestUtils.setField(comment, "commentId", 300L);
-            ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.of(2026, 4, 15, 10, 0));
-            ReflectionTestUtils.setField(comment, "updatedAt", LocalDateTime.of(2026, 4, 15, 10, 0));
-            return comment;
-        });
+        // 현재 로그인한 사용자를 정상적으로 찾는 상황
+        when(userRepository.findById(currentUserId))
+                .thenReturn(Optional.of(user));
 
-        NoteCommentItem response = noteCommentService.createComment(
-                currentUserId,
-                jarId,
-                noteId,
-                new NoteCommentCreateRequest("  댓글입니다  ", null)
-        );
+        // 요청한 저금통을 정상적으로 찾는 상황
+        when(jarRepository.findByJarId(jarId))
+                .thenReturn(Optional.of(jar));
 
-        ArgumentCaptor<NoteComment> captor = ArgumentCaptor.forClass(NoteComment.class);
-        verify(noteCommentRepository).save(captor.capture());
+        // 로그인한 사용자가 현재 저금통의 활성 멤버인 상황
+        when(
+                jarMemberRepository
+                        .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(
+                                jarId,
+                                currentUserId
+                        )
+        ).thenReturn(true);
 
-        assertThat(captor.getValue().getContent()).isEqualTo("댓글입니다");
-        assertThat(response.commentId()).isEqualTo(300L);
-        assertThat(response.content()).isEqualTo("댓글입니다");
+        // 요청한 쪽지가 현재 저금통에 존재하는 상황
+        when(noteRepository.findByJarIdAndNoteId(jarId, noteId))
+                .thenReturn(Optional.of(note));
+
+        /*
+         * 댓글 저장 시 DB가 commentId와 시간을 채워준 것처럼 만든다.
+         */
+        when(noteCommentRepository.save(any(NoteComment.class)))
+                .thenAnswer(invocation -> {
+                    NoteComment comment = invocation.getArgument(0);
+
+                    ReflectionTestUtils.setField(
+                            comment,
+                            "commentId",
+                            300L
+                    );
+
+                    ReflectionTestUtils.setField(
+                            comment,
+                            "createdAt",
+                            LocalDateTime.of(2026, 4, 15, 10, 0)
+                    );
+
+                    ReflectionTestUtils.setField(
+                            comment,
+                            "updatedAt",
+                            LocalDateTime.of(2026, 4, 15, 10, 0)
+                    );
+
+                    return comment;
+                });
+
+        /*
+         * 새 댓글까지 DB에 반영된 이후
+         * 해당 쪽지의 최신 댓글 개수가 1개라고 가정한다.
+         */
+        when(noteCommentRepository.countByNote_NoteId(noteId))
+                .thenReturn(1L);
+
+        // when
+        NoteCommentItem response =
+                noteCommentService.createComment(
+                        currentUserId,
+                        jarId,
+                        noteId,
+                        new NoteCommentCreateRequest(
+                                "  댓글입니다  ",
+                                null
+                        )
+                );
+
+        // then
+        /*
+         * 저장된 댓글 엔티티를 꺼내서
+         * 앞뒤 공백이 잘 제거됐는지 확인한다.
+         */
+        ArgumentCaptor<NoteComment> commentCaptor =
+                ArgumentCaptor.forClass(NoteComment.class);
+
+        verify(noteCommentRepository)
+                .save(commentCaptor.capture());
+
+        assertThat(commentCaptor.getValue().getContent())
+                .isEqualTo("댓글입니다");
+
+        assertThat(response.commentId())
+                .isEqualTo(300L);
+
+        assertThat(response.content())
+                .isEqualTo("댓글입니다");
+
+        /*
+         * 저장 내용을 DB에 반영한 뒤
+         * 최신 댓글 개수를 조회했는지 확인한다.
+         */
+        verify(noteCommentRepository).flush();
+
+        verify(noteCommentRepository)
+                .countByNote_NoteId(noteId);
+
+        /*
+         * WebSocket으로 전달한 이벤트를 꺼낸다.
+         */
+        ArgumentCaptor<NoteRealtimeEventResponse> eventCaptor =
+                ArgumentCaptor.forClass(
+                        NoteRealtimeEventResponse.class
+                );
+
+        verify(noteRealtimeService)
+                .sendNoteEventAfterCommit(
+                        eq(jarId),
+                        eq(noteId),
+                        eventCaptor.capture()
+                );
+
+        NoteRealtimeEventResponse sentEvent =
+                eventCaptor.getValue();
+
+        /*
+         * 100번 쪽지에 댓글이 생성됐으며
+         * 최신 댓글 개수 1개가 담겼는지 확인한다.
+         */
+        assertThat(sentEvent.jarId())
+                .isEqualTo(jarId);
+
+        assertThat(sentEvent.noteId())
+                .isEqualTo(noteId);
+
+        assertThat(sentEvent.type())
+                .isEqualTo(
+                        NoteRealtimeEventType.COMMENT_CREATED
+                );
+
+        assertThat(sentEvent.actorUserId())
+                .isEqualTo(currentUserId);
+
+        assertThat(sentEvent.commentId())
+                .isEqualTo(300L);
+
+        assertThat(sentEvent.parentCommentId())
+                .isNull();
+
+        assertThat(sentEvent.commentCount())
+                .isEqualTo(1L);
     }
 
     @Test
@@ -144,8 +263,9 @@ class NoteCommentServiceTest {
     }
 
     @Test
-    @DisplayName("대댓글 생성 성공")
+    @DisplayName("대댓글 생성 성공 - 최신 댓글 개수를 WebSocket 이벤트에 담는다")
     void createComment_success_whenParentCommentExists() {
+        // given
         Long currentUserId = 1L;
         Long jarId = 10L;
         Long noteId = 100L;
@@ -154,37 +274,166 @@ class NoteCommentServiceTest {
         User user = createUser(currentUserId, "댓글러");
         Jar jar = createJar(jarId);
         Note note = createNote(noteId, jar, user);
-        NoteComment parentComment = createComment(parentCommentId, note, user, "부모 댓글");
 
-        when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
-        when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteCommentRepository.findByCommentIdAndNote_NoteId(parentCommentId, noteId))
-                .thenReturn(Optional.of(parentComment));
-        when(noteCommentRepository.save(any(NoteComment.class))).thenAnswer(invocation -> {
-            NoteComment comment = invocation.getArgument(0);
-            ReflectionTestUtils.setField(comment, "commentId", 301L);
-            ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.of(2026, 4, 15, 10, 10));
-            ReflectionTestUtils.setField(comment, "updatedAt", LocalDateTime.of(2026, 4, 15, 10, 10));
-            return comment;
-        });
+        NoteComment parentComment =
+                createComment(
+                        parentCommentId,
+                        note,
+                        user,
+                        "부모 댓글"
+                );
 
-        NoteCommentItem response = noteCommentService.createComment(
-                currentUserId,
-                jarId,
-                noteId,
-                new NoteCommentCreateRequest("  답글입니다  ", parentCommentId)
-        );
+        when(userRepository.findById(currentUserId))
+                .thenReturn(Optional.of(user));
 
-        ArgumentCaptor<NoteComment> captor = ArgumentCaptor.forClass(NoteComment.class);
-        verify(noteCommentRepository).save(captor.capture());
+        when(jarRepository.findByJarId(jarId))
+                .thenReturn(Optional.of(jar));
 
-        assertThat(captor.getValue().getParentComment()).isEqualTo(parentComment);
-        assertThat(response.parentCommentId()).isEqualTo(parentCommentId);
-        assertThat(response.content()).isEqualTo("답글입니다");
-        assertThat(response.replies()).isEmpty();
+        when(
+                jarMemberRepository
+                        .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(
+                                jarId,
+                                currentUserId
+                        )
+        ).thenReturn(true);
+
+        when(noteRepository.findByJarIdAndNoteId(jarId, noteId))
+                .thenReturn(Optional.of(note));
+
+        /*
+         * 사용자가 선택한 부모 댓글이
+         * 현재 쪽지 안에 존재한다고 가정한다.
+         */
+        when(
+                noteCommentRepository
+                        .findByCommentIdAndNote_NoteId(
+                                parentCommentId,
+                                noteId
+                        )
+        ).thenReturn(Optional.of(parentComment));
+
+        /*
+         * 대댓글이 저장되면 commentId와 시간이 생긴 것처럼 만든다.
+         */
+        when(noteCommentRepository.save(any(NoteComment.class)))
+                .thenAnswer(invocation -> {
+                    NoteComment comment = invocation.getArgument(0);
+
+                    ReflectionTestUtils.setField(
+                            comment,
+                            "commentId",
+                            301L
+                    );
+
+                    ReflectionTestUtils.setField(
+                            comment,
+                            "createdAt",
+                            LocalDateTime.of(
+                                    2026,
+                                    4,
+                                    15,
+                                    10,
+                                    10
+                            )
+                    );
+
+                    ReflectionTestUtils.setField(
+                            comment,
+                            "updatedAt",
+                            LocalDateTime.of(
+                                    2026,
+                                    4,
+                                    15,
+                                    10,
+                                    10
+                            )
+                    );
+
+                    return comment;
+                });
+
+        /*
+         * 부모 댓글 1개와 새 대댓글 1개를 합쳐
+         * 최신 댓글 총개수가 2개라고 가정한다.
+         */
+        when(noteCommentRepository.countByNote_NoteId(noteId))
+                .thenReturn(2L);
+
+        // when
+        NoteCommentItem response =
+                noteCommentService.createComment(
+                        currentUserId,
+                        jarId,
+                        noteId,
+                        new NoteCommentCreateRequest(
+                                "  답글입니다  ",
+                                parentCommentId
+                        )
+                );
+
+        // then
+        ArgumentCaptor<NoteComment> commentCaptor =
+                ArgumentCaptor.forClass(NoteComment.class);
+
+        verify(noteCommentRepository)
+                .save(commentCaptor.capture());
+
+        assertThat(
+                commentCaptor
+                        .getValue()
+                        .getParentComment()
+        ).isEqualTo(parentComment);
+
+        assertThat(response.parentCommentId())
+                .isEqualTo(parentCommentId);
+
+        assertThat(response.content())
+                .isEqualTo("답글입니다");
+
+        assertThat(response.replies())
+                .isEmpty();
+
+        /*
+         * 대댓글 저장 후에도 DB 반영과 최신 개수 조회가
+         * 실행됐는지 확인한다.
+         */
+        verify(noteCommentRepository).flush();
+
+        verify(noteCommentRepository)
+                .countByNote_NoteId(noteId);
+
+        ArgumentCaptor<NoteRealtimeEventResponse> eventCaptor =
+                ArgumentCaptor.forClass(
+                        NoteRealtimeEventResponse.class
+                );
+
+        verify(noteRealtimeService)
+                .sendNoteEventAfterCommit(
+                        eq(jarId),
+                        eq(noteId),
+                        eventCaptor.capture()
+                );
+
+        NoteRealtimeEventResponse sentEvent =
+                eventCaptor.getValue();
+
+        /*
+         * 일반 댓글이 아니라
+         * 대댓글 이벤트가 생성됐는지 확인한다.
+         */
+        assertThat(sentEvent.type())
+                .isEqualTo(
+                        NoteRealtimeEventType.COMMENT_REPLIED
+                );
+
+        assertThat(sentEvent.commentId())
+                .isEqualTo(301L);
+
+        assertThat(sentEvent.parentCommentId())
+                .isEqualTo(parentCommentId);
+
+        assertThat(sentEvent.commentCount())
+                .isEqualTo(2L);
     }
 
 
@@ -249,6 +498,125 @@ class NoteCommentServiceTest {
         assertThat(exception.getStatusCode().value()).isEqualTo(403);
         assertThat(exception.getReason()).contains("본인");
         verify(noteCommentRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("댓글 삭제 성공 - 삭제 후 최신 댓글 개수를 WebSocket 이벤트에 담는다")
+    void deleteComment_success() {
+        // given
+        Long currentUserId = 1L;
+        Long jarId = 10L;
+        Long noteId = 100L;
+        Long commentId = 300L;
+
+        User user = createUser(currentUserId, "댓글러");
+        Jar jar = createJar(jarId);
+        Note note = createNote(noteId, jar, user);
+
+        NoteComment comment =
+                createComment(
+                        commentId,
+                        note,
+                        user,
+                        "삭제할 댓글"
+                );
+
+        when(userRepository.findById(currentUserId))
+                .thenReturn(Optional.of(user));
+
+        when(jarRepository.findByJarId(jarId))
+                .thenReturn(Optional.of(jar));
+
+        when(
+                jarMemberRepository
+                        .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(
+                                jarId,
+                                currentUserId
+                        )
+        ).thenReturn(true);
+
+        when(noteRepository.findByJarIdAndNoteId(jarId, noteId))
+                .thenReturn(Optional.of(note));
+
+        when(
+                noteCommentRepository
+                        .findByCommentIdAndNote_NoteId(
+                                commentId,
+                                noteId
+                        )
+        ).thenReturn(Optional.of(comment));
+
+        /*
+         * 삭제하려는 댓글 아래에 답글이 없는 상황이다.
+         */
+        when(
+                noteCommentRepository
+                        .findByParentComment_CommentIdOrderByCreatedAtAscCommentIdAsc(
+                                commentId
+                        )
+        ).thenReturn(List.of());
+
+        /*
+         * 댓글 삭제 후 남아 있는 댓글 개수가 0개라고 가정한다.
+         */
+        when(noteCommentRepository.countByNote_NoteId(noteId))
+                .thenReturn(0L);
+
+        // when
+        noteCommentService.deleteComment(
+                currentUserId,
+                jarId,
+                noteId,
+                commentId
+        );
+
+        // then
+        /*
+         * 실제 삭제 메서드가 호출됐는지 확인한다.
+         */
+        verify(noteCommentRepository)
+                .delete(comment);
+
+        /*
+         * 삭제 내용을 반영한 뒤 최신 댓글 개수를
+         * 다시 조회했는지 확인한다.
+         */
+        verify(noteCommentRepository).flush();
+
+        verify(noteCommentRepository)
+                .countByNote_NoteId(noteId);
+
+        ArgumentCaptor<NoteRealtimeEventResponse> eventCaptor =
+                ArgumentCaptor.forClass(
+                        NoteRealtimeEventResponse.class
+                );
+
+        verify(noteRealtimeService)
+                .sendNoteEventAfterCommit(
+                        eq(jarId),
+                        eq(noteId),
+                        eventCaptor.capture()
+                );
+
+        NoteRealtimeEventResponse sentEvent =
+                eventCaptor.getValue();
+
+        /*
+         * 삭제 이벤트에 삭제 후 댓글 개수 0이 담겼는지 확인한다.
+         */
+        assertThat(sentEvent.type())
+                .isEqualTo(
+                        NoteRealtimeEventType.COMMENT_DELETED
+                );
+
+        assertThat(sentEvent.commentId())
+                .isEqualTo(commentId);
+
+        assertThat(sentEvent.parentCommentId())
+                .isNull();
+
+        assertThat(sentEvent.commentCount())
+                .isEqualTo(0L);
     }
 
     @Test

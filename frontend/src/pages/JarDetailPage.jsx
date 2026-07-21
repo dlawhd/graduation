@@ -1190,30 +1190,57 @@ async function handleReactInJarZoomDetail(noteId, emoji) {
   }
 }
 
-
-
+// 쪽지 목록에서 특정 쪽지 한 개의 리액션 정보만 변경한다.
 function patchJarZoomNoteInList(noteId, summary) {
+  const targetNoteId = Number(noteId);
+
   setJarZoomNotes((prev) =>
-    (prev || []).map((item) =>
-      (item?.noteId ?? item?.id) === noteId
-        ? {
-            ...item,
-            myReaction: summary?.myReaction ?? null,
-            reactionCounts: Array.isArray(summary?.counts)
-              ? summary.counts
-              : Array.isArray(summary?.reactionCounts)
-              ? summary.reactionCounts
-              : [],
-          }
-        : item
-    )
+    (prev || []).map((item) => {
+      const currentNoteId =
+        Number(item?.noteId ?? item?.id);
+
+      /*
+       * 이벤트가 발생한 쪽지가 아니라면
+       * 기존 데이터를 그대로 유지한다.
+       */
+      if (currentNoteId !== targetNoteId) {
+        return item;
+      }
+
+      /*
+       * noteId가 같은 쪽지만 최신 리액션 정보로 변경한다.
+       */
+      return {
+        ...item,
+        myReaction: summary?.myReaction ?? null,
+        reactionCounts: Array.isArray(summary?.counts)
+          ? summary.counts
+          : Array.isArray(summary?.reactionCounts)
+            ? summary.reactionCounts
+            : [],
+      };
+    })
   );
 }
 
+// 현재 열려 있는 쪽지 상세가 이벤트가 발생한 쪽지일 때만 리액션을 변경한다.
 function patchJarZoomDetailNote(noteId, summary) {
+  const targetNoteId = Number(noteId);
+
   setJarZoomDetailNote((prev) => {
-    if (!prev) return prev;
-    if ((prev?.noteId ?? prev?.id) !== noteId) return prev;
+    if (!prev) {
+      return prev;
+    }
+
+    const currentNoteId =
+      Number(prev?.noteId ?? prev?.id);
+
+
+    // 현재 상세로 보고 있는 쪽지가 다르면 아무것도 변경하지 않는다.
+
+    if (currentNoteId !== targetNoteId) {
+      return prev;
+    }
 
     return {
       ...prev,
@@ -1221,31 +1248,54 @@ function patchJarZoomDetailNote(noteId, summary) {
       reactionCounts: Array.isArray(summary?.counts)
         ? summary.counts
         : Array.isArray(summary?.reactionCounts)
-        ? summary.reactionCounts
-        : [],
+          ? summary.reactionCounts
+          : [],
     };
   });
 }
 
-function patchCommentCountEverywhere(noteId, nextCount) {
+// 이벤트가 발생한 쪽지 한 개의 댓글 개수를 목록과 상세 화면에서 함께 변경한다.
+function patchCommentCountEverywhere(
+  noteId,
+  nextCount
+) {
+  const targetNoteId = Number(noteId);
+  const normalizedCount = Number(nextCount);
+
+
+  // 저금통 안 들여다보기 목록의 댓글 숫자 변경
   setJarZoomNotes((prev) =>
-    (prev || []).map((item) =>
-      (item?.noteId ?? item?.id) === noteId
-        ? {
-            ...item,
-            commentCount: nextCount,
-          }
-        : item
-    )
+    (prev || []).map((item) => {
+      const currentNoteId =
+        Number(item?.noteId ?? item?.id);
+
+      if (currentNoteId !== targetNoteId) {
+        return item;
+      }
+
+      return {
+        ...item,
+        commentCount: normalizedCount,
+      };
+    })
   );
 
+  // 현재 열려 있는 상세 쪽지가 같은 쪽지라면 상세 화면의 댓글 숫자도 함께 변경
   setJarZoomDetailNote((prev) => {
-    if (!prev) return prev;
-    if ((prev?.noteId ?? prev?.id) !== noteId) return prev;
+    if (!prev) {
+      return prev;
+    }
+
+    const currentNoteId =
+      Number(prev?.noteId ?? prev?.id);
+
+    if (currentNoteId !== targetNoteId) {
+      return prev;
+    }
 
     return {
       ...prev,
-      commentCount: nextCount,
+      commentCount: normalizedCount,
     };
   });
 }

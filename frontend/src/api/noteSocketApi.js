@@ -4,20 +4,22 @@ import { getWebSocketUrl } from "./socketUrl";
 /*
  * noteSocketApi.js 역할
  *
- * 이 파일은 "쪽지 상세 화면 WebSocket 연결"만 담당하는 파일이야.
+ * 저금통 안의 모든 쪽지 변경 이벤트를
+ * WebSocket으로 받는 연결을 담당한다.
  *
  * 쉽게 말하면:
- * - 쪽지 상세 모달을 열었을 때 서버 WebSocket에 연결하고
- * - /topic/jars/{jarId}/notes/{noteId} 주소를 구독하고
- * - 댓글/답글/리액션 변화가 오면 JarDetailPage.jsx에 알려줘.
+ * - 저금통 상세 페이지에 들어오면 WebSocket에 연결하고
+ * - /topic/jars/{jarId}/notes 주소를 한 번 구독하고
+ * - 댓글·답글·리액션 변화가 오면 화면에 알려준다.
+ *
+ * 실제로 변경할 쪽지는 이벤트 안의 noteId로 구분한다.
  */
 
 /*
- * 쪽지 상세 WebSocket 클라이언트를 만든다.
+ * 저금통 전체 쪽지 WebSocket 클라이언트를 만든다.
  */
-export function createNoteSocketClient({
+export function createJarNoteSocketClient({
   jarId,
-  noteId,
   onNoteEventReceived,
   onConnect,
   onError,
@@ -25,40 +27,56 @@ export function createNoteSocketClient({
   const client = new Client({
     brokerURL: getWebSocketUrl(),
 
-    /* 개발 중에는 연결 상태를 콘솔에서 확인할 수 있게 한다.
-    debug: (message) => {
-      console.log("[NOTE_STOMP]", message);
-    },*/
+    /*
+     * 개발 중 STOMP 메시지를 확인하고 싶을 때만 사용한다.
+     *
+     * debug: (message) => {
+     *   console.log("[NOTE_STOMP]", message);
+     * },
+     */
 
-    // 연결이 끊기면 3초 뒤 다시 연결한다.
+    // 연결이 끊어지면 3초 뒤 다시 연결한다.
     reconnectDelay: 3000,
 
     onConnect: () => {
-      // console.log("쪽지 상세 WebSocket 연결 성공");
-
       /*
-       * 서버가 쪽지 상세 이벤트를 보내는 주소:
-       * /topic/jars/{jarId}/notes/{noteId}
+       * 특정 쪽지 하나가 아니라
+       * 현재 저금통 안의 모든 쪽지 변경 이벤트를 구독한다.
        */
-      client.subscribe(`/topic/jars/${jarId}/notes/${noteId}`, (message) => {
-        try {
-          const event = JSON.parse(message.body);
-          onNoteEventReceived?.(event);
-        } catch (e) {
-          console.error("쪽지 상세 WebSocket 메시지 파싱 실패", e);
+      client.subscribe(
+        `/topic/jars/${jarId}/notes`,
+        (message) => {
+          try {
+            const event = JSON.parse(message.body);
+
+            onNoteEventReceived?.(event);
+          } catch (error) {
+            console.error(
+              "저금통 쪽지 WebSocket 메시지 파싱 실패",
+              error
+            );
+          }
         }
-      });
+      );
 
       onConnect?.();
     },
 
     onStompError: (frame) => {
-      console.error("쪽지 상세 WebSocket STOMP 오류", frame);
+      console.error(
+        "저금통 쪽지 WebSocket STOMP 오류",
+        frame
+      );
+
       onError?.(frame);
     },
 
     onWebSocketError: (event) => {
-      console.error("쪽지 상세 WebSocket 연결 오류", event);
+      console.error(
+        "저금통 쪽지 WebSocket 연결 오류",
+        event
+      );
+
       onError?.(event);
     },
   });
@@ -67,9 +85,9 @@ export function createNoteSocketClient({
 }
 
 /*
- * 쪽지 상세 WebSocket 연결을 안전하게 끊는다.
+ * 저금통 전체 쪽지 WebSocket 연결을 안전하게 끊는다.
  */
-export function disconnectNoteSocket(client) {
+export function disconnectJarNoteSocket(client) {
   if (client) {
     client.deactivate();
   }

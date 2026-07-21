@@ -13,11 +13,12 @@ import {
   disconnectJarOpenSocket,
 } from "../../../api/jarOpenSocketApi";
 import {
-  createNoteSocketClient,
-  disconnectNoteSocket,
+  createJarNoteSocketClient,
+  disconnectJarNoteSocket,
 } from "../../../api/noteSocketApi";
-import { getCurrentUserIdFromMe, getTotalCommentCount } from "../utils/jarDetailUtils";
-
+import {
+  getCurrentUserIdFromMe,
+} from "../utils/jarDetailUtils";
 /*
  * useJarRealtimeEvents 역할
  *
@@ -68,6 +69,18 @@ export function useJarRealtimeEvents({
   const jarOpenEventLatestRef = useRef(null);
 
   /*
+   * noteEventLatestRef 역할
+   *
+   * 쪽지 WebSocket을 다시 연결하지 않고도
+   * 최신 함수와 최신 상세 모달 상태를 사용할 수 있게 해주는 상자다.
+   *
+   * 쉽게 말하면:
+   * - WebSocket 연결은 jarId가 바뀔 때만 다시 만들고
+   * - 이벤트 처리 함수들은 항상 최신 것으로 꺼내 쓴다.
+   */
+  const noteEventLatestRef = useRef(null);
+
+  /*
    * 화면 상태나 함수가 바뀔 때마다
    * Ref 안의 값만 최신 상태로 바꾼다.
    *
@@ -95,6 +108,32 @@ export function useJarRealtimeEvents({
     jarZoomDetailOpen,
     jarZoomDetailNoteId,
     handleOpenJarZoomNoteDetail,
+  ]);
+
+  /*
+   * 쪽지 관련 함수나 상세 모달 상태가 바뀔 때마다
+   * Ref 안의 값만 최신 상태로 바꾼다.
+   *
+   * 이 Effect는 WebSocket을 끊거나 다시 연결하지 않는다.
+   */
+  useEffect(() => {
+    noteEventLatestRef.current = {
+      jarId,
+      jarZoomDetailOpen,
+      jarZoomDetailNoteId,
+      loadJarZoomComments,
+      patchCommentCountEverywhere,
+      patchJarZoomDetailNote,
+      patchJarZoomNoteInList,
+    };
+  }, [
+    jarId,
+    jarZoomDetailOpen,
+    jarZoomDetailNoteId,
+    loadJarZoomComments,
+    patchCommentCountEverywhere,
+    patchJarZoomDetailNote,
+    patchJarZoomNoteInList,
   ]);
 
   /*
@@ -294,61 +333,192 @@ export function useJarRealtimeEvents({
   }, [jarId]);
 
   /*
-   * 쪽지 상세 모달 WebSocket 연결
+   * 저금통 전체 쪽지 WebSocket 연결
+   *
+   * 예전에는 쪽지 상세 모달을 열었을 때만
+   * /topic/jars/{jarId}/notes/{noteId} 주소를 구독했다.
+   *
+   * 이제는 저금통 상세 페이지에 있는 동안
+   * /topic/jars/{jarId}/notes 주소를 한 번만 구독한다.
+   *
+   * 따라서 쪽지 상세를 열지 않아도
+   * 쪽지 목록의 댓글 개수와 리액션을 실시간으로 변경할 수 있다.
    */
   useEffect(() => {
-    if (!jarZoomDetailOpen) return;
-    if (!jarId || !jarZoomDetailNoteId) return;
+    if (!jarId) {
+      return;
+    }
 
-    const client = createNoteSocketClient({
+    /*
+     * 페이지 이동으로 연결을 정리한 뒤
+     * 늦게 도착한 이벤트를 처리하지 않기 위한 표시다.
+     */
+    let disconnectedByCleanup = false;
+
+    const client = createJarNoteSocketClient({
       jarId,
-      noteId: jarZoomDetailNoteId,
 
       onNoteEventReceived: async (event) => {
-        const eventType = event?.type;
-        const eventNoteId = Number(event?.noteId);
-
-        if (!eventNoteId || eventNoteId !== Number(jarZoomDetailNoteId)) {
+        if (disconnectedByCleanup) {
           return;
         }
 
+        /*
+         * Ref에 저장된 가장 최신 함수와 상태를 가져온다.
+         */
+        const latest = noteEventLatestRef.current;
+
+        if (!latest) {
+          return;
+        }
+
+        const eventJarId = Number(event?.jarId);
+        const eventNoteId = Number(event?.noteId);
+        const eventType = event?.type;
+
+        /*
+         * 현재 보고 있는 저금통에서 발생한 이벤트인지 검사한다.
+         *
+         * 다른 저금통 이벤트가 들어오거나
+         * noteId가 없는 잘못된 이벤트는 처리하지 않는다.
+         */
         if (
+          !eventJarId ||
+          eventJarId !== Number(latest.jarId) ||
+          !eventNoteId
+        ) {
+          return;
+        }
+
+        const isCommentEvent =
           eventType === "COMMENT_CREATED" ||
           eventType === "COMMENT_REPLIED" ||
           eventType === "COMMENT_UPDATED" ||
-          eventType === "COMMENT_DELETED"
-        ) {
-          const refreshedComments = await loadJarZoomComments(eventNoteId);
-          patchCommentCountEverywhere(
-            eventNoteId,
-            getTotalCommentCount(refreshedComments)
-          );
+          eventType === "COMMENT_DELETED";
+
+        /*
+         * 댓글·답글 관련 이벤트 처리
+         */
+        if (isCommentEvent) {
+          const rawCommentCount = event?.commentCount;
+          const eventCommentCount = Number(rawCommentCount);
+
+          /*
+           * 댓글 작성·답글·삭제 이벤트에는
+           * 서버가 최신 댓글 개수를 함께 보낸다.
+           *
+           * COMMENT_UPDATED는 개수가 달라지지 않으므로
+           * commentCount가 null이다.
+           *
+           * 주의:
+           * Number(null)은 0이 되기 때문에
+           * null 여부를 먼저 확인해야 한다.
+           */
+          if (
+            rawCommentCount !== null &&
+            rawCommentCount !== undefined &&
+            Number.isFinite(eventCommentCount)
+          ) {
+            latest.patchCommentCountEverywhere(
+              eventNoteId,
+              eventCommentCount
+            );
+          }
+
+          /*
+           * 현재 상세 화면으로 보고 있는 쪽지와
+           * 이벤트가 발생한 쪽지가 같은지 확인한다.
+           *
+           * 예:
+           * - 현재 2번 쪽지 상세를 보고 있음
+           * - 1번 쪽지에 댓글 이벤트 발생
+           *
+           * 이 경우 2번 쪽지의 댓글 목록은 건드리지 않는다.
+           */
+          const isCurrentDetailNote =
+            latest.jarZoomDetailOpen &&
+            Number(latest.jarZoomDetailNoteId) ===
+              eventNoteId;
+
+          /*
+           * 현재 상세로 보고 있는 쪽지에서 발생한 이벤트일 때만
+           * 댓글 내용 목록을 다시 불러온다.
+           */
+          if (isCurrentDetailNote) {
+            await latest.loadJarZoomComments(
+              eventNoteId
+            );
+          }
+
           return;
         }
 
+        /*
+         * 리액션 변경 이벤트 처리
+         */
         if (eventType === "REACTION_CHANGED") {
-          const res = await apiClient.get(
-            `/api/v1/jars/${jarId}/notes/${eventNoteId}/reactions`
+          /*
+           * myReaction은 사용자마다 다르므로
+           * 현재 로그인한 사용자 기준으로 최신 상태를 다시 조회한다.
+           */
+          const response = await apiClient.get(
+            `/api/v1/jars/${latest.jarId}/notes/${eventNoteId}/reactions`
           );
 
-          const summary = res.data?.data;
+          /*
+           * API 요청 중 페이지를 나갔다면
+           * 더 이상 화면 상태를 수정하지 않는다.
+           */
+          if (disconnectedByCleanup) {
+            return;
+          }
 
-          patchJarZoomDetailNote(eventNoteId, summary);
-          patchJarZoomNoteInList(eventNoteId, summary);
+          const summary = response.data?.data;
+
+          /*
+           * 두 함수 내부에서 noteId를 비교하기 때문에
+           * 이벤트가 발생한 쪽지 한 개만 변경된다.
+           */
+          latest.patchJarZoomDetailNote(
+            eventNoteId,
+            summary
+          );
+
+          latest.patchJarZoomNoteInList(
+            eventNoteId,
+            summary
+          );
         }
       },
 
       onError: (error) => {
-        console.error("쪽지 상세 WebSocket 오류", error);
+        /*
+         * React cleanup으로 직접 종료한 연결의 오류는 무시한다.
+         */
+        if (disconnectedByCleanup) {
+          return;
+        }
+
+        console.error(
+          "저금통 쪽지 WebSocket 오류",
+          error
+        );
       },
     });
 
+    // WebSocket 연결 시작
     client.activate();
 
     return () => {
-      disconnectNoteSocket(client);
+      /*
+       * 페이지 이동 또는 jarId 변경으로
+       * 연결을 의도적으로 종료한다.
+       */
+      disconnectedByCleanup = true;
+
+      disconnectJarNoteSocket(client);
     };
-  }, [jarId, jarZoomDetailOpen, jarZoomDetailNoteId]);
+  }, [jarId]);
 
   /*
    * Daily Draw WebSocket 연결
