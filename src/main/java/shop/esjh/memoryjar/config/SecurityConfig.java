@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.config;
 
 import shop.esjh.memoryjar.auth.OAuth2SuccessHandler;
+import shop.esjh.memoryjar.config.properties.AppProperties;
 import shop.esjh.memoryjar.jwt.JwtAuthenticationFilter;
 import shop.esjh.memoryjar.security.SecurityErrorHandler;
 import org.springframework.context.annotation.Bean;
@@ -27,16 +28,24 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SecurityErrorHandler securityErrorHandler;
     private final ClientRegistrationRepository clientRegistrationRepository;
+    // application.yml에 적어둔 공통 CORS 주소를 가져온다.
+    private final AppProperties appProperties;
 
-    public SecurityConfig(OAuth2SuccessHandler oAuth2SuccessHandler,
-                          JwtAuthenticationFilter jwtAuthenticationFilter,
-                          SecurityErrorHandler securityErrorHandler,
-                          ClientRegistrationRepository clientRegistrationRepository) {
+    public SecurityConfig(
+            OAuth2SuccessHandler oAuth2SuccessHandler,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            SecurityErrorHandler securityErrorHandler,
+            ClientRegistrationRepository clientRegistrationRepository,
+            AppProperties appProperties
+    ) {
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.securityErrorHandler = securityErrorHandler;
         this.clientRegistrationRepository = clientRegistrationRepository;
+        this.appProperties = appProperties;
     }
+
+
 
     // ------------------------------------------------------------
     // 네이버 로그인 요청에 auth_type=reauthenticate 를 붙여주는 resolver
@@ -111,16 +120,15 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // ✅ 정확히 허용할 프론트 주소들
-        config.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "https://www.esjh.shop"
-        ));
-
-        // ✅ vercel처럼 주소가 바뀌는 건 patterns로
-        config.setAllowedOriginPatterns(List.of(
-                "https://*.vercel.app"
-        ));
+        /*
+         * application.yml과 application-prod.yml에서
+         * 현재 실행 환경에 맞는 허용 주소를 가져온다.
+         *
+         * 이렇게 하면 REST와 WebSocket이 같은 주소 목록을 사용한다.
+         */
+        config.setAllowedOriginPatterns(
+                appProperties.getCors().getAllowedOriginPatterns()
+        );
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

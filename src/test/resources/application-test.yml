@@ -20,7 +20,13 @@ spring:
             user-name-attribute: response
 
 app:
-  frontend-url: http://localhost:5173
+  # 현재 Vite 개발 서버가 실제로 사용하는 주소다.
+  frontend-url: http://localhost:3000
+
+  cors:
+    # 테스트에서도 실제 로컬 개발 주소와 같은 Origin을 사용한다.
+    allowed-origin-patterns:
+      - http://localhost:3000
 
   jwt:
     secret: test-test-test-test-test-test-test-test-test-test-test-test-test

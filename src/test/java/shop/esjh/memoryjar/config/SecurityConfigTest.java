@@ -141,7 +141,7 @@ class SecurityConfigTest {
     @DisplayName("OPTIONS 요청은 로그인 없이 허용된다")
     void optionsRequest_permitAll() throws Exception {
         mockMvc.perform(options("/api/test/protected")
-                        .header(HttpHeaders.ORIGIN, "https://www.esjh.shop")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:3000")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
                 .andExpect(status().isOk());
     }
@@ -150,11 +150,23 @@ class SecurityConfigTest {
     @DisplayName("허용된 Origin 으로 온 preflight 요청에는 CORS 헤더가 내려간다")
     void cors_allowedOrigin_success() throws Exception {
         mockMvc.perform(options("/api/test/protected")
-                        .header(HttpHeaders.ORIGIN, "https://www.esjh.shop")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:3000")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://www.esjh.shop"))
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        "http://localhost:3000"
+                ))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
+    }
+
+    @Test
+    @DisplayName("허용하지 않은 Origin의 CORS 요청은 차단한다")
+    void cors_notAllowedOrigin_forbidden() throws Exception {
+        mockMvc.perform(options("/api/test/protected")
+                        .header(HttpHeaders.ORIGIN, "https://evil.example.com")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

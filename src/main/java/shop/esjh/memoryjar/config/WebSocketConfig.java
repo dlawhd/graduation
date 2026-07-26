@@ -6,6 +6,7 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import shop.esjh.memoryjar.config.properties.AppProperties;
 
 /*
  * WebSocketConfig 역할
@@ -17,19 +18,33 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * - 사용자가 메시지를 서버로 보낼 주소 규칙을 정한다. 예: /app/...
  * - 서버가 여러 사용자에게 메시지를 뿌릴 주소 규칙을 정한다. 예: /topic/...
  *
- * 지금 목표:
- * - 저금통 채팅 메시지 실시간 전송만 먼저 붙인다.
- * - 알림, 멤버 변경, 댓글/리액션 실시간 반영은 나중에 확장한다.
+ * 현재 실시간 처리 대상:
+ * - 저금통 채팅
+ * - 사용자 알림
+ * - 저금통 멤버 변경
+ * - 저금통 오픈
+ * - 쪽지 작성과 상태 변경
+ * - 댓글과 리액션
+ * - 오늘의 추억 한 장
+ *
+ * 모든 기능은 같은 /ws 연결과 /topic 구독 구조를 사용한다.
  */
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    // WebSocket CONNECT / SUBSCRIBE / SEND 요청의 권한을 검사하는 문지기
+    // WebSocket 요청의 인증과 권한을 검사한다.
     private final WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor;
 
-    public WebSocketConfig(WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor) {
+    // REST와 WebSocket이 같은 CORS 주소를 사용하도록 공통 설정을 가져온다.
+    private final AppProperties appProperties;
+
+    public WebSocketConfig(
+            WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor,
+            AppProperties appProperties
+    ) {
         this.webSocketAuthChannelInterceptor = webSocketAuthChannelInterceptor;
+        this.appProperties = appProperties;
     }
 
     /*
@@ -87,12 +102,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
+                /*
+                 * SecurityConfig와 완전히 같은 Origin 목록을 사용한다.
+                 *
+                 * application.yml:
+                 * - 로컬 주소
+                 *
+                 * application-prod.yml:
+                 * - 운영 주소
+                 */
                 .setAllowedOriginPatterns(
-                        "http://localhost:3000",
-                        "http://localhost:5173",
-                        "https://esjh.shop",
-                        "https://www.esjh.shop",
-                        "https://*.vercel.app"
+                        appProperties.getCors()
+                                .getAllowedOriginPatterns()
+                                .toArray(String[]::new)
                 );
     }
 }
