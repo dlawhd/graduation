@@ -18,6 +18,9 @@ import {
 import {
   getCurrentUserIdFromMe,
 } from "../utils/jarDetailUtils";
+import {
+  subscribeChatSocket,
+} from "../../../api/chatSocketApi";
 /*
  * useJarRealtimeEvents 역할
  *
@@ -34,6 +37,10 @@ export function useJarRealtimeEvents({
   jarId,
   jar,
   me,
+  // 채팅 unread 뱃지 실시간 갱신에 필요한 값
+  jarChatOpen,
+  setChatUnreadCount,
+  loadChatUnreadCount,
   navigate,
   loadMembers,
   loadJarDetail,
@@ -55,13 +62,38 @@ export function useJarRealtimeEvents({
   setDailyDrawRealtimeMessage,
 }) {
 
-  // 앱 전체가 함께 사용하는 공용 STOMP 구독 함수다.
-  const { subscribe } = useStompClient();
+  /*
+   * subscribe:
+   * - 필요한 topic을 구독할 때 사용한다.
+   *
+   * connected:
+   * - WebSocket이 끊겼다가 다시 연결됐는지 확인할 때 사용한다.
+   */
+  const {
+    connected,
+    subscribe,
+  } = useStompClient();
 
   // 로그인 사용자 ID를 한 번 계산해서 모든 실시간 구독이 같이 사용한다.
-  const currentUserId =
-    getCurrentUserIdFromMe(me);
+  const currentUserId = getCurrentUserIdFromMe(me);
 
+  /*
+   * chatConnectionStateRef 역할
+   *
+   * WebSocket의 첫 연결과 재연결을 구분한다.
+   *
+   * 첫 연결:
+   * - JarDetailPage가 이미 REST로 unread를 조회하므로 추가 조회하지 않는다.
+   *
+   * 재연결:
+   * - 연결이 끊긴 동안 놓친 메시지가 있을 수 있으므로
+   *   REST로 unread를 한 번 다시 맞춘다.
+   */
+  const chatConnectionStateRef = useRef({
+    connectionKey: null,
+    wasConnected: false,
+    hasConnectedOnce: false,
+  });
 
   /*
    * jarOpenEventLatestRef 역할
@@ -233,6 +265,190 @@ export function useJarRealtimeEvents({
     loadMembers,
     loadJarDetail,
     subscribe,
+  ]);
+
+  /*
+   * 채팅 모달이 닫혀 있을 때 사용하는 unread 전용 채팅 구독
+   *
+   * 중요한 점:
+   * - 채팅 모달이 열려 있으면 JarChatPanel이 채팅 topic을 구독한다.
+   * - 채팅 모달이 닫혀 있을 때만 이 Hook이 같은 topic을 구독한다.
+   *
+   * 따라서 같은 화면에서 채팅 topic을 중복 구독하지 않는다.
+   */
+  useEffect(() => {
+    if (!jarId) {
+      return;
+    }
+
+    if (currentUserId == null) {
+      return;
+    }
+
+    /*
+     * 채팅 모달이 열려 있으면 JarChatPanel이:
+     * - 새 메시지를 화면에 추가하고
+     * - 해당 메시지를 읽음 처리한다.
+     *
+     * 이때 바깥 unread 구독은 필요하지 않다.
+     */
+    if (jarChatOpen) {
+      return;
+    }
+
+    let disconnectedByCleanup = false;
+
+    const unsubscribe = subscribeChatSocket({
+      subscribe,
+      jarId,
+
+      onMessageReceived: (message) => {
+        if (disconnectedByCleanup) {
+          return;
+        }
+
+        /*
+         * 혹시 다른 저금통의 이벤트가 들어오더라도
+         * 현재 저금통의 뱃지를 변경하지 않는다.
+         */
+        if (
+          Number(message?.jarId) !==
+          Number(jarId)
+        ) {
+          return;
+        }
+
+        const senderId = message?.senderId;
+
+        /*
+         * 내가 직접 보낸 메시지는 unread로 세지 않는다.
+         *
+         * SYSTEM 메시지는 senderId가 null이므로
+         * 다른 사람의 메시지처럼 unread에 포함된다.
+         *
+         * 이는 백엔드의 unread COUNT 규칙과 같다.
+         */
+        const isMyMessage =
+          senderId !== null &&
+          senderId !== undefined &&
+          Number(senderId) ===
+            Number(currentUserId);
+
+        if (isMyMessage) {
+          return;
+        }
+
+        /*
+         * 새 메시지가 실제로 왔을 때만 뱃지를 1 증가시킨다.
+         *
+         * 이제 3초마다 서버에 물어볼 필요가 없다.
+         */
+        setChatUnreadCount((previousCount) => {
+          const safePreviousCount =
+            Number(previousCount) || 0;
+
+          return safePreviousCount + 1;
+        });
+      },
+    });
+
+    return () => {
+      disconnectedByCleanup = true;
+
+      /*
+       * 전체 공용 WebSocket 연결은 유지하고
+       * unread용 채팅 topic 구독만 해제한다.
+       */
+      unsubscribe();
+    };
+  }, [
+    jarId,
+    currentUserId,
+    jarChatOpen,
+    setChatUnreadCount,
+    subscribe,
+  ]);
+
+  /*
+   * WebSocket 재연결 후 unread 개수를 서버 기준으로 다시 맞춘다.
+   *
+   * 재연결이 필요한 이유:
+   * - 인터넷이 잠시 끊긴 동안 WebSocket 메시지를 놓칠 수 있다.
+   * - 화면의 숫자를 단순히 +1 하는 방식만으로는
+   *   놓친 메시지 개수를 알 수 없다.
+   *
+   * 따라서 연결이 다시 살아난 순간 REST를 한 번 호출한다.
+   */
+  useEffect(() => {
+    const connectionKey =
+      jarId && currentUserId != null
+        ? `${Number(jarId)}:${Number(currentUserId)}`
+        : null;
+
+    /*
+     * 저금통 또는 로그인 사용자가 아직 준비되지 않았다면
+     * 연결 기억도 초기화한다.
+     */
+    if (!connectionKey) {
+      chatConnectionStateRef.current = {
+        connectionKey: null,
+        wasConnected: false,
+        hasConnectedOnce: false,
+      };
+
+      return;
+    }
+
+    const connectionState =
+      chatConnectionStateRef.current;
+
+    /*
+     * 다른 저금통이나 다른 사용자로 바뀌었다면
+     * 이전 연결 기록을 새 기준으로 초기화한다.
+     */
+    if (
+      connectionState.connectionKey !==
+      connectionKey
+    ) {
+      connectionState.connectionKey =
+        connectionKey;
+
+      connectionState.wasConnected = false;
+      connectionState.hasConnectedOnce = false;
+    }
+
+    /*
+     * false → true로 바뀐 순간만 연결 성공으로 판단한다.
+     */
+    const justConnected =
+      connected &&
+      !connectionState.wasConnected;
+
+    if (justConnected) {
+      /*
+       * 첫 연결 때는 JarDetailPage의 최초 REST 조회가 있으므로
+       * 중복 요청을 보내지 않는다.
+       *
+       * 한 번 연결된 적이 있는 상태에서 다시 연결된 경우만
+       * 재연결로 판단한다.
+       */
+      if (
+        connectionState.hasConnectedOnce &&
+        !jarChatOpen
+      ) {
+        void loadChatUnreadCount();
+      }
+
+      connectionState.hasConnectedOnce = true;
+    }
+
+    connectionState.wasConnected = connected;
+  }, [
+    connected,
+    jarId,
+    currentUserId,
+    jarChatOpen,
+    loadChatUnreadCount,
   ]);
 
   /*

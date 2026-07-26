@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.entity.jar.JarMember;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -284,7 +285,7 @@ class ChatServiceTest {
     }
 
     @Test
-    void markAsRead는_읽음상태가_없으면_새로_만들고_마지막_읽은_메시지를_저장한다() {
+    void markAsRead는_멤버_row를_먼저_잠그고_읽음상태가_없으면_새로_만든다() {
         // given
         ChatReadRequest request = new ChatReadRequest(300L);
 
@@ -294,31 +295,79 @@ class ChatServiceTest {
         when(jarRepository.findByJarId(JAR_ID))
                 .thenReturn(Optional.of(jar));
 
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID))
-                .thenReturn(true);
+        // 항상 존재하는 active 멤버 row를 잠글 수 있다고 가정
+        JarMember lockedMember = mock(JarMember.class);
 
-        ChatMessage lastReadMessage = createTextMessage(300L, otherUser, "여기까지 읽음");
+        when(jarMemberRepository
+                .findActiveMemberForUpdateByJarIdAndUserId(
+                        JAR_ID,
+                        USER_ID
+                ))
+                .thenReturn(Optional.of(lockedMember));
 
-        // 읽음 처리하려는 메시지가 진짜 해당 저금통 메시지라고 가정
-        when(chatMessageRepository.findByJar_JarIdAndMessageId(JAR_ID, 300L))
+        ChatMessage lastReadMessage = createTextMessage(
+                300L,
+                otherUser,
+                "여기까지 읽음"
+        );
+
+        when(chatMessageRepository
+                .findByJar_JarIdAndMessageId(
+                        JAR_ID,
+                        300L
+                ))
                 .thenReturn(Optional.of(lastReadMessage));
 
-        // 아직 읽음 상태가 없다고 가정
-        when(chatReadStateRepository.findForUpdateByJarIdAndUserId(JAR_ID, USER_ID))
+        // 아직 첫 읽음 상태가 만들어지지 않은 상황
+        when(chatReadStateRepository
+                .findForUpdateByJarIdAndUserId(
+                        JAR_ID,
+                        USER_ID
+                ))
                 .thenReturn(Optional.empty());
 
         // when
-        chatService.markAsRead(USER_ID, JAR_ID, request);
+        chatService.markAsRead(
+                USER_ID,
+                JAR_ID,
+                request
+        );
 
         // then
-        ArgumentCaptor<ChatReadState> captor = ArgumentCaptor.forClass(ChatReadState.class);
+        ArgumentCaptor<ChatReadState> captor =
+                ArgumentCaptor.forClass(ChatReadState.class);
+
         verify(chatReadStateRepository).save(captor.capture());
 
         ChatReadState savedReadState = captor.getValue();
 
         assertThat(savedReadState.isJar(JAR_ID)).isTrue();
         assertThat(savedReadState.isUser(USER_ID)).isTrue();
-        assertThat(savedReadState.getLastReadMessageId()).isEqualTo(300L);
+        assertThat(savedReadState.getLastReadMessageId())
+                .isEqualTo(300L);
+
+        /*
+         * 동시성 안전성의 핵심 순서를 검증한다.
+         *
+         * 1. 멤버 row 잠금
+         * 2. 읽음 상태 조회
+         */
+        var inOrder = inOrder(
+                jarMemberRepository,
+                chatReadStateRepository
+        );
+
+        inOrder.verify(jarMemberRepository)
+                .findActiveMemberForUpdateByJarIdAndUserId(
+                        JAR_ID,
+                        USER_ID
+                );
+
+        inOrder.verify(chatReadStateRepository)
+                .findForUpdateByJarIdAndUserId(
+                        JAR_ID,
+                        USER_ID
+                );
     }
 
     @Test
@@ -332,8 +381,14 @@ class ChatServiceTest {
         when(jarRepository.findByJarId(JAR_ID))
                 .thenReturn(Optional.of(jar));
 
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID))
-                .thenReturn(true);
+        JarMember lockedMember = mock(JarMember.class);
+
+        when(jarMemberRepository
+                .findActiveMemberForUpdateByJarIdAndUserId(
+                        JAR_ID,
+                        USER_ID
+                ))
+                .thenReturn(Optional.of(lockedMember));
 
         // 999번 메시지가 이 저금통에 없다고 가정
         when(chatMessageRepository.findByJar_JarIdAndMessageId(JAR_ID, 999L))
@@ -458,6 +513,51 @@ class ChatServiceTest {
                 any(),
                 any(Pageable.class)
         );
+    }
+
+    @Test
+    void markAsRead는_active_멤버가_아니면_읽음상태를_만들지_않는다() {
+        // given
+        ChatReadRequest request = new ChatReadRequest(300L);
+
+        when(userRepository.findById(USER_ID))
+                .thenReturn(Optional.of(currentUser));
+
+        when(jarRepository.findByJarId(JAR_ID))
+                .thenReturn(Optional.of(jar));
+
+        /*
+         * active 멤버 row가 없다는 뜻이다.
+         *
+         * 탈퇴했거나,
+         * 처음부터 저금통 멤버가 아닌 경우다.
+         */
+        when(jarMemberRepository
+                .findActiveMemberForUpdateByJarIdAndUserId(
+                        JAR_ID,
+                        USER_ID
+                ))
+                .thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() ->
+                chatService.markAsRead(
+                        USER_ID,
+                        JAR_ID,
+                        request
+                )
+        )
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining(
+                        "현재 저금통 멤버만 채팅 읽음 처리를 할 수 있어요."
+                );
+
+        /*
+         * 멤버가 아니므로 메시지 조회와 읽음 상태 저장까지
+         * 진행하면 안 된다.
+         */
+        verifyNoInteractions(chatMessageRepository);
+        verifyNoInteractions(chatReadStateRepository);
     }
 
     /*

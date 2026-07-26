@@ -1,5 +1,7 @@
 package shop.esjh.memoryjar.repository.jar;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import shop.esjh.memoryjar.entity.jar.JarMember;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +19,32 @@ public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
     //  특정 유저의 현재 active 멤버 row 찾기
     //  권한 확인이나 내 역할 확인할 때 자주 쓸 수 있어.
     Optional<JarMember> findByJar_JarIdAndUser_IdAndDeletedAtIsNull(Long jarId, Long userId);
+
+    /*
+     * 채팅 읽음 상태를 만들거나 수정하기 전에
+     * 현재 사용자의 활성 멤버 row를 잠그고 조회한다.
+     *
+     * 왜 chat_read_state가 아니라 jar_members를 잠글까?
+     *
+     * - chat_read_state는 첫 읽음 요청 전에는 없을 수 있다.
+     * - 없는 row는 DB에서 잠글 수 없다.
+     * - 반면 현재 저금통 멤버라면 jar_members row는 반드시 존재한다.
+     *
+     * 따라서 같은 사용자에게 읽음 요청이 동시에 들어와도
+     * 이 멤버 row를 기준으로 한 요청씩 차례대로 처리할 수 있다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select jm
+        from JarMember jm
+        where jm.jar.jarId = :jarId
+          and jm.user.id = :userId
+          and jm.deletedAt is null
+        """)
+    Optional<JarMember> findActiveMemberForUpdateByJarIdAndUserId(
+            @Param("jarId") Long jarId,
+            @Param("userId") Long userId
+    );
 
     /**
      * 삭제된 멤버까지 포함해서 jar_members row를 찾습니다.

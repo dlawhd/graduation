@@ -290,6 +290,39 @@ const {
 const currentUserId = me?.userId ?? me?.id ?? null;
 
 /*
+ * 채팅 unread 개수를 서버 기준으로 다시 맞추는 함수
+ *
+ * 평소에는 WebSocket 이벤트로 숫자를 올리고,
+ * 아래 상황에서만 REST API를 한 번 호출한다.
+ *
+ * - 저금통 상세 페이지 첫 진입
+ * - WebSocket 재연결
+ * - 다른 탭에 갔다가 현재 화면으로 복귀
+ * - 채팅 모달을 닫은 직후
+ */
+const loadChatUnreadCount = useCallback(async () => {
+  if (!jarId) {
+    return;
+  }
+
+  try {
+    const data = await getChatUnreadCount(jarId);
+
+    setChatUnreadCount(
+      Number(data?.unreadCount || 0)
+    );
+  } catch {
+    /*
+     * 일시적인 네트워크 오류가 발생하더라도
+     * 현재 화면에 보이던 unread 숫자는 유지한다.
+     *
+     * 기존처럼 무조건 0으로 바꾸면
+     * 실제 안 읽은 메시지가 있는데도 뱃지가 사라질 수 있다.
+     */
+  }
+}, [jarId]);
+
+/*
  * 현재 저금통의 축하 모달 확인 기록 키
  *
  * 사용자와 저금통 번호를 함께 넣기 때문에
@@ -704,6 +737,10 @@ useEffect(() => {
     jarId,
     jar,
     me,
+    // 채팅 unread 실시간 갱신에 필요한 값
+    jarChatOpen,
+    setChatUnreadCount,
+    loadChatUnreadCount,
     navigate,
     loadMembers,
     loadJarDetail,
@@ -834,30 +871,93 @@ useEffect(() => {
   ]);
 
   /*
-   * 채팅 모달이 닫혀 있을 때도
-   * 채팅 버튼 옆 숫자는 계속 갱신되어야 해.
+   * 저금통 상세 페이지에 처음 들어왔을 때
+   * 서버 기준 unread 개수를 한 번만 조회한다.
    *
-   * 그래서 JarChatPanel이 사라져 있어도
-   * JarDetailPage에서 unread count만 가볍게 polling 해준다.
+   * jarId 또는 로그인 사용자가 바뀌면
+   * 이전 저금통의 숫자를 잠시 보여주지 않도록 먼저 0으로 초기화한다.
    */
   useEffect(() => {
-    if (!jarId) return;
+    if (!jarId || currentUserId == null) {
+      return;
+    }
 
-    // 처음 들어왔을 때 1번 바로 조회
-    loadChatUnreadCount();
+    setChatUnreadCount(0);
+    void loadChatUnreadCount();
+  }, [
+    jarId,
+    currentUserId,
+    loadChatUnreadCount,
+  ]);
 
-    // 채팅 모달이 열려 있으면 JarChatPanel이 직접 메시지를 보고 읽음 처리하므로
-    // 바깥 badge polling은 잠깐 멈춰도 괜찮아.
-    if (jarChatOpen) return;
+  /*
+   * 다른 브라우저 탭이나 다른 프로그램을 보고 있다가
+   * 현재 화면으로 돌아왔을 때 unread 개수를 한 번 다시 맞춘다.
+   *
+   * focus와 visibilitychange가 거의 동시에 실행될 수 있기 때문에
+   * 100ms 타이머로 합쳐서 REST 요청이 한 번만 나가도록 한다.
+   */
+  useEffect(() => {
+    if (
+      !jarId ||
+      currentUserId == null ||
+      jarChatOpen
+    ) {
+      return;
+    }
 
-    const timerId = window.setInterval(() => {
-      loadChatUnreadCount();
-    }, 3000);
+    let refreshTimerId = null;
+
+    function refreshChatUnreadWhenReturning() {
+      // 아직 화면이 숨겨져 있으면 조회하지 않는다.
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      /*
+       * focus와 visibilitychange가 연달아 발생하면
+       * 앞에서 예약한 요청을 지우고 마지막 요청 하나만 남긴다.
+       */
+      if (refreshTimerId) {
+        window.clearTimeout(refreshTimerId);
+      }
+
+      refreshTimerId = window.setTimeout(() => {
+        void loadChatUnreadCount();
+      }, 100);
+    }
+
+    window.addEventListener(
+      "focus",
+      refreshChatUnreadWhenReturning
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      refreshChatUnreadWhenReturning
+    );
 
     return () => {
-      window.clearInterval(timerId);
+      if (refreshTimerId) {
+        window.clearTimeout(refreshTimerId);
+      }
+
+      window.removeEventListener(
+        "focus",
+        refreshChatUnreadWhenReturning
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshChatUnreadWhenReturning
+      );
     };
-  }, [jarId, jarChatOpen]);
+  }, [
+    jarId,
+    currentUserId,
+    jarChatOpen,
+    loadChatUnreadCount,
+  ]);
 
     useEffect(() => {
       if (!jar) return;
@@ -1617,25 +1717,6 @@ async function handleOpenJarZoom() {
 // 저금통 확대 모달 닫기
 function handleCloseJarZoom() {
   setJarZoomOpen(false);
-}
-
-/*
- * 채팅 버튼 옆에 보여줄 안 읽은 메시지 개수를 불러오는 함수야.
- *
- * 쉽게 말하면:
- * - 서버에 "내가 안 본 채팅 몇 개야?"라고 물어봄
- * - 그 숫자를 버튼 빨간 뱃지에 보여줌
- */
-async function loadChatUnreadCount() {
-  if (!jarId) return;
-
-  try {
-    const data = await getChatUnreadCount(jarId);
-    setChatUnreadCount(Number(data?.unreadCount || 0));
-  } catch {
-    // unread count는 보조 기능이라 실패해도 화면을 깨지 않게 0으로 둠
-    setChatUnreadCount(0);
-  }
 }
 
 /*

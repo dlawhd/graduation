@@ -244,8 +244,16 @@ public class ChatService {
         // 2. 저금통 찾기
         Jar jar = getJarOrThrow(jarId);
 
-        // 3. 현재 사용자가 active 멤버인지 확인
-        validateActiveMember(
+        /*
+         * 3. 현재 사용자의 active 멤버 row를 잠근다.
+         *
+         * 단순 권한 검사만 하는 것이 아니라,
+         * 같은 사용자에게 동시에 들어온 읽음 요청을 한 줄로 세운다.
+         *
+         * chat_read_state가 아직 없어도 jar_members는 반드시 있으므로
+         * 첫 읽음 상태 생성 시 발생할 수 있는 UNIQUE 충돌을 막을 수 있다.
+         */
+        lockActiveMemberOrThrow(
                 jarId,
                 currentUserId,
                 "현재 저금통 멤버만 채팅 읽음 처리를 할 수 있어요."
@@ -359,6 +367,32 @@ public class ChatService {
                     message
             );
         }
+    }
+
+    /*
+     * 현재 사용자의 active 멤버 row를 잠그고 권한도 함께 확인한다.
+     *
+     * 사용 위치:
+     * - 채팅 읽음 상태를 만들거나 수정할 때
+     *
+     * 일반 validateActiveMember와 다른 점:
+     * - 일반 검사는 멤버인지 확인만 한다.
+     * - 이 메서드는 멤버 row를 잠가서 동시 요청도 차례대로 처리한다.
+     */
+    private void lockActiveMemberOrThrow(
+            Long jarId,
+            Long currentUserId,
+            String message
+    ) {
+        jarMemberRepository
+                .findActiveMemberForUpdateByJarIdAndUserId(
+                        jarId,
+                        currentUserId
+                )
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        message
+                ));
     }
 
     /*
