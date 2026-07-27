@@ -22,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -389,6 +390,63 @@ class NoteControllerTest {
                 .andExpect(jsonPath("$.data.size").value(5));
 
         verify(noteService).listNotes(currentUserId, jarId, 2, 5);
+    }
+
+    @Test
+    @DisplayName("쪽지 작성 실패 - 첨부파일이 11개면 400")
+    void createNote_fail_whenAttachmentsExceedLimit()
+            throws Exception {
+
+        // 첨부파일 요청 11개를 만든다.
+        List<NoteAttachmentCreateRequest> attachments =
+                java.util.stream.IntStream
+                        .range(0, 11)
+                        .mapToObj(index ->
+                                new NoteAttachmentCreateRequest(
+                                        "notes/limit/file-" +
+                                                index +
+                                                ".png"
+                                )
+                        )
+                        .toList();
+
+        NoteCreateRequest request =
+                new NoteCreateRequest(
+                        "첨부 개수 제한 테스트",
+                        "첨부파일이 10개를 넘으면 요청 단계에서 막아야 해.",
+                        LocalDate.of(2026, 7, 26),
+                        "서울",
+                        attachments,
+                        List.of("테스트")
+                );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/jars/{jarId}/notes",
+                                10L
+                        )
+                                .principal(
+                                        authWithUserId(1L)
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        objectMapper
+                                                .writeValueAsString(
+                                                        request
+                                                )
+                                )
+                )
+                .andExpect(
+                        status().isBadRequest()
+                );
+
+        /*
+         * DTO 검증에서 먼저 실패해야 하므로
+         * 실제 쪽지 서비스는 호출되지 않아야 한다.
+         */
+        verifyNoInteractions(noteService);
     }
 
     @Test

@@ -7,6 +7,7 @@ import shop.esjh.memoryjar.entity.note.Note;
 import shop.esjh.memoryjar.entity.note.NoteAttachment;
 import shop.esjh.memoryjar.enums.file.FilePurpose;
 import shop.esjh.memoryjar.enums.file.FileUploadStatus;
+import shop.esjh.memoryjar.policy.note.NoteAttachmentPolicy;
 import shop.esjh.memoryjar.repository.file.FileUploadRepository;
 import shop.esjh.memoryjar.repository.note.NoteAttachmentRepository;
 import shop.esjh.memoryjar.repository.note.NoteRepository;
@@ -22,10 +23,6 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 public class NoteAttachmentService {
-
-    // 한 쪽지에 붙일 수 있는 최대 첨부 개수
-    // 필요하면 나중에 설정값(application.yml)으로 뺄 수도 있음
-    private static final int MAX_ATTACHMENTS_PER_NOTE = 10;
 
     private final NoteRepository noteRepository;
     private final NoteAttachmentRepository noteAttachmentRepository;
@@ -119,8 +116,10 @@ public class NoteAttachmentService {
 
         List<NoteAttachment> attachments = new ArrayList<>();
 
+        // 프론트가 보낸 s3Key 배열 순서를 그대로 유지한다.
         for (String s3Key : requestedS3Keys) {
-            FileUpload upload = uploadMap.get(s3Key);
+            FileUpload upload =
+                    uploadMap.get(s3Key);
 
             if (upload == null) {
                 throw new ResponseStatusException(
@@ -129,20 +128,27 @@ public class NoteAttachmentService {
                 );
             }
 
-            // 이제는 file_uploads 값을 믿고 저장
-            NoteAttachment attachment = NoteAttachment.builder()
-                    .note(note)
-                    .sortOrder(nextSortOrder++)
-                    .s3Key(upload.getS3Key())
-                    .url(upload.getPublicUrl())
-                    .thumbnailUrl(null)
-                    .contentType(upload.getContentType())
-                    .size(upload.getSize())
-                    .build();
+            NoteAttachment attachment =
+                    NoteAttachment.builder()
+                            .note(note)
+
+                            /*
+                             * 프론트 배열 순서대로
+                             * 0, 1, 2 순서가 저장된다.
+                             */
+                            .sortOrder(nextSortOrder++)
+
+                            .s3Key(upload.getS3Key())
+                            .url(upload.getPublicUrl())
+                            .thumbnailUrl(null)
+                            .contentType(
+                                    upload.getContentType()
+                            )
+                            .size(upload.getSize())
+                            .build();
 
             attachments.add(attachment);
 
-            // 한 번 연결된 파일은 다시 못 쓰게 처리
             upload.markConsumed();
         }
 
@@ -176,69 +182,288 @@ public class NoteAttachmentService {
         return attachment;
     }
 
-    // 첨부파일 순서 재정렬
+    /*
+     * 저장된 첨부파일들의 순서를 안전하게 다시 정렬한다.
+     *
+     * A=0, B=1을 A=1, B=0으로 바로 변경하면
+     * 중간 순간에 sortOrder=1이 두 개가 될 수 있다.
+     *
+     * 그래서:
+     * 1. 모든 첨부를 임시 번호로 이동
+     * 2. flush
+     * 3. 최종 번호로 이동
+     * 4. flush
+     * 순서로 처리한다.
+     */
     @Transactional
-    public void updateSortOrders(Long noteId,
-                                 List<NoteAttachmentSortUpdateRequest> requests) {
-
-        // 0. 요청이 비어 있으면 바꿀 게 없으니 그냥 종료
+    public void updateSortOrders(
+            Long noteId,
+            List<NoteAttachmentSortUpdateRequest> requests
+    ) {
+        // 요청이 없으면 변경할 것도 없다.
         if (requests == null || requests.isEmpty()) {
             return;
         }
 
-        // 1. 같은 sortOrder가 중복으로 들어왔는지 먼저 검사
-        // 예:
-        // attachment 1 -> sortOrder 0
-        // attachment 2 -> sortOrder 0
-        // 이렇게 오면 순서가 겹치니까 잘못된 요청
-        // DB unique 제약에서 막히기 전에 서비스에서 먼저 예쁘게 막아주는 역할
-        validateDuplicateSortOrder(requests);
+        // 요청 안의 null과 중복 값을 먼저 검사한다.
+        validateBasicSortOrderRequests(requests);
 
-        // 2. note가 실제로 존재하는지 확인
+        // 쪽지가 실제로 존재하는지 확인한다.
         getNoteOrThrow(noteId);
 
-        // 3. 현재 쪽지에 연결된 첨부파일 목록을 가져오기
+        // 기존 첨부파일을 현재 순서대로 조회한다.
         List<NoteAttachment> attachments =
-                noteAttachmentRepository.findAllByNote_NoteIdOrderBySortOrderAsc(noteId);
+                noteAttachmentRepository
+                        .findAllByNote_NoteIdOrderBySortOrderAsc(
+                                noteId
+                        );
 
-        // 4. 현재 첨부 개수와 요청 개수가 다르면 이상한 요청으로 판단
-        if (attachments.size() != requests.size()) {
+        // 요청이 현재 첨부 전체를 정확하게 나타내는지 확인한다.
+        validateSortOrderRequests(
+                attachments,
+                requests
+        );
+
+        // attachmentId로 첨부 객체를 바로 찾기 위한 Map
+        Map<Long, NoteAttachment> attachmentMap =
+                attachments.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        NoteAttachment::getId,
+                                        Function.identity()
+                                )
+                        );
+
+        /*
+         * 기존 번호 및 최종 번호와 겹치지 않는
+         * 충분히 큰 임시 시작 번호를 만든다.
+         *
+         * 현재 최대 번호가 2이고 첨부가 3개라면:
+         * temporaryStart = 2 + 3 + 1 = 6
+         */
+        int temporaryStart =
+                attachments.stream()
+                        .map(
+                                NoteAttachment::getSortOrder
+                        )
+                        .filter(Objects::nonNull)
+                        .max(Integer::compareTo)
+                        .orElse(-1)
+                        + attachments.size()
+                        + 1;
+
+        /*
+         * 모든 첨부를 임시 번호로 이동한다.
+         *
+         * 기존:
+         * A=0, B=1
+         *
+         * 임시:
+         * A=3, B=4
+         */
+        for (
+                int index = 0;
+                index < attachments.size();
+                index++
+        ) {
+            attachments.get(index)
+                    .updateSortOrder(
+                            temporaryStart + index
+                    );
+        }
+
+        /*
+         * 임시 번호를 DB에 먼저 반영해서
+         * 기존 0, 1, 2 자리를 완전히 비운다.
+         */
+        noteAttachmentRepository.flush();
+
+        /*
+         * 사용자가 요청한 최종 순서를 적용한다.
+         */
+        for (
+                NoteAttachmentSortUpdateRequest request :
+                requests
+        ) {
+            NoteAttachment target =
+                    attachmentMap.get(
+                            request.attachmentId()
+                    );
+
+            target.updateSortOrder(
+                    request.sortOrder()
+            );
+        }
+
+        /*
+         * 최종 순서도 DB에 바로 반영해
+         * unique 충돌 여부를 메서드 안에서 확인한다.
+         */
+        noteAttachmentRepository.flush();
+    }
+
+    /*
+     * DB 조회 전에 요청 자체의 기본 오류를 검사한다.
+     */
+    private void validateBasicSortOrderRequests(
+            List<NoteAttachmentSortUpdateRequest> requests
+    ) {
+        // null 요청 또는 attachmentId가 없는 요청 확인
+        boolean hasNullAttachmentId =
+                requests.stream()
+                        .anyMatch(
+                                request ->
+                                        request == null ||
+                                                request.attachmentId() == null
+                        );
+
+        if (hasNullAttachmentId) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "attachmentId는 비어 있을 수 없어."
+            );
+        }
+
+        // sortOrder가 없는 요청 확인
+        boolean hasNullSortOrder =
+                requests.stream()
+                        .anyMatch(
+                                request ->
+                                        request.sortOrder() == null
+                        );
+
+        if (hasNullSortOrder) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "sortOrder는 비어 있을 수 없어."
+            );
+        }
+
+        // 같은 attachmentId가 두 번 들어왔는지 확인
+        long distinctAttachmentIdCount =
+                requests.stream()
+                        .map(
+                                NoteAttachmentSortUpdateRequest
+                                        ::attachmentId
+                        )
+                        .distinct()
+                        .count();
+
+        if (
+                distinctAttachmentIdCount !=
+                        requests.size()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "중복된 attachmentId가 있어."
+            );
+        }
+
+        // 같은 sortOrder가 두 번 들어왔는지 확인
+        long distinctSortOrderCount =
+                requests.stream()
+                        .map(
+                                NoteAttachmentSortUpdateRequest
+                                        ::sortOrder
+                        )
+                        .distinct()
+                        .count();
+
+        if (
+                distinctSortOrderCount !=
+                        requests.size()
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "중복된 sortOrder가 있어."
+            );
+        }
+    }
+
+    /*
+     * 순서 변경 요청이 현재 첨부파일 전체와 일치하는지 검사한다.
+     */
+    private void validateSortOrderRequests(
+            List<NoteAttachment> attachments,
+            List<NoteAttachmentSortUpdateRequest> requests
+    ) {
+        // 현재 첨부 개수와 요청 개수가 같아야 한다.
+        if (
+                attachments.size() !=
+                        requests.size()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "첨부파일 순서 정보가 올바르지 않아."
             );
         }
 
-        // 5. 요청된 attachmentId가 정말 이 note 소속인지 검사하면서 순서 변경
-        for (NoteAttachmentSortUpdateRequest request : requests) {
-            NoteAttachment target = attachments.stream()
-                    .filter(attachment -> attachment.getId().equals(request.attachmentId()))
-                    .findFirst()
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "현재 쪽지에 없는 첨부파일이 포함되어 있어."
-                    ));
+        // 요청으로 받은 attachmentId 목록
+        Set<Long> requestedAttachmentIds =
+                requests.stream()
+                        .map(
+                                NoteAttachmentSortUpdateRequest
+                                        ::attachmentId
+                        )
+                        .collect(
+                                Collectors.toSet()
+                        );
 
-            // 6. 검증이 끝난 첨부파일의 순서 변경
-            target.updateSortOrder(request.sortOrder());
-        }
-    }
+        // 실제 쪽지에 들어 있는 attachmentId 목록
+        Set<Long> currentAttachmentIds =
+                attachments.stream()
+                        .map(NoteAttachment::getId)
+                        .collect(
+                                Collectors.toSet()
+                        );
 
-    // 요청으로 들어온 sortOrder 값이 서로 겹치는지 검사
-    // [0, 1, 2] -> 정상
-    // [0, 0, 1] -> 중복 발생 -> 예외
-    private void validateDuplicateSortOrder(List<NoteAttachmentSortUpdateRequest> requests) {
-
-        // distinct()를 쓰면 중복을 제거한 값 개수를 셀 수 있음
-        long distinctCount = requests.stream()
-                .map(NoteAttachmentSortUpdateRequest::sortOrder)
-                .distinct()
-                .count();
-
-        if (distinctCount != requests.size()) {
+        // 다른 쪽지의 첨부파일이 섞이면 막는다.
+        if (
+                !currentAttachmentIds.equals(
+                        requestedAttachmentIds
+                )
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "중복된 sortOrder가 있어."
+                    "현재 쪽지에 없는 첨부파일이 포함되어 있어."
+            );
+        }
+
+        /*
+         * 첨부가 3개라면 최종 sortOrder는
+         * 정확히 0, 1, 2여야 한다.
+         */
+        Set<Integer> requestedSortOrders =
+                requests.stream()
+                        .map(
+                                NoteAttachmentSortUpdateRequest
+                                        ::sortOrder
+                        )
+                        .collect(
+                                Collectors.toSet()
+                        );
+
+        Set<Integer> expectedSortOrders =
+                new HashSet<>();
+
+        for (
+                int sortOrder = 0;
+                sortOrder < attachments.size();
+                sortOrder++
+        ) {
+            expectedSortOrders.add(
+                    sortOrder
+            );
+        }
+
+        if (
+                !requestedSortOrders.equals(
+                        expectedSortOrders
+                )
+        ) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "sortOrder는 0부터 첨부파일 개수만큼 빠짐없이 입력해야 해."
             );
         }
     }
@@ -287,14 +512,27 @@ public class NoteAttachmentService {
         }
     }
 
-    // 첨부 개수 제한 검사
-    private void validateAttachmentCount(Long noteId, int newAttachmentCount) {
-        long currentCount = noteAttachmentRepository.countByNote_NoteId(noteId);
+    /*
+     * 기존 첨부 개수와 새 첨부 개수를 합쳐
+     * 최대 10개를 넘는지 검사한다.
+     */
+    private void validateAttachmentCount(
+            Long noteId,
+            int newAttachmentCount
+    ) {
+        long currentCount =
+                noteAttachmentRepository
+                        .countByNote_NoteId(noteId);
 
-        if (currentCount + newAttachmentCount > MAX_ATTACHMENTS_PER_NOTE) {
+        if (
+                currentCount + newAttachmentCount >
+                        NoteAttachmentPolicy.MAX_ATTACHMENTS_PER_NOTE
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "쪽지에는 첨부파일을 최대 " + MAX_ATTACHMENTS_PER_NOTE + "개까지 저장할 수 있어."
+                    "쪽지에는 첨부파일을 최대 " +
+                            NoteAttachmentPolicy.MAX_ATTACHMENTS_PER_NOTE +
+                            "개까지 저장할 수 있어."
             );
         }
     }

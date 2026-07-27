@@ -13,6 +13,8 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import shop.esjh.memoryjar.dto.note.request.NoteAttachmentSortUpdateRequest;
+import shop.esjh.memoryjar.service.note.NoteAttachmentService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,11 +28,108 @@ import static org.assertj.core.api.Assertions.tuple;
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=none")
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(JpaAuditConfig.class)
+@Import({
+        JpaAuditConfig.class,
+        NoteAttachmentService.class
+})
 class NoteAttachmentRepositoryTest extends AbstractMariaDbRepositoryTest {
 
     @Autowired
+    private NoteAttachmentService noteAttachmentService;
+
+    @Autowired
     private NoteAttachmentRepository noteAttachmentRepository;
+
+    @Test
+    @DisplayName("두 첨부의 순서를 서로 바꿔도 DB unique 충돌 없이 저장된다")
+    void updateSortOrders_swapOrder_withoutUniqueConflict() {
+        User owner = saveUser(
+                "owner-attachment-swap",
+                "owner-attachment-swap@example.com",
+                "owner"
+        );
+
+        Jar jar = saveJar(
+                owner,
+                "attachment-swap-jar",
+                LocalDateTime.now()
+                        .plusDays(1)
+        );
+
+        Note note = saveNote(
+                jar,
+                owner,
+                "attachment-swap-note",
+                LocalDateTime.now()
+        );
+
+        // 첫 번째 첨부는 sortOrder 0
+        NoteAttachment first =
+                saveAttachment(
+                        note,
+                        0,
+                        "swap/order-0.png"
+                );
+
+        // 두 번째 첨부는 sortOrder 1
+        NoteAttachment second =
+                saveAttachment(
+                        note,
+                        1,
+                        "swap/order-1.png"
+                );
+
+        flushAndClear();
+
+        /*
+         * A: 0 → 1
+         * B: 1 → 0
+         *
+         * 서로 자리를 맞바꾸도록 요청한다.
+         */
+        noteAttachmentService
+                .updateSortOrders(
+                        note.getNoteId(),
+                        List.of(
+                                new NoteAttachmentSortUpdateRequest(
+                                        first.getId(),
+                                        1
+                                ),
+                                new NoteAttachmentSortUpdateRequest(
+                                        second.getId(),
+                                        0
+                                )
+                        )
+                );
+
+        flushAndClear();
+
+        /*
+         * DB에서 다시 조회했을 때
+         * 두 번째 첨부가 0번,
+         * 첫 번째 첨부가 1번이어야 한다.
+         */
+        assertThat(
+                noteAttachmentRepository
+                        .findAllByNote_NoteIdOrderBySortOrderAsc(
+                                note.getNoteId()
+                        )
+        )
+                .extracting(
+                        NoteAttachment::getId,
+                        NoteAttachment::getSortOrder
+                )
+                .containsExactly(
+                        tuple(
+                                second.getId(),
+                                0
+                        ),
+                        tuple(
+                                first.getId(),
+                                1
+                        )
+                );
+    }
 
     @Test
     @DisplayName("findAllByNoteOrderBySortOrderAsc는 sortOrder 오름차순으로 반환한다")

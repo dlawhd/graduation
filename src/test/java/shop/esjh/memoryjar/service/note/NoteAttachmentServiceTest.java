@@ -469,6 +469,80 @@ class NoteAttachmentServiceTest {
     }
 
     @Test
+    @DisplayName("첨부파일 저장 실패 - 기존 파일과 새 파일 합계가 10개를 넘으면 400")
+    void createAttachments_fail_whenAttachmentCountExceedsLimit() {
+        Long currentUserId = 1L;
+        Long noteId = 1L;
+
+        when(
+                noteRepository.findByNoteId(noteId)
+        ).thenReturn(
+                Optional.of(note)
+        );
+
+        // DB에 기존 첨부파일이 9개 있다고 가정한다.
+        when(
+                noteAttachmentRepository
+                        .countByNote_NoteId(noteId)
+        ).thenReturn(9L);
+
+        // 새 파일 2개를 추가하려고 한다.
+        List<NoteAttachmentCreateRequest> requests =
+                List.of(
+                        new NoteAttachmentCreateRequest(
+                                "notes/limit/file-1.png"
+                        ),
+                        new NoteAttachmentCreateRequest(
+                                "notes/limit/file-2.png"
+                        )
+                );
+
+        assertThatThrownBy(() ->
+                noteAttachmentService
+                        .createAttachments(
+                                currentUserId,
+                                noteId,
+                                requests
+                        )
+        )
+                .isInstanceOf(
+                        ResponseStatusException.class
+                )
+                .satisfies(error -> {
+                    ResponseStatusException exception =
+                            (ResponseStatusException) error;
+
+                    assertThat(
+                            exception.getStatusCode()
+                    ).isEqualTo(
+                            HttpStatus.BAD_REQUEST
+                    );
+
+                    assertThat(
+                            exception.getReason()
+                    ).isEqualTo(
+                            "쪽지에는 첨부파일을 최대 10개까지 저장할 수 있어."
+                    );
+                });
+
+        // 개수 초과이므로 파일 조회와 저장은 실행되면 안 된다.
+        verify(
+                fileUploadRepository,
+                never()
+        ).findAllByUser_IdAndPurposeAndStatusAndS3KeyIn(
+                any(),
+                any(),
+                any(),
+                anyList()
+        );
+
+        verify(
+                noteAttachmentRepository,
+                never()
+        ).saveAll(anyList());
+    }
+
+    @Test
     @DisplayName("첨부파일 여러 개 저장 실패 - 같은 s3Key를 한 요청에 두 번 보내면 실패")
     void createAttachments_fail_duplicateS3KeyInRequest() {
         // given
