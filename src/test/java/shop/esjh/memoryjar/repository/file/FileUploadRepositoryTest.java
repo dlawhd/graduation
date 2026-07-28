@@ -1,5 +1,8 @@
 package shop.esjh.memoryjar.repository.file;
 
+import jakarta.persistence.LockModeType;
+import org.hibernate.Hibernate;
+import org.springframework.data.jpa.repository.Lock;
 import shop.esjh.memoryjar.config.JpaAuditConfig;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.file.FileUpload;
@@ -14,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,5 +84,96 @@ class FileUploadRepositoryTest extends AbstractMariaDbRepositoryTest {
 
         assertThat(result).extracting(FileUpload::getS3Key)
                 .containsExactly("uploads/filter-note-1.png");
+    }
+
+    @Test
+    @DisplayName("findByS3Key는 s3Key와 소유자 정보를 함께 조회한다")
+    void findByS3Key_returnsUploadWithUser() {
+        // given
+        User user = saveUser(
+                "user-file-find",
+                "user-file-find@example.com",
+                "user"
+        );
+
+        saveFileUpload(
+                user,
+                FilePurpose.NOTE,
+                FileUploadStatus.PRESIGNED,
+                "uploads/find-file.png"
+        );
+
+        flushAndClear();
+
+        // when
+        FileUpload foundUpload =
+                fileUploadRepository
+                        .findByS3Key("uploads/find-file.png")
+                        .orElseThrow();
+
+        // then
+        assertThat(foundUpload.getS3Key())
+                .isEqualTo("uploads/find-file.png");
+
+        /*
+         * JOIN FETCH를 사용했으므로
+         * user가 추가 쿼리 없이 이미 준비되어야 한다.
+         */
+        assertThat(Hibernate.isInitialized(foundUpload.getUser()))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("findByIdForUpdate는 업로드 기록을 잠금 조회한다")
+    void findByIdForUpdate_returnsUpload() {
+        // given
+        User user = saveUser(
+                "user-file-lock",
+                "user-file-lock@example.com",
+                "user"
+        );
+
+        FileUpload savedUpload = saveFileUpload(
+                user,
+                FilePurpose.NOTE,
+                FileUploadStatus.PRESIGNED,
+                "uploads/lock-file.png"
+        );
+
+        Long uploadId = savedUpload.getId();
+
+        flushAndClear();
+
+        // when
+        FileUpload foundUpload =
+                fileUploadRepository
+                        .findByIdForUpdate(uploadId)
+                        .orElseThrow();
+
+        // then
+        assertThat(foundUpload.getS3Key())
+                .isEqualTo("uploads/lock-file.png");
+    }
+
+    @Test
+    @DisplayName("findByIdForUpdate는 PESSIMISTIC_WRITE 잠금을 사용한다")
+    void findByIdForUpdate_usesPessimisticWriteLock()
+            throws Exception {
+
+        // given
+        Method method =
+                FileUploadRepository.class.getMethod(
+                        "findByIdForUpdate",
+                        Long.class
+                );
+
+        // when
+        Lock lock = method.getAnnotation(Lock.class);
+
+        // then
+        assertThat(lock).isNotNull();
+
+        assertThat(lock.value())
+                .isEqualTo(LockModeType.PESSIMISTIC_WRITE);
     }
 }
