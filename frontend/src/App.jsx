@@ -32,6 +32,8 @@ import {
 import {
   useStompClient,
 } from "./realtime/StompClientProvider";
+
+import MemoryJarLogoIcon from "./components/icons/MemoryJarLogoIcon";
 // 작은 enum 한글화
 const ROLE_LABEL = {
   OWNER: "방장",
@@ -648,58 +650,40 @@ export default function App() {
             to="/"
             className="group inline-flex items-center gap-3 rounded-full px-2 py-1 transition"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-emerald-300 via-teal-300 to-cyan-300 text-lg shadow-sm transition group-hover:scale-105">
-              🫙
+            {/* 로그인 저금통과 같은 재질을 사용하는 브랜드 로고 아이콘 */}
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100/80 via-cyan-50 to-violet-100/80 shadow-sm ring-1 ring-white/90 transition duration-300 group-hover:scale-105 group-hover:shadow-md">
+              <MemoryJarLogoIcon className="h-10 w-10" />
             </div>
 
             <div className="leading-tight">
-              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-emerald-600">
+              <p className="text-[18px] font-bold uppercase tracking-[0.28em] text-emerald-600">
                 Memory Jar
               </p>
-              <p className="text-lg font-black text-slate-900 transition group-hover:text-emerald-700">
-                EESJH
-              </p>
+
             </div>
           </Link>
 
-          {/* 오른쪽 메뉴 전체 묶음 */}
+          {/* 오른쪽 메뉴 전체 묶음
+              - 로그인 전에는 메뉴를 보여주지 않아 로고만 남긴다.
+              - 로그인 후에는 Jars, 알림, 내정보, 로그아웃만 보여준다. */}
           <div className="flex items-center gap-2">
-            {/* Home / Jars 메뉴 */}
-            <nav className="flex items-center gap-2">
-              <Link
-                to="/"
-                className={[
-                  navButtonClass,
-                  location.pathname === "/" ? activeNavClass : inactiveNavClass,
-                ].join(" ")}
-              >
-                Home
-              </Link>
+            {/* 로그인된 경우만 저금통 메뉴와 사용자 기능을 보여준다. */}
+            {!checkingAuth && me && (
+              <div className="flex items-center gap-2">
+                {/* Home 메뉴 없이 저금통 목록으로 바로 이동한다. */}
+                <Link
+                  to="/jars"
+                  className={[
+                    navButtonClass,
+                    location.pathname.startsWith("/jars")
+                      ? activeNavClass
+                      : inactiveNavClass,
+                  ].join(" ")}
+                >
+                  Jars
+                </Link>
 
-              <Link
-                to="/jars"
-                className={[
-                  navButtonClass,
-                  location.pathname.startsWith("/jars")
-                    ? activeNavClass
-                    : inactiveNavClass,
-                ].join(" ")}
-              >
-                Jars
-              </Link>
-            </nav>
-
-            {/* 로그인 상태 확인 중 */}
-            {checkingAuth && (
-              <div className="hidden rounded-full bg-white/85 px-4 py-2 text-sm font-semibold text-slate-500 ring-1 ring-slate-200 md:block">
-                확인 중...
-              </div>
-            )}
-
-                        {/* 로그인된 경우만 알림/내정보/로그아웃 노출 */}
-                        {!checkingAuth && me && (
-                          <div className="flex items-center gap-2">
-                            {/* 알림 영역 */}
+                {/* 알림 영역 */}
                             <div className="relative" ref={notificationBoxRef}>
                               <button
                                 type="button"
