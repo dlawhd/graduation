@@ -151,6 +151,9 @@ export default function App() {
   // 로그아웃 중인지
   const [loggingOut, setLoggingOut] = useState(false);
 
+  // 로그인 직후 목적지 화면 위에 잠깐 보여줄 완료 알림
+  const [loginToastMessage, setLoginToastMessage] = useState("");
+
   // 내정보 패널 열림 상태
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -159,6 +162,9 @@ export default function App() {
 
   // 홈 페이지인지 확인
   const isHomePage = location.pathname === "/";
+
+  // 로그인 성공 전환 화면에서는 공통 헤더를 잠시 숨긴다.
+  const isLoginSuccessPage = location.pathname === "/login/success";
 
   // 내정보 패널 DOM 참조
   const profileBoxRef = useRef(null);
@@ -181,47 +187,91 @@ export default function App() {
     // 알림 패널 DOM 참조
     const notificationBoxRef = useRef(null);
 
-  // --------------------------------------------------------
-  // 현재 로그인 사용자 정보 확인
-  // --------------------------------------------------------
-  useEffect(() => {
-    let ignore = false;
+// --------------------------------------------------------
+// 현재 로그인 사용자 정보 확인
+// --------------------------------------------------------
+useEffect(() => {
+  /*
+   * 로그인 성공 화면은 LoginSuccess가 직접 /api/v1/me를 확인한다.
+   * 여기서 같은 요청을 다시 보내지 않아 중복 호출을 막는다.
+   */
+  if (isLoginSuccessPage) {
+    setCheckingAuth(true);
+    return;
+  }
 
-    async function loadMe() {
-      try {
-        const shouldSkipAuthRefresh = location.pathname === "/";
+  let ignore = false;
 
-        const res = await apiClient.get("/api/v1/me", {
-          _skipAuthRefresh: shouldSkipAuthRefresh,
-        });
-        const meData = res.data?.data || null;
+  async function loadMe() {
+    try {
+      const shouldSkipAuthRefresh = location.pathname === "/";
 
-        if (!ignore) {
-          setMe(meData);
-        }
-      } catch (e) {
-        const status = e?.response?.status;
+      const res = await apiClient.get("/api/v1/me", {
+        _skipAuthRefresh: shouldSkipAuthRefresh,
+      });
 
-        if (!ignore) {
-          if (status === 401 || status === 403) {
-            setMe(null);
-          } else {
-            setMe(null);
-          }
-        }
-      } finally {
-        if (!ignore) {
-          setCheckingAuth(false);
+      const meData = res.data?.data || null;
+
+      if (!ignore) {
+        setMe(meData);
+      }
+    } catch (e) {
+      const status = e?.response?.status;
+
+      if (!ignore) {
+        if (status === 401 || status === 403) {
+          setMe(null);
+        } else {
+          setMe(null);
         }
       }
+    } finally {
+      if (!ignore) {
+        setCheckingAuth(false);
+      }
     }
+  }
 
-    loadMe();
+  loadMe();
 
-    return () => {
-      ignore = true;
-    };
-  }, [location.pathname]);
+  return () => {
+    ignore = true;
+  };
+}, [isLoginSuccessPage, location.pathname]);
+
+/*
+ * 로그인 성공 화면이 저장한 완료 메시지를 한 번만 꺼낸다.
+ *
+ * sessionStorage를 사용하므로 새로고침하거나 다른 화면을 다시 열 때
+ * 같은 로그인 알림이 반복해서 나타나지 않는다.
+ */
+useEffect(() => {
+  const savedMessage = sessionStorage.getItem("loginSuccessToast");
+
+  if (!savedMessage) {
+    return;
+  }
+
+  sessionStorage.removeItem("loginSuccessToast");
+  setLoginToastMessage(savedMessage);
+}, [location.pathname]);
+
+/*
+ * 로그인 완료 알림은 2.6초 뒤 자동으로 닫는다.
+ */
+useEffect(() => {
+  if (!loginToastMessage) {
+    return;
+  }
+
+  const closeTimer = window.setTimeout(() => {
+    setLoginToastMessage("");
+  }, 2600);
+
+  return () => {
+    window.clearTimeout(closeTimer);
+  };
+}, [loginToastMessage]);
 
   /*
    * 로그인 상태에 맞춰 공용 STOMP 연결을 시작하거나 종료한다.
@@ -635,8 +685,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
-      {/* 공통 상단 헤더 */}
-      <header
+      {/* 로그인 성공 전환 화면에서는 본문에만 집중할 수 있도록 헤더를 숨긴다. */}
+      {!isLoginSuccessPage && (
+        <header
         className={[
           "sticky top-0 z-50 border-b backdrop-blur-xl transition",
           isHomePage
@@ -945,17 +996,46 @@ export default function App() {
                         )}
           </div>
         </div>
-      </header>
+    </header>
+  )}
 
-      {/* 페이지 본문 */}
-      <main>
+{/* 로그인 직후 목적지 화면에서 잠깐 보여주는 완료 알림 */}
+{loginToastMessage && (
+  <div
+    className="pointer-events-none fixed left-1/2 top-6 z-[200] w-[calc(100%-2rem)] max-w-md -translate-x-1/2"
+    role="status"
+    aria-live="polite"
+  >
+    <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-white/95 px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+      {/* 로그인 완료 체크 아이콘 */}
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-base font-black text-white"
+        aria-hidden="true"
+      >
+        ✓
+      </span>
+
+      {/* LoginSuccess가 저장한 완료 문구 */}
+      <p className="text-sm font-bold text-slate-800">
+        {loginToastMessage}
+      </p>
+    </div>
+  </div>
+)}
+
+        {/* 페이지 본문 */}
+        <main>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login/success" element={<LoginSuccess />} />
           <Route path="/jars" element={<JarsPage />} />
           <Route path="/jars/new" element={<JarsNewPage />} />
           <Route path="/jars/:jarId" element={<JarDetailPage />} />
-          <Route path="/invite/:code" element={<InvitePage />} />
+          {/*
+           * 초대 페이지에 App이 이미 확인한 로그인 사용자 정보를 전달한다.
+           * InvitePage에서 /api/v1/me를 다시 호출하지 않아 중복 요청을 줄인다.
+           */}
+          <Route path="/invite/:code" element={<InvitePage me={me} checkingAuth={checkingAuth} />} />
         </Routes>
       </main>
     </div>

@@ -2288,11 +2288,7 @@ async function handleViewOpenedJarNotes() {
                     </button>
                   )}
 
-                  {!canDelete && (
-                    <div className={`rounded-2xl border border-dashed px-4 py-3 text-sm ${palette.hintBox}`}>
-                      삭제는 방장만 할 수 있어요.
-                    </div>
-                  )}
+
                 </div>
               </div>
               {/* 오른쪽 아래: 저금통 현황 카드 */}
