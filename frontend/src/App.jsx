@@ -32,7 +32,9 @@ import {
 import {
   useStompClient,
 } from "./realtime/StompClientProvider";
-
+import {
+  OnboardingProvider,
+} from "./features/onboarding/OnboardingProvider";
 import MemoryJarLogoIcon from "./components/icons/MemoryJarLogoIcon";
 // 작은 enum 한글화
 const ROLE_LABEL = {
@@ -683,8 +685,19 @@ useEffect(() => {
   const activeNavClass =
     "bg-emerald-500 text-white shadow-sm";
 
+  /*
+   * OnboardingProvider에는 사용자 전체 정보가 아니라
+   * 온보딩 조회에 필요한 사용자 번호만 전달한다.
+   */
+  const currentUserId =
+    getCurrentUserId(me);
+
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <OnboardingProvider
+      userId={currentUserId}
+      checkingAuth={checkingAuth}
+    >
+      <div className="min-h-screen bg-white text-slate-900">
       {/* 로그인 성공 전환 화면에서는 본문에만 집중할 수 있도록 헤더를 숨긴다. */}
       {!isLoginSuccessPage && (
         <header
@@ -1039,5 +1052,6 @@ useEffect(() => {
         </Routes>
       </main>
     </div>
+    </OnboardingProvider>
   );
 }

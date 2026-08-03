@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/apiClient";
+import {
+  ONBOARDING_TUTORIAL_KEY,
+} from "../api/onboardingApi";
+import WelcomeTutorialModal from "../features/onboarding/components/WelcomeTutorialModal";
+import useOnboarding from "../features/onboarding/hooks/useOnboarding";
 import SandIcon from "../components/icons/SandIcon";
 import LavenderIcon from "../components/icons/LavenderIcon";
 import MoonlightIcon from "../components/icons/MoonlightIcon";
@@ -402,7 +407,16 @@ function LoadingCard() {
 }
 
 export default function JarsPage() {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+
+  /*
+   * 앱 전체 OnboardingProvider에서
+   * 현재 사용자의 온보딩 상태와 실행 함수를 꺼낸다.
+   */
+  const {
+    shouldShowTutorial,
+    openTutorial,
+  } = useOnboarding();
 
   // 서버에서 받아온 저금통 목록
   const [items, setItems] = useState([]);
@@ -488,13 +502,43 @@ export default function JarsPage() {
     loadJars(0);
   }, []);
 
+  /*
+   * 일반 로그인 사용자가 /jars에 도착했을 때
+   * WELCOME 안내를 아직 처리하지 않았다면 자동으로 연다.
+   *
+   * OnboardingProvider의 서버 조회가 끝나기 전에는
+   * shouldShowTutorial이 false를 반환하므로
+   * 빈 상태가 잠깐 보였다가 잘못 열리는 문제를 막을 수 있다.
+   */
+  useEffect(() => {
+    const shouldOpenWelcome =
+      shouldShowTutorial(
+        ONBOARDING_TUTORIAL_KEY.WELCOME
+      );
+
+    if (!shouldOpenWelcome) {
+      return;
+    }
+
+    openTutorial(
+      ONBOARDING_TUTORIAL_KEY.WELCOME
+    );
+  }, [
+    shouldShowTutorial,
+    openTutorial,
+  ]);
+
   // 대표 테마 하나를 골라서 상단 헤더 색감을 정해줘요.
   // 목록이 비어 있을 때는 기본으로 봄 테마 색감을 사용한다.
   const primaryTheme = items?.[0]?.theme || "SPRING";
   const primaryPalette = getThemePalette(primaryTheme);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100">
+    <>
+      {/* 처음 사용자에게 보여주는 Memory Jar 전체 소개 */}
+      <WelcomeTutorialModal />
+
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100">
       {/* 페이지 뒤쪽 은은한 배경 빛 */}
       <div className={`pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b ${primaryPalette.pageGlow}`} />
 
@@ -710,5 +754,6 @@ export default function JarsPage() {
         )}
       </div>
     </div>
+    </>
   );
 }
