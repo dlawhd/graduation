@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import SandIcon from "../components/icons/SandIcon";
@@ -18,6 +21,18 @@ import LavenderParticleIcon from "../components/icons/LavenderParticleIcon";
 import DewParticleIcon from "../components/icons/DewParticleIcon";
 import SandParticleIcon from "../components/icons/SandParticleIcon";
 import MoonlightParticleIcon from "../components/icons/MoonlightParticleIcon";
+import {
+  ONBOARDING_TUTORIAL_KEY,
+} from "../api/onboardingApi";
+import TutorialSpotlight from "../features/onboarding/components/TutorialSpotlight";
+import useOnboarding from "../features/onboarding/hooks/useOnboarding";
+import {
+  JAR_CREATE_TUTORIAL_STEPS,
+  JAR_CREATE_TUTORIAL_TARGET,
+} from "../features/onboarding/constants/jarCreateTutorialSteps";
+import {
+  ONBOARDING_REPLAY_STATE_KEY,
+} from "../features/onboarding/constants/onboardingReplay";
 
 // ==============================
 // 화면에 보여줄 한글 라벨
@@ -1301,9 +1316,105 @@ function JarPreview({ template, form }) {
 }
 
 export default function JarsNewPage() {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-  const defaultTemplate = JAR_TEMPLATES[0];
+  /*
+   * 내정보의 이용 방법 선택창에서 전달한
+   * 수동 다시 보기 요청을 확인하기 위해 현재 위치 정보를 읽는다.
+   */
+  const location =
+    useLocation();
+
+  /*
+   * 앱 전체 OnboardingProvider에서
+   * 새 저금통 만들기 안내 상태와 저장 함수를 가져온다.
+   */
+  const {
+    activeTutorialKey,
+    savingTutorialKey,
+    error: onboardingError,
+    shouldShowTutorial,
+    openTutorial,
+    closeTutorial,
+    completeActiveTutorial,
+    skipActiveTutorial,
+  } = useOnboarding();
+
+  /*
+   * 생성 페이지를 실제로 벗어나는 순간
+   * 현재 어떤 안내가 열려 있는지 최신 값을 확인하기 위한 Ref다.
+   *
+   * activeTutorialKey를 cleanup Effect 의존성에 직접 넣지 않아
+   * 안내가 열리는 순간 불필요한 cleanup이 실행되는 것을 막는다.
+   */
+  const activeTutorialKeyRef =
+    useRef(activeTutorialKey);
+
+  activeTutorialKeyRef.current =
+    activeTutorialKey;
+
+  /*
+   * JAR_CREATE 각 단계에서 강조할
+   * 실제 화면 영역들을 가리킨다.
+   */
+
+  // 왼쪽의 8가지 저금통 선택 영역
+  const templateTutorialTargetRef =
+    useRef(null);
+
+  // 오른쪽의 선택 결과 미리보기 영역
+  const previewTutorialTargetRef =
+    useRef(null);
+
+  /*
+   * JAR_CREATE 입력 단계에서 강조할
+   * 각 입력 항목의 실제 화면 영역
+   */
+
+  // 저금통 이름 입력 영역
+  const nameTutorialTargetRef =
+    useRef(null);
+
+  // 저금통 설명 입력 영역
+  const descriptionTutorialTargetRef =
+    useRef(null);
+
+  // 테마 선택 영역
+  const themeTutorialTargetRef =
+    useRef(null);
+
+  // 최대 인원 입력 영역
+  const maxMembersTutorialTargetRef =
+    useRef(null);
+
+  // 오픈 날짜 입력 영역
+  const openAtTutorialTargetRef =
+    useRef(null);
+
+  // 최종 저금통 만들기 버튼
+  const submitTutorialTargetRef =
+    useRef(null);
+
+  /*
+   * 현재 보고 있는 새 저금통 만들기 안내 단계
+   *
+   * 0: 저금통 종류 선택
+   * 1: 오른쪽 미리보기 확인
+   * 2: 저금통 이름
+   * 3: 저금통 설명
+   * 4: 테마
+   * 5: 최대 인원
+   * 6: 오픈 날짜
+   * 7: 저금통 만들기
+   */
+  const [
+    jarCreateTutorialStepIndex,
+    setJarCreateTutorialStepIndex,
+  ] = useState(0);
+
+  const defaultTemplate =
+    JAR_TEMPLATES[0];
 
   const [form, setForm] = useState({
       ...defaultTemplate.values,
@@ -1312,6 +1423,433 @@ export default function JarsNewPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  /*
+   * 현재 열린 안내가 JAR_CREATE인지 확인한다.
+   */
+  const isJarCreateTutorialOpen =
+    activeTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_CREATE;
+
+  /*
+   * 내정보에서 새 저금통 만들기 안내를 선택한 뒤
+   * /jars/new로 이동해 온 요청인지 확인한다.
+   *
+   * 자동 안내 여부와 관계없이,
+   * 이 값이 JAR_CREATE라면 수동 다시 보기로 처리한다.
+   */
+  const replayTutorialKey =
+    location.state?.[
+      ONBOARDING_REPLAY_STATE_KEY
+    ] ?? null;
+
+  const shouldReplayJarCreateTutorial =
+    replayTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_CREATE;
+
+  /*
+   * 현재 JAR_CREATE 상태를 저장하고 있는지 확인한다.
+   */
+  const isJarCreateTutorialSaving =
+    savingTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_CREATE;
+
+  /*
+   * 현재 보여줄 단계 정보
+   */
+  const currentJarCreateTutorialStep =
+    JAR_CREATE_TUTORIAL_STEPS[
+      jarCreateTutorialStepIndex
+    ] ?? JAR_CREATE_TUTORIAL_STEPS[0];
+
+  /*
+   * 현재 단계가 첫 번째 단계인지 확인한다.
+   *
+   * 첫 번째 단계에서는 더 이전으로 갈 곳이 없으므로
+   * 이전 버튼을 표시하지 않는다.
+   */
+  const isFirstJarCreateTutorialStep =
+    jarCreateTutorialStepIndex === 0;
+
+  /*
+   * 현재 단계가 마지막인지 확인한다.
+   */
+  const isLastJarCreateTutorialStep =
+    jarCreateTutorialStepIndex ===
+    JAR_CREATE_TUTORIAL_STEPS.length - 1;
+
+  /*
+   * 현재 튜토리얼 단계에 따라
+   * 실제로 강조할 화면 요소의 Ref를 선택한다.
+   *
+   * 기본값은 첫 단계인 저금통 종류 선택 영역이다.
+   */
+  let jarCreateTutorialTargetRef =
+    templateTutorialTargetRef;
+
+  /*
+   * 두 번째 단계:
+   * 오른쪽 저금통 미리보기
+   */
+  if (
+    currentJarCreateTutorialStep
+      ?.targetKey ===
+    JAR_CREATE_TUTORIAL_TARGET.PREVIEW
+  ) {
+    jarCreateTutorialTargetRef =
+      previewTutorialTargetRef;
+  }
+
+  /*
+   * 세 번째 단계:
+   * 저금통 이름
+   */
+  if (
+    currentJarCreateTutorialStep
+      ?.targetKey ===
+    JAR_CREATE_TUTORIAL_TARGET.NAME
+  ) {
+    jarCreateTutorialTargetRef =
+      nameTutorialTargetRef;
+  }
+
+  /*
+   * 네 번째 단계:
+   * 저금통 설명
+   */
+  if (
+    currentJarCreateTutorialStep
+      ?.targetKey ===
+    JAR_CREATE_TUTORIAL_TARGET.DESCRIPTION
+  ) {
+    jarCreateTutorialTargetRef =
+      descriptionTutorialTargetRef;
+  }
+
+  /*
+   * 다섯 번째 단계:
+   * 저금통 테마
+   */
+  if (
+    currentJarCreateTutorialStep
+      ?.targetKey ===
+    JAR_CREATE_TUTORIAL_TARGET.THEME
+  ) {
+    jarCreateTutorialTargetRef =
+      themeTutorialTargetRef;
+  }
+
+  /*
+   * 여섯 번째 단계:
+   * 최대 인원
+   */
+  if (
+    currentJarCreateTutorialStep
+      ?.targetKey ===
+    JAR_CREATE_TUTORIAL_TARGET.MAX_MEMBERS
+  ) {
+    jarCreateTutorialTargetRef =
+      maxMembersTutorialTargetRef;
+  }
+
+  /*
+   * 일곱 번째 단계:
+   * 오픈 날짜
+   */
+  if (
+    currentJarCreateTutorialStep
+      ?.targetKey ===
+    JAR_CREATE_TUTORIAL_TARGET.OPEN_AT
+  ) {
+    jarCreateTutorialTargetRef =
+      openAtTutorialTargetRef;
+  }
+
+  /*
+   * 여덟 번째 단계:
+   * 저금통 만들기 버튼
+   */
+  if (
+    currentJarCreateTutorialStep
+      ?.targetKey ===
+    JAR_CREATE_TUTORIAL_TARGET.SUBMIT
+  ) {
+    jarCreateTutorialTargetRef =
+      submitTutorialTargetRef;
+  }
+
+  /*
+   * 특정 화면 요소가 현재 강조 대상인지 확인한다.
+   */
+  function isCurrentJarCreateTutorialTarget(
+    targetKey
+  ) {
+    return (
+      isJarCreateTutorialOpen &&
+      currentJarCreateTutorialStep
+        ?.targetKey === targetKey
+    );
+  }
+
+  /*
+   * 안내 카드의 다음 또는 안내 완료 버튼 처리
+   */
+  const handleJarCreateTutorialPrimaryAction =
+    async () => {
+      if (
+        !isJarCreateTutorialOpen ||
+        isJarCreateTutorialSaving
+      ) {
+        return;
+      }
+
+      /*
+       * 마지막 단계 전까지는 다음 화면 요소로 이동한다.
+       */
+      if (
+        !isLastJarCreateTutorialStep
+      ) {
+        setJarCreateTutorialStepIndex(
+          (previousIndex) =>
+            Math.min(
+              previousIndex + 1,
+              JAR_CREATE_TUTORIAL_STEPS.length -
+                1
+            )
+        );
+
+        return;
+      }
+
+      /*
+       * 마지막 설명까지 확인하면
+       * JAR_CREATE 완료 상태를 백엔드에 저장한다.
+       */
+      try {
+        await completeActiveTutorial();
+      } catch {
+        /*
+         * 오류 문구는 OnboardingProvider가 저장하고
+         * TutorialSpotlight 안에서 표시한다.
+         */
+      }
+    };
+
+  /*
+   * 안내 카드의 이전 버튼 처리
+   *
+   * 현재 단계 번호를 1 줄여서 바로 앞의 강조 영역으로 돌아간다.
+   *
+   * 이전 단계로 돌아가도:
+   *
+   * - 사용자가 입력한 이름
+   * - 입력한 설명
+   * - 선택한 테마
+   * - 최대 인원
+   * - 오픈 날짜
+   *
+   * 는 변경하거나 초기화하지 않는다.
+   */
+  const handleJarCreateTutorialPrevious =
+    () => {
+      /*
+       * JAR_CREATE 안내가 아니거나
+       * 백엔드 저장 중이라면 이동하지 않는다.
+       */
+      if (
+        !isJarCreateTutorialOpen ||
+        isJarCreateTutorialSaving
+      ) {
+        return;
+      }
+
+      /*
+       * 첫 번째 단계에서는
+       * 더 이전으로 이동하지 않는다.
+       */
+      if (
+        isFirstJarCreateTutorialStep
+      ) {
+        return;
+      }
+
+      /*
+       * 단계 번호를 하나 줄이되
+       * 0보다 작아지지 않게 제한한다.
+       */
+      setJarCreateTutorialStepIndex(
+        (previousIndex) =>
+          Math.max(
+            previousIndex - 1,
+            0
+          )
+      );
+    };
+
+  /*
+   * 어느 단계에서든 전체 생성 안내를 건너뛴다.
+   */
+  const handleJarCreateTutorialSkip =
+    async () => {
+      if (
+        !isJarCreateTutorialOpen ||
+        isJarCreateTutorialSaving
+      ) {
+        return;
+      }
+
+      try {
+        await skipActiveTutorial();
+      } catch {
+        /*
+         * 저장에 실패하면 안내를 닫지 않고
+         * 오류 문구를 계속 보여준다.
+         */
+      }
+    };
+
+  /*
+   * 새 저금통 만들기 페이지에 들어왔을 때
+   * JAR_CREATE 안내를 아직 보지 않았다면 자동으로 연다.
+   */
+  useEffect(() => {
+    /*
+     * 다른 온보딩이 이미 열려 있다면 덮어쓰지 않는다.
+     */
+    if (
+      activeTutorialKey !== null
+    ) {
+      return undefined;
+    }
+
+    const shouldOpenJarCreate =
+      shouldShowTutorial(
+        ONBOARDING_TUTORIAL_KEY.JAR_CREATE
+      );
+
+    if (!shouldOpenJarCreate) {
+      return undefined;
+    }
+
+    /*
+     * 페이지 요소가 완전히 그려진 뒤
+     * 첫 번째 강조 위치를 계산한다.
+     */
+    const timerId =
+      window.setTimeout(() => {
+        openTutorial(
+          ONBOARDING_TUTORIAL_KEY.JAR_CREATE
+        );
+      }, 300);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    activeTutorialKey,
+    shouldShowTutorial,
+    openTutorial,
+  ]);
+
+  /*
+   * 내정보에서 "새 저금통 만들기 안내"를 선택하고
+   * 다른 화면에서 /jars/new로 이동해 온 경우의 수동 다시 보기 처리다.
+   *
+   * 자동 안내와 다른 점:
+   *
+   * 자동 안내:
+   * COMPLETED 또는 SKIPPED이면 열지 않는다.
+   *
+   * 수동 다시 보기:
+   * force=true를 사용해 기존 상태와 관계없이 다시 연다.
+   */
+  useEffect(() => {
+    if (
+      !shouldReplayJarCreateTutorial
+    ) {
+      return undefined;
+    }
+
+    /*
+     * 페이지의 입력란과 미리보기 Ref가 모두 연결된 다음
+     * 첫 번째 강조 위치를 계산하도록 잠시 기다린다.
+     */
+    const timerId =
+      window.setTimeout(() => {
+        openTutorial(
+          ONBOARDING_TUTORIAL_KEY.JAR_CREATE,
+          {
+            force: true,
+          }
+        );
+
+        /*
+         * navigation state에 다시 보기 요청을 계속 남겨두면
+         * 뒤로 가기나 같은 화면 재렌더링 때 반복 실행될 수 있다.
+         *
+         * 사용한 요청값만 제거하고 같은 주소로 교체한다.
+         */
+        const nextState = {
+          ...(location.state ?? {}),
+        };
+
+        delete nextState[
+          ONBOARDING_REPLAY_STATE_KEY
+        ];
+
+        navigate(
+          location.pathname,
+          {
+            replace: true,
+
+            state:
+              Object.keys(nextState)
+                .length > 0
+                ? nextState
+                : null,
+          }
+        );
+      }, 300);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    shouldReplayJarCreateTutorial,
+    location.pathname,
+    location.state,
+    navigate,
+    openTutorial,
+  ]);
+
+  /*
+   * 안내가 새로 열릴 때마다 첫 번째 단계부터 시작한다.
+   */
+  useEffect(() => {
+    if (!isJarCreateTutorialOpen) {
+      return;
+    }
+
+    setJarCreateTutorialStepIndex(0);
+  }, [isJarCreateTutorialOpen]);
+
+  /*
+   * 생성 페이지를 벗어날 때만
+   * 열려 있는 JAR_CREATE 안내를 정리한다.
+   */
+  useEffect(() => {
+    return () => {
+      if (
+        activeTutorialKeyRef.current ===
+        ONBOARDING_TUTORIAL_KEY.JAR_CREATE
+      ) {
+        closeTutorial();
+      }
+    };
+  }, [
+    closeTutorial,
+  ]);
+
 
   const selectedTemplate = useMemo(() => {
     return (
@@ -1336,16 +1874,43 @@ export default function JarsNewPage() {
       return getVisualPreset(form.theme);
     }, [form.theme]);
 
-    // 템플릿 카드를 누르면 그 템플릿의 theme 기본값이 form에 들어가게 함
+    /*
+     * 왼쪽 저금통 템플릿 카드를 눌렀을 때 실행된다.
+     *
+     * 역할:
+     *
+     * 1. 선택한 저금통의 이름, 설명, 테마, 기본 인원 정보를 폼에 반영한다.
+     * 2. 사용자가 이미 정한 오픈 날짜는 그대로 유지한다.
+     * 3. 첫 번째 튜토리얼 중이라면 오른쪽 미리보기 안내로 자동 이동한다.
+     */
     function handleTemplateClick(template) {
       setForm((prev) => ({
         ...template.values,
 
-        // 사용자가 이미 고른 날짜는 유지해줄게.
+        /*
+         * 다른 저금통을 선택해도
+         * 사용자가 직접 정한 오픈 날짜는 지우지 않는다.
+         */
         openAt: prev.openAt,
       }));
 
       setError("");
+
+      /*
+       * 현재 JAR_CREATE 첫 번째 단계가 열려 있다면
+       * 선택 결과를 바로 확인할 수 있도록
+       * 오른쪽 미리보기 단계로 이동한다.
+       */
+      if (
+        isJarCreateTutorialOpen &&
+        currentJarCreateTutorialStep
+          ?.targetKey ===
+          JAR_CREATE_TUTORIAL_TARGET.TEMPLATE
+      ) {
+        window.setTimeout(() => {
+          setJarCreateTutorialStepIndex(1);
+        }, 180);
+      }
     }
 
   // 폼 값 변경
@@ -1372,10 +1937,38 @@ export default function JarsNewPage() {
         openAt: form.openAt,
       };
 
-      const res = await apiClient.post("/api/v1/jars", payload);
-      const createdJar = res.data?.data;
+      const res = await apiClient.post(
+        "/api/v1/jars",
+        payload
+      );
 
-      navigate(`/jars/${createdJar.jarId}`);
+      const createdJar =
+        res.data?.data;
+
+      /*
+       * 생성 안내가 열린 상태에서 실제 저금통 생성에 성공했다면
+       * JAR_CREATE도 완료 상태로 저장한다.
+       *
+       * 생성 자체가 실패했는데 안내만 완료되는 상황을 막기 위해
+       * POST 성공 이후에 실행한다.
+       */
+      if (isJarCreateTutorialOpen) {
+        try {
+          await completeActiveTutorial();
+        } catch {
+          /*
+           * 온보딩 상태 저장 실패는
+           * 실제 저금통 생성 성공을 막지 않는다.
+           *
+           * 저장되지 않았다면 다음 생성 페이지 방문 때
+           * 안내가 다시 나타날 수 있다.
+           */
+        }
+      }
+
+      navigate(
+        `/jars/${createdJar.jarId}`
+      );
     } catch (e) {
       const serverMessage =
         e?.response?.data?.error?.message ||
@@ -1390,7 +1983,87 @@ export default function JarsNewPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-6 py-10">
+    <>
+      {/*
+       * 새 저금통 만들기 화면의 온보딩
+       *
+       * 저금통 선택
+       * → 오른쪽 미리보기
+       * → 이름
+       * → 설명
+       * → 테마
+       * → 최대 인원
+       * → 오픈 날짜
+       * → 저금통 만들기
+       */}
+      <TutorialSpotlight
+        isOpen={
+          isJarCreateTutorialOpen
+        }
+        targetRef={
+          jarCreateTutorialTargetRef
+        }
+          /*
+           * 오른쪽 미리보기 단계에서는 설명 카드를
+           * 미리보기 왼쪽 옆에 배치한다.
+           *
+           * 모바일처럼 공간이 부족하면
+           * TutorialSpotlight가 자동으로 위·아래 배치로 전환한다.
+           */
+          preferredPlacement={
+            currentJarCreateTutorialStep
+              ?.targetKey ===
+            JAR_CREATE_TUTORIAL_TARGET.PREVIEW
+              ? "left"
+              : "auto"
+          }
+          /*
+           * 첫 번째 단계를 제외한 모든 단계에서
+           * 이전 버튼을 표시한다.
+           */
+          showPrevious={
+            !isFirstJarCreateTutorialStep
+          }
+          previousLabel="이전"
+          onPrevious={
+            handleJarCreateTutorialPrevious
+          }
+        eyebrow={`새 저금통 만들기 안내 · ${
+          jarCreateTutorialStepIndex + 1
+        } / ${
+          JAR_CREATE_TUTORIAL_STEPS.length
+        }`}
+        title={
+          currentJarCreateTutorialStep
+            ?.title
+        }
+        description={
+          currentJarCreateTutorialStep
+            ?.description
+        }
+        completeLabel={
+          isLastJarCreateTutorialStep
+            ? "안내 완료"
+            : "다음"
+        }
+        skipLabel="건너뛰기"
+        isSaving={
+          isJarCreateTutorialSaving
+        }
+        error={
+          isJarCreateTutorialOpen
+            ? onboardingError
+            : ""
+        }
+        onComplete={
+          handleJarCreateTutorialPrimaryAction
+        }
+        onSkip={
+          handleJarCreateTutorialSkip
+        }
+      />
+
+      <div className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-6 py-10">
       <div className="mx-auto max-w-6xl">
         {/* 상단 소개 */}
         <section className="mb-8 rounded-[24px] bg-[#fffafb] p-8 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
@@ -1410,12 +2083,33 @@ export default function JarsNewPage() {
         <section className="grid gap-8 xl:grid-cols-[1fr_1.1fr]">
           {/* 왼쪽 카드 목록 */}
           <div>
-            <h2 className="text-3xl font-black text-slate-800">
-              어떤 저금통을 만들고 싶어요?
-            </h2>
-            <p className="mt-2 text-base text-slate-500">
-              8가지 테마 중 하나를 고르면 그에 맞는 저금통이 바로 보여요.
-            </p>
+            {/*
+             * JAR_CREATE 첫 번째 단계에서
+             * 테마 선택 설명 영역을 강조한다.
+             */}
+            {/* 왼쪽 저금통 선택 목록 */}
+            <div
+              /*
+               * JAR_CREATE 첫 번째 단계에서
+               * 제목뿐 아니라 8가지 저금통 카드 전체를 강조한다.
+               */
+              ref={templateTutorialTargetRef}
+              className={`rounded-[26px] transition ${
+                isCurrentJarCreateTutorialTarget(
+                  JAR_CREATE_TUTORIAL_TARGET.TEMPLATE
+                )
+                  ? "ring-4 ring-white/90"
+                  : ""
+              }`}
+            >
+              <h2 className="text-3xl font-black text-slate-800">
+                어떤 저금통을 만들고 싶어요?
+              </h2>
+
+              <p className="mt-2 text-base text-slate-500">
+                8가지 테마 중 하나를 고르면 그에 맞는 저금통이 바로 보여요.
+              </p>
+            </div>
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {JAR_TEMPLATES.map((template) => {
@@ -1458,9 +2152,25 @@ export default function JarsNewPage() {
             </div>
           </div>
 
-          {/* 오른쪽 미리보기 */}
-          <div className="h-full">
-            <JarPreview template={selectedTemplate} form={form} />
+          {/* 오른쪽 저금통 미리보기 */}
+          <div
+            /*
+             * JAR_CREATE 두 번째 단계에서
+             * 선택한 저금통의 전체 미리보기 카드를 강조한다.
+             */
+            ref={previewTutorialTargetRef}
+            className={`h-full rounded-[28px] transition ${
+              isCurrentJarCreateTutorialTarget(
+                JAR_CREATE_TUTORIAL_TARGET.PREVIEW
+              )
+                ? "ring-4 ring-white/90"
+                : ""
+            }`}
+          >
+            <JarPreview
+              template={selectedTemplate}
+              form={form}
+            />
           </div>
         </section>
 
@@ -1497,7 +2207,8 @@ export default function JarsNewPage() {
                 </h2>
 
                 <p className="mt-3 text-base leading-7 text-slate-500">
-                  이름, 설명, 오픈 날짜만 정하면 바로 추억 저금통을 만들 수 있어.
+                  이름과 설명을 작성하고, 테마, 최대 인원, 오픈 날짜를 정하면
+                  새로운 추억 저금통을 만들 수 있어요.
                 </p>
               </div>
 
@@ -1521,14 +2232,44 @@ export default function JarsNewPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
+              {/*
+               * 새 저금통 만들기 입력 영역
+               *
+               * 각 항목을 하나씩 별도로 감싸서:
+               *
+               * 이름
+               * 설명
+               * 테마
+               * 최대 인원
+               * 오픈 날짜
+               *
+               * 순서로 각각 스포트라이트를 보여준다.
+               */}
               <div className="grid gap-5 md:grid-cols-2">
                 {/* 저금통 이름 */}
-                <div className="md:col-span-2">
+                <div
+                  /*
+                   * JAR_CREATE 세 번째 단계에서
+                   * 이름 입력 영역만 따로 강조한다.
+                   */
+                  ref={nameTutorialTargetRef}
+                  className={`rounded-[22px] transition md:col-span-2 ${
+                    isCurrentJarCreateTutorialTarget(
+                      JAR_CREATE_TUTORIAL_TARGET.NAME
+                    )
+                      ? "ring-4 ring-white/90"
+                      : ""
+                  }`}
+                >
                   <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
                     <span
                       className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: selectedPreset.accentLine }}
+                      style={{
+                        backgroundColor:
+                          selectedPreset.accentLine,
+                      }}
                     />
+
                     저금통 이름
                   </label>
 
@@ -1543,13 +2284,30 @@ export default function JarsNewPage() {
                   />
                 </div>
 
-                {/* 설명 */}
-                <div className="md:col-span-2">
+                {/* 저금통 설명 */}
+                <div
+                  /*
+                   * JAR_CREATE 네 번째 단계에서
+                   * 설명 입력 영역만 따로 강조한다.
+                   */
+                  ref={descriptionTutorialTargetRef}
+                  className={`rounded-[22px] transition md:col-span-2 ${
+                    isCurrentJarCreateTutorialTarget(
+                      JAR_CREATE_TUTORIAL_TARGET.DESCRIPTION
+                    )
+                      ? "ring-4 ring-white/90"
+                      : ""
+                  }`}
+                >
                   <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
                     <span
                       className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: selectedPreset.accentLine }}
+                      style={{
+                        backgroundColor:
+                          selectedPreset.accentLine,
+                      }}
                     />
+
                     설명
                   </label>
 
@@ -1558,15 +2316,31 @@ export default function JarsNewPage() {
                     value={form.description}
                     onChange={handleChange}
                     rows={4}
-                    placeholder="이 저금통에 어떤 추억을 담고 싶은지 적어보자."
+                    placeholder="이 저금통에 담을 이야기나 사용 목적을 자유롭게 적어보세요."
                     className="w-full resize-none rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
                   />
                 </div>
 
-                {/* 테마 */}
-                <div>
+                {/* 저금통 테마 */}
+                <div
+                  /*
+                   * JAR_CREATE 다섯 번째 단계에서
+                   * 테마 선택 영역만 따로 강조한다.
+                   */
+                  ref={themeTutorialTargetRef}
+                  className={`rounded-[22px] transition ${
+                    isCurrentJarCreateTutorialTarget(
+                      JAR_CREATE_TUTORIAL_TARGET.THEME
+                    )
+                      ? "ring-4 ring-white/90"
+                      : ""
+                  }`}
+                >
                   <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
-                    <span className="text-base">🎨</span>
+                    <span className="text-base">
+                      🎨
+                    </span>
+
                     테마
                   </label>
 
@@ -1576,21 +2350,64 @@ export default function JarsNewPage() {
                     onChange={handleChange}
                     className="w-full rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
                   >
-                    <option value="SPRING">{THEME_LABEL.SPRING}</option>
-                    <option value="SUMMER">{THEME_LABEL.SUMMER}</option>
-                    <option value="AUTUMN">{THEME_LABEL.AUTUMN}</option>
-                    <option value="WINTER">{THEME_LABEL.WINTER}</option>
-                    <option value="LAVENDER">{THEME_LABEL.LAVENDER}</option>
-                    <option value="DEW">{THEME_LABEL.DEW}</option>
-                    <option value="SAND">{THEME_LABEL.SAND}</option>
-                    <option value="MOONLIGHT">{THEME_LABEL.MOONLIGHT}</option>
+                    <option value="SPRING">
+                      {THEME_LABEL.SPRING}
+                    </option>
+
+                    <option value="SUMMER">
+                      {THEME_LABEL.SUMMER}
+                    </option>
+
+                    <option value="AUTUMN">
+                      {THEME_LABEL.AUTUMN}
+                    </option>
+
+                    <option value="WINTER">
+                      {THEME_LABEL.WINTER}
+                    </option>
+
+                    <option value="LAVENDER">
+                      {THEME_LABEL.LAVENDER}
+                    </option>
+
+                    <option value="DEW">
+                      {THEME_LABEL.DEW}
+                    </option>
+
+                    <option value="SAND">
+                      {THEME_LABEL.SAND}
+                    </option>
+
+                    <option value="MOONLIGHT">
+                      {THEME_LABEL.MOONLIGHT}
+                    </option>
                   </select>
+
+                  <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+                    테마를 변경하면 오른쪽 미리보기의 색상과 저금통 장식도 함께 바뀌어요.
+                  </p>
                 </div>
 
                 {/* 최대 인원 */}
-                <div>
+                <div
+                  /*
+                   * JAR_CREATE 여섯 번째 단계에서
+                   * 최대 인원 입력 영역만 따로 강조한다.
+                   */
+                  ref={maxMembersTutorialTargetRef}
+                  className={`rounded-[22px] transition ${
+                    isCurrentJarCreateTutorialTarget(
+                      JAR_CREATE_TUTORIAL_TARGET.MAX_MEMBERS
+                    )
+                      ? "ring-4 ring-white/90"
+                      : ""
+                  }`}
+                >
                   <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
-                    <span className="text-base">👥</span>
+                    <span className="text-base">
+                      👥
+                    </span>
+
                     최대 인원
                   </label>
 
@@ -1604,12 +2421,32 @@ export default function JarsNewPage() {
                     className="w-full rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
                     required
                   />
+
+                  <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+                    방장을 포함해 최소 2명부터 최대 50명까지 함께할 수 있어요.
+                  </p>
                 </div>
 
                 {/* 오픈 날짜 */}
-                <div className="md:col-span-2">
+                <div
+                  /*
+                   * JAR_CREATE 일곱 번째 단계에서
+                   * 오픈 날짜 입력 영역만 따로 강조한다.
+                   */
+                  ref={openAtTutorialTargetRef}
+                  className={`rounded-[22px] transition md:col-span-2 ${
+                    isCurrentJarCreateTutorialTarget(
+                      JAR_CREATE_TUTORIAL_TARGET.OPEN_AT
+                    )
+                      ? "ring-4 ring-white/90"
+                      : ""
+                  }`}
+                >
                   <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
-                    <span className="text-base">📅</span>
+                    <span className="text-base">
+                      📅
+                    </span>
+
                     오픈 날짜
                   </label>
 
@@ -1621,20 +2458,51 @@ export default function JarsNewPage() {
                     className="w-full rounded-[18px] border border-white/80 bg-white/85 px-4 py-3.5 text-slate-800 shadow-sm outline-none transition focus:border-pink-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(244,114,182,0.12)]"
                     required
                   />
+
+                  <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+                    설정한 날짜가 되면 저금통이 열리고 담아둔 추억을 확인할 수 있어요.
+                  </p>
                 </div>
               </div>
 
-              {/* 아래 안내 + 버튼 */}
               {/* 저금통 만들기 버튼 */}
               <div className="mt-8 flex justify-end">
                 <motion.button
+                  /*
+                   * JAR_CREATE 여덟 번째 단계에서
+                   * 실제 저금통 만들기 버튼을 강조한다.
+                   */
+                  ref={submitTutorialTargetRef}
                   type="submit"
-                  disabled={loading}
-                  whileHover={{ scale: loading ? 1 : 1.03 }}
-                  whileTap={{ scale: loading ? 1 : 0.97 }}
-                  className="rounded-2xl bg-gradient-to-r from-pink-500 to-orange-400 px-7 py-3.5 text-sm font-black text-white shadow-[0_10px_22px_rgba(244,114,89,0.30)] transition disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={
+                    loading ||
+                    isJarCreateTutorialSaving
+                  }
+                  whileHover={{
+                    scale:
+                      loading ||
+                      isJarCreateTutorialSaving
+                        ? 1
+                        : 1.03,
+                  }}
+                  whileTap={{
+                    scale:
+                      loading ||
+                      isJarCreateTutorialSaving
+                        ? 1
+                        : 0.97,
+                  }}
+                  className={`rounded-2xl bg-gradient-to-r from-pink-500 to-orange-400 px-7 py-3.5 text-sm font-black text-white shadow-[0_10px_22px_rgba(244,114,89,0.30)] transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isCurrentJarCreateTutorialTarget(
+                      JAR_CREATE_TUTORIAL_TARGET.SUBMIT
+                    )
+                      ? "ring-4 ring-white"
+                      : ""
+                  }`}
                 >
-                  {loading ? "만드는 중..." : "저금통 만들기"}
+                  {loading
+                    ? "만드는 중..."
+                    : "저금통 만들기"}
                 </motion.button>
               </div>
             </form>
@@ -1642,5 +2510,6 @@ export default function JarsNewPage() {
         </section>
       </div>
     </div>
+    </>
   );
 }

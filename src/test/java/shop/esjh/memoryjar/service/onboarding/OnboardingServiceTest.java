@@ -40,7 +40,7 @@ class OnboardingServiceTest {
     private OnboardingService onboardingService;
 
     @Test
-    @DisplayName("온보딩 조회 시 네 가지 온보딩 상태를 모두 반환한다")
+    @DisplayName("온보딩 조회 시 다섯 가지 온보딩 상태를 모두 반환한다")
     void getMyProgress_returnsAllTutorialKeys() {
         // given
         User user = createUser(1L);
@@ -70,7 +70,7 @@ class OnboardingServiceTest {
 
         // then
         assertThat(response.version()).isEqualTo(1);
-        assertThat(response.items()).hasSize(4);
+        assertThat(response.items()).hasSize(5);
 
         assertThat(response.items())
                 .extracting(
@@ -79,6 +79,7 @@ class OnboardingServiceTest {
                 .containsExactly(
                         OnboardingTutorialKey.WELCOME,
                         OnboardingTutorialKey.JAR_LIST,
+                        OnboardingTutorialKey.JAR_CREATE,
                         OnboardingTutorialKey.JAR_DETAIL,
                         OnboardingTutorialKey.DAILY_DRAW
                 );

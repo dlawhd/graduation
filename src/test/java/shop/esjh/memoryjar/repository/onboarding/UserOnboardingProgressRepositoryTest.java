@@ -148,6 +148,47 @@ class UserOnboardingProgressRepositoryTest
                 .isEqualTo(OnboardingStatus.COMPLETED);
     }
 
+    @Test
+    @DisplayName("새 저금통 만들기 온보딩 기록을 저장하고 조회한다")
+    void saveAndFind_jarCreateProgress() {
+        // given
+        User user = saveUser(
+                "jar-create-onboarding-user",
+                "jar-create-onboarding@example.com",
+                "저금통 생성 안내 사용자"
+        );
+
+        saveProgress(
+                user,
+                OnboardingTutorialKey.JAR_CREATE,
+                1,
+                OnboardingStatus.COMPLETED
+        );
+
+        flushAndClear();
+
+        // when
+        UserOnboardingProgress progress =
+                onboardingRepository
+                        .findByUser_IdAndTutorialKeyAndTutorialVersionAndDeletedAtIsNull(
+                                user.getId(),
+                                OnboardingTutorialKey.JAR_CREATE,
+                                1
+                        )
+                        .orElseThrow();
+
+        // then
+        assertThat(progress.getTutorialKey())
+                .isEqualTo(
+                        OnboardingTutorialKey.JAR_CREATE
+                );
+
+        assertThat(progress.getStatus())
+                .isEqualTo(
+                        OnboardingStatus.COMPLETED
+                );
+    }
+
     private UserOnboardingProgress saveProgress(
             User user,
             OnboardingTutorialKey tutorialKey,

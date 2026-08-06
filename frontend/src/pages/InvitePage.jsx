@@ -414,7 +414,7 @@ export default function InvitePage({ me, checkingAuth }) {
               type="button"
               onClick={canJoin ? handleJoin : handleLogin}
               disabled={checkingAuth || joining || !inviteCode}
-              className="mt-7 w-full rounded-2xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-violet-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-cyan-200/70 transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
+              className="mt-7 w-113 rounded-2xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-violet-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-cyan-200/70 transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
             >
               {checkingAuth
                 ? "로그인 상태 확인 중..."
@@ -422,7 +422,7 @@ export default function InvitePage({ me, checkingAuth }) {
                   ? "초대장을 열어보고 있어요..."
                   : canJoin
                     ? "초대받은 저금통 들어가기"
-                    : "네이버로 로그인하고 초대받기"}
+                    : "네이버 로그인"}
             </button>
 
             {/* 오류가 났을 때 빠져나갈 수 있는 보조 버튼 */}
@@ -436,9 +436,7 @@ export default function InvitePage({ me, checkingAuth }) {
               </button>
             )}
 
-            <p className="mt-7 text-sm font-semibold text-slate-400">
-              초대를 보낸 사람과 소중한 순간을 차곡차곡 모아보세요.
-            </p>
+
           </>
         )}
       </section>

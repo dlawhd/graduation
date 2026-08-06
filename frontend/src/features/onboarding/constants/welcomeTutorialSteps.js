@@ -14,9 +14,6 @@ export const WELCOME_TUTORIAL_STEPS = Object.freeze([
     // React가 각 단계를 구분할 때 사용하는 고유 이름
     id: "CREATE_JAR",
 
-    // 화면 위쪽에 작게 보여줄 단계 문구
-    stepLabel: "첫 번째 이야기",
-
     // 단계 제목
     title: "우리만의 추억 저금통을 만들어요",
 
@@ -29,7 +26,6 @@ export const WELCOME_TUTORIAL_STEPS = Object.freeze([
   },
   {
     id: "STORE_MEMORIES",
-    stepLabel: "두 번째 이야기",
     title: "쪽지와 사진을 차곡차곡 담아요",
     description:
       "기억하고 싶은 이야기와 사진을 저금통에 넣어요.\n한 번 담은 추억은 약속한 날까지 소중하게 보관돼요.",
@@ -37,8 +33,7 @@ export const WELCOME_TUTORIAL_STEPS = Object.freeze([
   },
   {
     id: "REOPEN_MEMORIES",
-    stepLabel: "세 번째 이야기",
-    title: "약속한 날, 추억을 다시 만나요",
+    title: "약속한 날 추억을 다시 만나요",
     description:
       "저금통이 열리면 함께 모은 쪽지를 확인하고\n매일 한 장씩 오늘의 추억을 뽑아볼 수 있어요.",
     visualKey: "MEMORY_DRAW",

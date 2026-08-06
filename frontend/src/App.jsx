@@ -19,6 +19,9 @@ import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
 import apiClient, { fetchCsrf } from "./api/apiClient";
 import {
+  AUTH_SESSION_EXPIRED_EVENT,
+} from "./api/authSessionUtils";
+import {
   getNotifications,
   getUnreadCount,
   readAllNotifications,
@@ -35,6 +38,7 @@ import {
 import {
   OnboardingProvider,
 } from "./features/onboarding/OnboardingProvider";
+import OnboardingHelpDialog from "./features/onboarding/components/OnboardingHelpDialog";
 import MemoryJarLogoIcon from "./components/icons/MemoryJarLogoIcon";
 // 작은 enum 한글화
 const ROLE_LABEL = {
@@ -159,6 +163,15 @@ export default function App() {
   // 내정보 패널 열림 상태
   const [profileOpen, setProfileOpen] = useState(false);
 
+  /*
+   * 내정보에서 "Memory Jar 이용 방법"을 눌렀을 때
+   * 어떤 안내를 다시 볼지 선택하는 창의 열림 상태
+   */
+  const [
+    onboardingHelpOpen,
+    setOnboardingHelpOpen,
+  ] = useState(false);
+
   // 내정보 패널 안에 보여줄 저금통 미리보기 목록
   const [myJarsPreview, setMyJarsPreview] = useState([]);
 
@@ -240,6 +253,50 @@ useEffect(() => {
     ignore = true;
   };
 }, [isLoginSuccessPage, location.pathname]);
+
+/*
+ * API 요청 중 Refresh Token까지 만료된 경우
+ * apiClient가 보내는 로그인 만료 이벤트를 처리한다.
+ *
+ * 헤더에 이전 사용자 정보가 남거나
+ * 알림·내정보 패널이 계속 열려 있는 문제를 막는다.
+ */
+useEffect(() => {
+  function handleSessionExpired() {
+    // 기존 로그인 사용자 정보 제거
+    setMe(null);
+
+    // 인증 확인은 끝난 로그아웃 상태로 처리
+    setCheckingAuth(false);
+
+    // 로그인 사용자 전용 패널 닫기
+    setProfileOpen(false);
+    setNotificationOpen(false);
+
+    // 이용 방법 선택창도 닫는다.
+    setOnboardingHelpOpen(false);
+
+    // 이전 사용자의 알림 정보 제거
+    setUnreadCount(0);
+    setNotifications([]);
+    setNotificationsError("");
+
+    // 이전 사용자의 저금통 미리보기 제거
+    setMyJarsPreview([]);
+  }
+
+  window.addEventListener(
+    AUTH_SESSION_EXPIRED_EVENT,
+    handleSessionExpired
+  );
+
+  return () => {
+    window.removeEventListener(
+      AUTH_SESSION_EXPIRED_EVENT,
+      handleSessionExpired
+    );
+  };
+}, []);
 
 /*
  * 로그인 성공 화면이 저장한 완료 메시지를 한 번만 꺼낸다.
@@ -940,6 +997,45 @@ useEffect(() => {
                                     </div>
                                   </div>
 
+                                  {/*
+                                   * 이용 방법 다시 보기
+                                   *
+                                   * 내정보 패널은 닫고,
+                                   * 별도의 큰 선택창을 연다.
+                                   */}
+                                  <div className="border-b border-slate-100 px-5 py-4">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setProfileOpen(false);
+                                        setOnboardingHelpOpen(true);
+                                      }}
+                                      className="group flex w-full items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
+                                    >
+                                      {/* 물음표 아이콘 */}
+                                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-base font-black text-emerald-600 shadow-sm ring-1 ring-emerald-100">
+                                        ?
+                                      </span>
+
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-black text-slate-800">
+                                          Memory Jar 이용 방법
+                                        </span>
+
+                                        <span className="mt-0.5 block text-xs font-medium text-slate-500">
+                                          완료한 안내를 다시 확인해요
+                                        </span>
+                                      </span>
+
+                                      <span
+                                        aria-hidden="true"
+                                        className="text-lg font-black text-emerald-400 transition group-hover:translate-x-1"
+                                      >
+                                        →
+                                      </span>
+                                    </button>
+                                  </div>
+
                                   {/* 내가 참여한 저금통 */}
                                   <div className="px-5 py-5">
                                     <div className="mb-3 flex items-center justify-between">
@@ -1010,10 +1106,28 @@ useEffect(() => {
           </div>
         </div>
     </header>
-  )}
+    )}
 
-{/* 로그인 직후 목적지 화면에서 잠깐 보여주는 완료 알림 */}
-{loginToastMessage && (
+    {/*
+     * 내정보에서 열 수 있는 이용 방법 선택창
+     *
+     * OnboardingProvider 안에서 렌더링되므로
+     * 내부에서 useOnboarding을 사용할 수 있다.
+     */}
+    <OnboardingHelpDialog
+      isOpen={
+        onboardingHelpOpen
+      }
+      jars={
+        myJarsPreview
+      }
+      onClose={() =>
+        setOnboardingHelpOpen(false)
+      }
+    />
+
+    {/* 로그인 직후 목적지 화면에서 잠깐 보여주는 완료 알림 */}
+    {loginToastMessage && (
   <div
     className="pointer-events-none fixed left-1/2 top-6 z-[200] w-[calc(100%-2rem)] max-w-md -translate-x-1/2"
     role="status"

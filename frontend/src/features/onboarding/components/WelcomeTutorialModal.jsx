@@ -348,7 +348,7 @@ export default function WelcomeTutorialModal() {
                   </p>
 
                   <p className="mt-1 text-xs font-semibold text-slate-400">
-                    처음 오셨나요? 3장으로 알려드릴게요.
+                    처음 오셨나요? 천천히 알려드릴게요.
                   </p>
                 </div>
 

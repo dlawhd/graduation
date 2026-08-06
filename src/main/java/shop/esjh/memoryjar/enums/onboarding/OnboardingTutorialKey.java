@@ -18,6 +18,9 @@ public enum OnboardingTutorialKey {
     // 저금통 목록 화면의 새 저금통 만들기 안내
     JAR_LIST,
 
+    // 새 저금통 만들기 화면의 테마, 이름, 오픈일, 생성 안내
+    JAR_CREATE,
+
     // 저금통 상세 화면의 쪽지, 초대, 채팅 안내
     JAR_DETAIL,
 

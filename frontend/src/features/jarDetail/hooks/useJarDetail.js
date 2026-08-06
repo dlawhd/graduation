@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import apiClient from "../../../api/apiClient";
+import {
+  isSessionExpiredError,
+} from "../../../api/authSessionUtils";
 
 /*
  * useJarDetail 역할
@@ -26,6 +29,15 @@ export function useJarDetail(jarId) {
   const [error, setError] = useState("");
 
   /*
+   * Refresh Token까지 만료되어
+   * 다시 로그인해야 하는 상태인지 저장한다.
+   */
+  const [
+    sessionExpired,
+    setSessionExpired,
+  ] = useState(false);
+
+  /*
    * 저금통 상세 정보를 불러오는 함수야.
    *
    * silent가 true면 화면 전체 로딩을 켜지 않는다.
@@ -37,7 +49,10 @@ export function useJarDetail(jarId) {
 
       if (!silent) {
         setLoading(true);
+        setSessionExpired(false);
       }
+
+      setError("");
 
       setError("");
 
@@ -47,6 +62,20 @@ export function useJarDetail(jarId) {
 
         setJar(data || null);
       } catch (e) {
+        /*
+         * Refresh Token까지 만료된 오류라면
+         * 일반 상세 오류와 구분한다.
+         */
+        if (
+          isSessionExpiredError(e)
+        ) {
+          setSessionExpired(true);
+          setError("");
+          setJar(null);
+
+          return;
+        }
+
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -73,8 +102,18 @@ export function useJarDetail(jarId) {
     try {
       const res = await apiClient.get("/api/v1/me");
       setMe(res.data?.data || null);
-    } catch {
-      // 내 정보 조회 실패는 상세 화면 전체를 멈출 정도는 아니므로 null로 둔다.
+    } catch (e) {
+      /*
+       * 단순한 내 정보 조회 실패는 null로 두지만,
+       * Refresh Token까지 만료된 경우에는
+       * 상세 화면 전체를 재로그인 상태로 전환한다.
+       */
+      if (
+        isSessionExpiredError(e)
+      ) {
+        setSessionExpired(true);
+      }
+
       setMe(null);
     }
   }, []);
@@ -97,6 +136,7 @@ export function useJarDetail(jarId) {
     me,
     loading,
     error,
+    sessionExpired,
     loadJarDetail,
     loadMe,
   };

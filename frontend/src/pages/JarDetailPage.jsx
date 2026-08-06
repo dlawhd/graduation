@@ -2,6 +2,9 @@
 
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import {
+  ONBOARDING_TUTORIAL_KEY,
+} from "../api/onboardingApi";
 import { getChatUnreadCount } from "../api/chatApi";
 import NoteSection from "./NoteSection";
 import InfoItem from "../features/jarDetail/components/InfoItem";
@@ -17,6 +20,7 @@ import { useJarMembers } from "../features/jarDetail/hooks/useJarMembers";
 import { useJarInvites } from "../features/jarDetail/hooks/useJarInvites";
 import { useJarDailyDraw } from "../features/jarDetail/hooks/useJarDailyDraw";
 import { useJarRealtimeEvents } from "../features/jarDetail/hooks/useJarRealtimeEvents";
+import SessionExpiredPage from "../components/auth/SessionExpiredPage";
 import {
   ROLE_LABEL,
   THEME_LABEL,
@@ -46,6 +50,16 @@ import {
   useState,
   useRef,
 } from "react";
+import TutorialSpotlight from "../features/onboarding/components/TutorialSpotlight";
+import useOnboarding from "../features/onboarding/hooks/useOnboarding";
+import {
+  createJarDetailTutorialSteps,
+  JAR_DETAIL_TUTORIAL_TARGET,
+} from "../features/onboarding/constants/jarDetailTutorialSteps";
+import TutorialCompletionDialog from "../features/onboarding/components/TutorialCompletionDialog";
+import {
+  ONBOARDING_REPLAY_STATE_KEY,
+} from "../features/onboarding/constants/onboardingReplay";
 
 // 오픈 상태를 사람이 읽기 쉽게 정리해주는 함수
 function getOpenStatus(jar) {
@@ -120,6 +134,61 @@ function getInviteStatus(invite, palette) {
 }
 
 export default function JarDetailPage() {
+  /*
+   * 앱 전체 OnboardingProvider에서
+   * 현재 사용자의 온보딩 상태와 저장 함수를 가져온다.
+   */
+  const {
+    activeTutorialKey,
+    savingTutorialKey,
+    error: onboardingError,
+    shouldShowTutorial,
+    openTutorial,
+    closeTutorial,
+    completeActiveTutorial,
+    skipActiveTutorial,
+  } = useOnboarding();
+
+  /*
+   * JAR_DETAIL 안내가 강조할 실제 버튼들이다.
+   */
+  const noteTutorialButtonRef =
+    useRef(null);
+
+  const inviteTutorialButtonRef =
+    useRef(null);
+
+  const chatTutorialButtonRef =
+    useRef(null);
+
+  /*
+   * JAR_DETAIL 안내에서 현재 보여주는 단계 번호
+   *
+   * 0: 새 쪽지 쓰기
+   * 1: 초대 관리
+   * 2: 저금통 채팅
+   */
+  const [
+    jarDetailTutorialStepIndex,
+    setJarDetailTutorialStepIndex,
+  ] = useState(0);
+
+  /*
+   * JAR_DETAIL 안내를 모두 완료한 뒤
+   * 사용자가 확인을 누를 때까지 보여줄 완료 안내창
+   */
+  const [
+    jarDetailCompletionOpen,
+    setJarDetailCompletionOpen,
+  ] = useState(false);
+
+  /*
+   * 마지막 단계에서 실제 "저금통 채팅" 버튼을 눌러
+   * 안내를 완료한 경우,
+   * 완료 안내창의 확인 버튼을 누른 뒤 실행할 원래 기능을 보관한다.
+   */
+  const jarDetailCompletionNextActionRef =
+    useRef(null);
 
   // 지금 어떤 댓글 아래에 답글 입력창을 열었는지 저장
   const [replyTargetCommentId, setReplyTargetCommentId] = useState(null);
@@ -278,6 +347,7 @@ const {
   me,
   loading,
   error,
+  sessionExpired,
   loadJarDetail,
 } = useJarDetail(jarId);
 
@@ -709,6 +779,585 @@ useEffect(() => {
     handleHideRevokedInvite,
     handleRestoreHiddenInvites,
   } = useJarInvites({ jarId, jar });
+
+  /*
+   * 현재 사용자의 초대 관리 권한에 맞는
+   * JAR_DETAIL 안내 3단계를 만든다.
+   */
+  const jarDetailTutorialSteps =
+    useMemo(
+      () =>
+        createJarDetailTutorialSteps({
+          canManageInvites,
+        }),
+      [canManageInvites]
+    );
+
+  /*
+   * 현재 열려 있는 안내가 JAR_DETAIL인지 확인한다.
+   */
+  const isJarDetailTutorialOpen =
+    activeTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_DETAIL;
+
+  /*
+   * 내정보에서 저금통 상세 화면 안내를 선택하고
+   * 현재 저금통 상세 페이지로 이동해 온 요청인지 확인한다.
+   */
+  const replayTutorialKey =
+    location.state?.[
+      ONBOARDING_REPLAY_STATE_KEY
+    ] ?? null;
+
+  const shouldReplayJarDetailTutorial =
+    replayTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_DETAIL;
+
+  /*
+   * 현재 JAR_DETAIL 완료 또는 건너뛰기를
+   * 백엔드에 저장하고 있는지 확인한다.
+   */
+  const isJarDetailTutorialSaving =
+    savingTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_DETAIL;
+
+  /*
+   * 현재 단계 정보
+   */
+  const currentJarDetailTutorialStep =
+    jarDetailTutorialSteps[
+      jarDetailTutorialStepIndex
+    ] ?? jarDetailTutorialSteps[0];
+
+  /*
+   * 현재 JAR_DETAIL 안내가 첫 번째 단계인지 확인한다.
+   *
+   * 첫 번째 단계인 "새 쪽지 쓰기"에서는
+   * 더 이전으로 이동할 곳이 없으므로 이전 버튼을 숨긴다.
+   */
+  const isFirstJarDetailTutorialStep =
+    jarDetailTutorialStepIndex === 0;
+
+  /*
+   * 현재 단계가 마지막 단계인지 확인한다.
+   */
+  const isLastJarDetailTutorialStep =
+    jarDetailTutorialStepIndex ===
+    jarDetailTutorialSteps.length - 1;
+
+  /*
+   * 현재 단계에 따라 실제로 강조할 버튼 Ref를 정한다.
+   */
+  let jarDetailTutorialTargetRef =
+    noteTutorialButtonRef;
+
+  if (
+    currentJarDetailTutorialStep
+      ?.targetKey ===
+    JAR_DETAIL_TUTORIAL_TARGET.INVITE
+  ) {
+    jarDetailTutorialTargetRef =
+      inviteTutorialButtonRef;
+  }
+
+  if (
+    currentJarDetailTutorialStep
+      ?.targetKey ===
+    JAR_DETAIL_TUTORIAL_TARGET.CHAT
+  ) {
+    jarDetailTutorialTargetRef =
+      chatTutorialButtonRef;
+  }
+
+  /*
+   * 특정 버튼이 현재 강조 대상인지 확인한다.
+   *
+   * 버튼 자체의 테두리를 조금 더 밝게 표시할 때 사용한다.
+   */
+  function isCurrentJarDetailTutorialTarget(
+    targetKey
+  ) {
+    return (
+      isJarDetailTutorialOpen &&
+      currentJarDetailTutorialStep
+        ?.targetKey === targetKey
+    );
+  }
+
+  /*
+   * JAR_DETAIL 완료 안내창을 연다.
+   *
+   * nextAction:
+   * 사용자가 강조된 실제 채팅 버튼을 눌러 완료한 경우
+   * 확인 버튼을 누른 뒤 실행할 원래 채팅 열기 함수
+   */
+  const showJarDetailCompletionDialog =
+    useCallback(
+      (nextAction = null) => {
+        jarDetailCompletionNextActionRef.current =
+          typeof nextAction === "function"
+            ? nextAction
+            : null;
+
+        setJarDetailCompletionOpen(true);
+      },
+      []
+    );
+
+  /*
+   * JAR_DETAIL 완료 안내창의 "확인" 버튼 처리
+   */
+  const handleConfirmJarDetailCompletion =
+    useCallback(() => {
+      setJarDetailCompletionOpen(false);
+
+      /*
+       * 완료 전에 실제 채팅 버튼을 눌렀다면
+       * 확인 후 채팅 모달을 연다.
+       */
+      const nextAction =
+        jarDetailCompletionNextActionRef.current;
+
+      jarDetailCompletionNextActionRef.current =
+        null;
+
+      nextAction?.();
+    }, []);
+
+  /*
+   * 설명 카드의 "다음" 또는 "안내 완료" 버튼 처리
+   *
+   * 마지막 단계 전:
+   * 다음 강조 대상으로 이동
+   *
+   * 마지막 단계:
+   * JAR_DETAIL을 COMPLETED로 저장
+   */
+  const handleJarDetailTutorialPrimaryAction =
+    useCallback(async () => {
+      if (
+        !isJarDetailTutorialOpen ||
+        isJarDetailTutorialSaving
+      ) {
+        return;
+      }
+
+      if (
+        !isLastJarDetailTutorialStep
+      ) {
+        setJarDetailTutorialStepIndex(
+          (previousIndex) =>
+            Math.min(
+              previousIndex + 1,
+              jarDetailTutorialSteps.length -
+                1
+            )
+        );
+
+        return;
+      }
+
+      try {
+        /*
+         * JAR_DETAIL을 COMPLETED로 저장한다.
+         *
+         * 저장 성공 시 OnboardingProvider가
+         * 스포트라이트를 자동으로 닫는다.
+         */
+        await completeActiveTutorial();
+
+        /*
+         * 스포트라이트가 닫힌 다음
+         * 사용자가 직접 확인해야 닫히는 완료 안내창을 연다.
+         */
+        showJarDetailCompletionDialog();
+      } catch {
+        /*
+         * 저장 실패 문구는 OnboardingProvider의
+         * onboardingError를 통해 설명 카드에 표시한다.
+         */
+      }
+    }, [
+      isJarDetailTutorialOpen,
+      isJarDetailTutorialSaving,
+      isLastJarDetailTutorialStep,
+      jarDetailTutorialSteps.length,
+      completeActiveTutorial,
+      showJarDetailCompletionDialog,
+    ]);
+
+  /*
+   * JAR_DETAIL 안내의 이전 버튼 처리
+   *
+   * 현재 단계 번호를 하나 줄여서
+   * 바로 앞의 기능 안내로 돌아간다.
+   *
+   * 이동 순서:
+   *
+   * 저금통 채팅
+   * → 초대 관리
+   * → 새 쪽지 쓰기
+   */
+  const handleJarDetailTutorialPrevious =
+    useCallback(() => {
+      /*
+       * 현재 JAR_DETAIL 안내가 열려 있지 않거나
+       * 완료·건너뛰기 저장 중이라면 이동하지 않는다.
+       */
+      if (
+        !isJarDetailTutorialOpen ||
+        isJarDetailTutorialSaving
+      ) {
+        return;
+      }
+
+      /*
+       * 첫 번째 단계에서는
+       * 더 이전으로 이동하지 않는다.
+       */
+      if (
+        isFirstJarDetailTutorialStep
+      ) {
+        return;
+      }
+
+      /*
+       * 단계 번호를 하나 줄이되
+       * 0보다 작아지지 않게 제한한다.
+       */
+      setJarDetailTutorialStepIndex(
+        (previousIndex) =>
+          Math.max(
+            previousIndex - 1,
+            0
+          )
+      );
+    }, [
+      isJarDetailTutorialOpen,
+      isJarDetailTutorialSaving,
+      isFirstJarDetailTutorialStep,
+    ]);
+
+
+
+  /*
+   * JAR_DETAIL 안내 전체를 건너뛴다.
+   *
+   * 현재 몇 번째 단계인지와 관계없이
+   * JAR_DETAIL 하나를 SKIPPED 상태로 저장한다.
+   */
+  const handleJarDetailTutorialSkip =
+    useCallback(async () => {
+      if (
+        !isJarDetailTutorialOpen ||
+        isJarDetailTutorialSaving
+      ) {
+        return;
+      }
+
+      try {
+        await skipActiveTutorial();
+      } catch {
+        /*
+         * 저장 실패 시 안내를 닫지 않고
+         * 오류 문구를 그대로 보여준다.
+         */
+      }
+    }, [
+      isJarDetailTutorialOpen,
+      isJarDetailTutorialSaving,
+      skipActiveTutorial,
+    ]);
+
+  /*
+   * 스포트라이트로 강조된 실제 버튼을 눌렀을 때 처리한다.
+   *
+   * 안내가 열려 있지 않다면 원래 버튼 기능을 그대로 실행한다.
+   *
+   * 안내가 열려 있다면:
+   * - 첫 번째와 두 번째 버튼은 다음 안내로 이동
+   * - 마지막 채팅 버튼은 완료 저장 후 실제 채팅을 연다.
+   *
+   * 중간 단계에서 모달까지 열면 다음 스포트라이트가 모달 뒤에
+   * 숨어버릴 수 있어서 위치 확인만 하고 다음으로 이동하게 한다.
+   */
+  const handleJarDetailTargetButtonClick =
+    useCallback(
+      async (
+        targetKey,
+        originalAction
+      ) => {
+        if (!isJarDetailTutorialOpen) {
+          originalAction?.();
+          return;
+        }
+
+        if (
+          isJarDetailTutorialSaving ||
+          currentJarDetailTutorialStep
+            ?.targetKey !== targetKey
+        ) {
+          return;
+        }
+
+        if (
+          !isLastJarDetailTutorialStep
+        ) {
+          setJarDetailTutorialStepIndex(
+            (previousIndex) =>
+              Math.min(
+                previousIndex + 1,
+                jarDetailTutorialSteps.length -
+                  1
+              )
+          );
+
+          return;
+        }
+
+        /*
+         * 마지막 강조 버튼인 채팅을 직접 누른 경우
+         * 완료 저장 후 실제 채팅 모달까지 열어준다.
+         */
+        try {
+          /*
+           * JAR_DETAIL 완료 상태를 먼저 저장한다.
+           */
+          await completeActiveTutorial();
+
+          /*
+           * 채팅 모달을 바로 열지 않는다.
+           *
+           * 완료 안내창에서 사용자가 "확인"을 누른 뒤
+           * 원래 채팅 기능을 실행한다.
+           */
+          showJarDetailCompletionDialog(
+            originalAction
+          );
+        } catch {
+          /*
+           * 완료 저장에 실패하면 안내를 유지한다.
+           * 상태가 저장되지 않은 채 기능만 열리는 것을 막는다.
+           */
+        }
+      },
+      [
+        isJarDetailTutorialOpen,
+        isJarDetailTutorialSaving,
+        currentJarDetailTutorialStep,
+        isLastJarDetailTutorialStep,
+        jarDetailTutorialSteps.length,
+        completeActiveTutorial,
+        showJarDetailCompletionDialog,
+      ]
+    );
+
+  /*
+   * JAR_DETAIL 안내가 새로 열리거나
+   * 다른 저금통으로 이동하면 첫 단계부터 시작한다.
+   */
+  useEffect(() => {
+    if (!isJarDetailTutorialOpen) {
+      return;
+    }
+
+    setJarDetailTutorialStepIndex(0);
+  }, [
+    isJarDetailTutorialOpen,
+    jarId,
+  ]);
+
+  /*
+   * 다른 화면 모달이 열려 있을 때는
+   * JAR_DETAIL 스포트라이트를 자동으로 시작하지 않는다.
+   *
+   * 특히 이미 열린 저금통에 들어갔을 때 표시되는
+   * 오픈 축하 모달과 겹치는 것을 막는다.
+   */
+  const hasBlockingJarDetailModal =
+    jarZoomDetailOpen ||
+    jarZoomOpen ||
+    jarChatOpen ||
+    jarInfoOpen ||
+    memberListOpen ||
+    inviteManageOpen ||
+    memoryDrawOpen ||
+    jarOpenCelebrationOpen ||
+    jarDetailCompletionOpen ||
+    editOpen;
+
+  /*
+   * 내정보에서 "저금통 상세 화면 안내"를 선택한 뒤
+   * 다른 화면에서 상세 페이지로 이동해 온 경우의 수동 다시 보기 처리다.
+   *
+   * 상세 화면은 서버에서 저금통 정보와 권한을 불러와야 하므로
+   * loading이 끝나고 실제 버튼들이 렌더링된 뒤 안내를 연다.
+   */
+  useEffect(() => {
+    if (
+      !shouldReplayJarDetailTutorial
+    ) {
+      return undefined;
+    }
+
+    /*
+     * 저금통 상세 정보가 준비되기 전에는
+     * 새 쪽지, 초대 관리, 채팅 버튼의 위치를 계산할 수 없다.
+     */
+    if (
+      loading ||
+      error ||
+      !jar ||
+      Number(jar.jarId) !==
+        Number(jarId)
+    ) {
+      return undefined;
+    }
+
+    /*
+     * 오픈 축하창이나 다른 상세 모달이 열려 있다면
+     * 모달이 닫힐 때까지 수동 안내 실행을 기다린다.
+     */
+    if (
+      hasBlockingJarDetailModal
+    ) {
+      return undefined;
+    }
+
+    const timerId =
+      window.setTimeout(() => {
+        openTutorial(
+          ONBOARDING_TUTORIAL_KEY.JAR_DETAIL,
+          {
+            force: true,
+          }
+        );
+
+        /*
+         * 사용이 끝난 수동 다시 보기 요청값만 제거한다.
+         *
+         * 알림에서 전달한 다른 location.state 값이 있다면
+         * 나머지 값은 그대로 유지한다.
+         */
+        const nextState = {
+          ...(location.state ?? {}),
+        };
+
+        delete nextState[
+          ONBOARDING_REPLAY_STATE_KEY
+        ];
+
+        navigate(
+          location.pathname,
+          {
+            replace: true,
+
+            state:
+              Object.keys(nextState)
+                .length > 0
+                ? nextState
+                : null,
+          }
+        );
+      }, 300);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    shouldReplayJarDetailTutorial,
+    loading,
+    error,
+    jar,
+    jarId,
+    hasBlockingJarDetailModal,
+    location.pathname,
+    location.state,
+    navigate,
+    openTutorial,
+  ]);
+
+  /*
+   * 저금통 상세 정보를 정상적으로 불러온 뒤
+   * 아직 JAR_DETAIL 안내를 보지 않았다면 자동으로 연다.
+   *
+   * WELCOME이나 JAR_LIST 완료 여부는 조건으로 사용하지 않는다.
+   * 따라서 초대 링크로 상세 화면에 바로 들어온 사용자도
+   * 전체 소개를 거치지 않고 상세 안내부터 볼 수 있다.
+   */
+  useEffect(() => {
+    if (
+      loading ||
+      error ||
+      !jar ||
+      Number(jar.jarId) !==
+        Number(jarId)
+    ) {
+      return undefined;
+    }
+
+    /*
+     * 다른 온보딩이나 모달이 이미 열려 있으면 기다린다.
+     */
+    if (
+      activeTutorialKey !== null ||
+      hasBlockingJarDetailModal
+    ) {
+      return undefined;
+    }
+
+    const shouldOpenJarDetail =
+      shouldShowTutorial(
+        ONBOARDING_TUTORIAL_KEY.JAR_DETAIL
+      );
+
+    if (!shouldOpenJarDetail) {
+      return undefined;
+    }
+
+    /*
+     * 상세 화면의 버튼들이 DOM에 완전히 그려진 다음
+     * 위치를 계산하도록 짧게 기다린다.
+     */
+    const timerId =
+      window.setTimeout(() => {
+        openTutorial(
+          ONBOARDING_TUTORIAL_KEY.JAR_DETAIL
+        );
+      }, 300);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    loading,
+    error,
+    jar,
+    jarId,
+    activeTutorialKey,
+    hasBlockingJarDetailModal,
+    shouldShowTutorial,
+    openTutorial,
+  ]);
+
+  /*
+   * JAR_DETAIL 안내 도중 다른 페이지나 다른 저금통으로 이동하면
+   * Provider에 현재 안내가 열린 상태로 남지 않게 정리한다.
+   */
+  useEffect(() => {
+    return () => {
+      if (
+        activeTutorialKey ===
+        ONBOARDING_TUTORIAL_KEY.JAR_DETAIL
+      ) {
+        closeTutorial();
+      }
+    };
+  }, [
+    jarId,
+    activeTutorialKey,
+    closeTutorial,
+  ]);
 
   // useJarDailyDraw: 오늘의 추억 한 장
   const {
@@ -1914,6 +2563,23 @@ async function handleViewOpenedJarNotes() {
   // 수정 가능한 사람 체크
   const canEditJar = jar?.myRole === "OWNER" || jar?.myRole === "ADMIN";
 
+  /*
+   * Refresh Token까지 만료된 경우에는
+   * 일반적인 저금통 조회 실패 화면보다 먼저
+   * 재로그인 전용 화면을 보여준다.
+   *
+   * 로그인 버튼을 누르면 현재 /jars/{jarId} 주소를 저장하므로
+   * 로그인 완료 후 같은 저금통으로 돌아온다.
+   */
+  if (sessionExpired) {
+    return (
+      <SessionExpiredPage
+        title=""
+        description="로그인 시간이 지나 저금통 정보를 불러올 수 없어요."
+      />
+    );
+  }
+
   // 로딩 화면
   if (loading) {
     return (
@@ -2027,7 +2693,97 @@ async function handleViewOpenedJarNotes() {
   }
 
   return (
-      <div className={`relative min-h-[calc(100vh-80px)] overflow-hidden px-6 py-10 ${pageBackgroundClass}`}>
+    <>
+      {/*
+       * 저금통 상세 화면 온보딩
+       *
+       * 새 쪽지 쓰기
+       * → 초대 관리
+       * → 저금통 채팅
+       *
+       * 순서로 실제 버튼을 강조한다.
+       */}
+      <TutorialSpotlight
+        isOpen={
+          isJarDetailTutorialOpen
+        }
+        targetRef={
+          jarDetailTutorialTargetRef
+        }
+        showPrevious={
+            !isFirstJarDetailTutorialStep
+          }
+          previousLabel="이전"
+          onPrevious={
+            handleJarDetailTutorialPrevious
+          }
+        eyebrow={`저금통 상세 안내 · ${
+          jarDetailTutorialStepIndex + 1
+        } / ${
+          jarDetailTutorialSteps.length
+        }`}
+        title={
+          currentJarDetailTutorialStep
+            ?.title
+        }
+        description={
+          currentJarDetailTutorialStep
+            ?.description
+        }
+        completeLabel={
+          isLastJarDetailTutorialStep
+            ? "안내 완료"
+            : "다음"
+        }
+        skipLabel="건너뛰기"
+        isSaving={
+          isJarDetailTutorialSaving
+        }
+        error={
+          isJarDetailTutorialOpen
+            ? onboardingError
+            : ""
+        }
+        onComplete={
+          handleJarDetailTutorialPrimaryAction
+        }
+        onSkip={
+          handleJarDetailTutorialSkip
+        }
+      />
+
+      {/*
+       * JAR_DETAIL 안내 완료 후 보여주는 확인창
+       *
+       * 자동으로 사라지지 않고
+       * 사용자가 "확인"을 눌러야 닫힌다.
+       */}
+      <TutorialCompletionDialog
+        isOpen={
+          jarDetailCompletionOpen
+        }
+        title="저금통 상세 안내를 모두 확인했어요."
+        confirmLabel="확인"
+        onConfirm={
+          handleConfirmJarDetailCompletion
+        }
+      >
+        <p>
+          안내가 다시 필요할 때는
+          <br />
+          내정보의
+          <strong className="mx-1 font-black text-slate-700">
+            ‘Memory Jar 이용 방법’
+          </strong>
+          에서
+          <br />
+          언제든 다시 확인할 수 있어요!
+        </p>
+      </TutorialCompletionDialog>
+
+      <div
+        className={`relative min-h-[calc(100vh-80px)] overflow-hidden px-6 py-10 ${pageBackgroundClass}`}
+      >
         {/* 달빛 테마일 때만 보이는 페이지 외곽 장식 */}
         {hasThemePageDecoration && (
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -2154,18 +2910,51 @@ async function handleViewOpenedJarNotes() {
                 <div className="mt-20 grid w-full max-w-xl gap-3 sm:grid-cols-3">
                   {/* 새 쪽지 작성 버튼 */}
                   <button
+                    /*
+                     * JAR_DETAIL 첫 번째 안내에서
+                     * 이 버튼의 실제 위치를 강조한다.
+                     */
+                    ref={noteTutorialButtonRef}
                     type="button"
-                    onClick={handleOpenNoteComposer}
-                    className={`w-full rounded-2xl px-4 py-3 text-sm font-bold shadow-[0_16px_36px_rgba(15,23,42,0.16)] transition hover:scale-[1.02] ${palette.primaryButton}`}
+                    onClick={() => {
+                      void handleJarDetailTargetButtonClick(
+                        JAR_DETAIL_TUTORIAL_TARGET.NOTE,
+                        handleOpenNoteComposer
+                      );
+                    }}
+                    className={`w-full rounded-2xl px-4 py-3 text-sm font-bold shadow-[0_16px_36px_rgba(15,23,42,0.16)] transition hover:scale-[1.02] ${palette.primaryButton} ${
+                      isCurrentJarDetailTutorialTarget(
+                        JAR_DETAIL_TUTORIAL_TARGET.NOTE
+                      )
+                        ? "ring-4 ring-white/90"
+                        : ""
+                    }`}
                   >
                     새 쪽지 쓰기
                   </button>
 
                   {/* 저금통 채팅 모달 열기 버튼 */}
+                  {/* 저금통 채팅 모달 열기 버튼 */}
                   <button
+                    /*
+                     * JAR_DETAIL 마지막 안내에서
+                     * 이 버튼의 실제 위치를 강조한다.
+                     */
+                    ref={chatTutorialButtonRef}
                     type="button"
-                    onClick={handleOpenJarChat}
-                    className={`relative w-full rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
+                    onClick={() => {
+                      void handleJarDetailTargetButtonClick(
+                        JAR_DETAIL_TUTORIAL_TARGET.CHAT,
+                        handleOpenJarChat
+                      );
+                    }}
+                    className={`relative w-full rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton} ${
+                      isCurrentJarDetailTutorialTarget(
+                        JAR_DETAIL_TUTORIAL_TARGET.CHAT
+                      )
+                        ? "ring-4 ring-white/90"
+                        : ""
+                    }`}
                   >
                     저금통 채팅
 
@@ -2232,9 +3021,26 @@ async function handleViewOpenedJarNotes() {
 
                   {/* 초대 관리 모달 열기 */}
                   <button
+                    /*
+                     * JAR_DETAIL 두 번째 안내에서
+                     * 이 버튼의 실제 위치를 강조한다.
+                     */
+                    ref={inviteTutorialButtonRef}
                     type="button"
-                    onClick={() => setInviteManageOpen(true)}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-bold transition hover:scale-[1.01] ${palette.outlineButton}`}
+                    onClick={() => {
+                      void handleJarDetailTargetButtonClick(
+                        JAR_DETAIL_TUTORIAL_TARGET.INVITE,
+                        () =>
+                          setInviteManageOpen(true)
+                      );
+                    }}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-bold transition hover:scale-[1.01] ${palette.outlineButton} ${
+                      isCurrentJarDetailTutorialTarget(
+                        JAR_DETAIL_TUTORIAL_TARGET.INVITE
+                      )
+                        ? "ring-4 ring-white/90"
+                        : ""
+                    }`}
                   >
                     초대 관리
                     <span className="ml-2 text-xs opacity-80">
@@ -3144,5 +3950,6 @@ async function handleViewOpenedJarNotes() {
         </div>
       )}
       </div>
+      </>
   );
 }

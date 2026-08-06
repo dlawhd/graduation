@@ -1,6 +1,9 @@
 // src/api/apiClient.js
 import axios from "axios";
-
+import {
+  markSessionExpiredError,
+  notifySessionExpired,
+} from "./authSessionUtils";
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   withCredentials: true,
@@ -112,9 +115,30 @@ apiClient.interceptors.response.use(
       // 원래 실패했던 요청을 다시 보냄
       return apiClient(originalRequest);
     } catch (refreshError) {
-      // refresh까지 실패하면 진짜 로그인이 풀린 상태로 보면 됨
-      // 여기서는 에러만 넘기고, 실제 로그인 페이지 이동은 App 쪽에서 처리해도 됨
-      return Promise.reject(refreshError);
+      /*
+       * Access Token 재발급까지 실패했다는 것은
+       * Refresh Token도 사용할 수 없다는 의미다.
+       *
+       * 다음 로그인에서는 새로운 CSRF 토큰을 받아야 하므로
+       * 메모리에 남아 있던 기존 토큰도 비운다.
+       */
+      csrfToken = "";
+
+      /*
+       * App에 로그인 만료 사실을 전달해서
+       * 헤더에 남아 있는 사용자 정보와 패널을 정리한다.
+       */
+      notifySessionExpired();
+
+      /*
+       * 각 페이지가 일반 서버 오류와 구분할 수 있도록
+       * 오류 객체에 SESSION_EXPIRED 표시를 추가한다.
+       */
+      return Promise.reject(
+        markSessionExpiredError(
+          refreshError
+        )
+      );
     }
   }
 );

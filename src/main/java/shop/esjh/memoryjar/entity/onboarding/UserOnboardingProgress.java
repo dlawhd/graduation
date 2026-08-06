@@ -75,7 +75,7 @@ public class UserOnboardingProgress extends BaseEntity {
     )
     private User user;
 
-    // WELCOME, JAR_LIST, JAR_DETAIL, DAILY_DRAW 중 하나
+    // WELCOME, JAR_LIST, JAR_CREATE, JAR_DETAIL, DAILY_DRAW 중 하나
     @Enumerated(EnumType.STRING)
     @Column(name = "tutorial_key", nullable = false, length = 30)
     private OnboardingTutorialKey tutorialKey;

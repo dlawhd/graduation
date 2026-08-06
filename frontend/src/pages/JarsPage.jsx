@@ -1,9 +1,21 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import apiClient from "../api/apiClient";
 import {
   ONBOARDING_TUTORIAL_KEY,
 } from "../api/onboardingApi";
+import {
+  ONBOARDING_REPLAY_STATE_KEY,
+} from "../features/onboarding/constants/onboardingReplay";
+import TutorialSpotlight from "../features/onboarding/components/TutorialSpotlight";
 import WelcomeTutorialModal from "../features/onboarding/components/WelcomeTutorialModal";
 import useOnboarding from "../features/onboarding/hooks/useOnboarding";
 import SandIcon from "../components/icons/SandIcon";
@@ -14,6 +26,10 @@ import SpringIcon from "../components/icons/SpringIcon";
 import SummerIcon from "../components/icons/SummerIcon";
 import AutumnIcon from "../components/icons/AutumnIcon";
 import WinterIcon from "../components/icons/WinterIcon";
+import {
+  isSessionExpiredError,
+} from "../api/authSessionUtils";
+import SessionExpiredPage from "../components/auth/SessionExpiredPage";
 
 /*
   JarsPage 역할
@@ -407,16 +423,134 @@ function LoadingCard() {
 }
 
 export default function JarsPage() {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
+
+  /*
+   * 내정보에서 다른 화면의 안내를 선택한 뒤
+   * /jars로 이동해 온 수동 다시 보기 요청을 확인한다.
+   */
+  const location =
+    useLocation();
 
   /*
    * 앱 전체 OnboardingProvider에서
    * 현재 사용자의 온보딩 상태와 실행 함수를 꺼낸다.
    */
   const {
+    // 현재 열려 있는 튜토리얼 종류
+    activeTutorialKey,
+
+    // 현재 저장 중인 튜토리얼 종류
+    savingTutorialKey,
+
+    // 온보딩 API 오류는 목록 API 오류와 이름이 겹치므로 별칭 사용
+    error: onboardingError,
+
+    // 자동 표시 여부 판단
     shouldShowTutorial,
+
+    // 특정 안내를 이미 완료하거나 건너뛰었는지 확인
+    isTutorialHandled,
+
+    // 특정 안내 열기
     openTutorial,
+
+    // 현재 안내 완료
+    completeActiveTutorial,
+
+    // 현재 안내 건너뛰기
+    skipActiveTutorial,
   } = useOnboarding();
+
+  /*
+   * JAR_LIST 안내에서 강조할
+   * 상단 "새 저금통 만들기" 버튼을 가리킨다.
+   */
+  const createJarButtonRef =
+    useRef(null);
+
+  /*
+   * 현재 열린 안내가 JAR_LIST인지 확인한다.
+   */
+  const isJarListTutorialOpen =
+    activeTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_LIST;
+
+  /*
+   * 내정보의 "Memory Jar 이용 방법"에서
+   * /jars 화면으로 전달한 수동 다시 보기 안내 종류다.
+   *
+   * /jars에서는 다음 두 안내를 실행할 수 있다.
+   *
+   * WELCOME:
+   * Memory Jar 전체 소개
+   *
+   * JAR_LIST:
+   * 저금통 목록 화면 안내
+   */
+  const replayTutorialKey =
+    location.state?.[
+      ONBOARDING_REPLAY_STATE_KEY
+    ] ?? null;
+
+  /*
+   * 현재 navigation state가
+   * /jars에서 실행할 수 있는 다시 보기 요청인지 확인한다.
+   */
+  const shouldReplayJarsPageTutorial =
+    replayTutorialKey ===
+      ONBOARDING_TUTORIAL_KEY.WELCOME ||
+    replayTutorialKey ===
+      ONBOARDING_TUTORIAL_KEY.JAR_LIST;
+
+  /*
+   * 현재 JAR_LIST 완료 또는 건너뛰기를
+   * 백엔드에 저장하고 있는지 확인한다.
+   */
+  const isJarListTutorialSaving =
+    savingTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_LIST;
+
+  /*
+   * 설명 카드의 "알겠어요" 버튼으로
+   * JAR_LIST 안내를 완료 처리한다.
+   */
+  const handleJarListTutorialComplete =
+    async () => {
+      if (isJarListTutorialSaving) {
+        return;
+      }
+
+      try {
+        await completeActiveTutorial();
+      } catch {
+        /*
+         * 오류 문구는 OnboardingProvider의 error를 통해
+         * 스포트라이트 안에 표시한다.
+         */
+      }
+    };
+
+  /*
+   * 설명 카드의 "건너뛰기" 버튼으로
+   * JAR_LIST 안내를 건너뛰기 처리한다.
+   */
+  const handleJarListTutorialSkip =
+    async () => {
+      if (isJarListTutorialSaving) {
+        return;
+      }
+
+      try {
+        await skipActiveTutorial();
+      } catch {
+        /*
+         * 저장에 실패하면 안내를 닫지 않고
+         * Provider가 보관한 오류 문구를 표시한다.
+         */
+      }
+    };
 
   // 서버에서 받아온 저금통 목록
   const [items, setItems] = useState([]);
@@ -427,6 +561,15 @@ export default function JarsPage() {
   // 에러 메시지 저장
   const [error, setError] = useState("");
 
+  /*
+   * Access Token과 Refresh Token이 모두 만료되어
+   * 다시 로그인이 필요한 상태인지 저장한다.
+   */
+  const [
+    sessionExpired,
+    setSessionExpired,
+  ] = useState(false);
+
   // 현재 페이지 번호
   const [page, setPage] = useState(0);
 
@@ -436,9 +579,12 @@ export default function JarsPage() {
   const [totalElements, setTotalElements] = useState(0);
 
   // 저금통 목록 불러오는 함수
-  const loadJars = async (targetPage = 0) => {
+  const loadJars = async (
+    targetPage = 0
+  ) => {
     setLoading(true);
     setError("");
+    setSessionExpired(false);
 
     try {
       const res = await apiClient.get("/api/v1/jars", {
@@ -456,6 +602,22 @@ export default function JarsPage() {
       setTotalPages(data?.totalPages || 0);
       setTotalElements(data?.totalElements || 0);
     } catch (e) {
+      /*
+       * Refresh Token까지 만료된 경우에는
+       * 서버 문구를 표시하지 않고 로그인 안내 화면으로 전환한다.
+       */
+      if (
+        isSessionExpiredError(e)
+      ) {
+        setSessionExpired(true);
+        setError("");
+        setItems([]);
+        setTotalPages(0);
+        setTotalElements(0);
+
+        return;
+      }
+
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -471,36 +633,170 @@ export default function JarsPage() {
     }
   };
 
-    // 새 저금통 만들기 버튼을 눌렀을 때 실행되는 함수
-    // 먼저 로그인한 사용자인지 확인하고,
-    // 로그인된 상태면 생성 페이지로 보내줘요.
-    // 로그인 안 되어 있으면 안내 문구를 띄워줘요.
-    const handleCreateJarClick = async () => {
-      try {
-        // 로그인 사용자 정보 확인
-        // 성공하면 로그인된 상태라는 뜻이에요.
-        await apiClient.get("/api/v1/me");
+    /*
+     * 새 저금통 만들기 버튼을 눌렀을 때 실행되는 함수
+     *
+     * JAR_LIST 안내가 열려 있는 상태에서 강조된 버튼을 누르면
+     * 안내를 완료 처리한 뒤 생성 페이지로 이동한다.
+     *
+     * 온보딩 저장이 실패하더라도 저금통 생성이라는 핵심 기능은
+     * 막지 않고 생성 페이지로 이동하게 한다.
+     */
+    const handleCreateJarClick =
+      async () => {
+        try {
+          // 성공하면 현재 로그인된 사용자라는 뜻이다.
+          await apiClient.get(
+            "/api/v1/me"
+          );
 
-        // 로그인되어 있으면 생성 페이지로 이동
-        navigate("/jars/new");
-      } catch (e) {
-        const status = e?.response?.status;
+          /*
+           * 사용자가 스포트라이트의 실제 강조 버튼을 누른 경우
+           * JAR_LIST 안내를 완료로 저장한다.
+           */
+          if (
+            isJarListTutorialOpen
+          ) {
+            try {
+              await completeActiveTutorial();
+            } catch {
+              /*
+               * 온보딩 저장 실패는 생성 페이지 이동을 막지 않는다.
+               *
+               * 저장되지 않았다면 다음 /jars 방문 때
+               * 안내가 다시 표시된다.
+               */
+            }
+          }
 
-        // 로그인 안 된 상태
-        if (status === 401 || status === 403) {
-          alert("로그인 후 저금통을 만들 수 있어요.");
-          return;
+          navigate("/jars/new");
+        } catch (e) {
+          /*
+           * 목록을 보고 있던 중 세션이 만료된 경우에도
+           * alert 대신 로그인 안내 화면으로 전환한다.
+           */
+          if (
+            isSessionExpiredError(e)
+          ) {
+            setSessionExpired(true);
+            return;
+          }
+
+          const status =
+            e?.response?.status;
+
+          if (
+            status === 401 ||
+            status === 403
+          ) {
+            alert(
+              "로그인 후 저금통을 만들 수 있어요."
+            );
+
+            return;
+          }
+
+          alert(
+            "지금은 저금통 만들기 화면으로 이동할 수 없어요. 잠시 후 다시 시도해 주세요."
+          );
         }
-
-        // 그 외 서버 에러
-        alert("지금은 저금통 만들기 화면으로 이동할 수 없어요. 잠시 후 다시 시도해 주세요.");
-      }
-    };
+      };
 
   // 페이지가 처음 열릴 때 목록을 한 번 불러와요.
   useEffect(() => {
     loadJars(0);
   }, []);
+
+  /*
+   * 다른 화면에서 내정보의 이용 방법을 선택하고
+   * /jars로 이동해 온 경우의 수동 다시 보기 처리다.
+   *
+   * 처리할 수 있는 안내:
+   *
+   * WELCOME
+   * → Memory Jar 전체 소개
+   *
+   * JAR_LIST
+   * → 저금통 목록 화면 안내
+   *
+   * 자동 안내와 달리 force=true를 사용하므로
+   * 기존 상태가 COMPLETED 또는 SKIPPED여도 다시 볼 수 있다.
+   */
+  useEffect(() => {
+    if (
+      !shouldReplayJarsPageTutorial
+    ) {
+      return undefined;
+    }
+
+    /*
+     * /jars 화면과 새 저금통 만들기 버튼이
+     * 실제 DOM에 그려진 다음 안내를 열도록 잠시 기다린다.
+     *
+     * WELCOME은 버튼 위치가 필요하지 않지만,
+     * JAR_LIST는 createJarButtonRef의 위치 계산이 필요하므로
+     * 두 안내 모두 같은 시점에 안전하게 실행한다.
+     */
+    const timerId =
+      window.setTimeout(() => {
+        /*
+         * 사용자가 직접 요청한 다시 보기이므로
+         * 완료·건너뛰기 상태와 관계없이 안내를 연다.
+         */
+        openTutorial(
+          replayTutorialKey,
+          {
+            force: true,
+          }
+        );
+
+        /*
+         * 한 번 사용한 다시 보기 요청을 주소 상태에서 제거한다.
+         *
+         * 제거하지 않으면 뒤로 가기나 재렌더링 과정에서
+         * 같은 안내가 다시 실행될 수 있다.
+         */
+        const nextState = {
+          ...(location.state ?? {}),
+        };
+
+        delete nextState[
+          ONBOARDING_REPLAY_STATE_KEY
+        ];
+
+        /*
+         * 주소는 그대로 유지하고
+         * navigation state만 정리한다.
+         */
+        navigate(
+          `${location.pathname}${location.search}${location.hash}`,
+          {
+            replace: true,
+
+            state:
+              Object.keys(nextState)
+                .length > 0
+                ? nextState
+                : null,
+          }
+        );
+      }, 320);
+
+    return () => {
+      window.clearTimeout(
+        timerId
+      );
+    };
+  }, [
+    shouldReplayJarsPageTutorial,
+    replayTutorialKey,
+    location.pathname,
+    location.search,
+    location.hash,
+    location.state,
+    navigate,
+    openTutorial,
+  ]);
 
   /*
    * 일반 로그인 사용자가 /jars에 도착했을 때
@@ -511,6 +807,28 @@ export default function JarsPage() {
    * 빈 상태가 잠깐 보였다가 잘못 열리는 문제를 막을 수 있다.
    */
   useEffect(() => {
+    /*
+     * 내정보에서 선택한 수동 다시 보기 요청이 있다면
+     * 자동 안내는 실행하지 않는다.
+     *
+     * 사용자가 선택한 정확한 안내가 우선이다.
+     */
+    if (
+      shouldReplayJarsPageTutorial
+    ) {
+      return;
+    }
+
+    /*
+     * 다른 안내가 이미 열려 있다면
+     * WELCOME으로 덮어쓰지 않는다.
+     */
+    if (
+      activeTutorialKey !== null
+    ) {
+      return;
+    }
+
     const shouldOpenWelcome =
       shouldShowTutorial(
         ONBOARDING_TUTORIAL_KEY.WELCOME
@@ -524,6 +842,83 @@ export default function JarsPage() {
       ONBOARDING_TUTORIAL_KEY.WELCOME
     );
   }, [
+    shouldReplayJarsPageTutorial,
+    activeTutorialKey,
+    shouldShowTutorial,
+    openTutorial,
+  ]);
+
+  /*
+   * WELCOME 안내를 완료하거나 건너뛴 다음
+   * JAR_LIST 안내가 아직 처리되지 않았다면 자동으로 연다.
+   *
+   * 이렇게 순서를 확인해야 첫 접속에서
+   * WELCOME과 JAR_LIST가 동시에 열리는 문제를 막을 수 있다.
+   */
+  useEffect(() => {
+    /*
+     * 내정보에서 특정 안내를 다시 보기로 선택했다면
+     * 기존 자동 순서보다 수동 요청을 우선한다.
+     */
+    if (
+      shouldReplayJarsPageTutorial
+    ) {
+      return;
+    }
+
+    /*
+     * WELCOME이나 다른 안내가 아직 열려 있다면
+     * JAR_LIST를 열지 않는다.
+     */
+    if (
+      activeTutorialKey !== null
+    ) {
+      return;
+    }
+
+    /*
+     * WELCOME이 COMPLETED 또는 SKIPPED 상태인지 확인한다.
+     */
+    const welcomeHandled =
+      isTutorialHandled(
+        ONBOARDING_TUTORIAL_KEY.WELCOME
+      );
+
+    /*
+     * JAR_LIST가 아직 처리되지 않았는지 확인한다.
+     */
+    const shouldOpenJarList =
+      shouldShowTutorial(
+        ONBOARDING_TUTORIAL_KEY.JAR_LIST
+      );
+
+    if (
+      !welcomeHandled ||
+      !shouldOpenJarList
+    ) {
+      return;
+    }
+
+    /*
+     * WELCOME 모달의 닫힘 애니메이션과 겹치지 않도록
+     * 아주 짧게 기다린 뒤 JAR_LIST를 연다.
+     */
+    const timerId =
+      window.setTimeout(() => {
+        openTutorial(
+          ONBOARDING_TUTORIAL_KEY.JAR_LIST
+        );
+      }, 320);
+
+    return () => {
+      window.clearTimeout(
+        timerId
+      );
+    };
+  }, [
+    shouldReplayJarsPageTutorial,
+    activeTutorialKey,
+    isTutorialHandled,
     shouldShowTutorial,
     openTutorial,
   ]);
@@ -533,10 +928,56 @@ export default function JarsPage() {
   const primaryTheme = items?.[0]?.theme || "SPRING";
   const primaryPalette = getThemePalette(primaryTheme);
 
+  /*
+   * 로그인 세션이 만료됐다면
+   * 목록 UI나 빨간 서버 오류 문구 대신
+   * 공통 재로그인 화면을 보여준다.
+   */
+  if (sessionExpired) {
+    return (
+      <SessionExpiredPage
+        title=""
+        description="로그인 시간이 지나 저금통 목록을 불러올 수 없어요."
+      />
+    );
+  }
+
   return (
     <>
       {/* 처음 사용자에게 보여주는 Memory Jar 전체 소개 */}
       <WelcomeTutorialModal />
+
+      {/*
+       * WELCOME 이후 새 저금통 만들기 버튼을 안내하는
+       * JAR_LIST 스포트라이트
+       */}
+      <TutorialSpotlight
+        isOpen={
+          isJarListTutorialOpen
+        }
+        targetRef={
+          createJarButtonRef
+        }
+        title="새 저금통 만들기"
+        description={
+          "처음 시작한다면 여기를 눌러\n우리만의 추억 저금통을 만들어보세요."
+        }
+        completeLabel="알겠어요"
+        isSaving={
+          isJarListTutorialSaving
+        }
+        error={
+          isJarListTutorialOpen
+            ? onboardingError
+            : ""
+        }
+        onComplete={
+          handleJarListTutorialComplete
+        }
+        onSkip={
+          handleJarListTutorialSkip
+        }
+      />
 
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100">
       {/* 페이지 뒤쪽 은은한 배경 빛 */}
@@ -570,9 +1011,20 @@ export default function JarsPage() {
 
             {/* 새 저금통 만들기 버튼 */}
             <button
+              /*
+               * TutorialSpotlight가 이 버튼의 실제 위치를
+               * 계산할 수 있도록 Ref를 연결한다.
+               */
+              ref={createJarButtonRef}
               type="button"
-              onClick={handleCreateJarClick}
-              className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-r px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 ${primaryPalette.heroButton}`}
+              onClick={
+                handleCreateJarClick
+              }
+              className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-r px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 ${primaryPalette.heroButton} ${
+                isJarListTutorialOpen
+                  ? "relative ring-4 ring-white/90"
+                  : ""
+              }`}
             >
               + 새 저금통 만들기
             </button>
@@ -608,16 +1060,8 @@ export default function JarsPage() {
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
               첫 번째 저금통을 만들어서
-              <br className="md:hidden" /> 추억을 하나씩 모아보자!
+              <br className="md:hidden" /> 추억을 하나씩 모아봐요.
             </p>
-
-            <button
-              type="button"
-              onClick={handleCreateJarClick}
-              className="mt-6 inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
-            >
-              저금통 만들러 가기
-            </button>
           </div>
         )}
 
