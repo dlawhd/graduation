@@ -2152,25 +2152,43 @@ export default function JarsNewPage() {
             </div>
           </div>
 
-          {/* 오른쪽 저금통 미리보기 */}
+          {/* 오른쪽 저금통 미리보기 정렬 영역 */}
           <div
             /*
-             * JAR_CREATE 두 번째 단계에서
-             * 선택한 저금통의 전체 미리보기 카드를 강조한다.
+             * 왼쪽의 "어떤 저금통을 만들고 싶어요?" 제목과 설명만큼
+             * 공간을 위에 만들어서,
+             *
+             * 오른쪽 미리보기가 제목 위치가 아니라
+             * 실제 8가지 테마 카드가 시작하는 높이에 맞춰지도록 한다.
+             *
+             * xl 이상 화면에서만 92px을 내려주기 때문에
+             * 모바일/태블릿의 세로 배치는 그대로 유지된다.
              */
-            ref={previewTutorialTargetRef}
-            className={`h-full rounded-[28px] transition ${
-              isCurrentJarCreateTutorialTarget(
-                JAR_CREATE_TUTORIAL_TARGET.PREVIEW
-              )
-                ? "ring-4 ring-white/90"
-                : ""
-            }`}
+            className="h-full xl:pt-[92px]"
           >
-            <JarPreview
-              template={selectedTemplate}
-              form={form}
-            />
+            {/* 오른쪽 저금통 미리보기 */}
+            <div
+              /*
+               * JAR_CREATE 두 번째 단계에서
+               * 선택한 저금통의 전체 미리보기 카드만 강조한다.
+               *
+               * 바깥쪽 정렬 여백은 튜토리얼 강조 대상에서 제외해서
+               * 실제 미리보기 카드 위치만 정확하게 강조한다.
+               */
+              ref={previewTutorialTargetRef}
+              className={`h-full rounded-[28px] transition ${
+                isCurrentJarCreateTutorialTarget(
+                  JAR_CREATE_TUTORIAL_TARGET.PREVIEW
+                )
+                  ? "ring-4 ring-white/90"
+                  : ""
+              }`}
+            >
+              <JarPreview
+                template={selectedTemplate}
+                form={form}
+              />
+            </div>
           </div>
         </section>
 
@@ -2182,8 +2200,19 @@ export default function JarsNewPage() {
         )}
 
         {/* 입력 폼 */}
+        {/* 입력 폼 */}
         <section
-          className="relative mt-10 overflow-hidden rounded-[28px] border border-white/80 p-8 shadow-[0_18px_48px_rgba(15,23,42,0.10)]"
+          /*
+           * 저금통 정보 입력 카드 전체 영역
+           *
+           * overflow-clip을 사용하는 이유:
+           * 카드 바깥으로 나가는 배경 장식은 잘라내면서도,
+           * 이 영역 자체가 스크롤 컨테이너가 되는 것을 막아준다.
+           *
+           * 따라서 튜토리얼의 scrollIntoView()가 실행되어도
+           * 카드 내부 내용이 위로 밀려서 잘리는 현상이 생기지 않는다.
+           */
+          className="relative mt-10 overflow-clip rounded-[28px] border border-white/80 p-8 shadow-[0_18px_48px_rgba(15,23,42,0.10)]"
           style={selectedPreset.previewCardStyle}
         >
           {/* 카드 안쪽에 은은하게 깔리는 빛 장식 */}

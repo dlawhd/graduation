@@ -139,7 +139,7 @@ export default function Home() {
 
             {/* 설명 */}
             <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-              혼자 쓰는 메모장이 아니라, 함께 기억을 모으는 공간이에요.
+              혼자 쓰는 메모장이 아니라 함께 기억을 모으는 공간이에요.
               소중한 말, 사진, 마음을 저금통에 담아두고
               약속한 날이 되면 다시 열어볼 수 있어요.
             </p>
@@ -196,7 +196,7 @@ export default function Home() {
                   다시 만나는 순간
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  약속한 날 저금통이 열리면 모아둔 추억을 다시 만나요.
+                  약속한 날 저금통이 열리면 모아둔 추억을 볼 수 있어요.
                 </p>
               </div>
             </div>

@@ -145,7 +145,7 @@ export default function LoginJarCard({
 
             {/* 로그인 설명 */}
             <p className="mt-3 text-center text-sm leading-7 text-slate-500">
-              네이버 계정으로 간편하게 시작하고,
+              네이버 계정으로 간편하게 시작하고
               <br />
               로그인 후 바로 내 저금통을 만나보세요.
             </p>
