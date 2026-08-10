@@ -70,7 +70,7 @@ class OnboardingServiceTest {
 
         // then
         assertThat(response.version()).isEqualTo(1);
-        assertThat(response.items()).hasSize(5);
+        assertThat(response.items()).hasSize(6);
 
         assertThat(response.items())
                 .extracting(
@@ -81,9 +81,9 @@ class OnboardingServiceTest {
                         OnboardingTutorialKey.JAR_LIST,
                         OnboardingTutorialKey.JAR_CREATE,
                         OnboardingTutorialKey.JAR_DETAIL,
+                        OnboardingTutorialKey.JAR_INVITE,
                         OnboardingTutorialKey.DAILY_DRAW
                 );
-
         OnboardingProgressItemResponse welcome =
                 response.items().get(0);
 

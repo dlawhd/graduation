@@ -271,7 +271,7 @@ export default function JarZoomModal({
               </p>
 
               <p className="mt-1 text-sm text-slate-500">
-                화면 가운데에서 저금통을 크게 보고, 안에 쪽지가 얼마나
+                화면 가운데에서 저금통을 크게 보고 안에 쪽지가 얼마나
                 들어왔는지 확인할 수 있어요.
               </p>
             </div>
@@ -377,7 +377,7 @@ export default function JarZoomModal({
                       <div className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-slate-700 shadow">
                         {isJarOpen
                           ? "아직 쪽지가 없어요"
-                          : "오픈 전까지 비밀이에요"}
+                          : "오픈 전까지 비밀이에요!"}
                       </div>
                     </div>
                   )}

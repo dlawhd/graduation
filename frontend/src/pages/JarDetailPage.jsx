@@ -60,6 +60,10 @@ import TutorialCompletionDialog from "../features/onboarding/components/Tutorial
 import {
   ONBOARDING_REPLAY_STATE_KEY,
 } from "../features/onboarding/constants/onboardingReplay";
+import {
+  JAR_INVITE_TUTORIAL_STEPS,
+  JAR_INVITE_TUTORIAL_TARGET,
+} from "../features/onboarding/constants/jarInviteTutorialSteps";
 
 // 오픈 상태를 사람이 읽기 쉽게 정리해주는 함수
 function getOpenStatus(jar) {
@@ -160,6 +164,55 @@ export default function JarDetailPage() {
 
   const chatTutorialButtonRef =
     useRef(null);
+
+  /*
+   * JAR_INVITE 안내에서 초대 관리 모달 안의
+   * 실제 입력칸과 버튼 위치를 찾기 위한 Ref들이다.
+   */
+  const inviteExpiresTutorialRef =
+    useRef(null);
+
+  const inviteMaxUsesTutorialRef =
+    useRef(null);
+
+  const inviteCreateTutorialRef =
+    useRef(null);
+
+  const inviteResultTutorialRef =
+    useRef(null);
+
+  const inviteShareTutorialRef =
+    useRef(null);
+
+  const inviteRevokeTutorialRef =
+    useRef(null);
+
+  /*
+   * 초대 관리 튜토리얼의 현재 단계 번호
+   *
+   * 0: 유효 시간
+   * 1: 최대 사용 횟수
+   * 2: 만들기
+   * 3: 생성 결과
+   * 4: 링크 공유
+   * 5: 폐기
+   */
+  const [
+    jarInviteTutorialStepIndex,
+    setJarInviteTutorialStepIndex,
+  ] = useState(0);
+
+  /*
+   * 튜토리얼을 진행하면서 실제로 새 초대코드를 만들었다면
+   * 그 코드의 번호를 기억한다.
+   *
+   * 그래야 여러 초대코드 중 방금 만든 카드만
+   * 정확하게 강조할 수 있다.
+   */
+  const [
+    inviteTutorialCreatedInviteId,
+    setInviteTutorialCreatedInviteId,
+  ] = useState(null);
 
   /*
    * JAR_DETAIL 안내에서 현재 보여주는 단계 번호
@@ -781,6 +834,374 @@ useEffect(() => {
   } = useJarInvites({ jarId, jar });
 
   /*
+   * 현재 JAR_INVITE 안내가 열려 있는지 확인한다.
+   */
+  const isJarInviteTutorialOpen =
+    activeTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_INVITE;
+
+  /*
+   * 완료 또는 건너뛰기 상태를
+   * 백엔드에 저장 중인지 확인한다.
+   */
+  const isJarInviteTutorialSaving =
+    savingTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.JAR_INVITE;
+
+  /*
+   * 현재 초대 관리 안내 단계
+   */
+  const currentJarInviteTutorialStep =
+    JAR_INVITE_TUTORIAL_STEPS[
+      jarInviteTutorialStepIndex
+    ] ?? JAR_INVITE_TUTORIAL_STEPS[0];
+
+  const isFirstJarInviteTutorialStep =
+    jarInviteTutorialStepIndex === 0;
+
+  const isLastJarInviteTutorialStep =
+    jarInviteTutorialStepIndex ===
+    JAR_INVITE_TUTORIAL_STEPS.length - 1;
+
+  /*
+   * 방금 만든 초대코드가 있다면 그 코드를 우선 사용한다.
+   *
+   * 그렇지 않고 이미 초대코드가 존재한다면
+   * 현재 첫 번째 코드를 안내 대상으로 사용한다.
+   */
+  const inviteTutorialTargetInviteId =
+    inviteTutorialCreatedInviteId ??
+    pagedInvites[0]?.inviteId ??
+    null;
+
+  /*
+   * 현재 단계에 맞는 실제 DOM Ref 선택
+   */
+  let jarInviteTutorialTargetRef =
+    inviteExpiresTutorialRef;
+
+  if (
+    currentJarInviteTutorialStep?.targetKey ===
+    JAR_INVITE_TUTORIAL_TARGET.MAX_USES
+  ) {
+    jarInviteTutorialTargetRef =
+      inviteMaxUsesTutorialRef;
+  }
+
+  if (
+    currentJarInviteTutorialStep?.targetKey ===
+    JAR_INVITE_TUTORIAL_TARGET.CREATE
+  ) {
+    jarInviteTutorialTargetRef =
+      inviteCreateTutorialRef;
+  }
+
+  if (
+    currentJarInviteTutorialStep?.targetKey ===
+    JAR_INVITE_TUTORIAL_TARGET.RESULT
+  ) {
+    jarInviteTutorialTargetRef =
+      inviteResultTutorialRef;
+  }
+
+  if (
+    currentJarInviteTutorialStep?.targetKey ===
+    JAR_INVITE_TUTORIAL_TARGET.SHARE
+  ) {
+    jarInviteTutorialTargetRef =
+      inviteShareTutorialRef;
+  }
+
+  if (
+    currentJarInviteTutorialStep?.targetKey ===
+    JAR_INVITE_TUTORIAL_TARGET.REVOKE
+  ) {
+    jarInviteTutorialTargetRef =
+      inviteRevokeTutorialRef;
+  }
+
+  /*
+   * 초대 관리 튜토리얼의 다음 단계 또는 완료 처리
+   */
+  const handleJarInviteTutorialNext =
+    useCallback(async () => {
+      if (
+        !isJarInviteTutorialOpen ||
+        isJarInviteTutorialSaving
+      ) {
+        return;
+      }
+
+      /*
+       * 마지막 단계가 아니면
+       * 단순히 다음 안내로 이동한다.
+       */
+      if (!isLastJarInviteTutorialStep) {
+        setJarInviteTutorialStepIndex(
+          (previousIndex) =>
+            Math.min(
+              previousIndex + 1,
+              JAR_INVITE_TUTORIAL_STEPS.length - 1
+            )
+        );
+
+        return;
+      }
+
+      /*
+       * 마지막까지 확인했다면
+       * DB에 COMPLETED 상태로 저장한다.
+       */
+      try {
+        await completeActiveTutorial();
+      } catch {
+        // 오류는 기존 OnboardingProvider의 error를 통해 보여준다.
+      }
+    }, [
+      isJarInviteTutorialOpen,
+      isJarInviteTutorialSaving,
+      isLastJarInviteTutorialStep,
+      completeActiveTutorial,
+    ]);
+
+  /*
+   * 이전 단계 이동
+   */
+  const handleJarInviteTutorialPrevious =
+    useCallback(() => {
+      if (
+        !isJarInviteTutorialOpen ||
+        isJarInviteTutorialSaving
+      ) {
+        return;
+      }
+
+      setJarInviteTutorialStepIndex(
+        (previousIndex) =>
+          Math.max(
+            previousIndex - 1,
+            0
+          )
+      );
+    }, [
+      isJarInviteTutorialOpen,
+      isJarInviteTutorialSaving,
+    ]);
+
+  /*
+   * 건너뛰기
+   */
+  const handleJarInviteTutorialSkip =
+    useCallback(async () => {
+      if (
+        !isJarInviteTutorialOpen ||
+        isJarInviteTutorialSaving
+      ) {
+        return;
+      }
+
+      try {
+        await skipActiveTutorial();
+      } catch {
+        // 저장 실패 시 현재 튜토리얼을 그대로 유지한다.
+      }
+    }, [
+      isJarInviteTutorialOpen,
+      isJarInviteTutorialSaving,
+      skipActiveTutorial,
+    ]);
+
+  /*
+   * 초대코드 생성 폼 처리
+   *
+   * 일반 사용에서는 기존 초대코드 생성 기능을 그대로 실행한다.
+   *
+   * JAR_INVITE 튜토리얼의 "초대코드 만들기" 단계에서는
+   * 실제 초대코드가 만들어진 뒤
+   * 방금 만들어진 초대코드를 기억하고 다음 안내로 이동한다.
+   */
+  const handleInviteTutorialCreateSubmit =
+    useCallback(
+      async (event) => {
+        /*
+         * 기존 useJarInvites가 가지고 있는
+         * 실제 초대코드 생성 기능을 실행한다.
+         */
+        const created =
+          await handleCreateInvite(event);
+
+        /*
+         * API 요청이 실패했다면
+         * 튜토리얼도 다음 단계로 넘어가지 않는다.
+         */
+        if (!created) {
+          return;
+        }
+
+        /*
+         * 현재 초대 관리 튜토리얼이 아니거나
+         * "초대코드 만들기" 단계가 아니라면
+         * 일반 생성 기능만 실행하고 끝낸다.
+         */
+        if (
+          !isJarInviteTutorialOpen ||
+          currentJarInviteTutorialStep?.targetKey !==
+            JAR_INVITE_TUTORIAL_TARGET.CREATE
+        ) {
+          return;
+        }
+
+        /*
+         * 방금 생성한 초대코드 ID를 기억한다.
+         *
+         * 여러 코드가 있어도 이후 안내에서
+         * 방금 만든 초대코드 카드만 정확하게 강조할 수 있다.
+         */
+        setInviteTutorialCreatedInviteId(
+          created.inviteId ?? null
+        );
+
+        /*
+         * "초대코드 만들기" 단계가 끝났으므로
+         * 생성 결과를 설명하는 다음 단계로 이동한다.
+         */
+        setJarInviteTutorialStepIndex(
+          (previousIndex) =>
+            Math.min(
+              previousIndex + 1,
+              JAR_INVITE_TUTORIAL_STEPS.length - 1
+            )
+        );
+      },
+      [
+        handleCreateInvite,
+        isJarInviteTutorialOpen,
+        currentJarInviteTutorialStep,
+      ]
+    );
+  /*
+   * 초대 관리 모달 닫기
+   *
+   * 초대 관리 튜토리얼이 진행 중이라면
+   * 튜토리얼도 함께 닫는다.
+   *
+   * 여기서는 SKIPPED로 저장하지 않는다.
+   * 사용자가 다음에 초대 관리를 다시 열면
+   * 처음부터 안내를 다시 받을 수 있다.
+   */
+  const handleCloseInviteManage =
+    useCallback(() => {
+      if (isJarInviteTutorialOpen) {
+        closeTutorial();
+      }
+
+      setInviteManageOpen(false);
+    }, [
+      isJarInviteTutorialOpen,
+      closeTutorial,
+    ]);
+  /*
+   * 초대 관리 모달 최초 이용 안내
+   *
+   * OWNER 또는 ADMIN이 초대 관리 화면을 열었고,
+   * 아직 JAR_INVITE 튜토리얼을 완료하거나 건너뛰지 않았다면
+   * 자동으로 첫 번째 안내를 시작한다.
+   *
+   * 한 번 COMPLETED 또는 SKIPPED로 저장된 사용자는
+   * 다음부터 자동으로 표시되지 않는다.
+   */
+  useEffect(() => {
+    /*
+     * 초대 관리 모달이 닫혀 있으면
+     * 안내할 화면 자체가 없으므로 시작하지 않는다.
+     */
+    if (!inviteManageOpen) {
+      return undefined;
+    }
+
+    /*
+     * OWNER / ADMIN이 아니라면
+     * 초대 관리 기능을 사용할 수 없으므로 안내하지 않는다.
+     */
+    if (!canManageInvites) {
+      return undefined;
+    }
+
+    /*
+     * 초대 목록을 불러오는 중이거나
+     * 조회 오류가 있다면 화면이 준비될 때까지 기다린다.
+     */
+    if (
+      invitesLoading ||
+      invitesError
+    ) {
+      return undefined;
+    }
+
+    /*
+     * 다른 튜토리얼이 이미 열려 있다면
+     * 두 개를 동시에 보여주지 않는다.
+     */
+    if (activeTutorialKey !== null) {
+      return undefined;
+    }
+
+    /*
+     * DB에서 이미 완료 또는 건너뛰기한 사용자라면
+     * 자동 안내를 다시 보여주지 않는다.
+     */
+    if (
+      !shouldShowTutorial(
+        ONBOARDING_TUTORIAL_KEY.JAR_INVITE
+      )
+    ) {
+      return undefined;
+    }
+
+    /*
+     * 안내를 항상 첫 단계부터 시작한다.
+     */
+    setJarInviteTutorialStepIndex(0);
+
+    /*
+     * 이전에 만들어둔 초대코드 기억도 초기화한다.
+     */
+    setInviteTutorialCreatedInviteId(null);
+
+    /*
+     * 최신 초대코드가 첫 화면에 나타나도록
+     * 초대코드 페이지도 1페이지로 맞춘다.
+     */
+    setInvitePage(1);
+
+    /*
+     * JarMenuModal과 내부 input이
+     * DOM에 완전히 만들어진 뒤 위치를 찾도록
+     * 아주 잠깐 기다렸다가 튜토리얼을 연다.
+     */
+    const timerId =
+      window.setTimeout(() => {
+        openTutorial(
+          ONBOARDING_TUTORIAL_KEY.JAR_INVITE
+        );
+      }, 200);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    inviteManageOpen,
+    canManageInvites,
+    invitesLoading,
+    invitesError,
+    activeTutorialKey,
+    shouldShowTutorial,
+    openTutorial,
+    setInvitePage,
+  ]);
+
+
+  /*
    * 현재 사용자의 초대 관리 권한에 맞는
    * JAR_DETAIL 안내 3단계를 만든다.
    */
@@ -912,7 +1333,7 @@ useEffect(() => {
       setJarDetailCompletionOpen(false);
 
       /*
-       * 완료 전에 실제 채팅 버튼을 눌렀다면
+       * 완료 전에 실제 채팅 버튼을
        * 확인 후 채팅 모달을 연다.
        */
       const nextAction =
@@ -2753,6 +3174,73 @@ async function handleViewOpenedJarNotes() {
       />
 
       {/*
+       * 초대 관리 전용 온보딩
+       *
+       * 초대 관리 모달의 z-index가 9995이므로
+       * zIndexBase를 10010으로 올려
+       * 안내가 모달보다 앞에 보이게 한다.
+       */}
+      <TutorialSpotlight
+        isOpen={
+          isJarInviteTutorialOpen
+        }
+        targetRef={
+          jarInviteTutorialTargetRef
+        }
+        zIndexBase={10010}
+          /*
+           * "초대코드 만들기" 단계에서는
+           * 설명창의 다음 버튼을 숨긴다.
+           *
+           * 사용자가 실제 화면에 있는
+           * "초대코드 만들기" 버튼을 눌러야
+           * 다음 단계로 이동하게 만든다.
+           */
+          showComplete={
+            currentJarInviteTutorialStep?.targetKey !==
+            JAR_INVITE_TUTORIAL_TARGET.CREATE
+          }
+        showPrevious={
+          !isFirstJarInviteTutorialStep
+        }
+        previousLabel="이전"
+        onPrevious={
+          handleJarInviteTutorialPrevious
+        }
+        eyebrow={`초대 관리 안내 · ${
+          jarInviteTutorialStepIndex + 1
+        } / ${
+          JAR_INVITE_TUTORIAL_STEPS.length
+        }`}
+        title={
+          currentJarInviteTutorialStep?.title
+        }
+        description={
+          currentJarInviteTutorialStep?.description
+        }
+        completeLabel={
+          isLastJarInviteTutorialStep
+            ? "안내 완료"
+            : "다음"
+        }
+        onComplete={
+          handleJarInviteTutorialNext
+        }
+        skipLabel="건너뛰기"
+        onSkip={
+          handleJarInviteTutorialSkip
+        }
+        isSaving={
+          isJarInviteTutorialSaving
+        }
+        error={
+          isJarInviteTutorialOpen
+            ? onboardingError
+            : ""
+        }
+      />
+
+      {/*
        * JAR_DETAIL 안내 완료 후 보여주는 확인창
        *
        * 자동으로 사라지지 않고
@@ -2989,13 +3477,11 @@ async function handleViewOpenedJarNotes() {
             {/* 오른쪽: 버튼형 메뉴 카드들 */}
             <aside className="space-y-5">
               <div className={`rounded-[30px] border p-6 shadow-sm backdrop-blur-sm ${palette.panel}`}>
-                <p className="mb-2 text-sm font-extrabold text-slate-800">
+                <p className="mb-4 text-sm font-extrabold text-slate-800">
                   저금통 메뉴
                 </p>
 
-                <p className="mb-5 text-xs leading-6 text-slate-500">
-                  필요한 정보와 관리 기능을 버튼으로 열어서 볼 수 있어요.
-                </p>
+
 
                 <div className="grid gap-3">
                   {/* 저금통 정보 + 시간 정보를 합친 모달 열기 */}
@@ -3105,9 +3591,6 @@ async function handleViewOpenedJarNotes() {
                       저금통 현황
                     </p>
 
-                    <p className="mt-1 text-xs leading-6 text-slate-500">
-                      지금 저금통의 참여 상태를 빠르게 확인할 수 있어요.
-                    </p>
                   </div>
 
 
@@ -3465,21 +3948,16 @@ async function handleViewOpenedJarNotes() {
         <JarMenuModal
           open={inviteManageOpen}
           title="초대 관리"
-          description="초대코드를 만들고, 보고, 필요하면 바로 폐기할 수 있어요."
+          description="초대코드를 만들고 보고 필요하면 바로 폐기할 수 있어요."
           badge={`활성 ${activeInviteCount}개`}
           palette={palette}
-          onClose={() => setInviteManageOpen(false)}
+          onClose={handleCloseInviteManage}
           maxWidthClass="max-w-5xl"
         >
         <section className={`rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}>
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-extrabold text-slate-800">
-                초대 관리
-              </p>
-              <p className="text-xs text-slate-500">
-                초대코드를 만들고, 보고, 필요하면 바로 폐기할 수 있어요.
-              </p>
+
             </div>
 
             <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}>
@@ -3496,7 +3974,7 @@ async function handleViewOpenedJarNotes() {
           {canManageInvites && (
             <>
               <form
-                onSubmit={handleCreateInvite}
+                onSubmit={handleInviteTutorialCreateSubmit}
                 className={`mb-5 rounded-2xl border p-4 ${palette.inviteCard}`}
               >
                 <p className="mb-4 text-sm font-bold text-slate-800">
@@ -3509,6 +3987,11 @@ async function handleViewOpenedJarNotes() {
                       유효 시간(시간)
                     </span>
                     <input
+                      /*
+                       * JAR_INVITE 첫 번째 단계에서
+                       * 이 유효 시간 입력칸을 강조한다.
+                       */
+                      ref={inviteExpiresTutorialRef}
                       type="number"
                       min="1"
                       max="168"
@@ -3528,6 +4011,7 @@ async function handleViewOpenedJarNotes() {
                       최대 사용 횟수
                     </span>
                     <input
+                      ref={inviteMaxUsesTutorialRef}
                       type="number"
                       min="1"
                       max="50"
@@ -3544,6 +4028,11 @@ async function handleViewOpenedJarNotes() {
                 </div>
 
                 <button
+                  /*
+                   * 초대코드 생성 단계에서
+                   * 실제 만들기 버튼을 강조한다.
+                   */
+                  ref={inviteCreateTutorialRef}
                   type="submit"
                   disabled={createInviteLoading}
                   className={`mt-4 w-full rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
@@ -3622,9 +4111,22 @@ async function handleViewOpenedJarNotes() {
                           palette
                         );
 
+                        /*
+                         * 여러 코드 중에서 현재 튜토리얼이
+                         * 설명하려는 초대코드인지 확인한다.
+                         */
+                        const isInviteTutorialTarget =
+                          Number(invite.inviteId) ===
+                          Number(inviteTutorialTargetInviteId);
+
                         return (
                           <div
                             key={invite.inviteId}
+                            ref={
+                              isInviteTutorialTarget
+                                ? inviteResultTutorialRef
+                                : null
+                            }
                             className={`rounded-2xl border p-4 ${palette.inviteCard}`}
                           >
                             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3719,16 +4221,41 @@ async function handleViewOpenedJarNotes() {
                               </button>
 
                               <button
+                                /*
+                                 * 초대 링크 공유 단계에서
+                                 * 현재 안내 중인 초대코드의 링크 복사 버튼만 강조한다.
+                                 */
+                                ref={
+                                  isInviteTutorialTarget
+                                    ? inviteShareTutorialRef
+                                    : null
+                                }
                                 type="button"
-                                onClick={() => handleCopyInviteUrl(invite.code)}
+                                onClick={() =>
+                                  handleCopyInviteUrl(invite.code)
+                                }
                                 className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
                               >
                                 링크 복사
                               </button>
 
                               <button
+                                /*
+                                 * 마지막 단계에서
+                                 * 초대코드 폐기 버튼을 강조한다.
+                                 *
+                                 * 사용자가 실제로 폐기할 필요는 없다.
+                                 * 기능 위치와 역할만 알려주는 단계다.
+                                 */
+                                ref={
+                                  isInviteTutorialTarget
+                                    ? inviteRevokeTutorialRef
+                                    : null
+                                }
                                 type="button"
-                                onClick={() => handleRevokeInvite(invite.inviteId)}
+                                onClick={() =>
+                                  handleRevokeInvite(invite.inviteId)
+                                }
                                 disabled={!invite.isActive || revokeLoadingId === invite.inviteId}
                                 className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${
                                   invite.isActive
@@ -3820,9 +4347,6 @@ async function handleViewOpenedJarNotes() {
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <p className="text-lg font-black text-slate-800">저금통 설정 수정</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  이름부터 오픈 방식, 잠금 레벨, 오픈일까지 한 번에 바꿀 수 있어요.
-                </p>
               </div>
 
               <button

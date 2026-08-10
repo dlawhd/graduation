@@ -39,6 +39,9 @@ export const ONBOARDING_TUTORIAL_KEY = Object.freeze({
   // 저금통 상세 화면의 쪽지, 초대, 채팅 안내
   JAR_DETAIL: "JAR_DETAIL",
 
+  // 초대 관리 화면의 코드 생성, 공유, 폐기 안내
+  JAR_INVITE: "JAR_INVITE",
+
   // 저금통 오픈 후 오늘의 추억 한 장 안내
   DAILY_DRAW: "DAILY_DRAW",
 });

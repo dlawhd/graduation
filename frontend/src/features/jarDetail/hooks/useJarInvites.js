@@ -238,14 +238,21 @@ export function useJarInvites({ jarId, jar }) {
             ? `초대코드가 만들어졌어요.\n코드: ${created.code}\n링크: ${createdInviteUrl}`
             : "초대코드가 만들어졌어요."
         );
+        /*
+         * JarDetailPage의 튜토리얼도
+         * 방금 만들어진 초대코드 번호를 알아야 하므로
+         * 생성 결과를 부모에게 돌려준다.
+         */
+        return created;
       } catch (e) {
         const serverMessage =
           e?.response?.data?.error?.message ||
-          e?.response?.data?.message ||
+          e?.response?.data?.message |
           e?.message ||
           "초대코드 생성에 실패했어요.";
 
         window.alert(serverMessage);
+        return null;
       } finally {
         setCreateInviteLoading(false);
       }

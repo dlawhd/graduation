@@ -303,6 +303,15 @@ export default function TutorialSpotlight({
   targetRef,
 
   /*
+   * 튜토리얼이 다른 모달 안에서도 사용될 수 있도록
+   * 기본 레이어 높이를 부모가 정할 수 있게 한다.
+   *
+   * 일반 화면은 기존 410,
+   * 초대 관리처럼 높은 모달에서는 10010을 전달한다.
+   */
+  zIndexBase = 410,
+
+  /*
    * 설명 카드의 선호 위치
    *
    * auto:
@@ -331,6 +340,19 @@ export default function TutorialSpotlight({
    * 첫 단계에서는 이전 버튼을 숨긴다.
    */
   showPrevious = false,
+
+  /*
+   * 다음/완료 버튼을 보여줄지 결정한다.
+   *
+   * 기본값은 true라서
+   * 기존 WELCOME, JAR_LIST, JAR_CREATE,
+   * JAR_DETAIL 튜토리얼에는 아무 영향이 없다.
+   *
+   * 초대코드 만들기처럼
+   * 실제 화면 버튼을 직접 눌러야 하는 단계에서만
+   * false를 전달해서 숨길 수 있다.
+   */
+  showComplete = true,
 
   isSaving = false,
   error = "",
@@ -497,6 +519,21 @@ export default function TutorialSpotlight({
     Boolean(layout);
 
   /*
+   * 튜토리얼을 구성하는 각 레이어 높이
+   *
+   * 배경 < 강조 테두리 < 설명 카드
+   * 순서로 화면 앞쪽에 나타난다.
+   */
+  const overlayZIndex =
+    zIndexBase;
+
+  const spotlightZIndex =
+    zIndexBase + 10;
+
+  const tooltipZIndex =
+    zIndexBase + 20;
+
+  /*
    * 안내가 열려 있는 동안 배경 스크롤을 막고
    * 설명 카드로 키보드 포커스를 이동한다.
    */
@@ -594,11 +631,14 @@ export default function TutorialSpotlight({
       {/* 위쪽 어두운 영역 */}
       <motion.div
             aria-hidden="true"
-            className="fixed left-0 right-0 top-0 z-[410] bg-slate-950/65 backdrop-blur-[2px]"
-            style={{
-              height:
-                layout.hole.top,
-            }}
+           className="fixed left-0 right-0 top-0 bg-slate-950/65 backdrop-blur-[2px]"
+           style={{
+             height:
+               layout.hole.top,
+
+             // 부모가 전달한 튜토리얼 레이어 높이를 사용한다.
+             zIndex: overlayZIndex,
+           }}
             initial={{
               opacity: 0,
             }}
@@ -613,7 +653,7 @@ export default function TutorialSpotlight({
           {/* 왼쪽 어두운 영역 */}
           <motion.div
             aria-hidden="true"
-            className="fixed left-0 z-[410] bg-slate-950/65 backdrop-blur-[2px]"
+            className="fixed left-0 bg-slate-950/65 backdrop-blur-[2px]"
             style={{
               top:
                 layout.hole.top,
@@ -621,6 +661,11 @@ export default function TutorialSpotlight({
                 layout.hole.left,
               height:
                 layout.hole.height,
+              /*
+                 * 초대 관리 모달보다 위에서
+                 * 어두운 배경이 보이도록 한다.
+                 */
+                zIndex: overlayZIndex,
             }}
             initial={{
               opacity: 0,
@@ -636,7 +681,7 @@ export default function TutorialSpotlight({
           {/* 오른쪽 어두운 영역 */}
           <motion.div
             aria-hidden="true"
-            className="fixed right-0 z-[410] bg-slate-950/65 backdrop-blur-[2px]"
+            className="fixed right-0 bg-slate-950/65 backdrop-blur-[2px]"
             style={{
               top:
                 layout.hole.top,
@@ -644,6 +689,8 @@ export default function TutorialSpotlight({
                 layout.hole.right,
               height:
                 layout.hole.height,
+               // 튜토리얼 배경 레이어
+                zIndex: overlayZIndex,
             }}
             initial={{
               opacity: 0,
@@ -659,10 +706,12 @@ export default function TutorialSpotlight({
           {/* 아래쪽 어두운 영역 */}
           <motion.div
             aria-hidden="true"
-            className="fixed bottom-0 left-0 right-0 z-[410] bg-slate-950/65 backdrop-blur-[2px]"
+            className="fixed bottom-0 left-0 right-0 bg-slate-950/65 backdrop-blur-[2px]"
             style={{
               top:
                 layout.hole.bottom,
+               // 튜토리얼 배경 레이어
+                zIndex: overlayZIndex,
             }}
             initial={{
               opacity: 0,
@@ -678,7 +727,7 @@ export default function TutorialSpotlight({
           {/* 강조 대상 주변의 빛나는 테두리 */}
           <motion.div
             aria-hidden="true"
-            className="pointer-events-none fixed z-[420] rounded-[24px] border-2 border-white shadow-[0_0_0_5px_rgba(52,211,153,0.55),0_0_42px_rgba(45,212,191,0.75)]"
+            className="pointer-events-none fixed rounded-[24px] border-2 border-white shadow-[0_0_0_5px_rgba(52,211,153,0.55),0_0_42px_rgba(45,212,191,0.75)]"
             style={{
               left:
                 layout.hole.left,
@@ -688,6 +737,8 @@ export default function TutorialSpotlight({
                 layout.hole.width,
               height:
                 layout.hole.height,
+              // 어두운 배경보다 한 단계 위
+              zIndex: spotlightZIndex,
             }}
             initial={{
               opacity: 0,
@@ -728,7 +779,7 @@ export default function TutorialSpotlight({
           ) && (
             <motion.div
               aria-hidden="true"
-              className={`pointer-events-none fixed z-[430] h-0 w-0 border-x-[10px] border-x-transparent ${
+              className={`pointer-events-none fixed h-0 w-0 border-x-[10px] border-x-transparent ${
                 layout.placement === "below"
                   ? "border-b-[12px] border-b-white"
                   : "border-t-[12px] border-t-white"
@@ -753,6 +804,11 @@ export default function TutorialSpotlight({
                         TOOLTIP_GAP -
                         11,
                     }),
+                /*
+                   * 화살표도 설명 카드와 같은 높이에 두어서
+                   * 초대 관리 모달 뒤로 숨지 않게 한다.
+                   */
+                  zIndex: tooltipZIndex,
               }}
               initial={{
                 opacity: 0,
@@ -770,10 +826,16 @@ export default function TutorialSpotlight({
             aria-labelledby="tutorial-spotlight-title"
             aria-describedby="tutorial-spotlight-description"
             tabIndex={-1}
-            className="fixed z-[430] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[26px] border border-white/80 bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)] outline-none md:p-6"
-            style={
-              layout.tooltip
-            }
+            className="fixed max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[26px] border border-white/80 bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)] outline-none md:p-6"
+            style={{
+              ...layout.tooltip,
+
+              /*
+               * 설명 카드는 항상 튜토리얼 레이어에서
+               * 가장 앞에 보여준다.
+               */
+              zIndex: tooltipZIndex,
+            }}
             initial={{
               opacity: 0,
 
@@ -886,16 +948,26 @@ export default function TutorialSpotlight({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={onComplete}
-                  disabled={isSaving}
-                  className="inline-flex min-w-[100px] items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(16,185,129,0.25)] transition hover:-translate-y-0.5 hover:from-emerald-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving
-                    ? "저장 중..."
-                    : completeLabel}
-                </button>
+                {/*
+                 * showComplete가 true일 때만
+                 * 다음/안내 완료 버튼을 보여준다.
+                 *
+                 * 초대코드를 실제로 생성해야 하는 단계에서는
+                 * 이 버튼을 숨기고 화면에 있는
+                 * "초대코드 만들기" 버튼을 직접 누르게 한다.
+                 */}
+                {showComplete && (
+                  <button
+                    type="button"
+                    onClick={onComplete}
+                    disabled={isSaving}
+                    className="inline-flex min-w-[100px] items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(16,185,129,0.25)] transition hover:-translate-y-0.5 hover:from-emerald-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving
+                      ? "저장 중..."
+                      : completeLabel}
+                  </button>
+                )}
               </div>
             </div>
           </motion.section>
