@@ -130,42 +130,69 @@ export default function LoginJarCard({
 
           {/* ==================================================
               실제 로그인 콘텐츠
+
+              현재는 네이버 로그인만 실제로 사용할 수 있다.
+
+              Google 로그인과 Memory Jar 자체 이메일 로그인/회원가입은
+              아직 구현 전이므로 "준비 중" 상태로만 보여준다.
+
+              사용자가 준비 중인 기능을 눌러 혼란스럽지 않도록
+              disabled 버튼으로 만들어 실제 로그인 요청은 발생하지 않는다.
              ================================================== */}
-          <div className="relative z-10 flex h-full flex-col px-8 pb-7 pt-14 sm:px-10">
-            {/* 작은 서비스 배지 */}
+          <div className="relative z-10 flex h-full flex-col px-8 pb-7 pt-12 sm:px-10">
+
+            {/* ==================================================
+                Memory Jar 서비스 배지
+               ================================================== */}
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white/90 px-3.5 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600 shadow-sm">
+              {/* 작은 초록색 상태 점 */}
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
+
               Memory Jar
             </div>
 
-            {/* 로그인 제목 */}
-            <h2 className="mt-5 text-center text-[2rem] font-black leading-tight text-slate-900">
+
+            {/* ==================================================
+                로그인 제목
+               ================================================== */}
+            <h2 className="mt-4 text-center text-[2rem] font-black leading-tight text-slate-900">
               저금통 입장하기
             </h2>
 
-            {/* 로그인 설명 */}
-            <p className="mt-3 text-center text-sm leading-7 text-slate-500">
-              네이버 계정으로 간편하게 시작하고
-              <br />
-              로그인 후 바로 내 저금통을 만나보세요.
+
+            {/* ==================================================
+                로그인 설명
+
+                현재 사용할 수 있는 로그인 방법이 네이버라는 것을
+                자연스럽게 안내한다.
+               ================================================== */}
+            <p className="mt-2 text-center text-sm leading-6 text-slate-500">
+              원하는 방법으로 Memory Jar를 시작해보세요.
             </p>
 
-            {/* 네이버 로그인 버튼 */}
+
+            {/* ==================================================
+                네이버 로그인
+
+                현재 실제로 동작하는 로그인 방법이다.
+               ================================================== */}
             <button
               type="button"
               onClick={onLogin}
               disabled={isBusy}
-              className="mx-auto mt-6 flex w-[78%] max-w-[290px] items-center justify-center gap-3 rounded-2xl bg-[#03C75A] px-5 py-3.5 text-base font-extrabold text-white shadow-lg shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:bg-[#02b852] hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
+              className="mx-auto mt-5 flex w-[82%] max-w-[300px] items-center justify-center gap-3 rounded-2xl bg-[#03C75A] px-5 py-3 text-base font-extrabold text-white shadow-lg shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:bg-[#02b852] hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
             >
-              {/* 확인 또는 이동 중에는 작은 로딩 원을 보여준다. */}
+              {/* 로그인 확인 중이거나 네이버로 이동 중이면 로딩 표시 */}
               {isBusy ? (
-                <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
+                <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
               ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-sm font-black">
+                /* 네이버 N 로고 영역 */
+                <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/20 text-sm font-black">
                   N
                 </span>
               )}
 
+              {/* 현재 로그인 상태에 따라 버튼 문구를 변경한다. */}
               <span className="whitespace-nowrap">
                 {checkingSession
                   ? "로그인 확인 중..."
@@ -175,17 +202,116 @@ export default function LoginJarCard({
               </span>
             </button>
 
-            {/* 로그인 상태 또는 오류 안내 */}
-            <p
-              role={errorMessage ? "alert" : undefined}
-              aria-live="polite"
-              className={[
-                "mt-3 text-center text-xs leading-5",
-                errorMessage ? "font-semibold text-rose-600" : "text-slate-400",
-              ].join(" ")}
+
+            {/* ==================================================
+                현재 로그인 상태 / 오류 안내
+
+                로그인 중이거나 오류가 발생했을 때만
+                사용자에게 현재 상황을 알려준다.
+               ================================================== */}
+            {(isBusy || errorMessage) && (
+              <p
+                role={errorMessage ? "alert" : undefined}
+                aria-live="polite"
+                className={[
+                  "mt-2 text-center text-xs leading-5",
+                  errorMessage
+                    ? "font-semibold text-rose-600"
+                    : "text-slate-400",
+                ].join(" ")}
+              >
+                {helperMessage}
+              </p>
+            )}
+
+
+            {/* ==================================================
+                로그인 방법 구분선
+
+                위쪽은 현재 사용할 수 있는 네이버 로그인,
+                아래쪽은 앞으로 추가될 로그인 방법이다.
+               ================================================== */}
+            <div className="mx-auto mt-4 flex w-[82%] max-w-[300px] items-center gap-3">
+              {/* 왼쪽 선 */}
+              <div className="h-px flex-1 bg-slate-200" />
+
+              <span className="text-[11px] font-medium text-slate-400">
+                준비 중
+              </span>
+
+              {/* 오른쪽 선 */}
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+
+            {/* ==================================================
+                Google 로그인 - 준비 중
+
+                아직 실제 OAuth 연결을 하지 않았기 때문에
+                버튼을 disabled 상태로 둔다.
+               ================================================== */}
+            <button
+              type="button"
+              disabled
+              aria-label="Google 로그인 준비 중"
+              className="mx-auto mt-3 flex w-[82%] max-w-[300px] cursor-not-allowed items-center justify-between rounded-2xl border border-slate-200 bg-white/75 px-4 py-2.5 text-sm font-bold text-slate-500"
             >
-              {helperMessage}
+              {/* Google 아이콘 + 로그인 이름 */}
+              <span className="flex items-center gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white font-black text-slate-500">
+                  G
+                </span>
+
+                Google 로그인
+              </span>
+
+              {/* 준비 중 표시 */}
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-400">
+                준비 중
+              </span>
+            </button>
+
+
+            {/* ==================================================
+                Memory Jar 자체 계정 로그인 / 회원가입 - 준비 중
+
+                나중에 이메일과 비밀번호를 사용하는 자체 계정 기능이
+                구현되면 이 버튼을 실제 로그인/회원가입 화면으로 연결할 수 있다.
+               ================================================== */}
+            <button
+              type="button"
+              disabled
+              aria-label="이메일 로그인과 회원가입 준비 중"
+              className="mx-auto mt-2 flex w-[82%] max-w-[300px] cursor-not-allowed items-center justify-between rounded-2xl border border-slate-200 bg-white/75 px-4 py-2.5 text-sm font-bold text-slate-500"
+            >
+              {/* 이메일 로그인 아이콘 + 이름 */}
+              <span className="flex items-center gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-sm">
+                  ✉
+                </span>
+                Memory Jar 전용
+                <br /> 로그인, 회원가입
+              </span>
+
+              {/* 준비 중 표시 */}
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-400">
+                준비 중
+              </span>
+            </button>
+
+
+            {/* ==================================================
+                추가 로그인 기능 안내
+
+                사용자가 "왜 버튼이 안 눌리지?"라고 생각하지 않도록
+                아직 개발 중이라는 사실을 한 번 더 알려준다.
+               ================================================== */}
+            <p className="mt-1 text-center text-[11px] leading-5 text-slate-400">
+              Google 로그인과 Memory Jar 전용 계정을
+              <br />
+              준비하고 있어요.
             </p>
+
           </div>
           </div>
         </div>

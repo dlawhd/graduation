@@ -945,7 +945,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
           </h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {webSocketConnected
-              ? "WebSocket으로 새 메시지를 실시간으로 받고 있어요."
+              ? ""
               : "WebSocket 연결 전에는 Polling 방식으로 새 메시지를 확인하고 있어요."}
           </p>
         </div>
