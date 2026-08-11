@@ -224,26 +224,6 @@ export default function LoginJarCard({
               </p>
             )}
 
-
-            {/* ==================================================
-                로그인 방법 구분선
-
-                위쪽은 현재 사용할 수 있는 네이버 로그인,
-                아래쪽은 앞으로 추가될 로그인 방법이다.
-               ================================================== */}
-            <div className="mx-auto mt-4 flex w-[82%] max-w-[300px] items-center gap-3">
-              {/* 왼쪽 선 */}
-              <div className="h-px flex-1 bg-slate-200" />
-
-              <span className="text-[11px] font-medium text-slate-400">
-                준비 중
-              </span>
-
-              {/* 오른쪽 선 */}
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-
             {/* ==================================================
                 Google 로그인 - 준비 중
 
