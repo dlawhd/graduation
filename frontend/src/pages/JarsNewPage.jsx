@@ -2028,11 +2028,11 @@ export default function JarsNewPage() {
           onPrevious={
             handleJarCreateTutorialPrevious
           }
-        eyebrow={`새 저금통 만들기 안내 · ${
+        eyebrow={`새 저금통 만들기 안내 [${
           jarCreateTutorialStepIndex + 1
         } / ${
           JAR_CREATE_TUTORIAL_STEPS.length
-        }`}
+        }]`}
         title={
           currentJarCreateTutorialStep
             ?.title

@@ -3138,11 +3138,11 @@ async function handleViewOpenedJarNotes() {
           onPrevious={
             handleJarDetailTutorialPrevious
           }
-        eyebrow={`저금통 상세 안내 · ${
+        eyebrow={`저금통 상세 안내 [${
           jarDetailTutorialStepIndex + 1
         } / ${
           jarDetailTutorialSteps.length
-        }`}
+        }]`}
         title={
           currentJarDetailTutorialStep
             ?.title
@@ -3207,11 +3207,11 @@ async function handleViewOpenedJarNotes() {
         onPrevious={
           handleJarInviteTutorialPrevious
         }
-        eyebrow={`초대 관리 안내 · ${
+        eyebrow={`초대 관리 안내 [${
           jarInviteTutorialStepIndex + 1
         } / ${
           JAR_INVITE_TUTORIAL_STEPS.length
-        }`}
+        }]`}
         title={
           currentJarInviteTutorialStep?.title
         }
@@ -3801,9 +3801,7 @@ async function handleViewOpenedJarNotes() {
               <p className="text-sm font-extrabold text-slate-800">
                 멤버 목록
               </p>
-              <p className="text-xs text-slate-500">
-                지금 이 저금통에 함께 들어와 있는 사람들이에요.
-              </p>
+
             </div>
 
             <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
