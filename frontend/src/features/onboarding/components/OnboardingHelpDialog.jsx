@@ -427,14 +427,7 @@ export default function OnboardingHelpDialog({
           )}
         </div>
 
-        {/* DB 기록 유지 안내 */}
-        <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
-          <p className="break-keep text-xs font-semibold leading-5 text-emerald-700">
-            다시 보기를 실행해도 기존 완료 기록은 삭제되지 않으며,
-            이후 자동 안내가 다시 반복되지 않아요.
-          </p>
-        </div>
-
+        
         <div className="mt-6 flex justify-end">
           <button
             type="button"

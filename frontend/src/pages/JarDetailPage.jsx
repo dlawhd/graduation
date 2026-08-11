@@ -4132,9 +4132,7 @@ async function handleViewOpenedJarNotes() {
                                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                                   초대코드
                                 </p>
-                                <p className="mt-1 text-lg font-black tracking-[0.22em] text-slate-800">
-                                  {invite.code}
-                                </p>
+
 
                                   {/* 초대코드 밑에 실제 공유할 링크도 같이 보여줘 */}
                                   <div className={`mt-3 rounded-2xl border px-4 py-3 ${palette.inviteInfoBox}`}>
@@ -4210,13 +4208,6 @@ async function handleViewOpenedJarNotes() {
                             </div>
 
                             <div className="mt-4 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleCopyInviteCode(invite.code)}
-                                className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${palette.outlineButton}`}
-                              >
-                                코드 복사
-                              </button>
 
                               <button
                                 /*

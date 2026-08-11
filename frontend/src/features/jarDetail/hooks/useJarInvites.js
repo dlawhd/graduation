@@ -235,7 +235,7 @@ export function useJarInvites({ jarId, jar }) {
 
         window.alert(
           created?.code
-            ? `초대코드가 만들어졌어요.\n코드: ${created.code}\n링크: ${createdInviteUrl}`
+            ? `초대코드가 만들어졌어요.\n링크: ${createdInviteUrl}`
             : "초대코드가 만들어졌어요."
         );
         /*

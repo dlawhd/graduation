@@ -70,7 +70,7 @@ export const JAR_INVITE_TUTORIAL_STEPS =
       title: "초대코드가 만들어졌어요",
 
       description:
-        "여기에서 초대코드와 초대 링크, 만료 시간과 사용 횟수를 한 번에 확인할 수 있어요.",
+        "여기에서 초대 링크, 만료 시간과 사용 횟수를 한 번에 확인할 수 있어요.",
     },
     {
       id: "INVITE_SHARE",
@@ -80,7 +80,7 @@ export const JAR_INVITE_TUTORIAL_STEPS =
       title: "친구에게 초대 링크를 보내보세요",
 
       description:
-        "링크 복사를 누르면 바로 공유할 수 있는 주소가 복사돼요.\n필요하면 왼쪽의 코드 복사도 사용할 수 있어요.",
+        "링크 복사를 누르면 바로 공유할 수 있는 주소가 복사돼요. 초대 링크를 보내보세요!",
     },
     {
       id: "INVITE_REVOKE",
