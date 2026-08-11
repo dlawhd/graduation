@@ -207,9 +207,8 @@ export default function NoteAttachmentPicker({
       {/* 파일 선택 순서 안내 */}
       <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
         <p className="text-xs font-semibold leading-5 text-amber-800">
-          파일 선택창이 전달한 순서대로 추가해요.
           순서가 다르면 카드를 끌거나
-          ‘앞으로·뒤로’ 버튼으로 바꿀 수 있어요.
+          앞으로, 뒤로 버튼으로 바꿀 수 있어요.
         </p>
       </div>
 

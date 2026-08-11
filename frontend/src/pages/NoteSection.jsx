@@ -446,9 +446,9 @@ function PaperComposeModal({
 
                 <p className="mt-1 text-sm text-slate-500">
                   {isFormStep &&
-                    "종이가 펴졌어요. 차근차근 적고, 미리보기까지 확인한 뒤 넣으면 돼요."}
+                    "종이가 펴졌어요. 차근차근 적고 미리보기까지 확인한 뒤 넣으면 돼요."}
                   {isPreviewStep &&
-                    "실제로 들어갈 모양을 보고 마지막으로 한 번 더 확인해 보자."}
+                    "실제로 들어갈 모양을 보고 마지막으로 한 번 더 확인해요."}
                   {isConfirmStep &&
                     "넣는 순간 종이가 다시 접히면서 저금통 안으로 들어가요."}
                 </p>
@@ -816,7 +816,7 @@ function PaperComposeModal({
                 />
 
                 <p className="text-sm leading-7 text-slate-500">
-                  저금통에 넣으면 쪽지 수정이나 삭제가 불가능해요!
+                  저금통에 넣으면 쪽지 수정이나 삭제가 불가능해요!!!
                 </p>
 
                 <h3 className="mb-2 text-xl font-black text-slate-800">
