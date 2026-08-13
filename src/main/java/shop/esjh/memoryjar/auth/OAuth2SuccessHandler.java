@@ -1,11 +1,5 @@
 package shop.esjh.memoryjar.auth;
 
-import org.springframework.util.StringUtils;
-import shop.esjh.memoryjar.entity.User;
-import shop.esjh.memoryjar.jwt.JwtTokenProvider;
-import shop.esjh.memoryjar.service.AuthCookieService;
-import shop.esjh.memoryjar.service.UserService;
-import shop.esjh.memoryjar.service.RefreshTokenService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,51 +8,85 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import shop.esjh.memoryjar.entity.User;
+import shop.esjh.memoryjar.jwt.JwtTokenProvider;
+import shop.esjh.memoryjar.service.AuthCookieService;
+import shop.esjh.memoryjar.service.RefreshTokenService;
+import shop.esjh.memoryjar.service.UserService;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-// 네이버 로그인이 성공하면 이 클래스가 자동으로 불려서 우리 서비스에 필요한 로그인 후처리를 한다.
+/*
+ * OAuth2SuccessHandler 역할
+ *
+ * NAVER 또는 GOOGLE 로그인이 성공한 뒤
+ * Memory Jar의 실제 로그인 처리를 마무리하는 클래스야.
+ *
+ * 전체 흐름:
+ *
+ * 1. 어떤 OAuth Provider로 로그인했는지 확인
+ * 2. NAVER / GOOGLE 사용자 정보를 각각의 형식에 맞게 읽기
+ * 3. OAuth 계정을 Memory Jar User와 연결
+ * 4. RefreshToken 발급
+ * 5. AccessToken(JWT) 발급
+ * 6. 토큰을 HttpOnly Cookie에 저장
+ * 7. 프론트 로그인 성공 페이지로 이동
+ *
+ * 중요한 점:
+ *
+ * NAVER와 GOOGLE은 사용자 정보를 내려주는 모양이 다르지만
+ * 최종적으로는 둘 다 UserService.findOrCreateOAuthUser()로 보내서
+ * 같은 Memory Jar 회원 체계를 사용한다.
+ */
 @Component
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
-    // ✅ AccessToken(JWT) 만드는 도구
+    // AccessToken(JWT)을 만드는 도구
     private final JwtTokenProvider jwtTokenProvider;
 
-    // ✅ 네이버로 받은 사용자 정보를 "우리 DB 회원"으로 저장/조회하는 서비스
+    // OAuth 계정을 Memory Jar User와 연결하는 서비스
     private final UserService userService;
 
-    // ✅ RefreshToken(재발급용 토큰)을 발급하고 DB에 저장하는 서비스
+    // RefreshToken을 발급하고 DB에 저장하는 서비스
     private final RefreshTokenService refreshTokenService;
 
-    // ✅ accessToken / refreshToken 쿠키를 브라우저에 저장해주는 서비스
+    // AccessToken / RefreshToken을 쿠키에 저장하는 서비스
     private final AuthCookieService authCookieService;
 
-    // ✅ 로그인 성공 후 프론트로 보내줄 주소(예: https://www.esjh.shop)
+    /*
+     * 로그인 성공 후 이동할 프론트 주소
+     *
+     * 로컬:
+     * http://localhost:3000
+     *
+     * 배포:
+     * https://www.esjh.shop
+     */
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    // ✅ 필요한 도구들을 스프링이 자동으로 넣어줌(주입)
-    public OAuth2SuccessHandler(JwtTokenProvider jwtTokenProvider,
-                                UserService userService,
-                                RefreshTokenService refreshTokenService,
-                                AuthCookieService authCookieService) {
+    /*
+     * OAuth 로그인 완료 처리에 필요한 객체들을
+     * Spring이 생성자에 자동으로 넣어준다.
+     */
+    public OAuth2SuccessHandler(
+            JwtTokenProvider jwtTokenProvider,
+            UserService userService,
+            RefreshTokenService refreshTokenService,
+            AuthCookieService authCookieService
+    ) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userService = userService;
         this.refreshTokenService = refreshTokenService;
         this.authCookieService = authCookieService;
     }
 
-    /**
-     * ✅ 네이버 로그인이 성공하면 스프링 시큐리티가 자동으로 이 메서드를 호출
-     * 흐름:
-     * 1. 네이버가 준 사용자 정보 꺼내기
-     * 2. 우리 DB 회원 조회/생성
-     * 3. refreshToken 발급
-     * 4. accessToken 발급
-     * 5. 토큰을 쿠키로 저장
-     * 6. 프론트 로그인 성공 페이지로 이동
+    /*
+     * NAVER 또는 GOOGLE 로그인이 성공하면
+     * Spring Security가 자동으로 호출하는 메서드야.
      */
     @Override
     public void onAuthenticationSuccess(
@@ -67,81 +95,411 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication
     ) throws IOException, ServletException {
 
-        // ✅ 네이버 로그인 결과를 꺼내기 위해 OAuth2AuthenticationToken으로 변환
-        OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
-
-        // ✅ 네이버에서 내려준 사용자 정보(속성들) 가져오기
-        Map<String, Object> attributes = token.getPrincipal().getAttributes();
-
-        /**
-         * ✅ 네이버는 user-name-attribute를 response로 잡아서
-         * attributes 안에 response라는 키가 있고, 그 안에 진짜 정보가 들어있는 구조일 수 있음
-         * 예)
-         * attributes = { "resultcode": "...", "message": "...", "response": {email,name,birthyear,id...} }
+        /*
+         * 이 SuccessHandler는 OAuth 로그인 성공 처리용이므로
+         * OAuth2AuthenticationToken인지 먼저 확인한다.
          */
-
-        // ✅ response 안에 진짜 사용자 정보가 들어 있으면 그 안쪽 map을 다시 attributes로 바꿔서 사용
-        Object resp = attributes.get("response");
-        if (resp instanceof Map<?, ?>) {
-            attributes = (Map<String, Object>) resp;
+        if (!(authentication instanceof OAuth2AuthenticationToken token)) {
+            throw new IllegalArgumentException(
+                    "OAuth2 로그인 인증 정보를 가져오지 못했습니다."
+            );
         }
 
-        // ✅ 네이버에서 내려오는 사용자 정보 꺼내기
-        String email = (String) attributes.get("email");
-        String name = (String) attributes.get("name");
-        String birthyear = (String) attributes.get("birthyear");
+        /*
+         * registrationId는 어떤 로그인 Provider를 사용했는지 알려준다.
+         *
+         * 예:
+         *
+         * /oauth2/authorization/naver
+         * → registrationId = "naver"
+         *
+         * /oauth2/authorization/google
+         * → registrationId = "google"
+         */
+        String registrationId =
+                token.getAuthorizedClientRegistrationId();
 
-        // ✅ 네이버 유저 고유 ID (우리 DB에서 "이 사람 누구인지" 구분할 때 사용)
-        String providerId = (String) attributes.get("id");
+        // OAuth Provider가 내려준 원본 사용자 정보
+        Map<String, Object> attributes =
+                token.getPrincipal().getAttributes();
 
-        // providerId는 네이버 사용자를 구분하는 핵심값이라 없으면 로그인 진행을 막는다.
+        /*
+         * NAVER와 GOOGLE은 사용자 정보 구조가 다르므로
+         * Provider별로 알맞은 방법을 사용해서
+         * 공통 OAuthProfile 형태로 바꾼다.
+         */
+        OAuthProfile profile =
+                extractOAuthProfile(
+                        registrationId,
+                        attributes
+                );
+
+        /*
+         * 방금 만든 UserService를 호출한다.
+         *
+         * 예:
+         *
+         * NAVER
+         * NAVER + 네이버 id
+         *
+         * GOOGLE
+         * GOOGLE + Google sub
+         *
+         * 이미 OAuth 계정 연결이 있으면 기존 User를 사용하고,
+         * 연결 정보는 없지만 이메일이 같은 User가 있으면
+         * 그 기존 User에게 새로운 OAuth 계정을 연결한다.
+         */
+        User user = userService.findOrCreateOAuthUser(
+                profile.provider(),
+                profile.providerId(),
+                profile.email(),
+                profile.name(),
+                profile.birthyear()
+        );
+
+        /*
+         * RefreshToken을 발급한다.
+         *
+         * 브라우저에는 원본 RefreshToken을 저장하고
+         * DB에는 RefreshTokenService 정책에 따라 안전하게 관리한다.
+         */
+        String refreshRaw =
+                refreshTokenService.issue(user);
+
+        /*
+         * JWT subject는 Memory Jar의 User ID다.
+         *
+         * NAVER로 로그인하든 GOOGLE로 로그인하든
+         * 같은 User라면 동일한 userId를 사용한다.
+         */
+        String subject =
+                String.valueOf(user.getId());
+
+        /*
+         * JWT에 넣을 추가 사용자 정보를 만든다.
+         *
+         * 여기서는 OAuth Provider가 방금 내려준 값을 그대로 사용하지 않고
+         * UserService 처리가 끝난 뒤의 User 정보를 사용한다.
+         *
+         * 이유:
+         *
+         * 기존 NAVER 회원이 GOOGLE로 로그인하면
+         * Google에는 birthyear가 없지만
+         * DB에는 기존 NAVER birthyear가 남아 있을 수 있기 때문이다.
+         */
+        Map<String, Object> claims =
+                new HashMap<>();
+
+        // DB에 최종 저장된 이메일을 JWT에 넣는다.
+        if (StringUtils.hasText(user.getEmail())) {
+            claims.put(
+                    "email",
+                    user.getEmail()
+            );
+        }
+
+        /*
+         * 이름이 없으면 화면에서 null 대신
+         * "사용자"라는 기본 이름을 사용한다.
+         */
+        String safeName =
+                StringUtils.hasText(user.getName())
+                        ? user.getName()
+                        : "사용자";
+
+        claims.put(
+                "name",
+                safeName
+        );
+
+        /*
+         * birthyear는 선택값이다.
+         *
+         * Google 기본 로그인에서는 birthyear를 받지 않기 때문에
+         * 값이 존재할 때만 JWT에 넣는다.
+         */
+        if (StringUtils.hasText(user.getBirthyear())) {
+            claims.put(
+                    "birthyear",
+                    user.getBirthyear()
+            );
+        }
+
+        /*
+         * AccessToken을 발급한다.
+         *
+         * 이 토큰이 이후 Memory Jar API 요청에서
+         * "현재 로그인한 사용자가 누구인지" 증명하는 역할을 한다.
+         */
+        String jwt =
+                jwtTokenProvider.createAccessToken(
+                        subject,
+                        claims
+                );
+
+        // RefreshToken 쿠키 저장
+        authCookieService.setRefreshCookie(
+                response,
+                refreshRaw
+        );
+
+        // AccessToken 쿠키 저장
+        authCookieService.setAccessCookie(
+                response,
+                jwt
+        );
+
+        /*
+         * OAuth 로그인부터 Memory Jar 토큰 발급까지 모두 끝났으므로
+         * 프론트의 기존 로그인 성공 페이지로 이동한다.
+         */
+        response.sendRedirect(
+                frontendUrl + "/login/success"
+        );
+    }
+
+    /*
+     * 어떤 OAuth Provider인지 확인한 뒤
+     * Provider별 사용자 정보 추출 메서드로 보내준다.
+     */
+    private OAuthProfile extractOAuthProfile(
+            String registrationId,
+            Map<String, Object> attributes
+    ) {
+
+        if (!StringUtils.hasText(registrationId)) {
+            throw new IllegalArgumentException(
+                    "OAuth2 Provider 정보를 가져오지 못했습니다."
+            );
+        }
+
+        return switch (registrationId.toLowerCase()) {
+
+            // NAVER 사용자 정보 읽기
+            case "naver" ->
+                    extractNaverProfile(attributes);
+
+            // GOOGLE 사용자 정보 읽기
+            case "google" ->
+                    extractGoogleProfile(attributes);
+
+            // 현재 지원하지 않는 OAuth 로그인
+            default ->
+                    throw new IllegalArgumentException(
+                            "지원하지 않는 OAuth2 Provider입니다: "
+                                    + registrationId
+                    );
+        };
+    }
+
+    /*
+     * NAVER 사용자 정보를 읽는다.
+     *
+     * NAVER 응답은 보통 다음처럼 한 단계 안쪽에 실제 정보가 있다.
+     *
+     * {
+     *   "resultcode": "00",
+     *   "message": "success",
+     *   "response": {
+     *       "id": "...",
+     *       "email": "...",
+     *       "name": "...",
+     *       "birthyear": "..."
+     *   }
+     * }
+     */
+    private OAuthProfile extractNaverProfile(
+            Map<String, Object> attributes
+    ) {
+
+        /*
+         * response 안에 실제 NAVER 사용자 정보가 있는지 확인한다.
+         *
+         * Map<?, ?>로 받아서 기존 코드의 강제 형변환 경고도 없앤다.
+         */
+        Object response =
+                attributes.get("response");
+
+        if (!(response instanceof Map<?, ?> naverAttributes)) {
+            throw new IllegalArgumentException(
+                    "네이버 사용자 정보를 가져오지 못했습니다."
+            );
+        }
+
+        // NAVER 애플리케이션에서 사용하는 사용자 고유 ID
+        String providerId =
+                getString(
+                        naverAttributes.get("id")
+                );
+
+        // 사용자가 동의한 NAVER 이메일
+        String email =
+                getString(
+                        naverAttributes.get("email")
+                );
+
+        // 사용자 이름
+        String name =
+                getString(
+                        naverAttributes.get("name")
+                );
+
+        // NAVER에서 받을 수 있는 출생연도
+        String birthyear =
+                getString(
+                        naverAttributes.get("birthyear")
+                );
+
+        // 고유 ID가 없다면 사용자 구분이 불가능하므로 중단
         if (!StringUtils.hasText(providerId)) {
-            throw new IllegalArgumentException("네이버 사용자 ID를 가져오지 못했습니다.");
+            throw new IllegalArgumentException(
+                    "네이버 사용자 ID를 가져오지 못했습니다."
+            );
         }
 
-        // email도 우리 서비스에서 회원 식별에 중요하므로 없으면 로그인 진행을 막는다.
+        /*
+         * 현재 Memory Jar에서는
+         * 기존 User와 OAuth 계정을 연결할 때 이메일이 필요하다.
+         */
         if (!StringUtils.hasText(email)) {
-            throw new IllegalArgumentException("네이버 이메일을 가져오지 못했습니다.");
+            throw new IllegalArgumentException(
+                    "네이버 이메일을 가져오지 못했습니다."
+            );
         }
 
-        // name은 화면 표시용이라 없으면 기본값을 사용한다.
-        String safeName = StringUtils.hasText(name) ? name : "사용자";
+        return new OAuthProfile(
+                "NAVER",
+                providerId,
+                email,
+                name,
+                birthyear
+        );
+    }
 
-        //✅ 우리 DB에 회원이 이미 있으면 가져오고,없으면 새로 만들어서 저장한 뒤 반환
-        User user = userService.findOrCreateNaverUser(providerId, email, safeName, birthyear);
+    /*
+     * GOOGLE 사용자 정보를 읽는다.
+     *
+     * Google은 NAVER와 달리 response 안쪽이 아니라
+     * attributes 최상위에 사용자 정보가 들어온다.
+     *
+     * 우리가 사용하는 대표 값:
+     *
+     * sub
+     * email
+     * email_verified
+     * name
+     */
+    private OAuthProfile extractGoogleProfile(
+            Map<String, Object> attributes
+    ) {
 
-        //✅ refreshToken은 accessToken이 만료됐을 때 새 accessToken을 다시 발급받는 데 쓰는 긴 수명의 토큰
-        // 흐름 : 원본 refresh 문자열 생성 -> DB에는 해시값 저장 -> 브라우저에는 원본을 쿠키로 저장
-        String refreshRaw = refreshTokenService.issue(user);
+        /*
+         * Google의 sub는 Google 사용자를 구분하는
+         * 고유 식별값이다.
+         */
+        String providerId =
+                getString(
+                        attributes.get("sub")
+                );
 
-        // ✅ JWT subject 만들기
-        // ✅ subject는 JWT의 "주인"을 나타내는 값
-        // 필터(JwtAuthenticationFilter)가 subject를 userId로 쓰고 있으니 여기서도 userId로 맞추는 게 정석
-        String subject = String.valueOf(user.getId());
+        // Google 계정 이메일
+        String email =
+                getString(
+                        attributes.get("email")
+                );
 
-        // ✅ JWT 안에 같이 넣고 싶은 정보(클레임)
-        Map<String, Object> claims = new HashMap<>();
+        // Google 프로필 이름
+        String name =
+                getString(
+                        attributes.get("name")
+                );
 
-        // 필수값은 검증이 끝났으므로 그대로 넣는다.
-        claims.put("email", email);
+        /*
+         * Google이 이 이메일을 확인했는지 나타내는 값이다.
+         *
+         * 우리는 같은 이메일의 기존 NAVER 회원에게
+         * GOOGLE 계정을 자동 연결할 수 있기 때문에
+         * 검증된 Google 이메일만 허용한다.
+         */
+        boolean emailVerified =
+                Boolean.TRUE.equals(
+                        attributes.get("email_verified")
+                );
 
-        // name은 null 방지용 기본값 처리된 safeName을 넣는다.
-        claims.put("name", safeName);
-
-        // birthyear는 선택값이라 값이 있을 때만 넣는다, null을 claims에 넣지 않기 위한 방어 코드다.
-        if (StringUtils.hasText(birthyear)) {
-            claims.put("birthyear", birthyear);
+        // sub가 없다면 Google 사용자를 안전하게 구분할 수 없다.
+        if (!StringUtils.hasText(providerId)) {
+            throw new IllegalArgumentException(
+                    "Google 사용자 ID를 가져오지 못했습니다."
+            );
         }
 
-        // ✅ accessToken(JWT) 발급
-        // accessToken은 실제 API 요청할 때 로그인한 사용자입니다를 증명하는 짧은 수명의 토큰
-        String jwt = jwtTokenProvider.createAccessToken(subject, claims);
+        // 이메일이 없다면 기존 Memory Jar 회원 연결을 진행할 수 없다.
+        if (!StringUtils.hasText(email)) {
+            throw new IllegalArgumentException(
+                    "Google 이메일을 가져오지 못했습니다."
+            );
+        }
 
-        // ✅ 쿠키 저장은 AuthCookieService가 전담
-        authCookieService.setRefreshCookie(response, refreshRaw);
-        authCookieService.setAccessCookie(response, jwt);
+        /*
+         * 이메일 기반 자동 계정 연결을 사용하므로
+         * Google이 검증한 이메일인지 확인한다.
+         */
+        if (!emailVerified) {
+            throw new IllegalArgumentException(
+                    "확인되지 않은 Google 이메일입니다."
+            );
+        }
 
-        // ✅ 쿠키 저장까지 끝났으면 프론트 성공 페이지로 이동
-        response.sendRedirect(frontendUrl + "/login/success");
+        /*
+         * Google 기본 로그인에서는 birthyear를 요청하지 않는다.
+         *
+         * 기존 NAVER 회원이 Google 로그인으로 들어오더라도
+         * User.updateProfile()은 null 값을 기존 birthyear에 덮어쓰지 않으므로
+         * 기존 출생연도는 그대로 유지된다.
+         */
+        return new OAuthProfile(
+                "GOOGLE",
+                providerId,
+                email,
+                name,
+                null
+        );
+    }
+
+    /*
+     * OAuth 응답 값이 String인지 안전하게 확인해서 꺼낸다.
+     *
+     * 값이 없거나 String이 아니면 null을 반환한다.
+     */
+    private String getString(Object value) {
+
+        if (value instanceof String text) {
+            return text;
+        }
+
+        return null;
+    }
+
+    /*
+     * OAuthProfile 역할
+     *
+     * NAVER와 GOOGLE의 서로 다른 응답 형태를
+     * UserService가 이해하기 쉬운 하나의 공통 모양으로 바꾼 객체야.
+     *
+     * 예:
+     *
+     * NAVER
+     * → NAVER / id / email / name / birthyear
+     *
+     * GOOGLE
+     * → GOOGLE / sub / email / name / null
+     */
+    private record OAuthProfile(
+            String provider,
+            String providerId,
+            String email,
+            String name,
+            String birthyear
+    ) {
     }
 }

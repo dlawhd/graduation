@@ -3,15 +3,46 @@ spring:
     oauth2:
       client:
         registration:
+          # --------------------------------------------------
+          # 네이버 OAuth 테스트 설정
+          #
+          # 테스트에서는 실제 네이버 인증 서버에 로그인하지 않으므로
+          # 실제 Client ID / Secret 대신 가짜 값을 사용한다.
+          # --------------------------------------------------
           naver:
-            client-id: test-client-id
-            client-secret: test-client-secret
+            client-id: test-naver-client-id
+            client-secret: test-naver-client-secret
             client-name: Naver
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope:
               - name
               - email
+              - birthyear
+
+          # --------------------------------------------------
+          # Google OAuth 테스트 설정
+          #
+          # 테스트용 Spring Context가 Google Client 설정을
+          # 정상적으로 만들 수 있도록 가짜 값을 사용한다.
+          # 실제 Google Client Secret을 테스트 코드에 넣으면 안 된다.
+          # --------------------------------------------------
+          google:
+            client-id: test-google-client-id
+            client-secret: test-google-client-secret
+            client-name: Google
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - profile
+              - email
+
+        # --------------------------------------------------
+        # 네이버는 Spring 기본 Provider가 아니므로
+        # 테스트 환경에서도 Provider 정보를 직접 알려준다.
+        # Google은 Spring 기본 Provider라 별도 설정이 필요 없다.
+        # --------------------------------------------------
         provider:
           naver:
             authorization-uri: https://nid.naver.com/oauth2.0/authorize
@@ -20,13 +51,34 @@ spring:
             user-name-attribute: response
 
 app:
-  # 현재 Vite 개발 서버가 실제로 사용하는 주소다.
+  # 테스트용 프론트 주소
   frontend-url: http://localhost:3000
 
   cors:
-    # 테스트에서도 실제 로컬 개발 주소와 같은 Origin을 사용한다.
+    # 테스트 요청에서 허용할 프론트 주소
     allowed-origin-patterns:
       - http://localhost:3000
 
   jwt:
+    # 테스트 전용 JWT Secret
+    # 실제 운영 Secret을 사용하지 않는다.
     secret: test-test-test-test-test-test-test-test-test-test-test-test-test
+
+  # --------------------------------------------------
+  # S3 테스트 설정
+  #
+  # 테스트에서 Spring Context가 S3Presigner를 만들 수 있도록
+  # 실제 AWS 정보가 아닌 안전한 가짜 설정을 사용한다.
+  # --------------------------------------------------
+  s3:
+    # AWS SDK가 Region 객체를 생성할 수 있도록 필요한 값
+    region: ap-northeast-2
+
+    # 테스트 전용 가짜 Bucket
+    bucket: test-memory-jar-bucket
+
+    # 테스트 전용 가짜 공개 URL
+    public-base-url: https://example.com/test-memory-jar
+
+    # Presigned URL 만료 시간
+    presign-exp-seconds: 300

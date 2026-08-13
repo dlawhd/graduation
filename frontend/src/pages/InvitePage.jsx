@@ -65,6 +65,55 @@ function getInviteErrorMessage(error) {
 }
 
 /*
+ * GoogleLogo 역할
+ *
+ * 로그인 첫 화면에서 사용하는 Google 로고와
+ * 동일한 모양을 초대장 로그인 버튼에서도 보여준다.
+ *
+ * 별도 이미지 파일 없이 SVG로 직접 그리기 때문에
+ * 화면 크기가 달라져도 선명하게 보인다.
+ */
+function GoogleLogo() {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      {/* Google 로고 파란색 부분 */}
+      <path
+        fill="#4285F4"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"
+      />
+
+      {/* Google 로고 빨간색 부분 */}
+      <path
+        fill="#EA4335"
+        d="M2.56 13.22 10.54 19.41C12.43 13.72 17.74 9.5 24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22Z"
+      />
+
+      {/* Google 로고 노란색 부분 */}
+      <path
+        fill="#FBBC05"
+        d="M24 48c6.24 0 11.48-2.05 15.31-5.57l-7.36-5.7c-2.04 1.37-4.64 2.18-7.95 2.18-6.04 0-11.16-4.08-12.99-9.56l-8.03 6.19C6.89 43.28 14.85 48 24 48Z"
+      />
+
+      {/* Google 로고 초록색 부분 */}
+      <path
+        fill="#34A853"
+        d="M11.01 29.35A14.46 14.46 0 0 1 10.25 24c0-1.86.32-3.67.89-5.35l-8.03-6.19A23.96 23.96 0 0 0 0 24c0 3.87.93 7.53 2.98 10.54l8.03-6.19Z"
+      />
+
+      {/* Google G 오른쪽 파란색 부분 */}
+      <path
+        fill="#4285F4"
+        d="M47.5 24.55c0-1.57-.14-3.08-.4-4.55H24v9.02h13.2c-.57 2.9-2.27 5.36-4.84 7.01l7.36 5.7C44.02 37.77 47.5 31.93 47.5 24.55Z"
+      />
+    </svg>
+  );
+}
+
+/*
  * InviteLetterVisual 역할
  *
  * 초대 페이지에서 메인 비주얼을 담당해.
@@ -147,6 +196,18 @@ export default function InvitePage({ me, checkingAuth }) {
   // 로그인 쿠키가 만료된 경우 로그인 버튼으로 다시 전환하기 위한 상태
   const [loginRequired, setLoginRequired] = useState(false);
 
+  // --------------------------------------------------------
+  // 현재 어떤 소셜 로그인 화면으로 이동 중인지 저장해.
+  //
+  // null     : 이동 중 아님
+  // "naver"  : 네이버 로그인으로 이동 중
+  // "google" : Google 로그인으로 이동 중
+  //
+  // 사용자가 로그인 버튼을 여러 번 누르는 것을 막고,
+  // 어떤 로그인 화면으로 이동 중인지 정확하게 보여주기 위해 사용해.
+  // --------------------------------------------------------
+  const [redirectingProvider, setRedirectingProvider] = useState(null);
+
   // 자동 입장 처리를 한 번만 실행하기 위한 표시
   const autoJoinStartedRef = useRef(false);
 
@@ -177,25 +238,73 @@ export default function InvitePage({ me, checkingAuth }) {
   }, [joined, navigate]);
 
   /*
-   * 로그인 후 다시 현재 초대 페이지로 돌아오기 위해 주소를 저장해.
-   * 동시에 "돌아오면 자동 입장" 플래그도 함께 기록해.
+   * 초대 링크에서 소셜 로그인을 시작해.
+   *
+   * provider:
+   * - "naver"  → 네이버 로그인
+   * - "google" → Google 로그인
+   *
+   * 어떤 로그인 방법을 선택하더라도 로그인 성공 후에는
+   * 다시 현재 초대 페이지로 돌아오고,
+   * 기존 자동 참여 로직이 이어서 실행돼.
    */
-  const handleLogin = useCallback(() => {
-    if (!backendUrl) {
-      setError("로그인 서버 주소를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.");
-      return;
-    }
+  const handleLogin = useCallback(
+    (provider) => {
+      if (!backendUrl) {
+        setError(
+          "로그인 서버 주소를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        );
+        return;
+      }
 
-    if (!inviteCode) {
-      setError("초대코드가 비어 있어요. 초대 링크를 다시 확인해 주세요.");
-      return;
-    }
+      if (!inviteCode) {
+        setError("초대코드가 비어 있어요. 초대 링크를 다시 확인해 주세요.");
+        return;
+      }
 
-    setError("");
-    sessionStorage.setItem("postLoginRedirect", `/invite/${inviteCode}`);
-    sessionStorage.setItem(INVITE_AUTO_JOIN_KEY, inviteCode);
-    window.location.href = `${backendUrl}/oauth2/authorization/naver`;
-  }, [backendUrl, inviteCode]);
+      /*
+       * 실수로 지원하지 않는 Provider 값이 들어오는 것을 막아.
+       */
+      if (provider !== "naver" && provider !== "google") {
+        setError("지원하지 않는 로그인 방법이에요.");
+        return;
+      }
+
+      setError("");
+
+      // 어떤 로그인 화면으로 이동 중인지 저장해.
+      setRedirectingProvider(provider);
+
+      /*
+       * OAuth 로그인이 끝난 뒤 다시 현재 초대 페이지로
+       * 돌아오기 위해 목적지를 저장해.
+       */
+      sessionStorage.setItem(
+        "postLoginRedirect",
+        `/invite/${inviteCode}`,
+      );
+
+      /*
+       * 로그인 후 초대 페이지에 돌아왔을 때
+       * 사용자가 버튼을 다시 누르지 않아도
+       * 자동으로 초대 참여를 실행하기 위한 표시야.
+       */
+      sessionStorage.setItem(
+        INVITE_AUTO_JOIN_KEY,
+        inviteCode,
+      );
+
+      /*
+       * Spring Security의 각 OAuth 로그인 시작 주소로 이동해.
+       *
+       * naver  → /oauth2/authorization/naver
+       * google → /oauth2/authorization/google
+       */
+      window.location.href =
+        `${backendUrl}/oauth2/authorization/${provider}`;
+    },
+    [backendUrl, inviteCode],
+  );
 
   /*
    * 로그인한 사용자가 초대코드로 저금통에 참여해.
@@ -374,15 +483,7 @@ export default function InvitePage({ me, checkingAuth }) {
               초대를 수락하면 바로 멤버로 참여할 수 있어요.
             </p>
 
-            {/* 중복 없이 초대코드를 한 번만 보여줘. */}
-            <div className="mx-auto mt-7 max-w-md rounded-3xl border border-slate-200/80 bg-white/85 px-5 py-4 text-left shadow-sm">
-              <p className="text-xs font-black tracking-[0.18em] text-slate-400">
-                초대코드
-              </p>
-              <p className="mt-2 break-all font-mono text-lg font-black tracking-[0.2em] text-slate-800 sm:text-xl">
-                {inviteCode || "코드 없음"}
-              </p>
-            </div>
+
 
             {/* 로그인 여부 안내 */}
             <div
@@ -409,21 +510,123 @@ export default function InvitePage({ me, checkingAuth }) {
               </div>
             )}
 
-            {/* 로그인 여부에 따라 버튼 역할을 바꿔. */}
-            <button
-              type="button"
-              onClick={canJoin ? handleJoin : handleLogin}
-              disabled={checkingAuth || joining || !inviteCode}
-              className="mt-7 w-113 rounded-2xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-violet-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-cyan-200/70 transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
-            >
-              {checkingAuth
-                ? "로그인 상태 확인 중..."
-                : joining
-                  ? "초대장을 열어보고 있어요..."
-                  : canJoin
-                    ? "초대받은 저금통 들어가기"
-                    : "네이버 로그인"}
-            </button>
+            {/* ==================================================
+                로그인 / 초대 참여 버튼 영역
+
+                로그인된 사용자:
+                → 기존처럼 바로 저금통 참여 버튼을 보여줘.
+
+                로그인되지 않은 사용자:
+                → 네이버 / Google 중 원하는 로그인 방법을 선택하게 해.
+               ================================================== */}
+
+            {canJoin ? (
+              /*
+               * 이미 로그인된 사용자
+               *
+               * 로그인 과정이 필요 없으므로
+               * 기존 초대 참여 버튼을 그대로 사용해.
+               */
+              <button
+                type="button"
+                onClick={handleJoin}
+                disabled={checkingAuth || joining || !inviteCode}
+                className="mt-7 w-full rounded-2xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-violet-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-cyan-200/70 transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
+              >
+                {checkingAuth
+                  ? "로그인 상태 확인 중..."
+                  : joining
+                    ? "초대장을 열어보고 있어요..."
+                    : "초대받은 저금통 들어가기"}
+              </button>
+            ) : (
+              /*
+               * 로그인되지 않은 사용자
+               *
+               * 초대받은 사람이 원하는 로그인 방법을
+               * 직접 선택할 수 있도록 두 버튼을 보여줘.
+               */
+              <div className="mx-auto mt-7 w-full max-w-md">
+                {/* 두 로그인 버튼 위에 짧은 안내를 보여줘. */}
+                <p className="mb-3 text-xs font-bold text-slate-400">
+                  로그인 방법을 선택해 주세요.
+                </p>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {/* ==================================================
+                      네이버 로그인
+                     ================================================== */}
+                  <button
+                    type="button"
+                    onClick={() => handleLogin("naver")}
+                    disabled={
+                      checkingAuth ||
+                      joining ||
+                      Boolean(redirectingProvider) ||
+                      !inviteCode
+                    }
+                    className="flex min-h-[54px] items-center justify-center gap-2.5 rounded-2xl bg-[#03C75A] px-4 py-3.5 text-sm font-black text-white shadow-md shadow-emerald-200/60 transition hover:-translate-y-0.5 hover:bg-[#02b852] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-55"
+                  >
+                    {redirectingProvider === "naver" ? (
+                      /*
+                       * 네이버 로그인 화면으로 이동 중일 때
+                       * 로딩 표시를 보여줘.
+                       */
+                      <span className="h-5 w-5 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
+                    ) : (
+                      /*
+                       * 네이버 로그인임을 바로 알아볼 수 있는 N 표시야.
+                       */
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 text-sm font-black">
+                        N
+                      </span>
+                    )}
+
+                    <span>
+                      {redirectingProvider === "naver"
+                        ? "이동 중..."
+                        : "네이버 로그인"}
+                    </span>
+                  </button>
+
+                  {/* ==================================================
+                      Google 로그인
+                     ================================================== */}
+                  <button
+                    type="button"
+                    onClick={() => handleLogin("google")}
+                    disabled={
+                      checkingAuth ||
+                      joining ||
+                      Boolean(redirectingProvider) ||
+                      !inviteCode
+                    }
+                    className="flex min-h-[54px] w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-base font-extrabold text-slate-700 shadow-md shadow-slate-200/60 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
+                  >
+                    {redirectingProvider === "google" ? (
+                      /*
+                       * Google 로그인 화면으로 이동하는 동안에는
+                       * 로고 대신 로딩 표시를 보여준다.
+                       */
+                      <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-slate-200 border-t-blue-500" />
+                    ) : (
+                      /*
+                       * 첫 로그인 화면과 동일한 Google 4색 로고
+                       */
+                      <span className="flex h-7 w-7 items-center justify-center">
+                        <GoogleLogo />
+                      </span>
+                    )}
+
+                    <span className="whitespace-nowrap">
+                      {redirectingProvider === "google"
+                        ? "Google로 이동 중..."
+                        : "Google 로그인"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* 오류가 났을 때 빠져나갈 수 있는 보조 버튼 */}
             {error && (

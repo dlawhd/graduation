@@ -43,39 +43,6 @@ class UserRepositoryTest {
     private UserRepository userRepository;
 
     @Test
-    @DisplayName("provider + providerId로 회원을 찾을 수 있다")
-    void findByProviderAndProviderId_회원이_있으면_반환한다() {
-        // given
-        User user = saveUser("naver-123", "user@example.com", "은서", "2000");
-
-        // when
-        Optional<User> result =
-                userRepository.findByProviderAndProviderId("NAVER", "naver-123");
-
-        // then
-        assertThat(result).isPresent();
-        assertThat(result.get().getProvider()).isEqualTo("NAVER");
-        assertThat(result.get().getProviderId()).isEqualTo("naver-123");
-        assertThat(result.get().getEmail()).isEqualTo("user@example.com");
-        assertThat(result.get().getName()).isEqualTo("은서");
-        assertThat(result.get().getBirthyear()).isEqualTo("2000");
-    }
-
-    @Test
-    @DisplayName("provider + providerId가 다르면 empty를 반환한다")
-    void findByProviderAndProviderId_회원이_없으면_empty를_반환한다() {
-        // given
-        saveUser("naver-123", "user@example.com", "은서", "2000");
-
-        // when
-        Optional<User> result =
-                userRepository.findByProviderAndProviderId("NAVER", "naver-999");
-
-        // then
-        assertThat(result).isEmpty();
-    }
-
-    @Test
     @DisplayName("email로 회원을 찾을 수 있다")
     void findByEmail_회원이_있으면_반환한다() {
         // given

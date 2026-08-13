@@ -33,8 +33,18 @@ export default function Home() {
   // 로그인 상태 확인 중인지 저장
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // 네이버 로그인 페이지로 이동 중인지 저장
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  // --------------------------------------------------------
+  // 현재 어떤 OAuth 로그인 화면으로 이동 중인지 저장한다.
+  //
+  // null     : 이동 중 아님
+  // "naver"  : 네이버 로그인 화면으로 이동 중
+  // "google" : Google 로그인 화면으로 이동 중
+  //
+  // 기존에는 true / false만 저장해서
+  // Google을 눌러도 "네이버로 이동 중"이라고 표시될 수 있었다.
+  // Provider 이름까지 저장하면 화면 문구도 정확하게 보여줄 수 있다.
+  // --------------------------------------------------------
+  const [redirectingProvider, setRedirectingProvider] = useState(null);
 
   // 사용자에게 보여줄 에러 문구
   const [errorMessage, setErrorMessage] = useState("");
@@ -80,19 +90,32 @@ export default function Home() {
   }, [navigate]);
 
   // --------------------------------------------------------
-  // 로그인 버튼 클릭 시 네이버 로그인 시작
+  // 소셜 로그인 시작
+  //
+  // provider 값에 따라 Spring Security의 OAuth 시작 주소로 이동한다.
+  //
+  // naver  → /oauth2/authorization/naver
+  // google → /oauth2/authorization/google
+  //
+  // 네이버와 Google이 같은 흐름을 사용하므로
+  // 로그인 함수를 각각 복사해서 만들지 않고 하나로 공통화한다.
   // --------------------------------------------------------
-  const handleLogin = () => {
+  const handleOAuthLogin = (provider) => {
     if (!BACKEND) {
-      setErrorMessage("로그인 연결 주소가 아직 설정되지 않았어요. 환경변수를 확인해 주세요.");
+      setErrorMessage(
+        "로그인 연결 주소가 아직 설정되지 않았어요. 환경변수를 확인해 주세요.",
+      );
       return;
     }
 
+    // 이전 오류 문구가 남아 있다면 지운다.
     setErrorMessage("");
-    setIsRedirecting(true);
 
-    // 네이버 로그인 시작 주소로 이동
-    window.location.href = `${BACKEND}/oauth2/authorization/naver`;
+    // 어떤 로그인 화면으로 이동 중인지 저장한다.
+    setRedirectingProvider(provider);
+
+    // Spring Security OAuth 로그인 시작 주소로 이동한다.
+    window.location.href = `${BACKEND}/oauth2/authorization/${provider}`;
   };
 
   return (
@@ -217,9 +240,14 @@ export default function Home() {
             {/* 실제 로그인 동작을 포함한 저금통 컴포넌트 */}
             <LoginJarCard
               checkingSession={checkingSession}
-              isRedirecting={isRedirecting}
+              redirectingProvider={redirectingProvider}
               errorMessage={errorMessage}
-              onLogin={handleLogin}
+
+              // 네이버 로그인 버튼을 누르면 네이버 OAuth를 시작한다.
+              onNaverLogin={() => handleOAuthLogin("naver")}
+
+              // Google 로그인 버튼을 누르면 Google OAuth를 시작한다.
+              onGoogleLogin={() => handleOAuthLogin("google")}
             />
           </section>
         </div>

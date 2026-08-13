@@ -13,10 +13,26 @@ spring:
     oauth2:
       client:
         registration:
+          # --------------------------------------------------
+          # 네이버 OAuth 배포 환경 인증 정보
+          #
+          # 실제 Client ID / Secret은 GitHub 코드에 저장하지 않고
+          # 서버의 환경변수에서 가져온다.
+          # --------------------------------------------------
           naver:
             client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT_ID}
             client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT_SECRET}
             client-authentication-method: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT_AUTHENTICATION_METHOD:client_secret_post}
+
+          # --------------------------------------------------
+          # Google OAuth 배포 환경 인증 정보
+          #
+          # Google Cloud에서 발급받은 실제 Client ID / Secret은
+          # 서버 환경변수에만 저장한다.
+          # --------------------------------------------------
+          google:
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID}
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET}
 
 app:
   jwt:

@@ -45,13 +45,20 @@ public class SecurityConfig {
         this.appProperties = appProperties;
     }
 
-
-
-    // ------------------------------------------------------------
-    // 네이버 로그인 요청에 auth_type=reauthenticate 를 붙여주는 resolver
-    // ------------------------------------------------------------
-    private OAuth2AuthorizationRequestResolver naverAuthorizationRequestResolver() {
-        return new NaverAuthorizationRequestResolver(clientRegistrationRepository);
+    /*
+     * NAVER / Google OAuth 로그인 요청을
+     * 각 Provider에 맞게 꾸며주는 Resolver를 만든다.
+     *
+     * NAVER:
+     * - auth_type=reauthenticate
+     *
+     * Google:
+     * - prompt=select_account
+     */
+    private OAuth2AuthorizationRequestResolver socialAuthorizationRequestResolver() {
+        return new SocialAuthorizationRequestResolver(
+                clientRegistrationRepository
+        );
     }
 
     @Bean
@@ -100,10 +107,17 @@ public class SecurityConfig {
                         .anyRequest().permitAll()
                 )
 
-                // ✅ 네이버 로그인 성공 후에는 그냥 끝나는 게 아니라 successHandler가 실행되게 연결.
+                /*
+                 * OAuth2 로그인 설정
+                 *
+                 * NAVER와 Google 모두 SocialAuthorizationRequestResolver를 거친 뒤
+                 * 로그인 성공 시 공통 OAuth2SuccessHandler로 이동한다.
+                 */
                 .oauth2Login(oauth -> oauth
                         .authorizationEndpoint(authorization -> authorization
-                                .authorizationRequestResolver(naverAuthorizationRequestResolver())
+                                .authorizationRequestResolver(
+                                        socialAuthorizationRequestResolver()
+                                )
                         )
                         .successHandler(oAuth2SuccessHandler)
                 );
