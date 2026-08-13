@@ -26,7 +26,6 @@ spring:
             scope:
               - name
               - email
-              - birthyear
           # --------------------------------------------------
           # Google OAuth 로그인 설정
           # Google 로그인에 필요한 기본 사용자 정보만 요청한다.

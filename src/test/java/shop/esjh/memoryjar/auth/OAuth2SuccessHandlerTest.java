@@ -128,11 +128,6 @@ class OAuth2SuccessHandlerTest {
                 "은서"
         );
 
-        naverResponse.put(
-                "birthyear",
-                "2000"
-        );
-
         Map<String, Object> attributes =
                 new HashMap<>();
 
@@ -181,7 +176,7 @@ class OAuth2SuccessHandlerTest {
                 "naver-123",
                 "user@example.com",
                 "은서",
-                "2000"
+                null
         )).thenReturn(user);
 
         when(refreshTokenService.issue(user))
@@ -210,7 +205,7 @@ class OAuth2SuccessHandlerTest {
                 "naver-123",
                 "user@example.com",
                 "은서",
-                "2000"
+                null
         );
 
         // RefreshToken 발급 확인

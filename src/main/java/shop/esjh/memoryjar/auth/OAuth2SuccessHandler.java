@@ -135,26 +135,20 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 );
 
         /*
-         * 방금 만든 UserService를 호출한다.
+         * NAVER / GOOGLE 모두 현재 출생연도를 OAuth에서 받지 않는다.
          *
-         * 예:
+         * UserService의 기존 메서드 구조는 그대로 유지하되,
+         * birthyear 자리에는 null을 전달한다.
          *
-         * NAVER
-         * NAVER + 네이버 id
-         *
-         * GOOGLE
-         * GOOGLE + Google sub
-         *
-         * 이미 OAuth 계정 연결이 있으면 기존 User를 사용하고,
-         * 연결 정보는 없지만 이메일이 같은 User가 있으면
-         * 그 기존 User에게 새로운 OAuth 계정을 연결한다.
+         * 기존 DB에 저장되어 있는 birthyear 값이 있다면
+         * User.updateProfile()에서 null로 덮어쓰지 않기 때문에 그대로 유지된다.
          */
         User user = userService.findOrCreateOAuthUser(
                 profile.provider(),
                 profile.providerId(),
                 profile.email(),
                 profile.name(),
-                profile.birthyear()
+                null
         );
 
         /*
@@ -303,8 +297,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
      *   "response": {
      *       "id": "...",
      *       "email": "...",
-     *       "name": "...",
-     *       "birthyear": "..."
+     *       "name": "..."
      *   }
      * }
      */
@@ -344,12 +337,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                         naverAttributes.get("name")
                 );
 
-        // NAVER에서 받을 수 있는 출생연도
-        String birthyear =
-                getString(
-                        naverAttributes.get("birthyear")
-                );
-
         // 고유 ID가 없다면 사용자 구분이 불가능하므로 중단
         if (!StringUtils.hasText(providerId)) {
             throw new IllegalArgumentException(
@@ -371,8 +358,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 "NAVER",
                 providerId,
                 email,
-                name,
-                birthyear
+                name
         );
     }
 
@@ -451,18 +437,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         }
 
         /*
-         * Google 기본 로그인에서는 birthyear를 요청하지 않는다.
-         *
-         * 기존 NAVER 회원이 Google 로그인으로 들어오더라도
-         * User.updateProfile()은 null 값을 기존 birthyear에 덮어쓰지 않으므로
-         * 기존 출생연도는 그대로 유지된다.
+         * Google에서도 현재 Memory Jar에 필요한
+         * 사용자 식별값, 이메일, 이름만 사용한다.
          */
         return new OAuthProfile(
                 "GOOGLE",
                 providerId,
                 email,
-                name,
-                null
+                name
         );
     }
 
@@ -486,20 +468,24 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
      * NAVER와 GOOGLE의 서로 다른 응답 형태를
      * UserService가 이해하기 쉬운 하나의 공통 모양으로 바꾼 객체야.
      *
+     * Memory Jar에서 OAuth 로그인에 실제로 사용하는 정보만 담는다.
+     *
      * 예:
      *
      * NAVER
-     * → NAVER / id / email / name / birthyear
+     * → NAVER / id / email / name
      *
      * GOOGLE
-     * → GOOGLE / sub / email / name / null
+     * → GOOGLE / sub / email / name
+     *
+     * birthyear는 실제 서비스에서 사용하지 않으므로
+     * OAuth Provider에 요청하거나 이 객체에 보관하지 않는다.
      */
     private record OAuthProfile(
             String provider,
             String providerId,
             String email,
-            String name,
-            String birthyear
+            String name
     ) {
     }
 }
