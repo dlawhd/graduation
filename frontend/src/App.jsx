@@ -1153,7 +1153,21 @@ useEffect(() => {
         {/* 페이지 본문 */}
         <main>
         <Routes>
-          <Route path="/" element={<Home />} />
+          {/*
+           * App에서 이미 확인한 로그인 정보를 Home에 전달한다.
+           *
+           * Home이 /api/v1/me를 다시 호출하지 않도록 해서
+           * 첫 화면의 중복 인증 요청을 제거한다.
+           */}
+          <Route
+            path="/"
+            element={
+              <Home
+                me={me}
+                checkingAuth={checkingAuth}
+              />
+            }
+          />
           <Route path="/login/success" element={<LoginSuccess />} />
           <Route path="/jars" element={<JarsPage />} />
           <Route path="/jars/new" element={<JarsNewPage />} />

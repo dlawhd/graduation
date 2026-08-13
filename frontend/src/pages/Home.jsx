@@ -9,7 +9,6 @@
 // ------------------------------------------------------------
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import apiClient from "../api/apiClient";
 import {
   SecureMemoryIcon,
   SharedMemoryIcon,
@@ -17,21 +16,30 @@ import {
 } from "../components/icons/LandingFeatureIcons";
 import LoginJarCard from "../components/landing/LoginJarCard";
 
-// ------------------------------------------------------------
-// Home 컴포넌트
-// - 첫 화면 전체를 그려주는 컴포넌트
-// - 로그인 상태 확인
-// - 네이버 로그인 시작
-// ------------------------------------------------------------
-export default function Home() {
+/*
+ * Home 역할
+ *
+ * App.jsx가 이미 확인한 로그인 정보를 받아서
+ * 첫 화면을 보여주는 랜딩 페이지다.
+ *
+ * Home에서는 /api/v1/me를 다시 요청하지 않는다.
+ *
+ * me:
+ * - 로그인된 사용자 정보
+ * - 로그인하지 않았으면 null
+ *
+ * checkingAuth:
+ * - App.jsx가 로그인 상태를 확인하고 있는지 여부
+ */
+export default function Home({
+  me,
+  checkingAuth,
+}) {
   const navigate = useNavigate();
 
   // 백엔드 주소
   // 예: https://api.esjh.shop
   const BACKEND = import.meta.env.VITE_API_BASE_URL;
-
-  // 로그인 상태 확인 중인지 저장
-  const [checkingSession, setCheckingSession] = useState(true);
 
   // --------------------------------------------------------
   // 현재 어떤 OAuth 로그인 화면으로 이동 중인지 저장한다.
@@ -49,45 +57,37 @@ export default function Home() {
   // 사용자에게 보여줄 에러 문구
   const [errorMessage, setErrorMessage] = useState("");
 
+  /*
+   * App.jsx의 로그인 확인이 끝난 뒤
+   * 이미 로그인된 사용자라면 저금통 목록으로 이동한다.
+   *
+   * 여기서는 서버에 /api/v1/me를 다시 요청하지 않는다.
+   * App이 확인한 me 값을 그대로 사용한다.
+   */
   useEffect(() => {
-    let ignore = false;
-
-    // --------------------------------------------------------
-    // 이미 로그인한 사용자인지 확인하는 함수
-    // 로그인되어 있으면 굳이 홈을 보여주지 않고 /jars 로 보냄
-    // --------------------------------------------------------
-    async function checkSession() {
-      try {
-        const res = await apiClient.get("/api/v1/me", {
-          _skipAuthRefresh: true,
-        });
-        const me = res.data?.data;
-
-        if (!ignore && me) {
-          navigate("/jars", { replace: true });
-          return;
-        }
-      } catch (e) {
-        const status = e?.response?.status;
-
-        // 401, 403은 "로그인 안 됨"이므로 정상 흐름으로 보고
-        // 다른 에러만 짧게 안내 문구를 보여줌
-        if (status && status !== 401 && status !== 403 && !ignore) {
-          setErrorMessage("지금 서버 확인이 잠깐 불안정해요. 잠시 후 다시 시도해 주세요.");
-        }
-      } finally {
-        if (!ignore) {
-          setCheckingSession(false);
-        }
-      }
+    /*
+     * 아직 App이 로그인 상태를 확인 중이라면
+     * 결과가 나올 때까지 기다린다.
+     */
+    if (checkingAuth) {
+      return;
     }
 
-    checkSession();
-
-    return () => {
-      ignore = true;
-    };
-  }, [navigate]);
+    /*
+     * 로그인한 사용자 정보가 있으면
+     * 랜딩 페이지에 머물 필요가 없으므로
+     * 저금통 목록으로 이동한다.
+     */
+    if (me) {
+      navigate("/jars", {
+        replace: true,
+      });
+    }
+  }, [
+    checkingAuth,
+    me,
+    navigate,
+  ]);
 
   // --------------------------------------------------------
   // 소셜 로그인 시작
@@ -239,7 +239,7 @@ export default function Home() {
 
             {/* 실제 로그인 동작을 포함한 저금통 컴포넌트 */}
             <LoginJarCard
-              checkingSession={checkingSession}
+              checkingSession={checkingAuth}
               redirectingProvider={redirectingProvider}
               errorMessage={errorMessage}
 
