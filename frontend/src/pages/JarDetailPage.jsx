@@ -64,6 +64,9 @@ import {
   JAR_INVITE_TUTORIAL_STEPS,
   JAR_INVITE_TUTORIAL_TARGET,
 } from "../features/onboarding/constants/jarInviteTutorialSteps";
+import {
+  DAILY_DRAW_TUTORIAL_STEP,
+} from "../features/onboarding/constants/dailyDrawTutorialSteps";
 
 // 오픈 상태를 사람이 읽기 쉽게 정리해주는 함수
 function getOpenStatus(jar) {
@@ -146,7 +149,18 @@ export default function JarDetailPage() {
     activeTutorialKey,
     savingTutorialKey,
     error: onboardingError,
+
+    // 아직 보지 않은 튜토리얼인지 확인
     shouldShowTutorial,
+
+    /*
+     * 특정 튜토리얼을 이미
+     * 완료하거나 건너뛰었는지 확인한다.
+     *
+     * DAILY_DRAW보다 JAR_DETAIL을 먼저 보여주기 위해 사용한다.
+     */
+    isTutorialHandled,
+
     openTutorial,
     closeTutorial,
     completeActiveTutorial,
@@ -163,6 +177,16 @@ export default function JarDetailPage() {
     useRef(null);
 
   const chatTutorialButtonRef =
+    useRef(null);
+
+  /*
+   * DAILY_DRAW 안내에서 강조할
+   * 실제 "추억 쪽지 뽑기" 버튼이다.
+   *
+   * TutorialSpotlight가 이 Ref를 이용해서
+   * 버튼이 화면 어디에 있는지 알아낸다.
+   */
+  const dailyDrawTutorialButtonRef =
     useRef(null);
 
   /*
@@ -233,6 +257,25 @@ export default function JarDetailPage() {
   const [
     jarDetailCompletionOpen,
     setJarDetailCompletionOpen,
+  ] = useState(false);
+
+  /*
+   * DAILY_DRAW 안내가
+   * "저금통 상세 안내의 4번째 단계"로 실행되고 있는지 기억한다.
+   *
+   * true:
+   * JAR_DETAIL 1~3단계 뒤에 이어지는 [4 / 4] 안내
+   *
+   * false:
+   * 내정보 → Memory Jar 이용 방법에서
+   * "오늘의 추억 한 장 안내"만 따로 다시 보는 상태
+   *
+   * 이렇게 구분해야 수동 다시 보기에서는
+   * 억지로 [4 / 4]라고 표시하지 않을 수 있다.
+   */
+  const [
+    dailyDrawAsJarDetailStep,
+    setDailyDrawAsJarDetailStep,
   ] = useState(false);
 
   /*
@@ -1200,7 +1243,6 @@ useEffect(() => {
     setInvitePage,
   ]);
 
-
   /*
    * 현재 사용자의 초대 관리 권한에 맞는
    * JAR_DETAIL 안내 3단계를 만든다.
@@ -1222,6 +1264,26 @@ useEffect(() => {
     ONBOARDING_TUTORIAL_KEY.JAR_DETAIL;
 
   /*
+   * 현재 열려 있는 온보딩이
+   * "오늘의 추억 한 장" 안내인지 확인한다.
+   *
+   * JAR_DETAIL과 DAILY_DRAW는 서로 다른 DB 진행 상태를 가진다.
+   */
+  const isDailyDrawTutorialOpen =
+    activeTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.DAILY_DRAW;
+
+  /*
+   * DAILY_DRAW 완료 또는 건너뛰기 상태를
+   * 백엔드에 저장하고 있는 중인지 확인한다.
+   *
+   * 저장 중에 버튼을 여러 번 누르는 것을 막을 때 사용한다.
+   */
+  const isDailyDrawTutorialSaving =
+    savingTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.DAILY_DRAW;
+
+  /*
    * 내정보에서 저금통 상세 화면 안내를 선택하고
    * 현재 저금통 상세 페이지로 이동해 온 요청인지 확인한다.
    */
@@ -1233,6 +1295,22 @@ useEffect(() => {
   const shouldReplayJarDetailTutorial =
     replayTutorialKey ===
     ONBOARDING_TUTORIAL_KEY.JAR_DETAIL;
+
+  /*
+   * 내정보 → Memory Jar Guide에서
+   * "오늘의 추억 한 장 안내"를 선택하고 넘어왔는지 확인한다.
+   */
+  const shouldReplayDailyDrawTutorial =
+    replayTutorialKey ===
+    ONBOARDING_TUTORIAL_KEY.DAILY_DRAW;
+
+  /*
+   * JAR_DETAIL과 DAILY_DRAW는 둘 다
+   * 저금통 상세 페이지 안에서 실행되는 안내다.
+   */
+  const shouldReplayJarDetailPageTutorial =
+    shouldReplayJarDetailTutorial ||
+    shouldReplayDailyDrawTutorial;
 
   /*
    * 현재 JAR_DETAIL 완료 또는 건너뛰기를
@@ -1346,13 +1424,74 @@ useEffect(() => {
     }, []);
 
   /*
-   * 설명 카드의 "다음" 또는 "안내 완료" 버튼 처리
+   * JAR_DETAIL의 마지막 기존 단계인
+   * "저금통 채팅"에서 DAILY_DRAW 4번째 단계로 넘어간다.
    *
-   * 마지막 단계 전:
-   * 다음 강조 대상으로 이동
+   * 처리 순서:
    *
-   * 마지막 단계:
-   * JAR_DETAIL을 COMPLETED로 저장
+   * 1. JAR_DETAIL 1~3단계를 COMPLETED로 저장
+   * 2. DAILY_DRAW를 상세 안내의 4번째 단계로 표시
+   * 3. DAILY_DRAW 스포트라이트를 바로 연다.
+   *
+   * nextAction:
+   * 사용자가 3단계에서 실제 "저금통 채팅" 버튼을 눌렀다면
+   * 채팅 열기는 잠시 보관했다가
+   * 전체 4단계 안내가 끝난 뒤 실행한다.
+   */
+  const moveToDailyDrawTutorial =
+    useCallback(
+      async (nextAction = null) => {
+        /*
+         * 실제 강조 버튼을 눌렀다면
+         * 원래 기능을 전체 안내가 끝난 뒤 실행하기 위해 기억한다.
+         */
+        jarDetailCompletionNextActionRef.current =
+          typeof nextAction === "function"
+            ? nextAction
+            : null;
+
+        /*
+         * 기존 JAR_DETAIL 1~3단계를 완료 저장한다.
+         */
+        await completeActiveTutorial();
+
+        /*
+         * 지금부터 DAILY_DRAW는
+         * 독립 안내가 아니라 상세 안내 [4 / 4]로 보여준다.
+         */
+        setDailyDrawAsJarDetailStep(true);
+
+        /*
+         * DAILY_DRAW는 별도 DB 키를 그대로 사용한다.
+         *
+         * force: true를 사용하는 이유:
+         * 내정보에서 JAR_DETAIL 전체 안내를 다시 보는 경우에도
+         * 마지막 4번째 단계까지 빠짐없이 다시 보여주기 위해서다.
+         */
+        openTutorial(
+          ONBOARDING_TUTORIAL_KEY.DAILY_DRAW,
+          {
+            force: true,
+          }
+        );
+      },
+      [
+        completeActiveTutorial,
+        openTutorial,
+      ]
+    );
+
+  /*
+   * 저금통 상세 안내의 "다음" 버튼 처리
+   *
+   * 기존 JAR_DETAIL 단계:
+   *
+   * 1. 새 쪽지 쓰기
+   * 2. 초대 관리
+   * 3. 저금통 채팅
+   *
+   * 3단계가 끝나면 완료창을 띄우지 않고
+   * DAILY_DRAW를 [4 / 4] 단계로 이어서 보여준다.
    */
   const handleJarDetailTutorialPrimaryAction =
     useCallback(async () => {
@@ -1363,39 +1502,33 @@ useEffect(() => {
         return;
       }
 
-      if (
-        !isLastJarDetailTutorialStep
-      ) {
+      /*
+       * 1단계 또는 2단계라면
+       * 기존처럼 다음 JAR_DETAIL 단계로 이동한다.
+       */
+      if (!isLastJarDetailTutorialStep) {
         setJarDetailTutorialStepIndex(
           (previousIndex) =>
             Math.min(
               previousIndex + 1,
-              jarDetailTutorialSteps.length -
-                1
+              jarDetailTutorialSteps.length - 1
             )
         );
 
         return;
       }
 
+      /*
+       * 현재가 기존 JAR_DETAIL 마지막 단계인
+       * "저금통 채팅"이라면
+       * 완료창 대신 DAILY_DRAW [4 / 4]로 이동한다.
+       */
       try {
-        /*
-         * JAR_DETAIL을 COMPLETED로 저장한다.
-         *
-         * 저장 성공 시 OnboardingProvider가
-         * 스포트라이트를 자동으로 닫는다.
-         */
-        await completeActiveTutorial();
-
-        /*
-         * 스포트라이트가 닫힌 다음
-         * 사용자가 직접 확인해야 닫히는 완료 안내창을 연다.
-         */
-        showJarDetailCompletionDialog();
+        await moveToDailyDrawTutorial();
       } catch {
         /*
-         * 저장 실패 문구는 OnboardingProvider의
-         * onboardingError를 통해 설명 카드에 표시한다.
+         * 저장 실패 문구는
+         * OnboardingProvider의 onboardingError를 통해 보여준다.
          */
       }
     }, [
@@ -1403,8 +1536,7 @@ useEffect(() => {
       isJarDetailTutorialSaving,
       isLastJarDetailTutorialStep,
       jarDetailTutorialSteps.length,
-      completeActiveTutorial,
-      showJarDetailCompletionDialog,
+      moveToDailyDrawTutorial,
     ]);
 
   /*
@@ -1537,22 +1669,17 @@ useEffect(() => {
         }
 
         /*
-         * 마지막 강조 버튼인 채팅을 직접 누른 경우
-         * 완료 저장 후 실제 채팅 모달까지 열어준다.
+         * 마지막 강조 버튼인 "저금통 채팅"을
+         * 사용자가 실제로 클릭한 경우다.
+         *
+         * 바로 채팅창을 열지 않고,
+         * DAILY_DRAW [4 / 4]를 먼저 보여준다.
+         *
+         * originalAction(handleOpenJarChat)은
+         * 전체 안내가 끝난 뒤 실행할 수 있도록 기억해둔다.
          */
         try {
-          /*
-           * JAR_DETAIL 완료 상태를 먼저 저장한다.
-           */
-          await completeActiveTutorial();
-
-          /*
-           * 채팅 모달을 바로 열지 않는다.
-           *
-           * 완료 안내창에서 사용자가 "확인"을 누른 뒤
-           * 원래 채팅 기능을 실행한다.
-           */
-          showJarDetailCompletionDialog(
+          await moveToDailyDrawTutorial(
             originalAction
           );
         } catch {
@@ -1568,8 +1695,7 @@ useEffect(() => {
         currentJarDetailTutorialStep,
         isLastJarDetailTutorialStep,
         jarDetailTutorialSteps.length,
-        completeActiveTutorial,
-        showJarDetailCompletionDialog,
+        moveToDailyDrawTutorial,
       ]
     );
 
@@ -1616,7 +1742,7 @@ useEffect(() => {
    */
   useEffect(() => {
     if (
-      !shouldReplayJarDetailTutorial
+      !shouldReplayJarDetailPageTutorial
     ) {
       return undefined;
     }
@@ -1647,8 +1773,29 @@ useEffect(() => {
 
     const timerId =
       window.setTimeout(() => {
+          /*
+           * 내정보에서 안내를 직접 골라서 다시 보는 경우에는
+           * DAILY_DRAW를 전체 상세 안내의 [4 / 4]로 취급하지 않는다.
+           *
+           * 따라서 화면에는
+           * "오늘의 추억 안내"라고 독립적으로 표시된다.
+           */
+          if (
+            replayTutorialKey ===
+            ONBOARDING_TUTORIAL_KEY.DAILY_DRAW
+          ) {
+            setDailyDrawAsJarDetailStep(false);
+          }
+        /*
+         * 사용자가 Memory Jar Guide에서 선택한
+         * 실제 튜토리얼을 그대로 연다.
+         *
+         * 예:
+         * JAR_DETAIL → 상세 안내
+         * DAILY_DRAW → 오늘의 추억 안내
+         */
         openTutorial(
-          ONBOARDING_TUTORIAL_KEY.JAR_DETAIL,
+          replayTutorialKey,
           {
             force: true,
           }
@@ -1686,17 +1833,18 @@ useEffect(() => {
       window.clearTimeout(timerId);
     };
   }, [
-    shouldReplayJarDetailTutorial,
-    loading,
-    error,
-    jar,
-    jarId,
-    hasBlockingJarDetailModal,
-    location.pathname,
-    location.state,
-    navigate,
-    openTutorial,
-  ]);
+       shouldReplayJarDetailPageTutorial,
+       replayTutorialKey,
+       loading,
+       error,
+       jar,
+       jarId,
+       hasBlockingJarDetailModal,
+       location.pathname,
+       location.state,
+       navigate,
+       openTutorial,
+     ]);
 
   /*
    * 저금통 상세 정보를 정상적으로 불러온 뒤
@@ -1707,6 +1855,10 @@ useEffect(() => {
    * 전체 소개를 거치지 않고 상세 안내부터 볼 수 있다.
    */
   useEffect(() => {
+    /*
+     * 아직 저금통 정보를 불러오는 중이거나
+     * 오류가 있으면 안내를 시작하지 않는다.
+     */
     if (
       loading ||
       error ||
@@ -1714,6 +1866,18 @@ useEffect(() => {
       Number(jar.jarId) !==
         Number(jarId)
     ) {
+      return undefined;
+    }
+
+    /*
+     * 내정보에서 사용자가 특정 안내를 직접 선택해서 들어왔다면
+     * 자동 JAR_DETAIL보다 사용자의 선택을 먼저 처리한다.
+     *
+     * 예:
+     * Memory Jar Guide에서 DAILY_DRAW를 눌렀는데
+     * 갑자기 JAR_DETAIL이 덮어쓰는 문제를 막는다.
+     */
+    if (replayTutorialKey !== null) {
       return undefined;
     }
 
@@ -1727,6 +1891,10 @@ useEffect(() => {
       return undefined;
     }
 
+    /*
+     * 사용자가 JAR_DETAIL 안내를
+     * 아직 완료하거나 건너뛰지 않았는지 확인한다.
+     */
     const shouldOpenJarDetail =
       shouldShowTutorial(
         ONBOARDING_TUTORIAL_KEY.JAR_DETAIL
@@ -1755,21 +1923,163 @@ useEffect(() => {
     error,
     jar,
     jarId,
+
+    // Memory Jar Guide의 수동 다시 보기 요청도 감지한다.
+    replayTutorialKey,
+
     activeTutorialKey,
     hasBlockingJarDetailModal,
     shouldShowTutorial,
     openTutorial,
   ]);
 
+      /*
+       * "오늘의 추억 한 장" 최초 이용 안내
+       *
+       * 자동 표시 조건:
+       *
+       * 1. JAR_DETAIL 기본 안내가 먼저 끝나 있어야 한다.
+       * 2. DAILY_DRAW 안내를 아직 보지 않았어야 한다.
+       * 3. 다른 튜토리얼이나 모달이 열려 있으면 안 된다.
+       *
+       * 실제 오늘의 추억 기능은 저금통이 열린 뒤 사용할 수 있지만,
+       * 기능 설명 자체는 상세 온보딩의 마지막에서 미리 보여준다.
+       *
+       * 진행 순서:
+       *
+       * 저금통 상세 기본 설명
+       *        ↓
+       * 오늘의 추억 기능 설명
+       */
+    useEffect(() => {
+      /*
+       * 저금통 정보를 아직 불러오는 중이거나
+       * 조회 오류가 있다면 기다린다.
+       *
+       * DAILY_DRAW는 실제로 저금통이 열린 뒤 사용하는 기능이므로
+       * jar.isOpen이 false라면 자동 안내하지 않는다.
+       */
+      if (
+        loading ||
+        error ||
+        !jar ||
+        Number(jar.jarId) !==
+          Number(jarId)
+      ) {
+        return undefined;
+      }
+
+      /*
+       * Memory Jar Guide에서 사용자가 직접 선택한
+       * 수동 다시 보기 요청이 있다면 자동 실행하지 않는다.
+       *
+       * 수동 요청은 바로 위의
+       * "수동 다시 보기 useEffect"가 담당한다.
+       */
+      if (replayTutorialKey !== null) {
+        return undefined;
+      }
+
+      /*
+       * 상세 화면의 기본 설명이 아직 끝나지 않았다면
+       * DAILY_DRAW보다 JAR_DETAIL을 먼저 보여준다.
+       *
+       * COMPLETED뿐 아니라 SKIPPED도
+       * "기본 안내 처리가 끝났다"라고 판단한다.
+       */
+      if (
+        !isTutorialHandled(
+          ONBOARDING_TUTORIAL_KEY.JAR_DETAIL
+        )
+      ) {
+        return undefined;
+      }
+
+      /*
+       * 다른 튜토리얼이나 모달이 이미 열려 있다면 기다린다.
+       *
+       * 특히 JAR_DETAIL 완료 후 나타나는 완료 안내창도
+       * hasBlockingJarDetailModal에 포함되어 있다.
+       *
+       * 따라서:
+       *
+       * 상세 안내 완료
+       * → 완료 안내창
+       * → 사용자가 "확인"
+       * → 오늘의 추억 안내
+       *
+       * 순서가 자연스럽게 유지된다.
+       */
+      if (
+        activeTutorialKey !== null ||
+        hasBlockingJarDetailModal
+      ) {
+        return undefined;
+      }
+
+      /*
+       * DAILY_DRAW를 이미 완료하거나 건너뛰었다면
+       * 자동으로 다시 보여주지 않는다.
+       */
+      if (
+        !shouldShowTutorial(
+          ONBOARDING_TUTORIAL_KEY.DAILY_DRAW
+        )
+      ) {
+        return undefined;
+      }
+
+      const timerId =
+        window.setTimeout(() => {
+          /*
+           * JAR_DETAIL은 이미 처리됐지만
+           * DAILY_DRAW만 아직 남아 있는 사용자는
+           * 마지막 [4 / 4] 단계부터 이어서 보여준다.
+           *
+           * 예:
+           * 3단계 완료 직후 브라우저를 닫았다가
+           * 다시 들어온 경우에도 마지막 안내를 놓치지 않는다.
+           */
+          setDailyDrawAsJarDetailStep(true);
+
+          openTutorial(
+            ONBOARDING_TUTORIAL_KEY.DAILY_DRAW
+          );
+        }, 300);
+
+      /*
+       * Effect 조건이 바뀌거나 페이지를 벗어나면
+       * 예약해둔 타이머를 정리한다.
+       */
+      return () => {
+        window.clearTimeout(timerId);
+      };
+    }, [
+      loading,
+      error,
+      jar,
+      jarId,
+      replayTutorialKey,
+      activeTutorialKey,
+      hasBlockingJarDetailModal,
+      isTutorialHandled,
+      shouldShowTutorial,
+      openTutorial,
+      setDailyDrawAsJarDetailStep,
+    ]);
+
   /*
-   * JAR_DETAIL 안내 도중 다른 페이지나 다른 저금통으로 이동하면
-   * Provider에 현재 안내가 열린 상태로 남지 않게 정리한다.
+   * 저금통 상세 화면의 안내 도중
+   * 다른 화면이나 다른 저금통으로 이동하면
+   * Provider에 열린 튜토리얼 상태가 남지 않도록 정리한다.
    */
   useEffect(() => {
     return () => {
       if (
         activeTutorialKey ===
-        ONBOARDING_TUTORIAL_KEY.JAR_DETAIL
+          ONBOARDING_TUTORIAL_KEY.JAR_DETAIL ||
+        activeTutorialKey ===
+          ONBOARDING_TUTORIAL_KEY.DAILY_DRAW
       ) {
         closeTutorial();
       }
@@ -2838,6 +3148,75 @@ async function handleOpenMemoryDraw() {
 }
 
 /*
+ * "추억 쪽지 뽑기" 실제 버튼 클릭 처리
+ *
+ * 일반 상태:
+ * → 오늘의 추억 모달을 바로 연다.
+ *
+ * 상세 온보딩 [4 / 4] 상태:
+ * → DAILY_DRAW 완료 저장
+ * → 전체 상세 안내 완료창
+ * → 사용자가 확인
+ * → 오늘의 추억 모달 열기
+ *
+ * 수동 DAILY_DRAW 다시 보기:
+ * → DAILY_DRAW 완료 저장
+ * → 바로 오늘의 추억 모달 열기
+ */
+async function handleMemoryDrawButtonClick() {
+  /*
+   * DAILY_DRAW 안내가 아니라면
+   * 일반 버튼 기능만 실행한다.
+   */
+  if (!isDailyDrawTutorialOpen) {
+    await handleOpenMemoryDraw();
+    return;
+  }
+
+  if (isDailyDrawTutorialSaving) {
+    return;
+  }
+
+  try {
+    /*
+     * DAILY_DRAW 완료 상태를 서버에 저장한다.
+     */
+    await completeActiveTutorial();
+
+    /*
+     * 현재 DAILY_DRAW가
+     * 저금통 상세 안내의 [4 / 4]라면
+     * 바로 모달을 열지 않는다.
+     *
+     * 완료 안내창을 먼저 보여준 뒤
+     * 확인 버튼을 눌렀을 때 모달을 연다.
+     */
+    if (dailyDrawAsJarDetailStep) {
+      setDailyDrawAsJarDetailStep(false);
+
+      showJarDetailCompletionDialog(
+        () => {
+          void handleOpenMemoryDraw();
+        }
+      );
+
+      return;
+    }
+
+    /*
+     * 내정보에서 DAILY_DRAW만 따로 다시 본 경우에는
+     * 전체 상세 완료창 없이 원래 기능을 바로 실행한다.
+     */
+    await handleOpenMemoryDraw();
+  } catch {
+    /*
+     * 완료 저장에 실패했다면
+     * 상태가 저장되지 않은 채 다음 기능으로 넘어가지 않는다.
+     */
+  }
+}
+
+/*
  * 추억 쪽지 뽑기 모달 닫기
  */
 function handleCloseMemoryDraw() {
@@ -3138,10 +3517,15 @@ async function handleViewOpenedJarNotes() {
           onPrevious={
             handleJarDetailTutorialPrevious
           }
+        /*
+         * 기존 JAR_DETAIL 3단계 뒤에
+         * DAILY_DRAW 1단계가 더 이어지므로
+         * 사용자에게는 전체 4단계로 보여준다.
+         */
         eyebrow={`저금통 상세 안내 [${
           jarDetailTutorialStepIndex + 1
         } / ${
-          jarDetailTutorialSteps.length
+          jarDetailTutorialSteps.length + 1
         }]`}
         title={
           currentJarDetailTutorialStep
@@ -3151,11 +3535,11 @@ async function handleViewOpenedJarNotes() {
           currentJarDetailTutorialStep
             ?.description
         }
-        completeLabel={
-          isLastJarDetailTutorialStep
-            ? "안내 완료"
-            : "다음"
-        }
+        /*
+         * DAILY_DRAW [4 / 4]가 뒤에 한 단계 더 있으므로
+         * 기존 JAR_DETAIL의 마지막 버튼도 "다음"으로 표시한다.
+         */
+        completeLabel="다음"
         skipLabel="건너뛰기"
         isSaving={
           isJarDetailTutorialSaving
@@ -3171,6 +3555,126 @@ async function handleViewOpenedJarNotes() {
         onSkip={
           handleJarDetailTutorialSkip
         }
+      />
+
+      {/*
+       * 오늘의 추억 한 장 전용 온보딩
+       *
+       * JAR_DETAIL 기본 안내가 끝난 뒤,
+       * 열린 저금통에서 처음 한 번만 자동으로 보여준다.
+       *
+       * 내정보 → Memory Jar Guide에서는
+       * 완료 여부와 관계없이 다시 볼 수 있다.
+       */}
+      <TutorialSpotlight
+        isOpen={
+          isDailyDrawTutorialOpen
+        }
+        targetRef={
+          dailyDrawTutorialButtonRef
+        }
+        eyebrow={
+          dailyDrawAsJarDetailStep
+            ? `저금통 상세 안내 [${
+                jarDetailTutorialSteps.length + 1
+              } / ${
+                jarDetailTutorialSteps.length + 1
+              }]`
+            : "오늘의 추억 안내"
+        }
+        title={
+          DAILY_DRAW_TUTORIAL_STEP.title
+        }
+        description={
+          DAILY_DRAW_TUTORIAL_STEP.description
+        }
+        completeLabel={
+          dailyDrawAsJarDetailStep
+            ? "안내 완료"
+            : "알겠어요"
+        }
+        skipLabel="건너뛰기"
+        isSaving={
+          isDailyDrawTutorialSaving
+        }
+        error={
+          isDailyDrawTutorialOpen
+            ? onboardingError
+            : ""
+        }
+        onComplete={async () => {
+          /*
+           * DAILY_DRAW 안내가 열려 있지 않거나
+           * 저장 중이면 중복 실행하지 않는다.
+           */
+          if (
+            !isDailyDrawTutorialOpen ||
+            isDailyDrawTutorialSaving
+          ) {
+            return;
+          }
+
+          try {
+            /*
+             * DAILY_DRAW 자체를 COMPLETED로 DB에 저장한다.
+             */
+            await completeActiveTutorial();
+
+            /*
+             * DAILY_DRAW가 저금통 상세 안내의
+             * [4 / 4] 단계로 실행된 경우에만
+             * 이제 최종 완료 안내창을 보여준다.
+             *
+             * 즉:
+             *
+             * 3 / 4 채팅
+             * → 4 / 4 오늘의 추억
+             * → 최종 완료창
+             */
+            if (dailyDrawAsJarDetailStep) {
+              setDailyDrawAsJarDetailStep(false);
+
+              /*
+               * showJarDetailCompletionDialog()를 사용하지 않고
+               * 완료창 상태만 직접 연다.
+               *
+               * 이유:
+               * 3단계에서 사용자가 실제 채팅 버튼을 눌렀다면
+               * jarDetailCompletionNextActionRef에
+               * handleOpenJarChat이 보관되어 있기 때문이다.
+               *
+               * 여기서 그 Ref를 null로 덮어쓰면 안 된다.
+               */
+              setJarDetailCompletionOpen(true);
+            }
+          } catch {
+            /*
+             * 저장 실패 문구는
+             * TutorialSpotlight의 error 영역에서 보여준다.
+             */
+          }
+        }}
+        onSkip={async () => {
+          /*
+           * 건너뛰기를 누르면
+           * DAILY_DRAW를 SKIPPED로 DB에 저장한다.
+           */
+          if (
+            !isDailyDrawTutorialOpen ||
+            isDailyDrawTutorialSaving
+          ) {
+            return;
+          }
+
+          try {
+            await skipActiveTutorial();
+          } catch {
+            /*
+             * 저장 실패 시 안내를 유지해서
+             * 사용자가 다시 시도할 수 있게 한다.
+             */
+          }
+        }}
       />
 
       {/*
@@ -3422,7 +3926,6 @@ async function handleViewOpenedJarNotes() {
                   </button>
 
                   {/* 저금통 채팅 모달 열기 버튼 */}
-                  {/* 저금통 채팅 모달 열기 버튼 */}
                   <button
                     /*
                      * JAR_DETAIL 마지막 안내에서
@@ -3455,9 +3958,20 @@ async function handleViewOpenedJarNotes() {
 
                   {/* 추억 쪽지 뽑기 모달 열기 버튼 */}
                   <button
+                    /*
+                     * DAILY_DRAW 안내가 열리면
+                     * 이 실제 버튼 위치를 스포트라이트로 강조한다.
+                     */
+                    ref={dailyDrawTutorialButtonRef}
                     type="button"
-                    onClick={handleOpenMemoryDraw}
-                    className={`relative w-full rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton}`}
+                    onClick={() => {
+                      void handleMemoryDrawButtonClick();
+                    }}
+                    className={`relative w-full rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm transition hover:scale-[1.02] ${palette.outlineButton} ${
+                      isDailyDrawTutorialOpen
+                        ? "ring-4 ring-white/90"
+                        : ""
+                    }`}
                   >
                     추억 쪽지 뽑기
 

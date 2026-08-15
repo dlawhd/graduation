@@ -82,6 +82,19 @@ const ONBOARDING_HELP_OPTIONS =
       stepLabel:
         "상세 화면",
     },
+    {
+      tutorialKey:
+        ONBOARDING_TUTORIAL_KEY.DAILY_DRAW,
+
+      title:
+        "오늘의 추억 한 장 안내",
+
+      description:
+        "저금통이 열린 뒤 오늘의 추억 한 장을 받아보는 기능과 버튼 위치를 확인해요.",
+
+      stepLabel:
+        "오늘의 추억",
+    },
   ]);
 
 /*
@@ -229,9 +242,15 @@ export default function OnboardingHelpDialog({
       return "/jars/new";
     }
 
+    /*
+     * JAR_DETAIL과 DAILY_DRAW는
+     * 모두 실제 저금통 상세 화면 안에서 실행한다.
+     */
     if (
       tutorialKey ===
-      ONBOARDING_TUTORIAL_KEY.JAR_DETAIL
+        ONBOARDING_TUTORIAL_KEY.JAR_DETAIL ||
+      tutorialKey ===
+        ONBOARDING_TUTORIAL_KEY.DAILY_DRAW
     ) {
       return detailTutorialJarId
         ? `/jars/${detailTutorialJarId}`
@@ -376,12 +395,20 @@ export default function OnboardingHelpDialog({
         <div className="mt-7 grid gap-3">
           {ONBOARDING_HELP_OPTIONS.map(
             (option, index) => {
-              const isJarDetailOption =
+              /*
+               * 실제 저금통 상세 화면이 필요한 안내인지 확인한다.
+               *
+               * JAR_DETAIL과 DAILY_DRAW는
+               * 참여 중인 저금통이 하나라도 있어야 실행할 수 있다.
+               */
+              const needsJarDetailPage =
                 option.tutorialKey ===
-                ONBOARDING_TUTORIAL_KEY.JAR_DETAIL;
+                  ONBOARDING_TUTORIAL_KEY.JAR_DETAIL ||
+                option.tutorialKey ===
+                  ONBOARDING_TUTORIAL_KEY.DAILY_DRAW;
 
               const disabled =
-                isJarDetailOption &&
+                needsJarDetailPage &&
                 !detailTutorialJarId;
 
               return (
@@ -410,7 +437,7 @@ export default function OnboardingHelpDialog({
 
                     <span className="mt-1 block break-keep text-xs font-medium leading-5 text-slate-500 md:text-sm">
                       {disabled
-                        ? "참여 중인 저금통이 생기면 상세 화면 안내를 다시 볼 수 있어요."
+                        ? "참여 중인 저금통이 생기면 이 안내를 다시 볼 수 있어요."
                         : option.description}
                     </span>
                   </span>
