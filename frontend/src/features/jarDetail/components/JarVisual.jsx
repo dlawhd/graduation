@@ -23,6 +23,22 @@ export default function JarVisual({
   jarRef,
   onClick,
   interactive = false,
+
+  /*
+   * 저금통 상세 온보딩에서
+   * "쪽지 확인" 실제 버튼의 위치를 찾기 위한 Ref다.
+   *
+   * 평소에는 null이고,
+   * JarDetailPage에서 온보딩용 Ref를 전달한다.
+   */
+  tutorialButtonRef = null,
+
+  /*
+   * 현재 "쪽지 확인"이 튜토리얼 대상인지 알려준다.
+   *
+   * true이면 버튼 주변에 밝은 ring을 보여준다.
+   */
+  tutorialHighlighted = false,
 }) {
   const palette = getThemePalette(jar?.theme);
 
@@ -239,9 +255,20 @@ export default function JarVisual({
       {/* 기존 확대 모달 열기 버튼 */}
       {interactive && (
         <button
+          /*
+           * 저금통 상세 온보딩의 "쪽지 확인" 단계에서
+           * TutorialSpotlight가 이 실제 버튼의 위치를 찾는다.
+           */
+          ref={tutorialButtonRef}
+
           type="button"
           onClick={handleOpenZoom}
-          className="absolute bottom-2 left-1/2 z-40 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-black text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
+
+          className={`absolute bottom-2 left-1/2 z-40 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-black text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-white ${
+            tutorialHighlighted
+              ? "ring-4 ring-white/90"
+              : ""
+          }`}
         >
           쪽지 확인
         </button>

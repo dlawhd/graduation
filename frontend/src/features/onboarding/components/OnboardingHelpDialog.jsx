@@ -77,7 +77,7 @@ const ONBOARDING_HELP_OPTIONS =
         "저금통 상세 화면 안내",
 
       description:
-        "새 쪽지 쓰기, 초대 관리, 저금통 채팅 기능을 다시 확인해요.",
+        "새 쪽지 쓰기, 쪽지 확인, 초대 관리, 저금통 채팅 기능을 다시 확인해요.",
 
       stepLabel:
         "상세 화면",

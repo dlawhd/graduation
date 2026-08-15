@@ -8,6 +8,7 @@ import {
 import { getChatUnreadCount } from "../api/chatApi";
 import NoteSection from "./NoteSection";
 import InfoItem from "../features/jarDetail/components/InfoItem";
+import JarRoleGuide from "../features/jarDetail/components/JarRoleGuide";
 import JarMenuModal from "../features/jarDetail/components/JarMenuModal";
 import JarChatModal from "../features/jarDetail/components/JarChatModal";
 import JarVisual from "../features/jarDetail/components/JarVisual";
@@ -81,14 +82,14 @@ function getOpenStatus(jar) {
   if (jar.isOpen) {
     return {
       label: "OPEN",
-      description: "지금은 저금통이 열려 있어요.",
+      description: "기다리던 순간이 찾아왔어요!\n함께 쌓아온 추억을 하나씩 꺼내보세요.",
       chipClass: "bg-emerald-100 text-emerald-700",
     };
   }
 
   return {
     label: "LOCKED",
-    description: "아직은 저금통이 잠겨 있어요.",
+    description: "차곡차곡 담아둔 추억은 소중히 간직해둘게요.\n오픈일이 되면 함께 꺼내볼 수 있어요!",
     chipClass: "bg-amber-100 text-amber-700",
   };
 }
@@ -168,14 +169,30 @@ export default function JarDetailPage() {
   } = useOnboarding();
 
   /*
-   * JAR_DETAIL 안내가 강조할 실제 버튼들이다.
+   * JAR_DETAIL 첫 번째 안내에서
+   * "새 쪽지 쓰기" 버튼을 강조하기 위한 Ref
    */
   const noteTutorialButtonRef =
     useRef(null);
 
+  /*
+   * JAR_DETAIL 두 번째 안내에서
+   * JarVisual 안의 실제 "쪽지 확인" 버튼을 강조하기 위한 Ref
+   */
+  const viewNotesTutorialButtonRef =
+    useRef(null);
+
+  /*
+   * JAR_DETAIL 세 번째 안내에서
+   * "초대 관리" 버튼을 강조하기 위한 Ref
+   */
   const inviteTutorialButtonRef =
     useRef(null);
 
+  /*
+   * JAR_DETAIL 네 번째 안내에서
+   * "저금통 채팅" 버튼을 강조하기 위한 Ref
+   */
   const chatTutorialButtonRef =
     useRef(null);
 
@@ -241,9 +258,14 @@ export default function JarDetailPage() {
   /*
    * JAR_DETAIL 안내에서 현재 보여주는 단계 번호
    *
+   * 배열은 0부터 시작하기 때문에:
+   *
    * 0: 새 쪽지 쓰기
-   * 1: 초대 관리
-   * 2: 저금통 채팅
+   * 1: 쪽지 확인
+   * 2: 초대 관리
+   * 3: 저금통 채팅
+   *
+   * 그 뒤 DAILY_DRAW가 5번째 안내로 이어진다.
    */
   const [
     jarDetailTutorialStepIndex,
@@ -261,17 +283,17 @@ export default function JarDetailPage() {
 
   /*
    * DAILY_DRAW 안내가
-   * "저금통 상세 안내의 4번째 단계"로 실행되고 있는지 기억한다.
+   * "저금통 상세 안내의 5번째 단계"로 실행되고 있는지 기억한다.
    *
    * true:
-   * JAR_DETAIL 1~3단계 뒤에 이어지는 [4 / 4] 안내
+   * JAR_DETAIL 1~4단계 뒤에 이어지는 [5 / 5] 안내
    *
    * false:
    * 내정보 → Memory Jar 이용 방법에서
    * "오늘의 추억 한 장 안내"만 따로 다시 보는 상태
    *
    * 이렇게 구분해야 수동 다시 보기에서는
-   * 억지로 [4 / 4]라고 표시하지 않을 수 있다.
+   * 억지로 [5 / 5]라고 표시하지 않을 수 있다.
    */
   const [
     dailyDrawAsJarDetailStep,
@@ -1345,11 +1367,36 @@ useEffect(() => {
     jarDetailTutorialSteps.length - 1;
 
   /*
-   * 현재 단계에 따라 실제로 강조할 버튼 Ref를 정한다.
+   * 현재 튜토리얼 단계에 맞는
+   * 실제 화면 버튼 Ref를 선택한다.
+   *
+   * 쉽게 말하면:
+   *
+   * NOTE       → 새 쪽지 쓰기 버튼
+   * VIEW_NOTES → 쪽지 확인 버튼
+   * INVITE     → 초대 관리 버튼
+   * CHAT       → 저금통 채팅 버튼
    */
   let jarDetailTutorialTargetRef =
     noteTutorialButtonRef;
 
+  /*
+   * 두 번째 단계라면
+   * JarVisual 안의 "쪽지 확인" 버튼을 강조한다.
+   */
+  if (
+    currentJarDetailTutorialStep
+      ?.targetKey ===
+    JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES
+  ) {
+    jarDetailTutorialTargetRef =
+      viewNotesTutorialButtonRef;
+  }
+
+  /*
+   * 세 번째 단계라면
+   * "초대 관리" 버튼을 강조한다.
+   */
   if (
     currentJarDetailTutorialStep
       ?.targetKey ===
@@ -1359,6 +1406,10 @@ useEffect(() => {
       inviteTutorialButtonRef;
   }
 
+  /*
+   * 네 번째 단계라면
+   * "저금통 채팅" 버튼을 강조한다.
+   */
   if (
     currentJarDetailTutorialStep
       ?.targetKey ===
@@ -1484,14 +1535,15 @@ useEffect(() => {
   /*
    * 저금통 상세 안내의 "다음" 버튼 처리
    *
-   * 기존 JAR_DETAIL 단계:
+   * JAR_DETAIL 기본 단계:
    *
    * 1. 새 쪽지 쓰기
-   * 2. 초대 관리
-   * 3. 저금통 채팅
+   * 2. 쪽지 확인
+   * 3. 초대 관리
+   * 4. 저금통 채팅
    *
-   * 3단계가 끝나면 완료창을 띄우지 않고
-   * DAILY_DRAW를 [4 / 4] 단계로 이어서 보여준다.
+   * 4단계가 끝나면 완료창을 바로 띄우지 않고
+   * DAILY_DRAW를 [5 / 5] 단계로 이어서 보여준다.
    */
   const handleJarDetailTutorialPrimaryAction =
     useCallback(async () => {
@@ -1546,10 +1598,11 @@ useEffect(() => {
    * 바로 앞의 기능 안내로 돌아간다.
    *
    * 이동 순서:
-   *
-   * 저금통 채팅
-   * → 초대 관리
-   * → 새 쪽지 쓰기
+    *
+    * 저금통 채팅
+    * → 초대 관리
+    * → 쪽지 확인
+    * → 새 쪽지 쓰기
    */
   const handleJarDetailTutorialPrevious =
     useCallback(() => {
@@ -3497,9 +3550,11 @@ async function handleViewOpenedJarNotes() {
       {/*
        * 저금통 상세 화면 온보딩
        *
-       * 새 쪽지 쓰기
-       * → 초대 관리
-       * → 저금통 채팅
+       * 1. 새 쪽지 쓰기
+       * 2. 쪽지 확인
+       * 3. 초대 관리
+       * 4. 저금통 채팅
+       * 5. 오늘의 추억
        *
        * 순서로 실제 버튼을 강조한다.
        */}
@@ -3877,15 +3932,22 @@ async function handleViewOpenedJarNotes() {
                 {jar.description || "아직 설명이 없는 저금통이에요."}
               </p>
 
-              <div className={`mb-6 rounded-[28px] border p-5 shadow-sm backdrop-blur-sm ${palette.panel}`}>
+              <div
+                className={`mb-6 rounded-[28px] border p-5 shadow-sm backdrop-blur-sm ${palette.panel}`}
+              >
                 <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
                   현재 상태
                 </p>
-                <p className="mb-1 text-lg font-extrabold text-slate-800">
+
+                {/*
+                 * openStatus.description 안에 들어 있는 \n을
+                 * 실제 화면의 줄바꿈으로 보여준다.
+                 *
+                 * whitespace-pre-line이 있어야
+                 * 문자열의 \n이 브라우저에서도 줄바꿈된다.
+                 */}
+                <p className="whitespace-pre-line text-lg font-extrabold leading-8 text-slate-800">
                   {openStatus.description}
-                </p>
-                <p className="text-sm text-slate-500">
-                  오픈 예정 날짜: {formatDate(jar.openAt)}
                 </p>
               </div>
 
@@ -3894,7 +3956,41 @@ async function handleViewOpenedJarNotes() {
                 <JarVisual
                   jar={jar}
                   jarRef={jarVisualRef}
-                  onClick={handleOpenJarZoom}
+
+                  /*
+                   * JAR_DETAIL 두 번째 안내가
+                   * JarVisual 내부의 실제 "쪽지 확인" 버튼을
+                   * 정확하게 강조할 수 있도록 Ref를 전달한다.
+                   */
+                  tutorialButtonRef={
+                    viewNotesTutorialButtonRef
+                  }
+
+                  /*
+                   * 현재 튜토리얼 단계가 VIEW_NOTES라면
+                   * "쪽지 확인" 버튼 테두리를 밝게 표시한다.
+                   */
+                  tutorialHighlighted={
+                    isCurrentJarDetailTutorialTarget(
+                      JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES
+                    )
+                  }
+
+                  /*
+                   * 일반 상태:
+                   * → 기존처럼 저금통 쪽지 확인 모달을 연다.
+                   *
+                   * 온보딩 2단계 상태:
+                   * → "쪽지 확인" 위치를 확인한 뒤
+                   *   다음 3단계인 "초대 관리"로 이동한다.
+                   */
+                  onClick={() => {
+                    void handleJarDetailTargetButtonClick(
+                      JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES,
+                      handleOpenJarZoom
+                    );
+                  }}
+
                   interactive
                 />
 
@@ -4133,11 +4229,6 @@ async function handleViewOpenedJarNotes() {
                     이 저금통은 최대 {jar.maxMembers}명까지 함께할 수 있어요.
                   </p>
                 </div>
-
-                {/* 오픈 상태 한 줄 안내 */}
-                <div className={`mt-3 rounded-2xl border border-dashed px-4 py-3 text-xs leading-6 ${palette.hintBox}`}>
-                  {openStatus.description}
-                </div>
               </div>
             </aside>
           </div>
@@ -4258,6 +4349,17 @@ async function handleViewOpenedJarNotes() {
               />
             </div>
           </div>
+
+          {/*
+           * 현재 "내 역할"이 무엇인지 보여주는 것에서 끝나지 않고
+           * 방장 / 관리자 / 멤버가 각각 어떤 일을 할 수 있는지도
+           * 사용자가 바로 확인할 수 있게 한다.
+           */}
+          <JarRoleGuide
+            currentRole={jar.myRole}
+            palette={palette}
+            className="mt-4"
+          />
         </JarMenuModal>
 
         <JarZoomNoteDetailModal
@@ -4309,6 +4411,14 @@ async function handleViewOpenedJarNotes() {
           onClose={() => setMemberListOpen(false)}
           maxWidthClass="max-w-4xl"
         >
+        {/*
+         * 멤버 목록에서 OWNER / ADMIN / MEMBER 이름을 봤을 때
+         * 각각 무엇을 의미하는지 바로 확인할 수 있도록 한다.
+         */}
+        <JarRoleGuide
+          currentRole={jar.myRole}
+          palette={palette}
+        />
         <section className={`rounded-[32px] border p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm ${palette.section}`}>
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
