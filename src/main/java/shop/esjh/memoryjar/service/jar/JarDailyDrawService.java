@@ -399,7 +399,8 @@ public class JarDailyDrawService {
                 attachment.getUrl(),
                 attachment.getThumbnailUrl(),
                 attachment.getContentType(),
-                attachment.getSize()
+                attachment.getSize(),
+                attachment.getCaption()
         );
     }
 

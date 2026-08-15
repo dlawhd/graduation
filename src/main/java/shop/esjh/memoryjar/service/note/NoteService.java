@@ -237,7 +237,8 @@ public class NoteService {
                         attachment.getUrl(),
                         attachment.getThumbnailUrl(),
                         attachment.getContentType(),
-                        attachment.getSize()
+                        attachment.getSize(),
+                        attachment.getCaption()
                 ))
                 .toList();
     }
@@ -477,7 +478,8 @@ public class NoteService {
                                         attachment.getUrl(),
                                         attachment.getThumbnailUrl(),
                                         attachment.getContentType(),
-                                        attachment.getSize()
+                                        attachment.getSize(),
+                                        attachment.getCaption()
                                 ),
                                 java.util.stream.Collectors.toList()
                         )

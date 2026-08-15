@@ -11,6 +11,11 @@ import {
   normalizeJarZoomTags,
   toSafeNoteText,
 } from "../utils/jarDetailUtils";
+/*
+ * 쪽지 첨부를 모바일 스와이프 슬라이드로 보여주는
+ * 공통 첨부 컴포넌트야.
+ */
+import NoteAttachmentCarousel from "../../note/components/NoteAttachmentCarousel";
 
 /*
  * JarZoomNoteDetailModal 역할
@@ -87,6 +92,12 @@ export default function JarZoomNoteDetailModal({
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastPosition, setLastPosition] = useState({ x: 0, y: 0 });
+  /*
+   * 모바일 확대 화면에서
+   * 손가락 스와이프 시작 위치를 기억한다.
+   */
+  const [swipeStart, setSwipeStart] =
+    useState(null);
 
   function handleDragStart(e) {
     if (zoom <= 1) return;
@@ -110,6 +121,130 @@ export default function JarZoomNoteDetailModal({
 
   function handleDragEnd() {
     setDragging(false);
+  }
+
+  /*
+   * 확대 화면에서 모바일 손가락을 처음 댔을 때 실행된다.
+   *
+   * x, y 좌표를 기억해 두었다가
+   * 손가락을 뗐을 때 얼마나 움직였는지 계산한다.
+   */
+  function handleSwipeStart(event) {
+    /*
+     * 사진을 확대해서 이동 중일 때는
+     * 사진 넘기기와 충돌할 수 있으므로
+     * zoom이 1일 때만 스와이프를 허용한다.
+     */
+    if (zoom > 1) {
+      return;
+    }
+
+    const touch =
+      event.touches?.[0];
+
+    if (!touch) {
+      return;
+    }
+
+    setSwipeStart({
+      x: touch.clientX,
+      y: touch.clientY,
+    });
+  }
+
+  /*
+   * 손가락을 뗐을 때
+   * 좌우 이동 거리를 계산해서 이전/다음 사진으로 이동한다.
+   */
+  function handleSwipeEnd(event) {
+    if (!swipeStart || zoom > 1) {
+      setSwipeStart(null);
+      return;
+    }
+
+    const touch =
+      event.changedTouches?.[0];
+
+    if (!touch) {
+      setSwipeStart(null);
+      return;
+    }
+
+    const deltaX =
+      touch.clientX -
+      swipeStart.x;
+
+    const deltaY =
+      touch.clientY -
+      swipeStart.y;
+
+    setSwipeStart(null);
+
+    /*
+     * 세로 스크롤을 좌우 스와이프로
+     * 잘못 판단하지 않게 한다.
+     *
+     * 좌우 움직임이 세로 움직임보다 커야 한다.
+     */
+    if (
+      Math.abs(deltaX) <=
+      Math.abs(deltaY)
+    ) {
+      return;
+    }
+
+    /*
+     * 너무 작은 움직임은 그냥 터치로 본다.
+     */
+    const SWIPE_DISTANCE = 50;
+
+    if (
+      Math.abs(deltaX) <
+      SWIPE_DISTANCE
+    ) {
+      return;
+    }
+
+    /*
+     * 왼쪽으로 밀었다.
+     * → 다음 사진
+     */
+    if (
+      deltaX < 0 &&
+      selectedIndex <
+        images.length - 1
+    ) {
+      setSelectedIndex(
+        (prev) => prev + 1
+      );
+
+      setZoom(1);
+      setPosition({
+        x: 0,
+        y: 0,
+      });
+
+      return;
+    }
+
+    /*
+     * 오른쪽으로 밀었다.
+     * → 이전 사진
+     */
+    if (
+      deltaX > 0 &&
+      selectedIndex > 0
+    ) {
+      setSelectedIndex(
+        (prev) => prev - 1
+      );
+
+      setZoom(1);
+      setPosition({
+        x: 0,
+        y: 0,
+      });
+    }
   }
 
   /*
@@ -332,50 +467,43 @@ export default function JarZoomNoteDetailModal({
                 {Array.isArray(note?.attachments) &&
                   note.attachments.length > 0 && (
                     <div className="mt-5">
-                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                        첨부 파일
-                      </p>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                          첨부 파일
+                        </p>
 
-                      <div className="flex flex-wrap gap-3">
-                        {note.attachments.map((attachment, index) => {
-                          const isImage =
-                            attachment.contentType?.startsWith("image/");
-                          const isVideo =
-                            attachment.contentType?.startsWith("video/");
-
-                          return (
-                            <div
-                              key={attachment.attachmentId ?? index}
-                              className="overflow-hidden rounded-2xl border bg-white"
-                            >
-                              {isImage ? (
-                                <img
-                                  src={
-                                    attachment.thumbnailUrl || attachment.url
-                                  }
-                                  alt={`첨부 이미지 ${index + 1}`}
-                                  className="h-32 w-32 cursor-pointer object-cover"
-                                  onClick={() => {
-                                    setSelectedIndex(index);
-                                    setZoom(1);
-                                    setPosition({ x: 0, y: 0 });
-                                  }}
-                                />
-                              ) : isVideo ? (
-                                <video
-                                  src={attachment.url}
-                                  controls
-                                  className="h-32 w-40 rounded-2xl bg-black"
-                                />
-                              ) : (
-                                <div className="flex h-32 w-32 items-center justify-center text-xs text-slate-500">
-                                  미리보기를 지원하지 않는 파일
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {note.attachments.length >
+                          1 && (
+                          <span className="text-[11px] font-medium text-slate-400">
+                            좌우로 넘겨보세요
+                          </span>
+                        )}
                       </div>
+
+                      <NoteAttachmentCarousel
+                        attachments={
+                          note.attachments
+                        }
+                        /*
+                         * 슬라이드 안의 사진을 누르면
+                         * 기존 확대 화면을 그대로 사용한다.
+                         */
+                        onImageClick={(
+                          attachment,
+                          index
+                        ) => {
+                          setSelectedIndex(index);
+
+                          // 다른 사진에서 사용했던 확대 배율을 초기화
+                          setZoom(1);
+
+                          // 이전 사진의 이동 위치도 초기화
+                          setPosition({
+                            x: 0,
+                            y: 0,
+                          });
+                        }}
+                      />
                     </div>
                   )}
 
@@ -478,8 +606,28 @@ export default function JarZoomNoteDetailModal({
       {currentImage && (
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80"
-          onClick={() => setSelectedIndex(null)}
+          onClick={() =>
+            setSelectedIndex(null)
+          }
+
+          /*
+           * 모바일에서 검은 확대 화면을 좌우로 밀면
+           * 이전/다음 첨부로 이동한다.
+           */
+          onTouchStart={
+            handleSwipeStart
+          }
+          onTouchEnd={
+            handleSwipeEnd
+          }
         >
+        {/* 현재 보고 있는 첨부 순서 */}
+        {images.length > 1 && (
+          <div className="absolute left-1/2 top-6 z-20 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1.5 text-xs font-black text-white backdrop-blur-sm">
+            {selectedIndex + 1} /{" "}
+            {images.length}
+          </div>
+        )}
           {selectedIndex > 0 && (
             <button
               type="button"
@@ -531,6 +679,33 @@ export default function JarZoomNoteDetailModal({
               onClick={(e) => e.stopPropagation()}
             >
               미리보기를 지원하지 않는 파일이에요.
+            </div>
+          )}
+
+          {/* 확대해서 보는 동안에도 사진의 추억 설명을 같이 보여준다. */}
+          {toSafeNoteText(currentImage.caption) && (
+            <div
+              className="
+                absolute bottom-6 left-1/2
+                w-[calc(100%-2rem)] max-w-xl
+                -translate-x-1/2
+                rounded-2xl
+                bg-black/65
+                px-4 py-3
+                text-center
+                backdrop-blur-sm
+              "
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <p className="text-xs font-bold text-white/60">
+                추억 설명
+              </p>
+
+              <p className="mt-1 whitespace-pre-wrap text-sm font-medium leading-6 text-white">
+                {currentImage.caption}
+              </p>
             </div>
           )}
 

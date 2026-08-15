@@ -8,9 +8,14 @@ import NoteIntoJarIcon from "../components/icons/NoteIntoJarIcon";
 import { createPortal } from "react-dom";
 import NoteAttachmentPicker, {
   NOTE_ATTACHMENT_LIMIT,
-  formatAttachmentSize,
-  getAttachmentDisplayName,
+  NOTE_ATTACHMENT_CAPTION_LIMIT,
 } from "../features/note/components/NoteAttachmentPicker";
+
+/*
+ * 작성 미리보기와 저장된 쪽지의 첨부를
+ * 모바일 슬라이드 방식으로 보여주는 공통 컴포넌트야.
+ */
+import NoteAttachmentCarousel from "../features/note/components/NoteAttachmentCarousel";
 
 // 리액션 enum 값을 화면용 이모지/이름으로 바꿔주는 표
 const REACTION_META = {
@@ -294,8 +299,16 @@ function buildCreatePayload(form) {
               )
             )
             .map((attachment) => ({
+              // 실제 S3 파일을 찾는 값
               s3Key:
                 attachment.s3Key,
+
+              // 사용자가 사진/영상에 적은 추억 설명
+              // 아무것도 적지 않았으면 null로 보낸다.
+              caption:
+                toSafeText(
+                  attachment?.caption
+                ) || null,
             }))
         : [],
   };
@@ -323,6 +336,18 @@ function wait(ms) {
   });
 }
 
+/*
+ * PaperComposeModal 역할
+ *
+ * 새 쪽지를 작성하는 종이 모달이야.
+ *
+ * 부모인 NoteSection에서:
+ * - 입력값
+ * - 첨부파일 처리 함수
+ * - 추억 설명 변경 함수
+ * - 저장 함수
+ * 를 받아서 화면에 연결해준다.
+ */
 function PaperComposeModal({
   open,
   phase,
@@ -345,6 +370,8 @@ function PaperComposeModal({
   onBackToForm,
   onBackToPreview,
   onSubmit,
+  // 사진/영상의 추억 설명을 변경하는 함수를 부모 NoteSection에서 전달받는다.
+  handleChangeAttachmentCaption,
 }) {
   if (!open) return null;
 
@@ -543,6 +570,9 @@ function PaperComposeModal({
                   onSelectFiles={handleAttachFiles}
                   onRemoveAttachment={handleRemoveAttachment}
                   onMoveAttachment={handleMoveAttachment}
+                  onChangeAttachmentCaption={
+                    handleChangeAttachmentCaption
+                  }
                 />
 
 
@@ -676,89 +706,33 @@ function PaperComposeModal({
 
                     {Array.isArray(form.attachments) &&
                       form.attachments.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border-slate-200 bg-white/60 p-4">
-                          <p className="mb-3 text-xs font-semibold text-slate-500">
-                            함께 들어갈 첨부
-                          </p>
+                        <div className="mt-4 w-full rounded-2xl border border-slate-200 bg-white/60 p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <p className="text-xs font-semibold text-slate-500">
+                              함께 들어갈 첨부
+                            </p>
 
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {form.attachments.map(
-                              (attachment, index) => {
-                                const isImage =
-                                  attachment.contentType?.startsWith(
-                                    "image/"
-                                  );
-
-                                const isVideo =
-                                  attachment.contentType?.startsWith(
-                                    "video/"
-                                  );
-
-                                const displayName =
-                                  getAttachmentDisplayName(
-                                    attachment,
-                                    index
-                                  );
-
-                                return (
-                                  <div
-                                    key={
-                                      attachment.clientId ||
-                                      attachment.s3Key ||
-                                      index
-                                    }
-                                    className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white"
-                                  >
-                                    <div className="relative flex h-44 items-center justify-center bg-slate-50">
-                                      {/* 현재 첨부 순서 */}
-                                      <span className="absolute left-3 top-3 z-10 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-black text-white">
-                                        {index + 1}번째
-                                      </span>
-
-                                      {isImage ? (
-                                        <img
-                                          src={
-                                            attachment.previewUrl ||
-                                            attachment.thumbnailUrl ||
-                                            attachment.url
-                                          }
-                                          alt={`${index + 1}번째 첨부 ${displayName}`}
-                                          className="h-full w-full object-cover"
-                                        />
-                                      ) : isVideo ? (
-                                        <video
-                                          src={
-                                            attachment.previewUrl ||
-                                            attachment.url
-                                          }
-                                          controls
-                                          className="h-full w-full bg-black object-cover"
-                                        />
-                                      ) : (
-                                        <div className="px-4 text-center text-xs font-semibold text-slate-500">
-                                          미리보기를 지원하지 않는
-                                          파일이에요.
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    <div className="px-3 py-2">
-                                      <p className="truncate text-sm font-semibold text-slate-700">
-                                        {displayName}
-                                      </p>
-
-                                      <p className="text-xs text-slate-400">
-                                        {attachment.contentType} ·{" "}
-                                        {formatAttachmentSize(
-                                          attachment.size
-                                        )}
-                                      </p>
-                                    </div>
-                                  </div>
-                                );
-                              }
+                            {form.attachments.length >
+                              1 && (
+                              <span className="text-[11px] font-medium text-slate-400">
+                                좌우로 넘겨보세요
+                              </span>
                             )}
                           </div>
+
+                          {/*
+                           * 작성 중인 첨부는 previewUrl이 들어 있으므로
+                           * S3 이미지를 기다리지 않고 바로 슬라이드로 볼 수 있다.
+                           *
+                           * 설명이 없는 경우에도
+                           * 작성 미리보기에서는 안내 문구를 보여준다.
+                           */}
+                          <NoteAttachmentCarousel
+                            attachments={
+                              form.attachments
+                            }
+                            showEmptyCaption={true}
+                          />
                         </div>
                       )}
                   </div>
@@ -1038,83 +1012,29 @@ function NoteDetailModal({
               </div>
             </div>
 
-            {Array.isArray(note?.attachments) && note.attachments.length > 0 && (
-              <section className="mt-6">
-                <h4 className="mb-3 text-sm font-bold text-slate-700">첨부</h4>
+            {Array.isArray(note?.attachments) &&
+              note.attachments.length > 0 && (
+                <section className="mt-6">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-bold text-slate-700">
+                      첨부
+                    </h4>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {note.attachments.map(
-                    (attachment, index) => {
-                      const isImage =
-                        attachment.contentType?.startsWith(
-                          "image/"
-                        );
+                    {note.attachments.length >
+                      1 && (
+                      <span className="text-xs font-medium text-slate-400">
+                        좌우로 넘겨볼 수 있어요.
+                      </span>
+                    )}
+                  </div>
 
-                      const isVideo =
-                        attachment.contentType?.startsWith(
-                          "video/"
-                        );
-
-                      const displayName =
-                        getAttachmentDisplayName(
-                          attachment,
-                          index
-                        );
-
-                      return (
-                        <div
-                          key={
-                            attachment.attachmentId ||
-                            attachment.s3Key ||
-                            index
-                          }
-                          className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white"
-                        >
-                          {/* 저장된 첨부 순서 */}
-                          <span className="absolute left-3 top-3 z-10 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-black text-white">
-                            {index + 1}번째
-                          </span>
-
-                          {isImage ? (
-                            <img
-                              src={
-                                attachment.thumbnailUrl ||
-                                attachment.url
-                              }
-                              alt={`${index + 1}번째 첨부 ${displayName}`}
-                              className="h-44 w-full object-cover"
-                            />
-                          ) : isVideo ? (
-                            <video
-                              src={attachment.url}
-                              controls
-                              className="h-44 w-full bg-black object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-44 items-center justify-center bg-slate-50 text-sm font-semibold text-slate-400">
-                              미리보기를 준비하지 못했어요.
-                            </div>
-                          )}
-
-                          <div className="p-3">
-                            <p className="truncate text-sm font-semibold text-slate-700">
-                              {displayName}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400">
-                              {attachment.contentType} ·{" "}
-                              {formatAttachmentSize(
-                                attachment.size
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      );
+                  <NoteAttachmentCarousel
+                    attachments={
+                      note.attachments
                     }
-                  )}
-                </div>
-              </section>
-            )}
+                  />
+                </section>
+              )}
 
             {tags.length > 0 && (
               <div>
@@ -1773,6 +1693,10 @@ async function handleCreateNote() {
            // S3 URL을 기다리지 않고 로컬 파일을 바로 미리보기 한다.
            previewUrl:
              URL.createObjectURL(file),
+
+           // 사용자가 이 사진/영상에 적을 추억 설명.
+           // 처음에는 아직 아무것도 적지 않았으므로 빈 문자열이다.
+           caption: "",
          });
 
          // 성공한 파일 개수를 1 증가시킨다.
@@ -1836,6 +1760,44 @@ async function handleCreateNote() {
         */
        input.value = "";
      }
+   }
+
+   /*
+    * 사진/영상 하나에 적는 추억 설명을 변경한다.
+    *
+    * 예:
+    * attachments[1]의 설명만 바꾸고 싶으면
+    * 나머지 첨부는 그대로 두고 1번째 항목의 caption만 바꾼다.
+    */
+   function handleChangeAttachmentCaption(
+     index,
+     nextCaption
+   ) {
+     setWriteForm((prev) => ({
+       ...prev,
+
+       attachments: (
+         prev.attachments || []
+       ).map((attachment, itemIndex) => {
+         // 지금 수정하고 있는 첨부가 아니라면 그대로 둔다.
+         if (itemIndex !== index) {
+           return attachment;
+         }
+
+         return {
+           ...attachment,
+
+           // 혹시 예상치 못한 코드로 200자를 넘겨도
+           // 프론트 상태에서는 최대 200자까지만 보관한다.
+           caption: String(
+             nextCaption || ""
+           ).slice(
+             0,
+             NOTE_ATTACHMENT_CAPTION_LIMIT
+           ),
+         };
+       }),
+     }));
    }
 
    /*
@@ -2150,14 +2112,23 @@ async function handleCreateNote() {
         formError={formError}
         uploading={uploading}
         uploadError={uploadError}
+        uploadProgress={uploadProgress}
+
+        //첨부파일 관련 함수
         handleAttachFiles={handleAttachFiles}
         handleRemoveAttachment={handleRemoveAttachment}
+        handleMoveAttachment={handleMoveAttachment}
+
+
+        // 사진/영상마다 작성하는 추억 설명을 PaperComposeModal로 전달한다.
+        handleChangeAttachmentCaption={
+          handleChangeAttachmentCaption
+        }
+
         onClose={closeComposer}
         onShowPreview={handleOpenPreview}
         onShowConfirm={handleOpenConfirm}
         onBackToForm={handleBackToForm}
-        uploadProgress={uploadProgress}
-        handleMoveAttachment={handleMoveAttachment}
         onBackToPreview={handleBackToPreview}
         onSubmit={handleCreateNote}
       />

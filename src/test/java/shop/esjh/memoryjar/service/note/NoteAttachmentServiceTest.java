@@ -94,8 +94,14 @@ class NoteAttachmentServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         List<NoteAttachmentCreateRequest> requests = List.of(
-                new NoteAttachmentCreateRequest("notes/1/file2.png"),
-                new NoteAttachmentCreateRequest("notes/1/file3.png")
+                new NoteAttachmentCreateRequest(
+                        "notes/1/file2.png",
+                        "우리 첫 번째 여행 사진"
+                ),
+                new NoteAttachmentCreateRequest(
+                        "notes/1/file3.png",
+                        "이날 노을이 정말 예뻤어"
+                )
         );
 
         // when
@@ -125,6 +131,20 @@ class NoteAttachmentServiceTest {
 
         assertThat(savedAttachments.get(0).getNote()).isEqualTo(note);
         assertThat(savedAttachments.get(1).getNote()).isEqualTo(note);
+
+        // 사진 순서뿐 아니라 각 사진에 적은 추억 설명도
+        // 정확한 첨부파일에 함께 저장되어야 한다.
+        assertThat(
+                savedAttachments.get(0).getCaption()
+        ).isEqualTo(
+                "우리 첫 번째 여행 사진"
+        );
+
+        assertThat(
+                savedAttachments.get(1).getCaption()
+        ).isEqualTo(
+                "이날 노을이 정말 예뻤어"
+        );
 
         verify(upload1).markConsumed();
         verify(upload2).markConsumed();

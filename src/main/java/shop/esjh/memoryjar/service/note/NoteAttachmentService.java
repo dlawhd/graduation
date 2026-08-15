@@ -64,6 +64,25 @@ public class NoteAttachmentService {
         return s3Keys;
     }
 
+    /*
+     * 첨부 설명을 DB에 저장하기 좋은 형태로 정리한다.
+     *
+     * null       -> null
+     * ""         -> null
+     * "  안녕  " -> "안녕"
+     */
+    private String normalizeCaption(String caption) {
+        if (caption == null) {
+            return null;
+        }
+
+        String trimmedCaption = caption.trim();
+
+        return trimmedCaption.isEmpty()
+                ? null
+                : trimmedCaption;
+    }
+
     // 이 메서드는 complete까지 끝난 내 업로드 파일 여러 개를 실제 note_attachments 로 저장하는 역할
     @Transactional
     public List<NoteAttachment> createAttachments(
@@ -116,8 +135,24 @@ public class NoteAttachmentService {
 
         List<NoteAttachment> attachments = new ArrayList<>();
 
-        // 프론트가 보낸 s3Key 배열 순서를 그대로 유지한다.
-        for (String s3Key : requestedS3Keys) {
+        /*
+         * 프론트가 보낸 첨부 순서를 그대로 돌면서 저장한다.
+         *
+         * requests[0]의 s3Key와 caption은
+         * 첫 번째 첨부파일에 같이 저장된다.
+         */
+        for (
+                int index = 0;
+                index < requestedS3Keys.size();
+                index++
+        ) {
+            String s3Key =
+                    requestedS3Keys.get(index);
+
+            // 현재 파일과 함께 넘어온 추억 설명도 꺼낸다.
+            NoteAttachmentCreateRequest attachmentRequest =
+                    requests.get(index);
+
             FileUpload upload =
                     uploadMap.get(s3Key);
 
@@ -132,10 +167,7 @@ public class NoteAttachmentService {
                     NoteAttachment.builder()
                             .note(note)
 
-                            /*
-                             * 프론트 배열 순서대로
-                             * 0, 1, 2 순서가 저장된다.
-                             */
+                            // 프론트 배열 순서 그대로 저장
                             .sortOrder(nextSortOrder++)
 
                             .s3Key(upload.getS3Key())
@@ -145,6 +177,13 @@ public class NoteAttachmentService {
                                     upload.getContentType()
                             )
                             .size(upload.getSize())
+
+                            // 사용자가 적은 사진/영상 설명을 저장한다.
+                            .caption(
+                                    normalizeCaption(
+                                            attachmentRequest.caption()
+                                    )
+                            )
                             .build();
 
             attachments.add(attachment);

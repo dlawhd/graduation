@@ -2236,7 +2236,7 @@ export default function JarsNewPage() {
                 </h2>
 
                 <p className="mt-3 text-base leading-7 text-slate-500">
-                  이름과 설명을 작성하고, 테마, 최대 인원, 오픈 날짜를 정하면
+                  이름과 설명을 작성하고 테마, 최대 인원, 오픈 날짜를 정하면
                   새로운 추억 저금통을 만들 수 있어요.
                 </p>
               </div>

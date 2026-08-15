@@ -1,3 +1,18 @@
+import { useRef } from "react";
+/*
+ * dnd-kit 역할
+ *
+ * PC에서는 마우스로, 모바일에서는 손가락으로 첨부 카드의 순서를 바꿀 수 있게 도와주는 라이브러리
+ */
+import { DragDropProvider } from "@dnd-kit/react";
+import {
+  isSortable,
+  useSortable,
+} from "@dnd-kit/react/sortable";
+import {
+  PointerActivationConstraints,
+  PointerSensor,
+} from "@dnd-kit/dom";
 /*
  * NoteAttachmentPicker 역할
  *
@@ -16,6 +31,47 @@
 
 // 프론트에서 사용하는 최대 첨부파일 개수다.
 export const NOTE_ATTACHMENT_LIMIT = 10;
+
+/*
+ * 첨부 순서 변경용 PointerSensor 설정
+ *
+ * PC:
+ * - 마우스를 6px 이상 움직였을 때 드래그 시작
+ * - 그냥 클릭한 것을 드래그로 착각하지 않게 해준다.
+ *
+ * 모바일:
+ * - 약 250ms 동안 꾹 누른 뒤 드래그 시작
+ * - 손가락이 8px 정도 흔들리는 것은 허용한다.
+ *
+ * 쉽게 말하면:
+ * PC = 잡고 이동
+ * 모바일 = 살짝 꾹 누른 뒤 이동
+ */
+const NOTE_ATTACHMENT_POINTER_SENSOR =
+  PointerSensor.configure({
+    activationConstraints(event) {
+      // 휴대폰/태블릿 터치
+      if (event.pointerType === "touch") {
+        return [
+          new PointerActivationConstraints.Delay({
+            value: 250,
+            tolerance: 8,
+          }),
+        ];
+      }
+
+      // PC 마우스 또는 펜
+      return [
+        new PointerActivationConstraints.Distance({
+          value: 6,
+        }),
+      ];
+    },
+  });
+
+// 사진/영상 하나에 적을 수 있는 추억 설명의 최대 글자 수야.
+// 백엔드의 caption 최대 길이와 똑같이 200자로 맞춘다.
+export const NOTE_ATTACHMENT_CAPTION_LIMIT = 200;
 
 // 백엔드에서 허용하는 이미지와 영상 형식을 파일 선택창에도 지정한다.
 const NOTE_ATTACHMENT_ACCEPT = [
@@ -49,28 +105,291 @@ export function getAttachmentDisplayName(attachment, index = 0) {
 }
 
 /*
- * 파일 크기를 사람이 읽기 쉬운 형태로 변경하는 함수
+ * SortableAttachmentCard 역할
  *
- * 예:
- * 1024 byte → 1.0 KB
- * 1048576 byte → 1.0 MB
+ * 사진/영상 첨부 카드 한 장을 담당하는 컴포넌트야.
+ *
+ * 하는 일:
+ * - dnd-kit에 "나는 몇 번째 카드야"라고 알려주기
+ * - PC 마우스 드래그 지원
+ * - 모바일 길게 누른 뒤 드래그 지원
+ * - 사진/영상 미리보기
+ * - 추억 설명 입력
+ * - 앞으로/뒤로 이동
+ * - 삭제
+ *
+ * 중요:
+ * 실제 첨부 배열을 여기서 직접 바꾸지는 않는다.
+ *
+ * 드래그가 끝나면 부모 NoteAttachmentPicker가
+ * 기존 onMoveAttachment 함수를 호출해서
+ * NoteSection의 writeForm.attachments 순서를 변경한다.
  */
-export function formatAttachmentSize(size) {
-  const byteSize = Number(size);
+function SortableAttachmentCard({
+  attachment,
+  index,
+  attachmentCount,
+  palette,
+  isDisabled,
+  onRemoveAttachment,
+  onMoveAttachment,
+  onChangeAttachmentCaption,
+}) {
+  /*
+   * 각 첨부파일을 구분하는 고유 ID.
+   *
+   * 새 파일을 올릴 때 NoteSection에서 clientId를 만들어주고 있고,
+   * 업로드가 끝난 파일에는 s3Key도 있으므로 둘 중 하나를 사용한다.
+   */
+  const sortableId =
+    attachment.clientId ||
+    attachment.s3Key;
 
-  if (!Number.isFinite(byteSize) || byteSize < 0) {
-    return "크기 정보 없음";
-  }
+  /*
+   * useSortable이 이 카드를
+   * "움직일 수도 있고 다른 카드의 도착점도 될 수 있는 카드"
+   * 로 만들어준다.
+   */
+  const {
+    // 카드 전체 위치와 drop 영역을 연결한다.
+    ref,
 
-  if (byteSize < 1024) {
-    return `${byteSize} B`;
-  }
+    // 실제로 사용자가 잡고 움직일 영역을 연결한다.
+    // 이번에는 사진/영상 미리보기 영역을 드래그 손잡이로 사용한다.
+    handleRef,
 
-  if (byteSize < 1024 * 1024) {
-    return `${(byteSize / 1024).toFixed(1)} KB`;
-  }
+    isDragging,
+    isDropTarget,
+  } = useSortable({
+    id: sortableId,
+    index,
 
-  return `${(byteSize / (1024 * 1024)).toFixed(1)} MB`;
+    // 업로드/저장 중에는 순서를 바꾸지 못하게 한다.
+    disabled: isDisabled,
+
+    // 카드가 새로운 순서로 이동할 때 부드럽게 움직인다.
+    transition: {
+      duration: 180,
+      easing: "ease",
+      idle: true,
+    },
+  });
+
+  const isImage =
+    attachment.contentType?.startsWith(
+      "image/"
+    );
+
+  const isVideo =
+    attachment.contentType?.startsWith(
+      "video/"
+    );
+
+  const displayName =
+    getAttachmentDisplayName(
+      attachment,
+      index
+    );
+
+  const previewSource =
+    attachment.previewUrl ||
+    attachment.thumbnailUrl ||
+    attachment.url;
+
+  return (
+    <article
+      /*
+       * dnd-kit가 이 실제 DOM 카드를 찾을 수 있도록
+       * ref를 연결한다.
+       */
+      ref={ref}
+      className={`
+        relative overflow-hidden
+        rounded-2xl border bg-white/80
+        shadow-sm transition
+        ${
+          isDragging
+            ? "z-20 scale-[1.02] border-emerald-300 shadow-xl"
+            : "border-slate-200 hover:-translate-y-0.5 hover:shadow-md"
+        }
+        ${
+          isDropTarget && !isDragging
+            ? "ring-2 ring-emerald-200"
+            : ""
+        }
+      `}
+    >
+      {/*
+       * 이미지/영상 미리보기 영역
+       *
+       * 이 영역을 dnd-kit의 drag handle로 사용한다.
+       *
+       * PC:
+       * - 사진을 잡고 움직이면 순서 변경
+       *
+       * 모바일:
+       * - 사진을 잠깐 꾹 누른 뒤 움직이면 순서 변경
+       *
+       * 아래의 textarea와 버튼은 드래그 영역에서 제외되므로
+       * 설명 작성이나 버튼 클릭이 더 안정적이다.
+       */}
+      <div
+        ref={handleRef}
+        className={`
+          relative flex h-44 items-center justify-center bg-slate-50
+          ${
+            isDisabled
+              ? "cursor-default"
+              : "cursor-grab active:cursor-grabbing"
+          }
+        `}
+      >
+        {/* 현재 순서 */}
+        <span className="absolute left-3 top-3 z-10 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-black text-white shadow-sm">
+          {index + 1}번째
+        </span>
+
+        {/*
+         * 사용법 안내
+         *
+         * 카드의 일반 영역을:
+         * - PC에서는 드래그
+         * - 모바일에서는 약 0.25초 꾹 누른 뒤 이동
+         *
+         * textarea / 버튼처럼 클릭하는 요소에서는
+         * 기본적으로 드래그가 시작되지 않아서
+         * 추억 설명 작성이나 버튼 클릭을 방해하지 않는다.
+         */}
+        {!isDisabled &&
+          attachmentCount > 1 && (
+            <span className="pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-slate-500 shadow-sm backdrop-blur-sm">
+              꾹 눌러 이동
+            </span>
+          )}
+
+        {isImage ? (
+          <img
+            src={previewSource}
+            alt={`${index + 1}번째 첨부 ${displayName}`}
+
+            // 브라우저 자체 이미지 드래그 기능은 끈다.
+            // 카드 순서 변경은 dnd-kit만 담당하게 한다.
+            draggable={false}
+
+            className="h-full w-full object-cover"
+          />
+        ) : isVideo ? (
+          <video
+            src={previewSource}
+            controls
+            draggable={false}
+            className="h-full w-full bg-black object-cover"
+          />
+        ) : (
+          <div className="px-4 text-center text-xs font-semibold text-slate-500">
+            미리보기를 지원하지 않는
+            파일이에요.
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3 px-4 py-3">
+        {/* 사진/영상마다 남기는 추억 설명 */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <label
+              htmlFor={`attachment-caption-${index}`}
+              className="text-xs font-bold text-slate-600"
+            >
+              추억 설명 (선택)
+            </label>
+
+            <span className="text-[11px] font-semibold text-slate-400">
+              {(attachment.caption || "").length}/
+              {NOTE_ATTACHMENT_CAPTION_LIMIT}
+            </span>
+          </div>
+
+          <textarea
+            id={`attachment-caption-${index}`}
+            rows={3}
+            value={attachment.caption || ""}
+            maxLength={
+              NOTE_ATTACHMENT_CAPTION_LIMIT
+            }
+            disabled={isDisabled}
+            onChange={(event) =>
+              onChangeAttachmentCaption?.(
+                index,
+                event.target.value
+              )
+            }
+            placeholder="예: 이때 바람이 엄청 불어서 다 같이 웃었어."
+            className={`w-full resize-none rounded-2xl border px-3 py-2.5 text-sm font-medium leading-6 outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.input}`}
+          />
+
+          <p className="text-[11px] leading-5 text-slate-400">
+            저금통이 열린 뒤 사진이나 영상을 볼 때
+            이 설명도 함께 보여요.
+          </p>
+        </div>
+
+        {/* 기존 버튼 방식도 그대로 남겨둔다. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 한 칸 앞으로 이동 */}
+          <button
+            type="button"
+            onClick={() =>
+              onMoveAttachment(
+                index,
+                index - 1
+              )
+            }
+            disabled={
+              isDisabled ||
+              index === 0
+            }
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={`${displayName}을 앞으로 이동`}
+          >
+            ← 앞으로
+          </button>
+
+          {/* 한 칸 뒤로 이동 */}
+          <button
+            type="button"
+            onClick={() =>
+              onMoveAttachment(
+                index,
+                index + 1
+              )
+            }
+            disabled={
+              isDisabled ||
+              index ===
+                attachmentCount - 1
+            }
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={`${displayName}을 뒤로 이동`}
+          >
+            뒤로 →
+          </button>
+
+          {/* 첨부파일 삭제 */}
+          <button
+            type="button"
+            onClick={() =>
+              onRemoveAttachment(index)
+            }
+            disabled={isDisabled}
+            className="ml-auto rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-500 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            삭제
+          </button>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 /*
@@ -89,6 +408,9 @@ export default function NoteAttachmentPicker({
   onSelectFiles,
   onRemoveAttachment,
   onMoveAttachment,
+
+  // 사진/영상마다 적는 추억 설명을 부모인 NoteSection에 전달한다.
+  onChangeAttachmentCaption,
 }) {
   // 현재 들어 있는 첨부파일 개수
   const attachmentCount = attachments.length;
@@ -107,50 +429,98 @@ export default function NoteAttachmentPicker({
   const isDisabled = uploading || loading;
 
   /*
-   * 드래그를 시작했을 때 실행된다.
+   * dnd-kit 드래그가 끝났을 때 실행된다.
    *
-   * 몇 번째 첨부파일을 끌고 있는지
-   * 브라우저의 dataTransfer에 임시 저장한다.
+   * 예:
+   *
+   * 처음:
+   * [사진A, 사진B, 사진C]
+   *
+   * 사진C를 사진A 자리로 이동
+   *
+   * initialIndex = 2
+   * index = 0
+   *
+   * 기존 onMoveAttachment(2, 0)을 호출해서
+   * 실제 React 배열 순서도 바꿔준다.
    */
-  function handleDragStart(event, index) {
-    if (isDisabled) {
-      event.preventDefault();
+  function handleAttachmentDragEnd(event) {
+    // 드래그가 취소됐으면 아무것도 하지 않는다.
+    if (event.canceled) {
       return;
     }
 
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData(
-      "text/plain",
-      String(index)
-    );
-  }
-
-  /*
-   * 끌고 있던 파일을 다른 카드 위에 놓았을 때 실행된다.
-   *
-   * sourceIndex: 원래 위치
-   * targetIndex: 이동할 위치
-   */
-  function handleDrop(event, targetIndex) {
-    event.preventDefault();
-
+    // 업로드 또는 저장 중이라면 순서를 건드리지 않는다.
     if (isDisabled) {
       return;
     }
 
-    const sourceIndex = Number(
-      event.dataTransfer.getData("text/plain")
-    );
+    const { source } =
+      event.operation;
 
+    /*
+     * 이 이벤트가 우리가 만든 sortable 카드에서 나온 것인지 확인한다.
+     */
+    if (!isSortable(source)) {
+      return;
+    }
+
+    const fromIndex =
+      source.initialIndex;
+
+    const toIndex =
+      source.index;
+
+    // 실제 위치가 바뀌지 않았다면 끝낸다.
     if (
-      !Number.isInteger(sourceIndex) ||
-      sourceIndex === targetIndex
+      fromIndex === toIndex
     ) {
       return;
     }
 
-    onMoveAttachment(sourceIndex, targetIndex);
+    /*
+     * 기존 프로젝트의 순서 변경 함수를 그대로 재사용한다.
+     *
+     * NoteAttachmentPicker
+     *      ↓
+     * onMoveAttachment
+     *      ↓
+     * NoteSection.handleMoveAttachment
+     *      ↓
+     * writeForm.attachments 순서 변경
+     */
+    onMoveAttachment(
+      fromIndex,
+      toIndex
+    );
   }
+
+    // 실제 <input type="file">을 기억해두는 Ref야.
+    // 화면에서는 기본 파일 선택창을 숨기고,
+    // 우리가 만든 "사진/영상 추가하기" 버튼으로 이 input을 대신 눌러줄 거야.
+    const fileInputRef = useRef(null);
+
+    /*
+     * 사용자가 우리가 만든 첨부 버튼을 눌렀을 때 실행돼.
+     *
+     * 숨겨져 있는 실제 파일 input을 클릭해서
+     * PC에서는 파일 선택창,
+     * 모바일에서는 사진/영상 선택 화면을 열어준다.
+     */
+    function handleOpenFilePicker() {
+      // 파일 업로드 중이거나 쪽지를 저장 중이면 새 파일을 고르지 못하게 막는다.
+      if (isDisabled) {
+        return;
+      }
+
+      // 이미 10개를 모두 넣었다면 파일 선택창을 열 필요가 없다.
+      if (isLimitReached) {
+        return;
+      }
+
+      // 숨겨진 파일 input을 실제로 클릭한다.
+      fileInputRef.current?.click();
+    }
 
   return (
     <section
@@ -194,17 +564,138 @@ export default function NoteAttachmentPicker({
         </div>
       </div>
 
-      {/* 사진·영상 선택창 */}
-      <input
-        type="file"
-        multiple
-        accept={NOTE_ATTACHMENT_ACCEPT}
-        onChange={onSelectFiles}
-        disabled={isDisabled || isLimitReached}
-        className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.input}`}
-      />
+            {/*
+             * 실제 파일 선택 input
+             *
+             * 기존에는 브라우저 기본 디자인인
+             * "파일 선택 / 선택된 파일 없음"이 그대로 보였어.
+             *
+             * 이제는 화면에서는 숨겨두고,
+             * 아래의 커스텀 버튼을 눌렀을 때만 실행한다.
+             *
+             * 중요:
+             * onChange={onSelectFiles}는 기존 그대로 유지하기 때문에
+             * NoteSection의 S3 업로드 로직은 전혀 바뀌지 않는다.
+             */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={NOTE_ATTACHMENT_ACCEPT}
+              onChange={onSelectFiles}
+              disabled={isDisabled || isLimitReached}
+              className="hidden"
+            />
 
-      {/* 파일 선택 순서 안내 */}
+            {/*
+             * 사용자가 실제로 보게 되는 파일 선택 버튼
+             *
+             * 작은 브라우저 기본 버튼 대신
+             * 아이콘 + 제목 + 설명이 있는 넓은 버튼으로 만들어
+             * PC와 모바일 모두 쉽게 누를 수 있게 한다.
+             */}
+            <button
+              type="button"
+              onClick={handleOpenFilePicker}
+              disabled={isDisabled || isLimitReached}
+              className={`
+                group flex w-full items-center gap-4
+                rounded-2xl border px-4 py-4
+                text-left outline-none transition
+                hover:-translate-y-0.5 hover:shadow-sm
+                focus-visible:ring-2 focus-visible:ring-emerald-200
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+                disabled:hover:translate-y-0
+                disabled:hover:shadow-none
+                ${palette.input}
+              `}
+              aria-label={
+                isLimitReached
+                  ? "첨부파일을 최대 개수까지 추가했어요"
+                  : "사진 또는 영상 선택하기"
+              }
+            >
+              {/* 사진 아이콘 영역 */}
+              <span
+                className="
+                  flex h-12 w-12 shrink-0
+                  items-center justify-center
+                  rounded-2xl
+                  bg-emerald-50
+                  text-emerald-600
+                  transition
+                  group-hover:bg-emerald-100
+                "
+                aria-hidden="true"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="h-6 w-6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {/* 사진 액자 */}
+                  <rect
+                    x="3"
+                    y="4"
+                    width="18"
+                    height="16"
+                    rx="3"
+                  />
+
+                  {/* 사진 속 작은 해 */}
+                  <circle
+                    cx="9"
+                    cy="9"
+                    r="1.5"
+                  />
+
+                  {/* 사진 속 산 모양 */}
+                  <path d="M4.5 17 9.5 12l3.2 3.2 2.1-2.1 4.7 3.9" />
+
+                  {/* 사진 추가 + 표시 */}
+                  <path d="M17.5 5.5v4" />
+                  <path d="M15.5 7.5h4" />
+                </svg>
+              </span>
+
+              {/* 버튼 안쪽 안내 문구 */}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-black text-slate-700">
+                  {isLimitReached
+                    ? "사진과 영상을 모두 채웠어요"
+                    : "사진, 영상 추가하기"}
+                </span>
+
+                <span className="mt-1 block text-xs font-medium leading-5 text-slate-400">
+                  {isLimitReached
+                    ? "다른 파일을 넣으려면 아래 첨부에서 하나를 삭제해 주세요."
+                    : `눌러서 선택해 주세요. ${remainingCount}개 더 추가할 수 있어요.`}
+                </span>
+              </span>
+
+              {/* 오른쪽 화살표 */}
+              {!isLimitReached && (
+                <span
+                  className="
+                    shrink-0 text-xl
+                    text-slate-300
+                    transition
+                    group-hover:translate-x-0.5
+                    group-hover:text-slate-400
+                  "
+                  aria-hidden="true"
+                >
+                  ›
+                </span>
+              )}
+            </button>
+
+      {/* 첨부 순서 변경 방법 안내 */}
       <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
         <p className="text-xs font-semibold leading-5 text-amber-800">
           순서가 다르면 카드를 끌거나
@@ -257,157 +748,56 @@ export default function NoteAttachmentPicker({
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {attachments.map((attachment, index) => {
-              const isImage =
-                attachment.contentType?.startsWith(
-                  "image/"
-                );
+          <DragDropProvider
+            /*
+             * 기존 기본 PointerSensor 대신
+             * 우리가 위에서 만든 PointerSensor를 사용한다.
+             *
+             * 기본 KeyboardSensor는 그대로 남기기 위해
+             * defaults에서 PointerSensor만 빼고 새 설정을 넣는다.
+             */
+            sensors={(defaults) => [
+              ...defaults.filter(
+                (sensor) =>
+                  sensor !== PointerSensor
+              ),
+              NOTE_ATTACHMENT_POINTER_SENSOR,
+            ]}
 
-              const isVideo =
-                attachment.contentType?.startsWith(
-                  "video/"
-                );
-
-              const displayName =
-                getAttachmentDisplayName(
-                  attachment,
-                  index
-                );
-
-              const previewSource =
-                attachment.previewUrl ||
-                attachment.thumbnailUrl ||
-                attachment.url;
-
-              return (
-                <article
-                  key={
-                    attachment.clientId ||
-                    attachment.s3Key ||
-                    index
-                  }
-                  onDragOver={(event) =>
-                    event.preventDefault()
-                  }
-                  onDrop={(event) =>
-                    handleDrop(event, index)
-                  }
-                  className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  {/* 이미지 또는 영상 미리보기 */}
-                  <div
-                    draggable={!isDisabled}
-                    onDragStart={(event) =>
-                      handleDragStart(event, index)
+            // 손을 놓았을 때 실제 배열 순서를 바꾼다.
+            onDragEnd={
+              handleAttachmentDragEnd
+            }
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              {attachments.map(
+                (attachment, index) => (
+                  <SortableAttachmentCard
+                    key={
+                      attachment.clientId ||
+                      attachment.s3Key
                     }
-                    className={`relative flex h-44 items-center justify-center bg-slate-50 ${
-                      isDisabled
-                        ? "cursor-default"
-                        : "cursor-grab active:cursor-grabbing"
-                    }`}
-                    title="마우스로 끌어서 순서를 바꿀 수 있어요."
-                  >
-                    <span className="absolute left-3 top-3 z-10 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-black text-white shadow-sm">
-                      {index + 1}번째
-                    </span>
-
-                    {isImage ? (
-                      <img
-                        src={previewSource}
-                        alt={`${index + 1}번째 첨부 ${displayName}`}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : isVideo ? (
-                      <video
-                        src={previewSource}
-                        controls
-                        className="h-full w-full bg-black object-cover"
-                      />
-                    ) : (
-                      <div className="px-4 text-center text-xs font-semibold text-slate-500">
-                        미리보기를 지원하지 않는
-                        파일이에요.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 파일명, 크기, 순서 버튼, 삭제 버튼 */}
-                  <div className="space-y-3 px-4 py-3">
-                    <div className="min-w-0">
-                      <p
-                        className="truncate text-sm font-bold text-slate-700"
-                        title={displayName}
-                      >
-                        {displayName}
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-400">
-                        {attachment.contentType ||
-                          "파일 형식 없음"}{" "}
-                        ·{" "}
-                        {formatAttachmentSize(
-                          attachment.size
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* 한 칸 앞으로 이동 */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onMoveAttachment(
-                            index,
-                            index - 1
-                          )
-                        }
-                        disabled={
-                          isDisabled || index === 0
-                        }
-                        className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label={`${displayName}을 앞으로 이동`}
-                      >
-                        ← 앞으로
-                      </button>
-
-                      {/* 한 칸 뒤로 이동 */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onMoveAttachment(
-                            index,
-                            index + 1
-                          )
-                        }
-                        disabled={
-                          isDisabled ||
-                          index ===
-                            attachments.length - 1
-                        }
-                        className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label={`${displayName}을 뒤로 이동`}
-                      >
-                        뒤로 →
-                      </button>
-
-                      {/* 첨부파일 삭제 */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onRemoveAttachment(index)
-                        }
-                        disabled={isDisabled}
-                        className="ml-auto rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-500 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                    attachment={attachment}
+                    index={index}
+                    attachmentCount={
+                      attachments.length
+                    }
+                    palette={palette}
+                    isDisabled={isDisabled}
+                    onRemoveAttachment={
+                      onRemoveAttachment
+                    }
+                    onMoveAttachment={
+                      onMoveAttachment
+                    }
+                    onChangeAttachmentCaption={
+                      onChangeAttachmentCaption
+                    }
+                  />
+                )
+              )}
+            </div>
+          </DragDropProvider>
         </div>
       )}
     </section>

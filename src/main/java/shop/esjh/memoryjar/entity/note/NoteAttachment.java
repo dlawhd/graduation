@@ -94,6 +94,16 @@ public class NoteAttachment extends BaseEntity {
     @Column(name = "size", nullable = false)
     private Long size;
 
+    // 이 사진이나 영상과 함께 남기는 짧은 추억 설명
+    //
+    // 예:
+    // "우리 첫 여행에서 찍은 사진"
+    // "이때 갑자기 비가 와서 엄청 웃었어"
+    //
+    // 설명을 적지 않아도 되므로 nullable이다.
+    @Column(name = "caption", length = 200)
+    private String caption;
+
     // 생성자 대신 Builder를 통해 안전하게 객체를 만들 수 있게 해줌
     @Builder
     public NoteAttachment(
@@ -103,7 +113,8 @@ public class NoteAttachment extends BaseEntity {
             String url,
             String thumbnailUrl,
             String contentType,
-            Long size
+            Long size,
+            String caption
     ) {
         this.note = note;
         this.sortOrder = sortOrder;
@@ -112,6 +123,9 @@ public class NoteAttachment extends BaseEntity {
         this.thumbnailUrl = thumbnailUrl;
         this.contentType = contentType;
         this.size = size;
+
+        // 사진/영상과 함께 저장할 추억 설명
+        this.caption = caption;
     }
 
     // 썸네일 주소를 나중에 업데이트할 때 사용하는 메서드
