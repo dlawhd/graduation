@@ -9,6 +9,8 @@ import { createPortal } from "react-dom";
 import NoteAttachmentPicker, {
   NOTE_ATTACHMENT_LIMIT,
   NOTE_ATTACHMENT_CAPTION_LIMIT,
+  NOTE_IMAGE_MAX_SIZE,
+  NOTE_VIDEO_MAX_SIZE,
 } from "../features/note/components/NoteAttachmentPicker";
 
 /*
@@ -109,6 +111,74 @@ function createAttachmentClientId() {
   return `attachment-${Date.now()}-${Math.random()
     .toString(16)
     .slice(2)}`;
+}
+
+/*
+ * 새 쪽지 첨부파일의 용량을 검사하는 함수
+ *
+ * 역할:
+ * 사용자가 파일을 선택하자마자 브라우저에서
+ * 사진 10MB / 영상 30MB 제한을 먼저 확인한다.
+ *
+ * 반환값:
+ *
+ * 정상 파일
+ * → 빈 문자열 ""
+ *
+ * 용량 초과 파일
+ * → 사용자에게 보여줄 오류 문구
+ *
+ * 예:
+ * 사진 12MB
+ * → "사진은 1개당 최대 10MB까지 가능해요."
+ *
+ * 영상 35MB
+ * → "영상은 1개당 최대 30MB까지 가능해요."
+ */
+function getAttachmentSizeError(file) {
+  if (!file) {
+    return "";
+  }
+
+  const contentType =
+    file.type || "";
+
+  // 사진 파일인지 확인한다.
+  const isImage =
+    contentType.startsWith("image/");
+
+  // 영상 파일인지 확인한다.
+  const isVideo =
+    contentType.startsWith("video/");
+
+  /*
+   * 사진은 최대 10MB까지 허용한다.
+   *
+   * 정확히 10MB는 허용하고,
+   * 10MB보다 클 때만 제외한다.
+   */
+  if (
+    isImage &&
+    file.size > NOTE_IMAGE_MAX_SIZE
+  ) {
+    return "사진은 1개당 최대 10MB까지 가능해요.";
+  }
+
+  /*
+   * 영상은 최대 30MB까지 허용한다.
+   *
+   * 정확히 30MB는 허용하고,
+   * 30MB보다 클 때만 제외한다.
+   */
+  if (
+    isVideo &&
+    file.size > NOTE_VIDEO_MAX_SIZE
+  ) {
+    return "영상은 1개당 최대 30MB까지 가능해요.";
+  }
+
+  // 용량 문제가 없으면 빈 문자열을 반환한다.
+  return "";
 }
 
 // 입력값이 문자열이면 앞뒤 공백을 정리해줘.
@@ -1549,38 +1619,71 @@ async function handleCreateNote() {
 }
 
    /*
-    * 파일을 선택하면 FileList에 들어온 순서대로
-    * 한 개씩 차례대로 S3에 업로드한다.
+    * 새 쪽지에서 여러 사진/영상을 선택했을 때
+    * 파일을 안전하게 업로드하는 함수
     *
-    * 처리 과정:
-    * 1. 첨부 가능한 남은 개수 검사
-    * 2. Presigned URL 요청
-    * 3. S3 실제 업로드
-    * 4. complete 요청
-    * 5. 성공한 파일을 화면 목록에 추가
+    * 처리 순서:
+    *
+    * 1. 첨부 가능한 남은 개수를 확인한다.
+    *
+    * 2. 파일 선택 즉시 용량을 검사한다.
+    *    - 사진 최대 10MB
+    *    - 영상 최대 30MB
+    *
+    * 3. 용량 초과 파일만 제외한다.
+    *
+    * 4. 정상 파일은 선택한 순서대로
+    *    한 개씩 S3에 업로드한다.
+    *
+    * 5. 특정 파일 하나가 업로드에 실패해도
+    *    전체 업로드를 멈추지 않고 다음 파일을 계속 처리한다.
+    *
+    * 6. 성공한 파일만 첨부 목록에 넣는다.
+    *
+    * 7. 마지막에 성공 / 실패 개수를 한 번에 알려준다.
+    *
+    * 예:
+    *
+    * 1~5번 사진 성공
+    * 6번 영상 35MB → 제외
+    * 7~10번 사진 성공
+    *
+    * 결과:
+    * → 사진 9개 정상 추가
+    * → 영상 1개만 제외
     */
    async function handleAttachFiles(event) {
-     const input = event.currentTarget;
+     /*
+      * React 이벤트 객체를 오래 들고 있지 않고
+      * 실제 file input DOM을 먼저 저장해 둔다.
+      */
+     const input =
+       event.currentTarget;
 
-     // 브라우저가 전달한 FileList를 일반 배열로 바꾼다.
+     // FileList를 일반 JavaScript 배열로 바꾼다.
      const files = Array.from(
        input.files || []
      );
 
+     // 아무 파일도 선택하지 않았다면 끝낸다.
      if (files.length === 0) {
        return;
      }
 
+     // 현재 이미 들어 있는 첨부파일 개수
      const currentAttachmentCount =
        writeForm.attachments?.length || 0;
 
+     // 앞으로 추가할 수 있는 남은 개수
      const remainingCount =
        NOTE_ATTACHMENT_LIMIT -
        currentAttachmentCount;
 
      /*
-      * 이미 10개를 채웠으면
-      * 백엔드와 S3 요청을 보내기 전에 막는다.
+      * 이미 최대 10개를 모두 채운 경우
+      *
+      * 백엔드나 S3 요청을 보내지 않고
+      * 프론트에서 바로 막는다.
       */
      if (remainingCount <= 0) {
        setUploadError(
@@ -1588,18 +1691,20 @@ async function handleCreateNote() {
            "기존 파일을 삭제한 뒤 다시 선택해 주세요."
        );
 
-       // 같은 파일을 다시 선택해도 change 이벤트가 발생하도록 비운다.
+       // 같은 파일을 다시 선택할 수 있도록 input을 초기화한다.
        input.value = "";
        return;
      }
 
      /*
-      * 남은 자리보다 파일을 많이 선택한 경우
-      * 일부 파일만 몰래 업로드하지 않고 전체 업로드를 중단한다.
+      * 현재 남은 자리보다 파일을 많이 선택했다면
+      * 기존 정책 그대로 전체 업로드를 시작하지 않는다.
       *
       * 예:
-      * 현재 8개, 3개 선택
-      * → 2개만 올리지 않고 3개 모두 시작하지 않는다.
+      * 이미 8개 있음
+      * 새로 3개 선택
+      *
+      * → 남은 자리는 2개뿐이므로 업로드하지 않는다.
       */
      if (files.length > remainingCount) {
        setUploadError(
@@ -1612,142 +1717,482 @@ async function handleCreateNote() {
        return;
      }
 
+     /*
+      * ------------------------------------------------
+      * 1차 검사
+      * ------------------------------------------------
+      *
+      * S3에 보내기 전에 브라우저에서
+      * 사진 10MB / 영상 30MB를 먼저 검사한다.
+      */
+
+     // 실제 업로드를 진행할 정상 파일들
+     const uploadCandidates = [];
+
+     /*
+      * 실패하거나 제외된 파일을 저장한다.
+      *
+      * 형태:
+      *
+      * [
+      *   {
+      *     fileName: "video.mp4",
+      *     reason: "영상은 최대 30MB..."
+      *   }
+      * ]
+      */
+     const failedFiles = [];
+
+     for (const file of files) {
+       // 이 파일에 용량 문제가 있는지 확인한다.
+       const sizeError =
+         getAttachmentSizeError(file);
+
+       if (sizeError) {
+         /*
+          * 용량을 초과했다면 업로드 목록에는 넣지 않고
+          * 실패 목록에만 저장한다.
+          *
+          * 중요한 점:
+          * 여기서 return이나 throw를 하지 않는다.
+          *
+          * 따라서 다음 파일 검사를 계속 진행한다.
+          */
+         failedFiles.push({
+           fileName:
+             file.name || "이름 없는 파일",
+           reason: sizeError,
+         });
+
+         continue;
+       }
+
+       // 용량이 정상이라면 실제 업로드 대상으로 넣는다.
+       uploadCandidates.push(file);
+     }
+
+     /*
+      * 선택한 파일이 전부 용량 초과라면
+      * S3 요청을 하나도 보내지 않고 바로 안내한다.
+      */
+     if (uploadCandidates.length === 0) {
+       /*
+        * 실패한 파일을 한 줄에 하나씩 보여준다.
+        *
+        * 예:
+        * - video1.mp4
+        * - video2.mp4
+        * - video3.mp4
+        */
+       const failedFileNames =
+         failedFiles
+           .map(
+             (failed) =>
+               `- ${failed.fileName}`
+           )
+           .join("\n");
+
+       /*
+        * 같은 실패 이유는 한 번만 보여주기 위해
+        * Set으로 중복을 제거한다.
+        */
+       const uniqueFailureReasons = [
+         ...new Set(
+           failedFiles
+             .map(
+               (failed) =>
+                 failed.reason
+             )
+             .filter(Boolean)
+         ),
+       ];
+
+       const failureReasonMessage =
+         uniqueFailureReasons.join(" ");
+
+       /*
+        * 파일 이름들을 먼저 보여주고,
+        * 마지막에 공통 실패 이유를 한 번만 보여준다.
+        */
+       const resultMessage =
+         `선택한 ${files.length}개 파일을 모두 추가하지 못했어요.\n\n` +
+         `통과하지 못한 파일:\n` +
+         `${failedFileNames}\n\n` +
+         failureReasonMessage;
+
+       setUploadError(
+         resultMessage
+       );
+
+       showToast(
+         "error",
+         `파일 ${failedFiles.length}개를 추가하지 못했어요.`
+       );
+
+       // 같은 파일을 다시 선택할 수 있도록 input을 초기화한다.
+       input.value = "";
+
+       return;
+     }
+
+     // 이전 업로드 오류 문구는 새로운 작업을 시작할 때 지운다.
      setUploadError("");
 
+     /*
+      * 진행 상태에는 "실제로 업로드를 시도할 파일 수"를 넣는다.
+      *
+      * 예:
+      * 10개 선택
+      * 영상 1개가 프론트 용량 검사에서 제외됨
+      *
+      * → total = 9
+      */
      setUploadProgress({
        completed: 0,
-       total: files.length,
+       total: uploadCandidates.length,
        currentFileName:
-         files[0]?.name || "",
+         uploadCandidates[0]?.name || "",
      });
 
      setUploading(true);
 
-     // 업로드에 성공한 파일을 선택 순서대로 담는다.
+     /*
+      * 실제 업로드까지 성공한 첨부파일들.
+      *
+      * 파일을 for...of로 순서대로 처리하기 때문에
+      * 성공한 파일끼리는 사용자가 선택한 순서가 유지된다.
+      */
      const uploadedAttachments = [];
-
-     // 어떤 파일에서 실패했는지 안내하기 위해 저장한다.
-     let failedFileName = "";
 
      try {
        /*
-        * Promise.all이 아니라 for...of를 사용한다.
+        * ------------------------------------------------
+        * 순차 업로드
+        * ------------------------------------------------
         *
-        * 이렇게 해야 브라우저가 전달한 파일 배열 순서대로
-        * 첫 번째, 두 번째, 세 번째 파일을 처리할 수 있다.
+        * Promise.all을 사용하지 않고 for...of를 사용해서
+        * 첫 번째 → 두 번째 → 세 번째 순서로 처리한다.
         */
-       for (const file of files) {
-         failedFileName = file.name;
-
-         setUploadProgress((prev) => ({
-           ...prev,
-           currentFileName: file.name,
-         }));
-
-         // 1. 백엔드에 Presigned URL을 요청한다.
-         const presignData =
-           await fileApi.presignNoteFile({
-             fileName: file.name,
-             contentType: file.type,
-             size: file.size,
-           });
-
-         // 2. Presigned URL로 S3에 파일을 직접 올린다.
-         await fileApi.uploadFileToS3(
-           presignData.uploadUrl,
-           file,
-           file.type
+       for (const file of uploadCandidates) {
+         setUploadProgress(
+           (prev) => ({
+             ...prev,
+             currentFileName:
+               file.name,
+           })
          );
 
-         // 3. 백엔드에 업로드 완료를 알린다.
-         await fileApi.completeNoteFile({
-           s3Key: presignData.s3Key,
-         });
-
          /*
-          * 4. 서버 요청에 사용할 첨부 정보를 만든다.
+          * ★ 가장 중요한 변경점
           *
-          * fileName과 previewUrl은 화면에서만 사용하고,
-          * 최종 쪽지 생성 요청에는 s3Key만 전송된다.
+          * try/catch를 for문 "안쪽"에 둔다.
+          *
+          * 예전:
+          *
+          * try {
+          *   for (...) {
+          *     ...
+          *   }
+          * } catch {
+          * }
+          *
+          * → 6번째 실패 시 for문 전체 종료
+          *
+          *
+          * 변경 후:
+          *
+          * for (...) {
+          *   try {
+          *     ...
+          *   } catch {
+          *     ...
+          *   }
+          * }
+          *
+          * → 6번째 실패해도 7번째 계속 진행
           */
-         const attachmentPayload =
-           fileApi.toNoteAttachmentPayload(
-             presignData,
-             file
+         try {
+           /*
+            * 1. 백엔드에서 Presigned URL을 받는다.
+            *
+            * 백엔드에서도 다시
+            * 사진 10MB / 영상 30MB를 검증한다.
+            *
+            * 즉 프론트 검사는 편의성,
+            * 백엔드 검사는 최종 보안장치 역할을 한다.
+            */
+           const presignData =
+             await fileApi.presignNoteFile({
+               fileName:
+                 file.name,
+               contentType:
+                 file.type,
+               size:
+                 file.size,
+             });
+
+           /*
+            * 2. Spring 서버를 거치지 않고
+            * 브라우저에서 S3로 직접 파일을 올린다.
+            */
+           await fileApi.uploadFileToS3(
+             presignData.uploadUrl,
+             file,
+             file.type
            );
 
-         uploadedAttachments.push({
-           ...attachmentPayload,
+           /*
+            * 3. 백엔드에:
+            *
+            * "S3 업로드가 끝났어요."
+            *
+            * 라고 알려준다.
+            */
+           await fileApi.completeNoteFile({
+             s3Key:
+               presignData.s3Key,
+           });
 
-           // 같은 파일명이 있어도 React가 구분할 수 있는 임시 id
-           clientId:
-             createAttachmentClientId(),
+           /*
+            * 4. 화면과 최종 쪽지 저장에 사용할
+            * 첨부 객체를 만든다.
+            */
+           const attachmentPayload =
+             fileApi.toNoteAttachmentPayload(
+               presignData,
+               file
+             );
 
-           // 화면에 원본 파일명을 보여주기 위한 값
-           fileName: file.name,
+           /*
+            * 모든 과정이 성공한 파일만
+            * 성공 배열에 추가한다.
+            */
+           uploadedAttachments.push({
+             ...attachmentPayload,
 
-           // 필요할 경우 파일 변경 시점을 확인할 수 있는 값
-           lastModified:
-             file.lastModified,
+             // React에서 같은 파일명도 구별하기 위한 임시 ID
+             clientId:
+               createAttachmentClientId(),
 
-           // S3 URL을 기다리지 않고 로컬 파일을 바로 미리보기 한다.
-           previewUrl:
-             URL.createObjectURL(file),
+             // 사용자가 선택한 원본 파일명
+             fileName:
+               file.name,
 
-           // 사용자가 이 사진/영상에 적을 추억 설명.
-           // 처음에는 아직 아무것도 적지 않았으므로 빈 문자열이다.
-           caption: "",
-         });
+             // 원본 파일의 마지막 수정 시간
+             lastModified:
+               file.lastModified,
 
-         // 성공한 파일 개수를 1 증가시킨다.
-         setUploadProgress((prev) => ({
-           ...prev,
-           completed:
-             prev.completed + 1,
-         }));
+             /*
+              * 실제 S3 URL을 기다리지 않고
+              * 브라우저의 로컬 파일을 즉시 미리보기 한다.
+              */
+             previewUrl:
+               URL.createObjectURL(
+                 file
+               ),
+
+             // 사진/영상별 추억 설명은 처음에는 빈 값
+             caption: "",
+           });
+         } catch (error) {
+           /*
+            * ------------------------------------------------
+            * 한 파일 업로드 실패
+            * ------------------------------------------------
+            *
+            * 여기서는 throw를 다시 하지 않는다.
+            *
+            * 실패 정보만 저장하고
+            * 다음 파일로 계속 넘어간다.
+            */
+
+           const serverMessage =
+             error?.response?.data?.error
+               ?.message ||
+             error?.response?.data
+               ?.message ||
+             error?.message ||
+             "파일 업로드에 실패했어요.";
+
+           failedFiles.push({
+             fileName:
+               file.name ||
+               "이름 없는 파일",
+
+             reason:
+               serverMessage,
+           });
+         } finally {
+           /*
+            * 성공하든 실패하든
+            * 이 파일 하나의 처리는 끝났다.
+            *
+            * 따라서 진행 숫자를 1 증가시킨다.
+            */
+           setUploadProgress(
+             (prev) => ({
+               ...prev,
+               completed:
+                 prev.completed + 1,
+             })
+           );
+         }
        }
-     } catch (error) {
-       const serverMessage =
-         error?.response?.data?.error
-           ?.message ||
-         error?.response?.data?.message ||
-         error?.message ||
-         "파일 업로드에 실패했어요.";
-
-       /*
-        * 앞쪽 파일이 이미 성공한 경우
-        * 성공한 파일은 그대로 목록에 남긴다고 안내한다.
-        */
-       const successGuide =
-         uploadedAttachments.length > 0
-           ? ` 앞의 ${uploadedAttachments.length}개 파일은 정상적으로 추가했어요.`
-           : "";
-
-       setUploadError(
-         `${failedFileName || "선택한 파일"} 업로드에 실패했어요. ` +
-           `${serverMessage}${successGuide}`
-       );
      } finally {
        /*
-        * 중간 파일에서 실패했더라도
-        * 앞에서 성공한 파일은 화면에 추가한다.
+        * ------------------------------------------------
+        * 모든 파일 처리가 끝난 뒤
+        * ------------------------------------------------
+        */
+
+       /*
+        * 성공한 파일이 하나라도 있다면
+        * 기존 첨부 목록 뒤에 한 번에 추가한다.
+        *
+        * React state 업데이트를 파일마다 하지 않고
+        * 마지막에 한 번만 하기 때문에 더 깔끔하다.
         */
        if (
          uploadedAttachments.length > 0
        ) {
-         setWriteForm((prev) => ({
-           ...prev,
+         setWriteForm(
+           (prev) => ({
+             ...prev,
 
-           // 기존 첨부 뒤에 이번 업로드 성공 파일을 순서대로 붙인다.
-           attachments: [
-             ...(prev.attachments || []),
-             ...uploadedAttachments,
-           ],
-         }));
+             attachments: [
+               ...(prev.attachments || []),
+               ...uploadedAttachments,
+             ],
+           })
+         );
        }
 
+       /*
+        * ------------------------------------------------
+        * 최종 결과 안내
+        * ------------------------------------------------
+        *
+        * 여기에는:
+        *
+        * - 프론트 용량 검사에서 제외된 파일
+        * - Presign 실패
+        * - S3 업로드 실패
+        * - complete 실패
+        *
+        * 모두 들어 있다.
+        */
+
+       const successCount =
+         uploadedAttachments.length;
+
+       const failedCount =
+         failedFiles.length;
+
+       /*
+        * 실패한 파일이 하나라도 있는 경우
+        * 파일명 + 실패 이유를 보여준다.
+        */
+       if (failedCount > 0) {
+         /*
+          * 실패한 파일을 한 줄에 하나씩 보여준다.
+          *
+          * 예:
+          * - video1.mp4
+          * - video2.mp4
+          * - video3.mp4
+          */
+         const failedFileNames =
+           failedFiles
+             .map(
+               (failed) =>
+                 `- ${failed.fileName}`
+             )
+             .join("\n");
+
+         /*
+          * 실패 이유는 중복을 제거한다.
+          *
+          * 예를 들어 영상 4개가 모두 30MB를 넘었다면
+          *
+          * 기존:
+          * 영상은 최대 30MB...
+          * 영상은 최대 30MB...
+          * 영상은 최대 30MB...
+          * 영상은 최대 30MB...
+          *
+          * 변경:
+          * 영상은 최대 30MB...
+          *
+          * 딱 한 번만 표시한다.
+          */
+         const uniqueFailureReasons = [
+           ...new Set(
+             failedFiles
+               .map(
+                 (failed) =>
+                   failed.reason
+               )
+               .filter(Boolean)
+           ),
+         ];
+
+         /*
+          * 실패 이유들을 마지막에 붙인다.
+          *
+          * 사진과 영상이 동시에 실패했다면:
+          *
+          * 사진은 1개당 최대 10MB까지 가능해요.
+          * 영상은 1개당 최대 30MB까지 가능해요.
+          *
+          * 처럼 각각 한 번씩만 나온다.
+          */
+         const failureReasonMessage =
+           uniqueFailureReasons.join(" ");
+
+         /*
+          * 최종 안내 문구
+          *
+          * 순서:
+          *
+          * 1. 성공 / 실패 개수
+          * 2. 통과하지 못한 파일 이름들
+          * 3. 실패 이유
+          */
+         const resultMessage =
+           `선택한 ${files.length}개 중 ` +
+           `${successCount}개를 추가했고 ` +
+           `${failedCount}개는 제외했어요.\n\n` +
+           `통과하지 못한 파일:\n` +
+           `${failedFileNames}\n\n` +
+           failureReasonMessage;
+
+         // 첨부 영역 아래에 자세한 결과를 보여준다.
+         setUploadError(
+           resultMessage
+         );
+
+         // 토스트에는 간단하게 개수만 보여준다.
+         showToast(
+           "error",
+           `파일 ${successCount}개 추가, ${failedCount}개 제외했어요.`
+         );
+       } else {
+         /*
+          * 전부 성공했다면 이전 오류 문구를 지우고
+          * 성공 안내만 보여준다.
+          */
+         setUploadError("");
+
+         showToast(
+           "success",
+           `파일 ${successCount}개를 모두 추가했어요.`
+         );
+       }
+
+       // 업로드 상태 종료
        setUploading(false);
 
+       // 진행 상태 초기화
        setUploadProgress({
          completed: 0,
          total: 0,
@@ -1755,8 +2200,8 @@ async function handleCreateNote() {
        });
 
        /*
-        * input 값을 비워야 같은 파일을 다시 선택해도
-        * onChange 이벤트가 다시 발생한다.
+        * 같은 파일을 다시 선택해도
+        * onChange 이벤트가 발생하도록 input을 비운다.
         */
        input.value = "";
      }

@@ -33,6 +33,28 @@ import {
 export const NOTE_ATTACHMENT_LIMIT = 10;
 
 /*
+ * 새 쪽지 첨부파일 용량 제한
+ *
+ * 백엔드 application.yml / S3PresignService와
+ * 같은 기준으로 맞춘다.
+ *
+ * 사진:
+ * 10 * 1024 * 1024 = 10MB
+ *
+ * 영상:
+ * 30 * 1024 * 1024 = 30MB
+ *
+ * 프론트에서 먼저 검사하는 이유:
+ * 용량을 초과한 파일을 굳이 백엔드와 S3까지
+ * 보내지 않고 파일 선택 즉시 알려주기 위해서야.
+ */
+export const NOTE_IMAGE_MAX_SIZE =
+  10 * 1024 * 1024;
+
+export const NOTE_VIDEO_MAX_SIZE =
+  30 * 1024 * 1024;
+
+/*
  * 첨부 순서 변경용 PointerSensor 설정
  *
  * PC:
@@ -731,14 +753,14 @@ export default function NoteAttachmentPicker({
             {uploadProgress?.currentFileName ||
               "파일 준비 중"}{" "}
             · {uploadProgress?.completed || 0}/
-            {uploadProgress?.total || 0}개 완료
+            {uploadProgress?.total || 0}개 처리
           </p>
         </div>
       )}
 
       {/* 업로드 실패 또는 개수 초과 안내 */}
       {uploadError && (
-        <p className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
+        <p className="whitespace-pre-line rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
           {uploadError}
         </p>
       )}
