@@ -537,10 +537,18 @@ export default function NoteAttachmentPicker({
             첨부 파일 (선택)
           </p>
 
-          <p className="mt-1 text-xs text-slate-400">
-            사진과 영상을 합쳐 최대{" "}
-            {NOTE_ATTACHMENT_LIMIT}개까지 넣을 수 있어요.
-          </p>
+          <div className="mt-1 space-y-0.5 text-xs text-slate-400">
+            {/* 첨부 가능한 개수 안내 */}
+            <p>
+              사진과 영상을 합쳐 최대{" "}
+              {NOTE_ATTACHMENT_LIMIT}개까지 넣을 수 있어요.
+            </p>
+
+            {/* 백엔드 파일 용량 정책을 사용자에게 미리 알려준다. */}
+            <p>
+              사진은 1개당 최대 10MB, 영상은 1개당 최대 30MB까지 가능해요.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

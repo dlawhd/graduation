@@ -49,8 +49,12 @@ public class S3PresignService {
         // 1. 파일 타입 검증
         validateContentType(request.contentType());
 
-        // 2. 파일 크기 검증
-        validateFileSize(request.size());
+        // 2. 파일 종류에 맞는 최대 크기를 검사한다.
+        // 사진은 10MB, 영상은 30MB 기준으로 검사한다.
+        validateFileSize(
+                request.size(),
+                request.contentType()
+        );
 
         // 3. S3 안에서 저장될 경로(s3Key) 만들기
         String s3Key = createS3Key(request.purpose(), request.fileName());
@@ -95,7 +99,7 @@ public class S3PresignService {
         if (contentType == null || contentType.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "contentType은 비어 있을 수 없어."
+                    "contentType은 비어 있을 수 없어요."
             );
         }
 
@@ -110,24 +114,67 @@ public class S3PresignService {
         if (!allowedTypes.contains(contentType)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "허용하지 않는 파일 형식이야."
+                    "허용하지 않는 파일 형식이에요."
             );
         }
     }
 
-    // 파일 크기 검증, 최대 크기는 application.yml 의 app.file.max-size 설정값을 사용
-    private void validateFileSize(Long size) {
+    /*
+     * 파일 크기 검증
+     *
+     * 사진과 영상의 최대 용량을 서로 다르게 검사한다.
+     *
+     * 현재 정책:
+     * - 사진: 최대 10MB
+     * - 영상: 최대 30MB
+     *
+     * contentType이 allowedVideoTypes에 들어 있으면 영상으로 판단하고,
+     * 그렇지 않으면 기존 이미지 최대 크기를 사용한다.
+     *
+     * 참고:
+     * 이 메서드가 실행되기 전에 validateContentType()을 먼저 실행하기 때문에
+     * 허용하지 않는 이상한 파일 형식은 이미 앞에서 걸러진 상태다.
+     */
+    private void validateFileSize(
+            Long size,
+            String contentType
+    ) {
+
+        // 파일 크기는 반드시 0보다 커야 한다.
         if (size == null || size <= 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "파일 크기는 0보다 커야 해."
+                    "파일 크기는 0보다 커야 해요."
             );
         }
 
-        if (size > fileProperties.getMaxSize()) {
+        /*
+         * 현재 파일이 영상인지 확인한다.
+         *
+         * 예:
+         * video/mp4       → true
+         * video/webm      → true
+         * image/jpeg      → false
+         */
+        boolean isVideo =
+                fileProperties.getAllowedVideoTypes() != null
+                        && fileProperties
+                        .getAllowedVideoTypes()
+                        .contains(contentType);
+
+        /*
+         * 영상이면 30MB 제한을 사용하고,
+         * 사진이면 기존 10MB 제한을 사용한다.
+         */
+        long maxSize = isVideo
+                ? fileProperties.getMaxVideoSize()
+                : fileProperties.getMaxSize();
+
+        // 파일 종류에 해당하는 최대 크기를 넘었는지 확인한다.
+        if (size > maxSize) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "파일이 너무 커. 업로드 가능한 최대 크기를 확인해줘."
+                    "파일이 너무 커요. 업로드 가능한 최대 크기를 확인해주세요."
             );
         }
     }
@@ -165,7 +212,7 @@ public class S3PresignService {
         if (fileName == null || fileName.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "파일 이름은 비어 있을 수 없어."
+                    "파일 이름은 비어 있을 수 없어요."
             );
         }
 
@@ -175,7 +222,7 @@ public class S3PresignService {
         if (lastDotIndex < 0 || lastDotIndex == fileName.length() - 1) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "파일 확장자를 확인할 수 없어."
+                    "파일 확장자를 확인할 수 없어요."
             );
         }
 
@@ -185,7 +232,7 @@ public class S3PresignService {
         if (extension.length() > 10) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "올바르지 않은 파일 확장자야."
+                    "올바르지 않은 파일 확장자예요."
             );
         }
 
@@ -201,7 +248,7 @@ public class S3PresignService {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "publicBaseUrl 설정이 필요해."
+                    "publicBaseUrl 설정이 필요해요."
             );
         }
 

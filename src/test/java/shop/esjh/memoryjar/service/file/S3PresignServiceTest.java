@@ -89,6 +89,112 @@ class S3PresignServiceTest {
     }
 
     @Test
+    @DisplayName("영상 크기 검증 성공 - 30MB 이하면 presigned URL을 발급한다")
+    void createPresignedUrl_success_videoSizeWithin30MB() {
+        // given
+
+        // 테스트에서 허용하는 이미지/영상 타입을 준비한다.
+        stubAllowedTypes();
+
+        // 사진 제한은 기존처럼 10MB다.
+        stubMaxSize(10L * 1024 * 1024);
+
+        // 영상 제한은 새 정책인 30MB다.
+        stubMaxVideoSize(30L * 1024 * 1024);
+
+        // 실제 presigned URL 생성에 필요한 S3 설정을 준비한다.
+        stubS3BasicConfig();
+        stubPresignerSuccess();
+
+        /*
+         * 정확히 30MB짜리 MP4 영상을 요청한다.
+         *
+         * "최대 30MB"이므로
+         * 30MB까지는 정상적으로 허용되어야 한다.
+         */
+        FilePresignRequest request = new FilePresignRequest(
+                FilePurpose.NOTE,
+                "memory.mp4",
+                "video/mp4",
+                30L * 1024 * 1024
+        );
+
+        // when
+        FilePresignResponse response =
+                s3PresignService.createPresignedUrl(request);
+
+        // then
+        assertThat(response).isNotNull();
+
+        // 용량 검사를 통과했으므로 실제 presign 요청도 실행되어야 한다.
+        verify(
+                s3Presigner,
+                times(1)
+        ).presignPutObject(
+                any(PutObjectPresignRequest.class)
+        );
+    }
+
+    @Test
+    @DisplayName("영상 크기 검증 실패 - 30MB를 넘으면 400")
+    void createPresignedUrl_fail_videoSizeOver30MB() {
+        // given
+        stubAllowedTypes();
+
+        // 사진은 기존 10MB
+        stubMaxSize(10L * 1024 * 1024);
+
+        // 영상은 최대 30MB
+        stubMaxVideoSize(30L * 1024 * 1024);
+
+        /*
+         * 30MB보다 딱 1byte 큰 영상을 만든다.
+         *
+         * 이렇게 경계값을 테스트하면:
+         *
+         * 30MB      → 성공
+         * 30MB + 1B → 실패
+         *
+         * 를 정확하게 검증할 수 있다.
+         */
+        FilePresignRequest request = new FilePresignRequest(
+                FilePurpose.NOTE,
+                "too-large.mp4",
+                "video/mp4",
+                30L * 1024 * 1024 + 1L
+        );
+
+        // when
+        ResponseStatusException ex =
+                catchThrowableOfType(
+                        () ->
+                                s3PresignService
+                                        .createPresignedUrl(request),
+                        ResponseStatusException.class
+                );
+
+        // then
+        assertThat(ex.getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+
+        assertThat(ex.getReason())
+                .isEqualTo(
+                        "파일이 너무 커. 업로드 가능한 최대 크기를 확인해줘."
+                );
+
+        /*
+         * 용량 검사에서 이미 실패했으므로
+         * S3 Presigned URL은 만들어지면 안 된다.
+         */
+        verify(
+                s3Presigner,
+                never()
+        ).presignPutObject(
+                any(PutObjectPresignRequest.class)
+        );
+    }
+
+    @Test
     @DisplayName("presigned URL 생성 성공 - PROFILE 파일이면 profiles 폴더를 사용한다")
     void createPresignedUrl_success_profileFolder() {
         // given
@@ -556,5 +662,16 @@ class S3PresignServiceTest {
 
         when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
                 .thenReturn(presignedPutObjectRequest);
+    }
+
+    /*
+     * 영상 최대 크기를 테스트용으로 지정한다.
+     *
+     * 실제 서비스에서는 application.yml 값이 들어오지만,
+     * 단위 테스트에서는 Mockito가 직접 값을 넣어준다.
+     */
+    private void stubMaxVideoSize(long maxVideoSize) {
+        when(fileProperties.getMaxVideoSize())
+                .thenReturn(maxVideoSize);
     }
 }
