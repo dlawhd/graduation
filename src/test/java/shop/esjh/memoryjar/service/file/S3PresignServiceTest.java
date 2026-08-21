@@ -96,9 +96,6 @@ class S3PresignServiceTest {
         // 테스트에서 허용하는 이미지/영상 타입을 준비한다.
         stubAllowedTypes();
 
-        // 사진 제한은 기존처럼 10MB다.
-        stubMaxSize(10L * 1024 * 1024);
-
         // 영상 제한은 새 정책인 30MB다.
         stubMaxVideoSize(30L * 1024 * 1024);
 
@@ -141,9 +138,6 @@ class S3PresignServiceTest {
         // given
         stubAllowedTypes();
 
-        // 사진은 기존 10MB
-        stubMaxSize(10L * 1024 * 1024);
-
         // 영상은 최대 30MB
         stubMaxVideoSize(30L * 1024 * 1024);
 
@@ -179,7 +173,7 @@ class S3PresignServiceTest {
 
         assertThat(ex.getReason())
                 .isEqualTo(
-                        "파일이 너무 커. 업로드 가능한 최대 크기를 확인해줘."
+                        "파일이 너무 커요. 업로드 가능한 최대 크기를 확인해주세요."
                 );
 
         /*
@@ -347,7 +341,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("contentType은 비어 있을 수 없어.");
+        assertThat(ex.getReason()).isEqualTo("contentType은 비어 있을 수 없어요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -370,7 +364,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("contentType은 비어 있을 수 없어.");
+        assertThat(ex.getReason()).isEqualTo("contentType은 비어 있을 수 없어요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -395,7 +389,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("허용하지 않는 파일 형식이야.");
+        assertThat(ex.getReason()).isEqualTo("허용하지 않는 파일 형식이에요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -420,7 +414,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("파일 크기는 0보다 커야 해.");
+        assertThat(ex.getReason()).isEqualTo("파일 크기는 0보다 커야 해요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -446,7 +440,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("파일이 너무 커. 업로드 가능한 최대 크기를 확인해줘.");
+        assertThat(ex.getReason()).isEqualTo("파일이 너무 커요. 업로드 가능한 최대 크기를 확인해주세요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -469,7 +463,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("허용하지 않는 파일 형식이야.");
+        assertThat(ex.getReason()).isEqualTo("허용하지 않는 파일 형식이에요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -495,7 +489,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("파일 확장자를 확인할 수 없어.");
+        assertThat(ex.getReason()).isEqualTo("파일 확장자를 확인할 수 없어요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -518,7 +512,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("허용하지 않는 파일 형식이야.");
+        assertThat(ex.getReason()).isEqualTo("허용하지 않는 파일 형식이에요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -543,7 +537,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("파일 확장자를 확인할 수 없어.");
+        assertThat(ex.getReason()).isEqualTo("파일 확장자를 확인할 수 없어요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -568,7 +562,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("올바르지 않은 파일 확장자야.");
+        assertThat(ex.getReason()).isEqualTo("올바르지 않은 파일 확장자예요.");
         verify(s3Presigner, never()).presignPutObject(any(PutObjectPresignRequest.class));
     }
 
@@ -600,7 +594,7 @@ class S3PresignServiceTest {
 
         // then
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        assertThat(ex.getReason()).isEqualTo("publicBaseUrl 설정이 필요해.");
+        assertThat(ex.getReason()).isEqualTo("publicBaseUrl 설정이 필요해요.");
     }
 
     @Test
