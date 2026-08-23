@@ -47,10 +47,16 @@ export default function Home({
   // null     : 이동 중 아님
   // "naver"  : 네이버 로그인 화면으로 이동 중
   // "google" : Google 로그인 화면으로 이동 중
+  // "kakao"  : 카카오 로그인 화면으로 이동 중
   //
-  // 기존에는 true / false만 저장해서
-  // Google을 눌러도 "네이버로 이동 중"이라고 표시될 수 있었다.
-  // Provider 이름까지 저장하면 화면 문구도 정확하게 보여줄 수 있다.
+  // 단순히 true / false만 저장하지 않고
+  // Provider 이름 자체를 저장한다.
+  //
+  // 이렇게 하면 사용자가 어떤 로그인 버튼을 눌렀는지에 따라
+  // "네이버로 이동 중..."
+  // "Google로 이동 중..."
+  // "카카오로 이동 중..."
+  // 문구를 정확하게 보여줄 수 있다.
   // --------------------------------------------------------
   const [redirectingProvider, setRedirectingProvider] = useState(null);
 
@@ -96,9 +102,13 @@ export default function Home({
   //
   // naver  → /oauth2/authorization/naver
   // google → /oauth2/authorization/google
+  // kakao  → /oauth2/authorization/kakao
   //
-  // 네이버와 Google이 같은 흐름을 사용하므로
-  // 로그인 함수를 각각 복사해서 만들지 않고 하나로 공통화한다.
+  // NAVER / GOOGLE / KAKAO 모두
+  // Spring Security OAuth2의 같은 시작 구조를 사용한다.
+  //
+  // 그래서 Provider마다 로그인 함수를 따로 만들지 않고,
+  // 하나의 공통 함수에 provider 이름만 전달한다.
   // --------------------------------------------------------
   const handleOAuthLogin = (provider) => {
     if (!BACKEND) {
@@ -248,6 +258,9 @@ export default function Home({
 
               // Google 로그인 버튼을 누르면 Google OAuth를 시작한다.
               onGoogleLogin={() => handleOAuthLogin("google")}
+
+              // 카카오 로그인 버튼을 누르면 Kakao OAuth를 시작한다.
+              onKakaoLogin={() => handleOAuthLogin("kakao")}
             />
           </section>
         </div>

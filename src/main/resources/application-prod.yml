@@ -34,6 +34,22 @@ spring:
             client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID}
             client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET}
 
+          # --------------------------------------------------
+          # Kakao OAuth 배포 환경 인증 정보
+          #
+          # Kakao Developers에서 발급받은
+          # REST API Key와 Client Secret은
+          # GitHub 코드에 직접 저장하지 않는다.
+          #
+          # 실제 값은 운영 서버의 환경변수에서 주입한다.
+          # --------------------------------------------------
+          kakao:
+            # Kakao의 client-id는 "REST API Key"를 사용한다.
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KAKAO_CLIENT_ID}
+
+            # Kakao Developers에서 발급받은 Client Secret을 사용한다.
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KAKAO_CLIENT_SECRET}
+
 app:
   jwt:
     secret: ${APP_JWT_SECRET}

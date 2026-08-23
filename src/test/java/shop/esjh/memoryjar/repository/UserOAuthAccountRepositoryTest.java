@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 주요 검증 내용:
  *
  * 1. provider + providerId로 OAuth 계정을 조회할 수 있는가?
- * 2. 한 User에게 NAVER와 GOOGLE을 동시에 연결할 수 있는가?
+ * 2. 한 User에게 NAVER / GOOGLE / KAKAO를 동시에 연결할 수 있는가?
  * 3. 같은 OAuth 계정이 두 User에게 중복 연결되는 것을 DB가 막는가?
  * 4. 한 User에게 같은 Provider를 두 번 연결하는 것을 DB가 막는가?
  *
@@ -103,39 +103,84 @@ class UserOAuthAccountRepositoryTest
     }
 
     /*
-     * 이번 Google 로그인 기능의 가장 중요한 DB 테스트야.
-     *
      * 한 명의 Memory Jar User에게
-     * NAVER와 GOOGLE 계정을 동시에 저장할 수 있어야 한다.
+     *
+     * NAVER
+     * GOOGLE
+     * KAKAO
+     *
+     * 세 가지 OAuth 로그인 계정을
+     * 동시에 연결할 수 있는지 실제 MariaDB에서 확인한다.
+     *
+     * 이 테스트가 중요한 이유:
+     *
+     * User는 실제 사람 한 명이고,
+     * UserOAuthAccount는 그 사람이 사용하는 로그인 수단이다.
+     *
+     * 따라서 같은 User에게 서로 다른 Provider의 계정이
+     * 각각 하나씩 저장될 수 있어야 한다.
+     *
+     * 최종 구조 예:
+     *
+     * User 1
+     *   ├─ NAVER
+     *   ├─ GOOGLE
+     *   └─ KAKAO
+     *
+     * 이 테스트는 Mockito가 아니라 실제 MariaDB + Flyway를 사용하므로
+     * V29의 KAKAO CHECK 제약 변경까지 함께 검증한다.
      */
     @Test
-    @DisplayName("한 사용자는 NAVER와 GOOGLE 계정을 각각 하나씩 연결할 수 있다")
-    void oneUser_canHaveNaverAndGoogleAccounts() {
+    @DisplayName("한 사용자는 NAVER, GOOGLE, KAKAO 계정을 각각 하나씩 연결할 수 있다")
+    void oneUser_canHaveNaverGoogleAndKakaoAccounts() {
 
         // given
+
+        // Memory Jar 사용자 한 명을 실제 테스트 DB에 저장한다.
         User user = saveUser(
                 "legacy-naver-provider-id-2",
-                "oauth-both@example.com",
-                "두 로그인 사용자"
+                "oauth-three@example.com",
+                "세 로그인 사용자"
         );
 
-        // 같은 User에게 NAVER 로그인 연결
+        // 같은 User에게 NAVER 로그인 계정을 연결한다.
         saveOAuthAccount(
                 user,
                 "NAVER",
                 "naver-account-123"
         );
 
-        // 같은 User에게 GOOGLE 로그인 연결
+        // 같은 User에게 GOOGLE 로그인 계정을 연결한다.
         saveOAuthAccount(
                 user,
                 "GOOGLE",
                 "google-account-456"
         );
 
+        /*
+         * 이번에 새로 추가한 KAKAO 계정도
+         * 같은 User에게 연결한다.
+         *
+         * 실제 카카오 사용자 id는 숫자일 수 있지만,
+         * OAuth2SuccessHandler에서 String으로 바꾼 뒤
+         * UserOAuthAccount에는 문자열로 저장한다.
+         */
+        saveOAuthAccount(
+                user,
+                "KAKAO",
+                "789123456"
+        );
+
+        /*
+         * JPA의 1차 캐시를 비운다.
+         *
+         * 그래야 아래 조회가 메모리에서 가져오는 것이 아니라
+         * 실제 MariaDB를 다시 조회하게 된다.
+         */
         flushAndClear();
 
         // when
+
         UserOAuthAccount naverAccount =
                 userOAuthAccountRepository
                         .findByUser_IdAndProvider(
@@ -152,27 +197,100 @@ class UserOAuthAccountRepositoryTest
                         )
                         .orElseThrow();
 
+        UserOAuthAccount kakaoAccount =
+                userOAuthAccountRepository
+                        .findByUser_IdAndProvider(
+                                user.getId(),
+                                "KAKAO"
+                        )
+                        .orElseThrow();
+
         // then
 
+        // --------------------------------------------------
         // NAVER 연결 확인
-        assertThat(naverAccount.getUser().getId())
-                .isEqualTo(user.getId());
+        // --------------------------------------------------
 
-        assertThat(naverAccount.getProvider())
-                .isEqualTo("NAVER");
+        assertThat(
+                naverAccount.getUser().getId()
+        ).isEqualTo(
+                user.getId()
+        );
 
-        assertThat(naverAccount.getProviderId())
-                .isEqualTo("naver-account-123");
+        assertThat(
+                naverAccount.getProvider()
+        ).isEqualTo(
+                "NAVER"
+        );
 
+        assertThat(
+                naverAccount.getProviderId()
+        ).isEqualTo(
+                "naver-account-123"
+        );
+
+
+        // --------------------------------------------------
         // GOOGLE 연결 확인
-        assertThat(googleAccount.getUser().getId())
-                .isEqualTo(user.getId());
+        // --------------------------------------------------
 
-        assertThat(googleAccount.getProvider())
-                .isEqualTo("GOOGLE");
+        assertThat(
+                googleAccount.getUser().getId()
+        ).isEqualTo(
+                user.getId()
+        );
 
-        assertThat(googleAccount.getProviderId())
-                .isEqualTo("google-account-456");
+        assertThat(
+                googleAccount.getProvider()
+        ).isEqualTo(
+                "GOOGLE"
+        );
+
+        assertThat(
+                googleAccount.getProviderId()
+        ).isEqualTo(
+                "google-account-456"
+        );
+
+
+        // --------------------------------------------------
+        // KAKAO 연결 확인
+        // --------------------------------------------------
+
+        assertThat(
+                kakaoAccount.getUser().getId()
+        ).isEqualTo(
+                user.getId()
+        );
+
+        assertThat(
+                kakaoAccount.getProvider()
+        ).isEqualTo(
+                "KAKAO"
+        );
+
+        assertThat(
+                kakaoAccount.getProviderId()
+        ).isEqualTo(
+                "789123456"
+        );
+
+
+        /*
+         * 마지막으로 세 OAuth 계정 모두
+         * 정확히 같은 Memory Jar User를 가리키는지 다시 확인한다.
+         */
+        assertThat(
+                naverAccount.getUser().getId()
+        ).isEqualTo(
+                googleAccount.getUser().getId()
+        );
+
+        assertThat(
+                googleAccount.getUser().getId()
+        ).isEqualTo(
+                kakaoAccount.getUser().getId()
+        );
     }
 
     /*

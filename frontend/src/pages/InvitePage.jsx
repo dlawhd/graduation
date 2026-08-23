@@ -16,6 +16,21 @@ const JOIN_SUCCESS_DELAY_MS = 5000;
 const INVITE_AUTO_JOIN_KEY = "inviteAutoJoinCode";
 
 /*
+ * 초대 페이지에서 사용할 수 있는 소셜 로그인 Provider 목록이야.
+ *
+ * Provider 검증 코드를 if문으로 길게 늘리지 않고
+ * 한 곳에서 관리할 수 있도록 배열로 모아둔다.
+ *
+ * 앞으로 새로운 소셜 로그인이 추가돼도
+ * 이 배열에 Provider 이름만 추가하면 검증 로직을 재사용할 수 있어.
+ */
+const SUPPORTED_LOGIN_PROVIDERS = [
+  "naver",
+  "google",
+  "kakao",
+];
+
+/*
  * 주소에서 받은 초대코드를 서버가 비교하기 좋은 형태로 정리해.
  */
 function normalizeCode(value) {
@@ -114,6 +129,34 @@ function GoogleLogo() {
 }
 
 /*
+ * KakaoLogo 역할
+ *
+ * 초대 페이지의 카카오 로그인 버튼에 보여줄
+ * 말풍선 모양 아이콘이야.
+ *
+ * 별도 이미지 파일이나 외부 URL을 사용하지 않고
+ * SVG로 직접 표시해서 화면 크기가 달라도 선명하게 보여.
+ *
+ * 버튼 안에 이미 "카카오 로그인"이라는 글자가 있으므로
+ * 스크린리더가 아이콘을 따로 읽지 않도록 aria-hidden을 사용해.
+ */
+function KakaoLogo() {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      {/* 카카오를 쉽게 알아볼 수 있도록 검은색 말풍선 모양을 보여줘. */}
+      <path
+        fill="currentColor"
+        d="M16 5C9.37 5 4 9.14 4 14.25c0 3.3 2.25 6.2 5.64 7.84l-1.43 5.22c-.12.43.37.77.74.52l5.97-3.94c.35.03.71.04 1.08.04 6.63 0 12-4.14 12-9.68S22.63 5 16 5Z"
+      />
+    </svg>
+  );
+}
+
+/*
  * InviteLetterVisual 역할
  *
  * 초대 페이지에서 메인 비주얼을 담당해.
@@ -202,6 +245,7 @@ export default function InvitePage({ me, checkingAuth }) {
   // null     : 이동 중 아님
   // "naver"  : 네이버 로그인으로 이동 중
   // "google" : Google 로그인으로 이동 중
+  // "kakao"  : 카카오 로그인으로 이동 중
   //
   // 사용자가 로그인 버튼을 여러 번 누르는 것을 막고,
   // 어떤 로그인 화면으로 이동 중인지 정확하게 보여주기 위해 사용해.
@@ -243,6 +287,10 @@ export default function InvitePage({ me, checkingAuth }) {
    * provider:
    * - "naver"  → 네이버 로그인
    * - "google" → Google 로그인
+   * - "kakao"  → 카카오 로그인
+   *
+   * NAVER / GOOGLE / KAKAO 모두
+   * 같은 OAuth 로그인 흐름을 사용한다.
    *
    * 어떤 로그인 방법을 선택하더라도 로그인 성공 후에는
    * 다시 현재 초대 페이지로 돌아오고,
@@ -263,9 +311,12 @@ export default function InvitePage({ me, checkingAuth }) {
       }
 
       /*
-       * 실수로 지원하지 않는 Provider 값이 들어오는 것을 막아.
+       * Memory Jar가 지원하는 로그인 Provider인지 확인해.
+       *
+       * Provider 이름을 배열 한 곳에서 관리하므로
+       * NAVER / GOOGLE / KAKAO마다 조건문을 계속 늘릴 필요가 없어.
        */
-      if (provider !== "naver" && provider !== "google") {
+      if (!SUPPORTED_LOGIN_PROVIDERS.includes(provider)) {
         setError("지원하지 않는 로그인 방법이에요.");
         return;
       }
@@ -299,6 +350,10 @@ export default function InvitePage({ me, checkingAuth }) {
        *
        * naver  → /oauth2/authorization/naver
        * google → /oauth2/authorization/google
+       * kakao  → /oauth2/authorization/kakao
+       *
+       * 실제 OAuth 흐름은 백엔드가 담당하므로
+       * 프론트에서는 Provider 이름만 바꿔 같은 코드를 재사용한다.
        */
       window.location.href =
         `${backendUrl}/oauth2/authorization/${provider}`;
@@ -517,7 +572,7 @@ export default function InvitePage({ me, checkingAuth }) {
                 → 기존처럼 바로 저금통 참여 버튼을 보여줘.
 
                 로그인되지 않은 사용자:
-                → 네이버 / Google 중 원하는 로그인 방법을 선택하게 해.
+                → NAVER / GOOGLE / KAKAO 중 원하는 로그인 방법을 선택하게 해.
                ================================================== */}
 
             {canJoin ? (
@@ -541,18 +596,17 @@ export default function InvitePage({ me, checkingAuth }) {
               </button>
             ) : (
               /*
-               * 로그인되지 않은 사용자
-               *
                * 초대받은 사람이 원하는 로그인 방법을
-               * 직접 선택할 수 있도록 두 버튼을 보여줘.
+               * 직접 선택할 수 있도록
+               * NAVER / GOOGLE / KAKAO 로그인 버튼을 보여줘.
                */
               <div className="mx-auto mt-7 w-full max-w-md">
-                {/* 두 로그인 버튼 위에 짧은 안내를 보여줘. */}
+                {/* 소셜 로그인 버튼 위에 짧은 안내를 보여줘. */}
                 <p className="mb-3 text-xs font-bold text-slate-400">
                   로그인 방법을 선택해 주세요.
                 </p>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3">
                   {/* ==================================================
                       네이버 로그인
                      ================================================== */}
@@ -565,7 +619,7 @@ export default function InvitePage({ me, checkingAuth }) {
                       Boolean(redirectingProvider) ||
                       !inviteCode
                     }
-                    className="flex min-h-[54px] items-center justify-center gap-2.5 rounded-2xl bg-[#03C75A] px-4 py-3.5 text-sm font-black text-white shadow-md shadow-emerald-200/60 transition hover:-translate-y-0.5 hover:bg-[#02b852] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-55"
+                    className="flex min-h-[54px] w-full items-center justify-center gap-2.5 rounded-2xl bg-[#03C75A] px-4 py-3.5 text-sm font-black text-white shadow-md shadow-emerald-200/60 transition hover:-translate-y-0.5 hover:bg-[#02b852] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-55"
                   >
                     {redirectingProvider === "naver" ? (
                       /*
@@ -624,7 +678,49 @@ export default function InvitePage({ me, checkingAuth }) {
                         : "Google 로그인"}
                     </span>
                   </button>
-                </div>
+                  {/* ==================================================
+                      Kakao 로그인
+
+                      기존 handleLogin(provider)를 그대로 재사용해서
+                      Spring Security의 Kakao OAuth 로그인을 시작해.
+
+                      모바일과 PC 모두
+                      NAVER / GOOGLE / KAKAO 버튼을
+                      한 줄에 하나씩 세로로 보여줘.
+                     ================================================== */}
+                  <button
+                    type="button"
+                    onClick={() => handleLogin("kakao")}
+                    disabled={
+                      checkingAuth ||
+                      joining ||
+                      Boolean(redirectingProvider) ||
+                      !inviteCode
+                    }
+                    className="flex min-h-[54px] w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-5 py-3 text-base font-extrabold text-[#191919] shadow-md shadow-yellow-200/60 transition hover:-translate-y-0.5 hover:bg-[#f5dc00] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
+                  >
+                    {redirectingProvider === "kakao" ? (
+                      /*
+                       * Kakao 로그인 화면으로 이동 중이면
+                       * 말풍선 대신 로딩 표시를 보여줘.
+                       */
+                      <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-black/15 border-t-black/70" />
+                    ) : (
+                      /*
+                       * 카카오 로그인임을 바로 알아볼 수 있는 말풍선 아이콘
+                       */
+                      <span className="flex h-7 w-7 items-center justify-center text-[#191919]">
+                        <KakaoLogo />
+                      </span>
+                    )}
+
+                    <span className="whitespace-nowrap">
+                      {redirectingProvider === "kakao"
+                        ? "카카오로 이동 중..."
+                        : "카카오 로그인"}
+                    </span>
+                  </button>
+                 </div>
               </div>
             )}
 
@@ -638,6 +734,7 @@ export default function InvitePage({ me, checkingAuth }) {
                 내 저금통 목록 보기
               </button>
             )}
+
 
 
           </>

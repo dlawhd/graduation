@@ -29,15 +29,21 @@ import static org.mockito.Mockito.*;
 /*
  * OAuth2SuccessHandlerTest 역할
  *
- * NAVER / GOOGLE 로그인이 성공했을 때
- * OAuth2SuccessHandler가 사용자 정보를 올바르게 읽고,
+ * NAVER / GOOGLE / KAKAO 로그인이 성공했을 때
+ * OAuth2SuccessHandler가 각 Provider의 사용자 정보를 올바르게 읽고,
  *
- * 1. UserService에 전달하는지
+ * 1. UserService에 정확한 사용자 정보를 전달하는지
  * 2. RefreshToken / AccessToken을 발급하는지
- * 3. 쿠키를 저장하는지
+ * 3. 인증 쿠키를 저장하는지
  * 4. 로그인 성공 페이지로 이동하는지
  *
  * 를 검증한다.
+ *
+ * 특히 KAKAO는:
+ *
+ * - 사용자 id가 Long 숫자로 내려올 수 있고
+ * - 이메일/닉네임이 kakao_account 안에 들어 있으며
+ * - 이메일 유효 여부와 인증 여부도 확인해야 한다.
  *
  * 또한 잘못된 OAuth 사용자 정보가 들어왔을 때
  * 회원 생성이나 토큰 발급까지 진행하지 않는지도 확인한다.
@@ -256,6 +262,682 @@ class OAuth2SuccessHandlerTest {
         );
     }
 
+    /*
+     * KAKAO 로그인이 정상적으로 성공하는지 검증한다.
+     *
+     * Kakao에서 중요한 차이:
+     *
+     * 1. id가 Long 숫자로 내려올 수 있다.
+     * 2. 이메일과 프로필은 kakao_account 안에 들어 있다.
+     * 3. 닉네임은 kakao_account.profile.nickname에 있다.
+     * 4. 이메일 유효 여부와 인증 여부를 함께 확인한다.
+     *
+     * 이 테스트에서는 실제 Kakao와 통신하지 않는다.
+     * Kakao가 보내줄 것과 같은 모양의 가짜 데이터를 만들어서
+     * OAuth2SuccessHandler의 변환 로직만 검사한다.
+     */
+    @Test
+    void onAuthenticationSuccess_카카오_로그인이_성공하면_토큰쿠키를_저장하고_리다이렉트한다()
+            throws Exception {
+
+        // given
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        OAuth2AuthenticationToken authentication =
+                mock(OAuth2AuthenticationToken.class);
+
+        OAuth2User principal =
+                mock(OAuth2User.class);
+
+        /*
+         * Kakao 프로필 정보.
+         *
+         * 실제 응답:
+         *
+         * kakao_account
+         *   └─ profile
+         *       └─ nickname
+         */
+        Map<String, Object> kakaoProfile =
+                new HashMap<>();
+
+        kakaoProfile.put(
+                "nickname",
+                "은서"
+        );
+
+        /*
+         * Kakao 계정 정보.
+         *
+         * 이메일과 이메일 상태,
+         * 프로필 정보가 이 안에 들어 있다.
+         */
+        Map<String, Object> kakaoAccount =
+                new HashMap<>();
+
+        kakaoAccount.put(
+                "email",
+                "user@example.com"
+        );
+
+        kakaoAccount.put(
+                "is_email_valid",
+                true
+        );
+
+        kakaoAccount.put(
+                "is_email_verified",
+                true
+        );
+
+        kakaoAccount.put(
+                "profile",
+                kakaoProfile
+        );
+
+        /*
+         * Kakao의 최상위 OAuth 사용자 정보.
+         *
+         * 중요한 점:
+         *
+         * id를 String이 아니라 Long으로 넣는다.
+         *
+         * 우리가 만든 getIdentifierString()이
+         *
+         * 123456789L
+         * ↓
+         * "123456789"
+         *
+         * 로 제대로 변환하는지도 함께 검증하기 위해서다.
+         */
+        Map<String, Object> kakaoAttributes =
+                new HashMap<>();
+
+        kakaoAttributes.put(
+                "id",
+                123456789L
+        );
+
+        kakaoAttributes.put(
+                "kakao_account",
+                kakaoAccount
+        );
+
+        /*
+         * 이번 인증 Provider는 Kakao라고 알려준다.
+         */
+        when(authentication.getAuthorizedClientRegistrationId())
+                .thenReturn("kakao");
+
+        when(authentication.getPrincipal())
+                .thenReturn(principal);
+
+        when(principal.getAttributes())
+                .thenReturn(kakaoAttributes);
+
+        /*
+         * UserService가 반환할
+         * 최종 Memory Jar User를 준비한다.
+         */
+        User user =
+                mock(User.class);
+
+        when(user.getId())
+                .thenReturn(1L);
+
+        when(user.getEmail())
+                .thenReturn("user@example.com");
+
+        when(user.getName())
+                .thenReturn("은서");
+
+        /*
+         * Kakao에는 birthyear를 요청하지 않지만,
+         * 기존 NAVER 회원과 연결된 경우
+         * DB에 기존 birthyear가 남아 있을 수 있다.
+         */
+        when(user.getBirthyear())
+                .thenReturn("2000");
+
+        /*
+         * Kakao의 숫자 id가
+         * String providerId로 변환되어 전달되어야 한다.
+         */
+        when(userService.findOrCreateOAuthUser(
+                "KAKAO",
+                "123456789",
+                "user@example.com",
+                "은서",
+                null
+        )).thenReturn(user);
+
+        when(refreshTokenService.issue(user))
+                .thenReturn(
+                        "refresh-kakao-token"
+                );
+
+        when(jwtTokenProvider.createAccessToken(
+                eq("1"),
+                anyMap()
+        )).thenReturn(
+                "kakao-access-jwt"
+        );
+
+        // when
+        oAuth2SuccessHandler.onAuthenticationSuccess(
+                request,
+                response,
+                authentication
+        );
+
+        // then
+
+        /*
+         * 가장 중요한 검증.
+         *
+         * Kakao 사용자 정보가
+         * Memory Jar 공통 형식으로 정확히 바뀌었는지 확인한다.
+         */
+        verify(userService)
+                .findOrCreateOAuthUser(
+                        "KAKAO",
+                        "123456789",
+                        "user@example.com",
+                        "은서",
+                        null
+                );
+
+        // RefreshToken 발급
+        verify(refreshTokenService)
+                .issue(user);
+
+        /*
+         * JWT에는 OAuth 원본 데이터가 아니라
+         * 최종 DB User의 정보를 사용해야 한다.
+         */
+        verify(jwtTokenProvider)
+                .createAccessToken(
+                        eq("1"),
+                        argThat(claims ->
+                                "user@example.com".equals(
+                                        claims.get("email")
+                                )
+                                        &&
+                                        "은서".equals(
+                                                claims.get("name")
+                                        )
+                                        &&
+                                        "2000".equals(
+                                                claims.get("birthyear")
+                                        )
+                        )
+                );
+
+        // RefreshToken Cookie 저장
+        verify(authCookieService)
+                .setRefreshCookie(
+                        response,
+                        "refresh-kakao-token"
+                );
+
+        // AccessToken Cookie 저장
+        verify(authCookieService)
+                .setAccessCookie(
+                        response,
+                        "kakao-access-jwt"
+                );
+
+        /*
+         * 최종적으로 기존 NAVER / GOOGLE과 똑같은
+         * Memory Jar 로그인 성공 페이지로 이동해야 한다.
+         */
+        assertThat(
+                response.getRedirectedUrl()
+        ).isEqualTo(
+                "https://www.esjh.shop/login/success"
+        );
+    }
+
+    /*
+     * Kakao 사용자 고유 ID가 없다면
+     * 어떤 Kakao 사용자인지 식별할 수 없으므로
+     * 로그인 처리를 중단해야 한다.
+     */
+    @Test
+    void onAuthenticationSuccess_카카오_ID가_없으면_로그인을_중단한다() {
+
+        // given
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        OAuth2AuthenticationToken authentication =
+                mock(OAuth2AuthenticationToken.class);
+
+        OAuth2User principal =
+                mock(OAuth2User.class);
+
+        Map<String, Object> kakaoProfile =
+                new HashMap<>();
+
+        kakaoProfile.put(
+                "nickname",
+                "은서"
+        );
+
+        Map<String, Object> kakaoAccount =
+                new HashMap<>();
+
+        kakaoAccount.put(
+                "email",
+                "user@example.com"
+        );
+
+        kakaoAccount.put(
+                "is_email_valid",
+                true
+        );
+
+        kakaoAccount.put(
+                "is_email_verified",
+                true
+        );
+
+        kakaoAccount.put(
+                "profile",
+                kakaoProfile
+        );
+
+        Map<String, Object> kakaoAttributes =
+                new HashMap<>();
+
+        /*
+         * id는 일부러 넣지 않는다.
+         */
+        kakaoAttributes.put(
+                "kakao_account",
+                kakaoAccount
+        );
+
+        when(authentication.getAuthorizedClientRegistrationId())
+                .thenReturn("kakao");
+
+        when(authentication.getPrincipal())
+                .thenReturn(principal);
+
+        when(principal.getAttributes())
+                .thenReturn(kakaoAttributes);
+
+        // when & then
+        assertThatThrownBy(() ->
+                oAuth2SuccessHandler
+                        .onAuthenticationSuccess(
+                                request,
+                                response,
+                                authentication
+                        )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "카카오 사용자 ID를 가져오지 못했습니다."
+                );
+
+        /*
+         * 사용자 정보 검증에서 이미 실패했으므로
+         * 회원 생성이나 토큰 발급까지 진행하면 안 된다.
+         */
+        verifyNoInteractions(userService);
+        verifyNoInteractions(refreshTokenService);
+        verifyNoInteractions(jwtTokenProvider);
+        verifyNoInteractions(authCookieService);
+
+        assertThat(
+                response.getRedirectedUrl()
+        ).isNull();
+    }
+
+    /*
+     * Kakao의 kakao_account가 없다면
+     * 이메일과 프로필을 읽을 수 없으므로
+     * 로그인을 중단해야 한다.
+     */
+    @Test
+    void onAuthenticationSuccess_카카오_계정정보가_없으면_로그인을_중단한다() {
+
+        // given
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        OAuth2AuthenticationToken authentication =
+                mock(OAuth2AuthenticationToken.class);
+
+        OAuth2User principal =
+                mock(OAuth2User.class);
+
+        Map<String, Object> kakaoAttributes =
+                new HashMap<>();
+
+        // id는 있지만 kakao_account는 일부러 넣지 않는다.
+        kakaoAttributes.put(
+                "id",
+                123456789L
+        );
+
+        when(authentication.getAuthorizedClientRegistrationId())
+                .thenReturn("kakao");
+
+        when(authentication.getPrincipal())
+                .thenReturn(principal);
+
+        when(principal.getAttributes())
+                .thenReturn(kakaoAttributes);
+
+        // when & then
+        assertThatThrownBy(() ->
+                oAuth2SuccessHandler
+                        .onAuthenticationSuccess(
+                                request,
+                                response,
+                                authentication
+                        )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "카카오 계정 정보를 가져오지 못했습니다."
+                );
+
+        verifyNoInteractions(userService);
+        verifyNoInteractions(refreshTokenService);
+        verifyNoInteractions(jwtTokenProvider);
+        verifyNoInteractions(authCookieService);
+
+        assertThat(
+                response.getRedirectedUrl()
+        ).isNull();
+    }
+
+    /*
+     * 현재 Memory Jar는 이메일을 기준으로
+     * 기존 OAuth 회원과 계정을 연결하므로
+     * Kakao 이메일이 없으면 로그인할 수 없다.
+     */
+    @Test
+    void onAuthenticationSuccess_카카오_이메일이_없으면_로그인을_중단한다() {
+
+        // given
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        OAuth2AuthenticationToken authentication =
+                mock(OAuth2AuthenticationToken.class);
+
+        OAuth2User principal =
+                mock(OAuth2User.class);
+
+        Map<String, Object> kakaoProfile =
+                new HashMap<>();
+
+        kakaoProfile.put(
+                "nickname",
+                "은서"
+        );
+
+        Map<String, Object> kakaoAccount =
+                new HashMap<>();
+
+        // email은 일부러 넣지 않는다.
+        kakaoAccount.put(
+                "is_email_valid",
+                true
+        );
+
+        kakaoAccount.put(
+                "is_email_verified",
+                true
+        );
+
+        kakaoAccount.put(
+                "profile",
+                kakaoProfile
+        );
+
+        Map<String, Object> kakaoAttributes =
+                new HashMap<>();
+
+        kakaoAttributes.put(
+                "id",
+                123456789L
+        );
+
+        kakaoAttributes.put(
+                "kakao_account",
+                kakaoAccount
+        );
+
+        when(authentication.getAuthorizedClientRegistrationId())
+                .thenReturn("kakao");
+
+        when(authentication.getPrincipal())
+                .thenReturn(principal);
+
+        when(principal.getAttributes())
+                .thenReturn(kakaoAttributes);
+
+        // when & then
+        assertThatThrownBy(() ->
+                oAuth2SuccessHandler
+                        .onAuthenticationSuccess(
+                                request,
+                                response,
+                                authentication
+                        )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "카카오 이메일을 가져오지 못했습니다."
+                );
+
+        verifyNoInteractions(userService);
+        verifyNoInteractions(refreshTokenService);
+        verifyNoInteractions(jwtTokenProvider);
+        verifyNoInteractions(authCookieService);
+
+        assertThat(
+                response.getRedirectedUrl()
+        ).isNull();
+    }
+
+    /*
+     * Kakao가 유효하지 않다고 알려준 이메일로
+     * 기존 Memory Jar 회원을 자동 연결하면 안 된다.
+     */
+    @Test
+    void onAuthenticationSuccess_카카오_이메일이_유효하지_않으면_로그인을_중단한다() {
+
+        // given
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        OAuth2AuthenticationToken authentication =
+                mock(OAuth2AuthenticationToken.class);
+
+        OAuth2User principal =
+                mock(OAuth2User.class);
+
+        Map<String, Object> kakaoAccount =
+                new HashMap<>();
+
+        kakaoAccount.put(
+                "email",
+                "user@example.com"
+        );
+
+        // 일부러 false
+        kakaoAccount.put(
+                "is_email_valid",
+                false
+        );
+
+        kakaoAccount.put(
+                "is_email_verified",
+                true
+        );
+
+        Map<String, Object> kakaoAttributes =
+                new HashMap<>();
+
+        kakaoAttributes.put(
+                "id",
+                123456789L
+        );
+
+        kakaoAttributes.put(
+                "kakao_account",
+                kakaoAccount
+        );
+
+        when(authentication.getAuthorizedClientRegistrationId())
+                .thenReturn("kakao");
+
+        when(authentication.getPrincipal())
+                .thenReturn(principal);
+
+        when(principal.getAttributes())
+                .thenReturn(kakaoAttributes);
+
+        // when & then
+        assertThatThrownBy(() ->
+                oAuth2SuccessHandler
+                        .onAuthenticationSuccess(
+                                request,
+                                response,
+                                authentication
+                        )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "유효하지 않은 카카오 이메일입니다."
+                );
+
+        verifyNoInteractions(userService);
+        verifyNoInteractions(refreshTokenService);
+        verifyNoInteractions(jwtTokenProvider);
+        verifyNoInteractions(authCookieService);
+
+        assertThat(
+                response.getRedirectedUrl()
+        ).isNull();
+    }
+
+    /*
+     * Kakao가 인증하지 않은 이메일은
+     * 같은 이메일의 기존 회원에게 자동 연결하지 않는다.
+     */
+    @Test
+    void onAuthenticationSuccess_카카오_이메일이_인증되지_않으면_로그인을_중단한다() {
+
+        // given
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        OAuth2AuthenticationToken authentication =
+                mock(OAuth2AuthenticationToken.class);
+
+        OAuth2User principal =
+                mock(OAuth2User.class);
+
+        Map<String, Object> kakaoAccount =
+                new HashMap<>();
+
+        kakaoAccount.put(
+                "email",
+                "user@example.com"
+        );
+
+        kakaoAccount.put(
+                "is_email_valid",
+                true
+        );
+
+        // 일부러 인증되지 않은 상태
+        kakaoAccount.put(
+                "is_email_verified",
+                false
+        );
+
+        Map<String, Object> kakaoAttributes =
+                new HashMap<>();
+
+        kakaoAttributes.put(
+                "id",
+                123456789L
+        );
+
+        kakaoAttributes.put(
+                "kakao_account",
+                kakaoAccount
+        );
+
+        when(authentication.getAuthorizedClientRegistrationId())
+                .thenReturn("kakao");
+
+        when(authentication.getPrincipal())
+                .thenReturn(principal);
+
+        when(principal.getAttributes())
+                .thenReturn(kakaoAttributes);
+
+        // when & then
+        assertThatThrownBy(() ->
+                oAuth2SuccessHandler
+                        .onAuthenticationSuccess(
+                                request,
+                                response,
+                                authentication
+                        )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "확인되지 않은 카카오 이메일입니다."
+                );
+
+        verifyNoInteractions(userService);
+        verifyNoInteractions(refreshTokenService);
+        verifyNoInteractions(jwtTokenProvider);
+        verifyNoInteractions(authCookieService);
+
+        assertThat(
+                response.getRedirectedUrl()
+        ).isNull();
+    }
     /*
      * 새로 추가한 GOOGLE 로그인 성공 흐름을 검증한다.
      */

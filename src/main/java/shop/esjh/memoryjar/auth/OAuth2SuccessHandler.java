@@ -22,23 +22,40 @@ import java.util.Map;
 /*
  * OAuth2SuccessHandler 역할
  *
- * NAVER 또는 GOOGLE 로그인이 성공한 뒤
+ * NAVER / GOOGLE / KAKAO 로그인이 성공한 뒤
  * Memory Jar의 실제 로그인 처리를 마무리하는 클래스야.
+ *
+ * 각 소셜 로그인 회사는 사용자 정보를 서로 다른 모양으로 내려준다.
+ *
+ * 예:
+ *
+ * NAVER
+ * → response.id / response.email / response.name
+ *
+ * GOOGLE
+ * → sub / email / email_verified / name
+ *
+ * KAKAO
+ * → id / kakao_account.email / kakao_account.profile.nickname
+ *
+ * 이 클래스는 이렇게 서로 다른 응답을
+ * Memory Jar에서 사용하는 하나의 OAuthProfile 형태로 바꿔준다.
  *
  * 전체 흐름:
  *
  * 1. 어떤 OAuth Provider로 로그인했는지 확인
- * 2. NAVER / GOOGLE 사용자 정보를 각각의 형식에 맞게 읽기
- * 3. OAuth 계정을 Memory Jar User와 연결
- * 4. RefreshToken 발급
- * 5. AccessToken(JWT) 발급
- * 6. 토큰을 HttpOnly Cookie에 저장
- * 7. 프론트 로그인 성공 페이지로 이동
+ * 2. NAVER / GOOGLE / KAKAO 사용자 정보를 각 형식에 맞게 읽기
+ * 3. 공통 OAuthProfile로 변환
+ * 4. OAuth 계정을 Memory Jar User와 연결
+ * 5. RefreshToken 발급
+ * 6. AccessToken(JWT) 발급
+ * 7. 토큰을 HttpOnly Cookie에 저장
+ * 8. 프론트 로그인 성공 페이지로 이동
  *
  * 중요한 점:
  *
- * NAVER와 GOOGLE은 사용자 정보를 내려주는 모양이 다르지만
- * 최종적으로는 둘 다 UserService.findOrCreateOAuthUser()로 보내서
+ * 소셜 로그인 회사가 달라도
+ * 최종적으로는 모두 UserService.findOrCreateOAuthUser()로 보내므로
  * 같은 Memory Jar 회원 체계를 사용한다.
  */
 @Component
@@ -85,7 +102,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /*
-     * NAVER 또는 GOOGLE 로그인이 성공하면
+     * NAVER / GOOGLE / KAKAO 로그인이 성공하면
      * Spring Security가 자동으로 호출하는 메서드야.
      */
     @Override
@@ -124,8 +141,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 token.getPrincipal().getAttributes();
 
         /*
-         * NAVER와 GOOGLE은 사용자 정보 구조가 다르므로
-         * Provider별로 알맞은 방법을 사용해서
+         * NAVER / GOOGLE / KAKAO는 사용자 정보 구조가 서로 다르므로
+         * Provider별 전용 메서드로 읽은 뒤
          * 공통 OAuthProfile 형태로 바꾼다.
          */
         OAuthProfile profile =
@@ -135,8 +152,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 );
 
         /*
-         * NAVER / GOOGLE 모두 현재 출생연도를 OAuth에서 받지 않는다.
-         *
+         * NAVER / GOOGLE / KAKAO 모두
+         * 현재 출생연도를 OAuth 로그인에서 새로 받지 않는다.
          * UserService의 기존 메서드 구조는 그대로 유지하되,
          * birthyear 자리에는 null을 전달한다.
          *
@@ -163,7 +180,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         /*
          * JWT subject는 Memory Jar의 User ID다.
          *
-         * NAVER로 로그인하든 GOOGLE로 로그인하든
+         * NAVER / GOOGLE / KAKAO 중 어떤 방식으로 로그인하더라도
          * 같은 User라면 동일한 userId를 사용한다.
          */
         String subject =
@@ -276,6 +293,12 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             // GOOGLE 사용자 정보 읽기
             case "google" ->
                     extractGoogleProfile(attributes);
+
+            /*
+             * KAKAO 사용자 정보 읽기
+             */
+            case "kakao" ->
+                    extractKakaoProfile(attributes);
 
             // 현재 지원하지 않는 OAuth 로그인
             default ->
@@ -449,6 +472,188 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /*
+     * KAKAO 사용자 정보를 읽는다.
+     *
+     * Kakao는 NAVER / GOOGLE과 사용자 정보 구조가 다르다.
+     *
+     * 대표적인 Kakao 사용자 정보 응답은 다음과 같은 모양이다.
+     *
+     * {
+     *   "id": 123456789,
+     *   "kakao_account": {
+     *     "profile": {
+     *       "nickname": "은서"
+     *     },
+     *     "email": "user@example.com",
+     *     "is_email_valid": true,
+     *     "is_email_verified": true
+     *   }
+     * }
+     *
+     * Memory Jar에서는 다음 정보만 사용한다.
+     *
+     * id
+     * → Kakao 사용자의 고유 식별값
+     *
+     * kakao_account.email
+     * → 기존 Memory Jar 회원과 연결할 이메일
+     *
+     * kakao_account.is_email_valid
+     * → 현재 사용할 수 있는 이메일인지 확인
+     *
+     * kakao_account.is_email_verified
+     * → Kakao가 인증한 이메일인지 확인
+     *
+     * kakao_account.profile.nickname
+     * → Memory Jar에서 사용할 사용자 이름
+     */
+    private OAuthProfile extractKakaoProfile(
+            Map<String, Object> attributes
+    ) {
+
+        /*
+         * Kakao의 사용자 ID는 문자열이 아니라
+         * Long 같은 숫자 타입으로 내려올 수 있다.
+         *
+         * 기존 getString()은 String만 읽을 수 있으므로
+         * Kakao ID는 아래에서 추가할 getIdentifierString()을 사용한다.
+         *
+         * 예:
+         *
+         * 123456789L
+         * ↓
+         * "123456789"
+         */
+        String providerId =
+                getIdentifierString(
+                        attributes.get("id")
+                );
+
+        /*
+         * 이메일과 프로필은
+         * 최상위가 아니라 kakao_account 안에 들어 있다.
+         */
+        Object kakaoAccountValue =
+                attributes.get("kakao_account");
+
+        /*
+         * kakao_account 자체가 없다면
+         * 필요한 사용자 정보를 가져올 수 없으므로 로그인을 중단한다.
+         */
+        if (!(kakaoAccountValue instanceof Map<?, ?> kakaoAccount)) {
+            throw new IllegalArgumentException(
+                    "카카오 계정 정보를 가져오지 못했습니다."
+            );
+        }
+
+        // 사용자가 동의한 카카오계정 대표 이메일
+        String email =
+                getString(
+                        kakaoAccount.get("email")
+                );
+
+        /*
+         * 카카오가 알려주는 이메일 유효 여부다.
+         *
+         * true
+         * → 현재 사용할 수 있는 이메일
+         *
+         * false
+         * → 유효하지 않은 이메일
+         */
+        boolean emailValid =
+                Boolean.TRUE.equals(
+                        kakaoAccount.get("is_email_valid")
+                );
+
+        /*
+         * 카카오에서 이메일 인증이 끝난 계정인지 확인한다.
+         *
+         * Memory Jar는 같은 이메일을 기준으로
+         * 기존 NAVER / GOOGLE 사용자와 OAuth 계정을 자동 연결할 수 있으므로
+         * 검증된 이메일만 사용한다.
+         */
+        boolean emailVerified =
+                Boolean.TRUE.equals(
+                        kakaoAccount.get("is_email_verified")
+                );
+
+        /*
+         * Kakao 닉네임은
+         *
+         * kakao_account
+         *   └── profile
+         *         └── nickname
+         *
+         * 구조로 들어 있다.
+         */
+        String name = null;
+
+        Object profileValue =
+                kakaoAccount.get("profile");
+
+        if (profileValue instanceof Map<?, ?> profile) {
+            name =
+                    getString(
+                            profile.get("nickname")
+                    );
+        }
+
+        /*
+         * Kakao 회원번호가 없다면
+         * 어떤 Kakao 사용자인지 구분할 수 없으므로 로그인하지 않는다.
+         */
+        if (!StringUtils.hasText(providerId)) {
+            throw new IllegalArgumentException(
+                    "카카오 사용자 ID를 가져오지 못했습니다."
+            );
+        }
+
+        /*
+         * 현재 Memory Jar는 이메일을 기준으로
+         * 기존 소셜 로그인 회원과 계정을 연결하기 때문에
+         * 이메일이 반드시 필요하다.
+         */
+        if (!StringUtils.hasText(email)) {
+            throw new IllegalArgumentException(
+                    "카카오 이메일을 가져오지 못했습니다."
+            );
+        }
+
+        /*
+         * 유효하지 않은 이메일을 기존 회원과 연결하면 안 되므로
+         * Kakao가 유효하다고 확인한 이메일만 허용한다.
+         */
+        if (!emailValid) {
+            throw new IllegalArgumentException(
+                    "유효하지 않은 카카오 이메일입니다."
+            );
+        }
+
+        /*
+         * 이메일 기반 자동 계정 연결은 보안에 중요한 작업이므로
+         * Kakao에서 인증이 완료된 이메일만 사용한다.
+         */
+        if (!emailVerified) {
+            throw new IllegalArgumentException(
+                    "확인되지 않은 카카오 이메일입니다."
+            );
+        }
+
+        /*
+         * 이제 NAVER / GOOGLE과 동일한 OAuthProfile 형태로 만들어
+         * 기존 UserService에 그대로 전달한다.
+         */
+        return new OAuthProfile(
+                "KAKAO",
+                providerId,
+                email,
+                name
+        );
+    }
+
+
+    /*
      * OAuth 응답 값이 String인지 안전하게 확인해서 꺼낸다.
      *
      * 값이 없거나 String이 아니면 null을 반환한다.
@@ -463,10 +668,56 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /*
+     * OAuth Provider의 사용자 고유 ID를
+     * Memory Jar에서 사용할 String 형태로 안전하게 바꾼다.
+     *
+     * Provider마다 사용자 ID의 자료형이 다를 수 있다.
+     *
+     * NAVER / GOOGLE
+     * → 보통 String
+     *
+     * KAKAO
+     * → Long 같은 Number 타입으로 내려올 수 있음
+     *
+     * DB의 UserOAuthAccount.providerId는 String으로 관리하므로
+     * 두 경우를 모두 String으로 통일한다.
+     */
+    private String getIdentifierString(Object value) {
+
+        // 이미 문자열이라면 그대로 사용한다.
+        if (value instanceof String text) {
+            return text;
+        }
+
+        /*
+         * Kakao처럼 숫자로 내려온 사용자 ID는
+         * 문자열로 변환한다.
+         *
+         * 예:
+         *
+         * 123456789L
+         * ↓
+         * "123456789"
+         */
+        if (value instanceof Number number) {
+            return String.valueOf(
+                    number
+            );
+        }
+
+        // 지원하지 않는 타입이거나 값이 없으면 null
+        return null;
+    }
+
+    /*
      * OAuthProfile 역할
      *
-     * NAVER와 GOOGLE의 서로 다른 응답 형태를
+     * NAVER / GOOGLE / KAKAO의 서로 다른 사용자 정보 응답을
      * UserService가 이해하기 쉬운 하나의 공통 모양으로 바꾼 객체야.
+     *
+     * OAuth Provider마다 응답 JSON의 구조는 다르지만,
+     * 이 객체를 만든 뒤부터는 UserService가 Provider별 JSON 구조를
+     * 알 필요가 없다.
      *
      * Memory Jar에서 OAuth 로그인에 실제로 사용하는 정보만 담는다.
      *
@@ -478,8 +729,11 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
      * GOOGLE
      * → GOOGLE / sub / email / name
      *
-     * birthyear는 실제 서비스에서 사용하지 않으므로
-     * OAuth Provider에 요청하거나 이 객체에 보관하지 않는다.
+     * KAKAO
+     * → KAKAO / id / email / nickname
+     *
+     * birthyear는 현재 OAuth Provider에서 새로 요청하지 않으며,
+     * 기존 User에 저장되어 있는 값이 있다면 그대로 유지한다.
      */
     private record OAuthProfile(
             String provider,

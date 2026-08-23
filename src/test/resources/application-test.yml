@@ -38,10 +38,27 @@ spring:
               - profile
               - email
 
+          # --------------------------------------------------
+          # Kakao OAuth 테스트용 가짜 인증 정보
+          #
+          # 실제 Kakao REST API Key / Client Secret은 사용하지 않는다.
+          #
+          # 나머지 Kakao OAuth 설정
+          # (scope, redirect-uri, client-authentication-method 등)은
+          # application.yml의 공통 설정을 그대로 재사용한다.
+          # --------------------------------------------------
+          kakao:
+            client-id: test-kakao-client-id
+            client-secret: test-kakao-client-secret
+
         # --------------------------------------------------
-        # 네이버는 Spring 기본 Provider가 아니므로
-        # 테스트 환경에서도 Provider 정보를 직접 알려준다.
-        # Google은 Spring 기본 Provider라 별도 설정이 필요 없다.
+        # Naver / Kakao는 Spring 기본 OAuth Provider가 아니다.
+        #
+        # Naver Provider 정보는 이 테스트 설정에 직접 작성되어 있고,
+        # Kakao Provider 정보는 application.yml의 공통 설정을 재사용한다.
+        #
+        # Google은 Spring Security가 기본 Provider 정보를 알고 있어서
+        # 별도의 Provider 주소 설정이 필요 없다.
         # --------------------------------------------------
         provider:
           naver:

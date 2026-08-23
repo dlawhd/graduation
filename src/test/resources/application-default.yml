@@ -5,7 +5,7 @@
 # Spring의 default 프로필로 실행될 때 사용하는
 # 테스트 전용 설정 파일이다.
 #
-# 실제 Google / Naver / AWS 비밀정보는 넣지 않고
+# 실제 Google / Naver / Kakao / AWS 비밀정보는 넣지 않고
 # Spring Context를 생성할 수 있는 가짜 테스트 값만 사용한다.
 # --------------------------------------------------
 
@@ -32,6 +32,16 @@ spring:
             client-id: test-google-client-id
             client-secret: test-google-client-secret
 
+          # --------------------------------------------------
+          # Kakao OAuth 테스트용 가짜 인증 정보
+          #
+          # 실제 Kakao REST API Key / Client Secret을 사용하는 것이 아니라
+          # Spring이 Kakao ClientRegistration을 생성할 수 있도록
+          # 안전한 가짜 테스트 값만 사용한다.
+          # --------------------------------------------------
+          kakao:
+            client-id: test-kakao-client-id
+            client-secret: test-kakao-client-secret
 
 app:
   # --------------------------------------------------
