@@ -327,7 +327,12 @@ export default function SessionExpiredPage({
       <div className="pointer-events-none absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-100/55 blur-3xl" />
 
 
-      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-160px)] w-full max-w-3xl items-center justify-center">
+      {/*
+       * 로그인 첫 화면처럼
+       * 내용이 너무 좌우로 퍼지지 않도록
+       * 세션 만료 카드의 최대 너비를 조금 줄인다.
+       */}
+      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-160px)] w-full max-w-2xl items-center justify-center">
 
         <section className="w-full rounded-[38px] border border-white/80 bg-white/80 px-6 py-9 text-center shadow-[0_28px_90px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:px-12 sm:py-11">
 
@@ -346,16 +351,16 @@ export default function SessionExpiredPage({
           {/* ==================================================
               로그인 만료를 표현하는 Memory Jar 아이콘
              ================================================== */}
-          <div className="relative mx-auto my-7 flex h-44 w-44 items-center justify-center sm:h-52 sm:w-52">
+          <div className="relative mx-auto my-6 flex h-36 w-36 items-center justify-center sm:h-40 sm:w-40">
 
             <div className="absolute inset-4 rounded-full bg-gradient-to-br from-emerald-200/65 via-cyan-100/70 to-violet-100/70 blur-3xl" />
 
             <div className="relative rounded-full border border-white/90 bg-white/65 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
-              <MemoryJarLogoIcon className="h-28 w-28 sm:h-32 sm:w-32" />
+              <MemoryJarLogoIcon className="h-24 w-24 sm:h-28 sm:w-28" />
             </div>
 
             {/* 작은 자물쇠 표시 */}
-            <div className="absolute bottom-4 right-3 flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-slate-800 text-lg text-white shadow-lg">
+            <div className="absolute bottom-2 right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-slate-800 text-base text-white shadow-lg">
               🔒
             </div>
           </div>
@@ -388,86 +393,84 @@ export default function SessionExpiredPage({
           )}
 
 
-          {/* ==================================================
-              소셜 로그인 선택 안내
-             ================================================== */}
-          <p className="mt-7 text-sm font-bold text-slate-600">
-            다시 로그인할 방법을 선택해 주세요.
+          {/* 첫 로그인 화면과 동일한 느낌의 소셜 로그인 안내 */}
+          <p className="mt-7 text-[11px] font-bold text-slate-400">
+            소셜 계정으로 다시 로그인
           </p>
 
 
           {/* ==================================================
-              NAVER / GOOGLE / KAKAO 로그인 버튼
-             ================================================== */}
-          <div className="mx-auto mt-4 grid w-full max-w-sm gap-3">
+              NAVER / GOOGLE / KAKAO 재로그인
 
-            {/* NAVER 로그인 */}
+              로그인 첫 화면과 디자인을 통일하기 위해
+              큰 가로 버튼 대신 동그란 아이콘 버튼 3개를
+              가로 한 줄로 보여준다.
+
+              Provider 이름은 화면에 따로 쓰지 않고
+              aria-label / title로 접근성은 유지한다.
+             ================================================== */}
+          <div className="mx-auto mt-4 flex items-center justify-center gap-6">
+
+            {/* ==================================================
+                NAVER
+               ================================================== */}
             <button
               type="button"
               onClick={() => handleLogin("naver")}
               disabled={isRedirecting}
-              className="inline-flex min-h-[52px] items-center justify-center gap-3 rounded-2xl bg-[#03C75A] px-5 py-3 text-sm font-black text-white shadow-[0_12px_28px_rgba(3,199,90,0.22)] transition hover:-translate-y-0.5 hover:bg-[#02b351] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+              aria-label="네이버로 다시 로그인"
+              title="네이버로 다시 로그인"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#03C75A] text-white shadow-md shadow-emerald-200/70 transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
             >
+              {/*
+               * 네이버 로그인으로 이동 중이면
+               * N 대신 로딩 표시를 보여준다.
+               */}
               {redirectingProvider === "naver" ? (
-                <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />
+                <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
               ) : (
                 <NaverLogo />
               )}
-
-              <span>
-                {redirectingProvider === "naver"
-                  ? "네이버로 이동 중..."
-                  : "네이버로 다시 로그인"}
-              </span>
-            </button>
-
-
-            {/* GOOGLE 로그인 */}
-            <button
-              type="button"
-              onClick={() => handleLogin("google")}
-              disabled={isRedirecting}
-              className="inline-flex min-h-[52px] items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
-            >
-              {redirectingProvider === "google" ? (
-                <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-slate-200 border-t-slate-600" />
-              ) : (
-                <GoogleLogo />
-              )}
-
-              <span>
-                {redirectingProvider === "google"
-                  ? "Google로 이동 중..."
-                  : "Google로 다시 로그인"}
-              </span>
             </button>
 
 
             {/* ==================================================
-                KAKAO 로그인
+                GOOGLE
+               ================================================== */}
+            <button
+              type="button"
+              onClick={() => handleLogin("google")}
+              disabled={isRedirecting}
+              aria-label="Google로 다시 로그인"
+              title="Google로 다시 로그인"
+              className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-md shadow-slate-200/70 transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+            >
+              {redirectingProvider === "google" ? (
+                <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-slate-200 border-t-blue-500" />
+              ) : (
+                <GoogleLogo />
+              )}
+            </button>
 
-                NAVER / GOOGLE 버튼과 동일하게
-                모바일과 PC 모두 한 줄 전체를 사용한다.
+
+            {/* ==================================================
+                KAKAO
                ================================================== */}
             <button
               type="button"
               onClick={() => handleLogin("kakao")}
               disabled={isRedirecting}
-              className="inline-flex min-h-[52px] w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-5 py-3 text-sm font-black text-[#191919] shadow-[0_12px_28px_rgba(254,229,0,0.22)] transition hover:-translate-y-0.5 hover:bg-[#f5dc00] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"            >
+              aria-label="카카오로 다시 로그인"
+              title="카카오로 다시 로그인"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FEE500] text-[#191919] shadow-md shadow-yellow-200/70 transition hover:-translate-y-1 hover:bg-[#f5dc00] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+            >
               {redirectingProvider === "kakao" ? (
                 <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-black/15 border-t-black/70" />
               ) : (
-                <span className="text-[#191919]">
-                  <KakaoLogo />
-                </span>
+                <KakaoLogo />
               )}
-
-              <span>
-                {redirectingProvider === "kakao"
-                  ? "카카오로 이동 중..."
-                  : "카카오로 다시 로그인"}
-              </span>
             </button>
+
           </div>
 
 

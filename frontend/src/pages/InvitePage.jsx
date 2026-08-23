@@ -542,7 +542,7 @@ export default function InvitePage({ me, checkingAuth }) {
 
             {/* 로그인 여부 안내 */}
             <div
-              className="mx-auto mt-4 max-w-md rounded-2xl border border-cyan-100 bg-cyan-50/75 px-4 py-3 text-sm font-semibold leading-6 text-cyan-800"
+              className="mx-auto mt-4 max-w-md rounded-[22px] border border-cyan-100 bg-cyan-50/70 px-5 py-3 text-sm font-semibold leading-6 text-cyan-800 shadow-sm"
               role="status"
               aria-live="polite"
             >
@@ -596,19 +596,33 @@ export default function InvitePage({ me, checkingAuth }) {
               </button>
             ) : (
               /*
-               * 초대받은 사람이 원하는 로그인 방법을
-               * 직접 선택할 수 있도록
-               * NAVER / GOOGLE / KAKAO 로그인 버튼을 보여줘.
+               * 로그인되지 않은 사용자
+               *
+               * 로그인 첫 화면과 디자인을 통일해서
+               * NAVER / GOOGLE / KAKAO를
+               * 동그란 아이콘 3개로 보여준다.
+               *
+               * 실제 OAuth 로그인 로직은 기존 handleLogin(provider)를
+               * 그대로 사용하므로 기능 변경은 없다.
                */
               <div className="mx-auto mt-7 w-full max-w-md">
-                {/* 소셜 로그인 버튼 위에 짧은 안내를 보여줘. */}
-                <p className="mb-3 text-xs font-bold text-slate-400">
-                  로그인 방법을 선택해 주세요.
+
+                {/* 소셜 로그인 안내 */}
+                <p className="mb-4 text-[11px] font-bold text-slate-400">
+                  소셜 계정으로 로그인하고 초대를 받아보세요.
                 </p>
 
-                <div className="grid gap-3">
+
+                {/* ==================================================
+                    NAVER / GOOGLE / KAKAO
+
+                    로그인 첫 화면과 동일하게
+                    아이콘만 가로 한 줄로 보여준다.
+                   ================================================== */}
+                <div className="flex items-center justify-center gap-6">
+
                   {/* ==================================================
-                      네이버 로그인
+                      NAVER 로그인
                      ================================================== */}
                   <button
                     type="button"
@@ -619,32 +633,26 @@ export default function InvitePage({ me, checkingAuth }) {
                       Boolean(redirectingProvider) ||
                       !inviteCode
                     }
-                    className="flex min-h-[54px] w-full items-center justify-center gap-2.5 rounded-2xl bg-[#03C75A] px-4 py-3.5 text-sm font-black text-white shadow-md shadow-emerald-200/60 transition hover:-translate-y-0.5 hover:bg-[#02b852] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-55"
+                    aria-label="네이버 로그인"
+                    title="네이버 로그인"
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-[#03C75A] text-white shadow-md shadow-emerald-200/70 transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
                   >
                     {redirectingProvider === "naver" ? (
                       /*
-                       * 네이버 로그인 화면으로 이동 중일 때
-                       * 로딩 표시를 보여줘.
+                       * 네이버 인증 화면으로 이동 중일 때
+                       * N 대신 로딩 표시를 보여준다.
                        */
-                      <span className="h-5 w-5 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
+                      <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
                     ) : (
-                      /*
-                       * 네이버 로그인임을 바로 알아볼 수 있는 N 표시야.
-                       */
-                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 text-sm font-black">
+                      <span className="text-lg font-black">
                         N
                       </span>
                     )}
-
-                    <span>
-                      {redirectingProvider === "naver"
-                        ? "이동 중..."
-                        : "네이버 로그인"}
-                    </span>
                   </button>
 
+
                   {/* ==================================================
-                      Google 로그인
+                      GOOGLE 로그인
                      ================================================== */}
                   <button
                     type="button"
@@ -655,38 +663,20 @@ export default function InvitePage({ me, checkingAuth }) {
                       Boolean(redirectingProvider) ||
                       !inviteCode
                     }
-                    className="flex min-h-[54px] w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-base font-extrabold text-slate-700 shadow-md shadow-slate-200/60 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
+                    aria-label="Google 로그인"
+                    title="Google 로그인"
+                    className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-md shadow-slate-200/70 transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
                   >
                     {redirectingProvider === "google" ? (
-                      /*
-                       * Google 로그인 화면으로 이동하는 동안에는
-                       * 로고 대신 로딩 표시를 보여준다.
-                       */
-                      <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-slate-200 border-t-blue-500" />
+                      <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-slate-200 border-t-blue-500" />
                     ) : (
-                      /*
-                       * 첫 로그인 화면과 동일한 Google 4색 로고
-                       */
-                      <span className="flex h-7 w-7 items-center justify-center">
-                        <GoogleLogo />
-                      </span>
+                      <GoogleLogo />
                     )}
-
-                    <span className="whitespace-nowrap">
-                      {redirectingProvider === "google"
-                        ? "Google로 이동 중..."
-                        : "Google 로그인"}
-                    </span>
                   </button>
+
+
                   {/* ==================================================
-                      Kakao 로그인
-
-                      기존 handleLogin(provider)를 그대로 재사용해서
-                      Spring Security의 Kakao OAuth 로그인을 시작해.
-
-                      모바일과 PC 모두
-                      NAVER / GOOGLE / KAKAO 버튼을
-                      한 줄에 하나씩 세로로 보여줘.
+                      KAKAO 로그인
                      ================================================== */}
                   <button
                     type="button"
@@ -697,30 +687,40 @@ export default function InvitePage({ me, checkingAuth }) {
                       Boolean(redirectingProvider) ||
                       !inviteCode
                     }
-                    className="flex min-h-[54px] w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-5 py-3 text-base font-extrabold text-[#191919] shadow-md shadow-yellow-200/60 transition hover:-translate-y-0.5 hover:bg-[#f5dc00] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
+                    aria-label="카카오 로그인"
+                    title="카카오 로그인"
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FEE500] text-[#191919] shadow-md shadow-yellow-200/70 transition hover:-translate-y-1 hover:bg-[#f5dc00] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
                   >
                     {redirectingProvider === "kakao" ? (
-                      /*
-                       * Kakao 로그인 화면으로 이동 중이면
-                       * 말풍선 대신 로딩 표시를 보여줘.
-                       */
-                      <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-black/15 border-t-black/70" />
+                      <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-black/15 border-t-black/70" />
                     ) : (
-                      /*
-                       * 카카오 로그인임을 바로 알아볼 수 있는 말풍선 아이콘
-                       */
-                      <span className="flex h-7 w-7 items-center justify-center text-[#191919]">
-                        <KakaoLogo />
-                      </span>
+                      <KakaoLogo />
                     )}
-
-                    <span className="whitespace-nowrap">
-                      {redirectingProvider === "kakao"
-                        ? "카카오로 이동 중..."
-                        : "카카오 로그인"}
-                    </span>
                   </button>
-                 </div>
+
+                </div>
+
+
+                {/* ==================================================
+                    OAuth 이동 상태
+
+                    어떤 로그인 화면으로 이동하고 있는지
+                    아이콘 아래에 한 줄만 보여준다.
+                   ================================================== */}
+                {redirectingProvider && (
+                  <p
+                    className="mt-3 text-center text-[11px] font-semibold text-slate-400"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {redirectingProvider === "naver"
+                      ? "네이버 인증 화면으로 이동하고 있어요."
+                      : redirectingProvider === "google"
+                        ? "Google 인증 화면으로 이동하고 있어요."
+                        : "카카오 인증 화면으로 이동하고 있어요."}
+                  </p>
+                )}
+
               </div>
             )}
 
