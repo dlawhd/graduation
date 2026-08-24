@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -92,12 +94,26 @@ class JarOpenProcessorTest {
     }
 
     @Test
-    @DisplayName("이미 열린 저금통이면 true를 반환하고 잠금 조회와 저장을 하지 않는다")
-    void openIfDue_alreadyOpened_returnsTrueWithoutAdditionalWork() {
+    @DisplayName("이미 열린 저금통이면 잠금을 먼저 얻은 뒤 중복 저장하지 않는다")
+    void openIfDue_alreadyOpened_returnsTrueWithoutDuplicateEvent() {
         // given
         Long jarId = 10L;
 
-        // 이미 jar_open_events 기록이 있다고 가정한다.
+        Jar jar = createJar(
+                jarId,
+                LocalDateTime.now(KST).minusHours(1)
+        );
+
+        /*
+         * 저금통 잠금 조회는 정상적으로 성공한다고 가정한다.
+         *
+         * 이제 openIfDue()는 오픈 기록을 확인하기 전에
+         * 반드시 이 잠금부터 얻는다.
+         */
+        when(jarRepository.findByJarIdForUpdate(jarId))
+                .thenReturn(Optional.of(jar));
+
+        // 잠금을 얻고 확인해보니 이미 오픈 기록이 존재한다.
         when(jarOpenEventRepository.existsByJar_JarId(jarId))
                 .thenReturn(true);
 
@@ -110,17 +126,32 @@ class JarOpenProcessorTest {
         // then
         assertThat(result).isTrue();
 
-        // 이미 열린 저금통인지 한 번 확인한다.
-        verify(jarOpenEventRepository)
+        /*
+         * 이번 수정에서 가장 중요한 부분이다.
+         *
+         * 반드시:
+         * 1. 저금통 LOCK
+         * 2. 오픈 이벤트 존재 여부 확인
+         *
+         * 순서로 호출됐는지 검증한다.
+         */
+        InOrder inOrder = inOrder(
+                jarRepository,
+                jarOpenEventRepository
+        );
+
+        inOrder.verify(jarRepository)
+                .findByJarIdForUpdate(jarId);
+
+        inOrder.verify(jarOpenEventRepository)
                 .existsByJar_JarId(jarId);
 
-        // 이미 열렸으므로 새로운 오픈 이벤트는 저장하지 않는다.
+        // 이미 열린 저금통이므로 새로운 오픈 이벤트는 만들지 않는다.
         verify(jarOpenEventRepository, never())
                 .save(any(JarOpenEvent.class));
 
-        // 잠금 조회, WebSocket 이벤트, 시스템 채팅도 실행하지 않는다.
+        // 중복 WebSocket 이벤트와 SYSTEM 채팅도 만들지 않는다.
         verifyNoInteractions(
-                jarRepository,
                 jarOpenRealtimeService,
                 chatSystemMessageService
         );
@@ -131,10 +162,6 @@ class JarOpenProcessorTest {
     void openIfDue_jarNotFound_throws404() {
         // given
         Long jarId = 999L;
-
-        // 아직 열린 기록은 없다고 가정한다.
-        when(jarOpenEventRepository.existsByJar_JarId(jarId))
-                .thenReturn(false);
 
         // 잠금 조회를 했지만 저금통이 존재하지 않는다.
         when(jarRepository.findByJarIdForUpdate(jarId))
@@ -156,9 +183,8 @@ class JarOpenProcessorTest {
                         }
                 );
 
-        // 저금통이 없으므로 오픈 이벤트를 저장하지 않는다.
-        verify(jarOpenEventRepository, never())
-                .save(any(JarOpenEvent.class));
+        // 저금통이 없으므로 오픈 이벤트 조회/저장도 하지 않는다.
+        verifyNoInteractions(jarOpenEventRepository);
 
         // WebSocket과 시스템 채팅도 실행하지 않는다.
         verifyNoInteractions(
@@ -168,7 +194,7 @@ class JarOpenProcessorTest {
     }
 
     @Test
-    @DisplayName("잠금 조회를 기다리는 동안 다른 요청이 열었으면 중복 저장하지 않는다")
+    @DisplayName("잠금을 얻은 뒤 이미 열린 기록이 보이면 중복 저장하지 않는다")
     void openIfDue_openedAfterLock_returnsTrueWithoutDuplicateEvent() {
         // given
         Long jarId = 10L;
@@ -179,17 +205,20 @@ class JarOpenProcessorTest {
         );
 
         /*
-         * 첫 번째 확인:
-         * 아직 열린 기록이 없음 → false
+         * 다른 요청이 먼저 이 저금통을 처리하고 있다고 생각해보자.
          *
-         * 잠금 조회 후 두 번째 확인:
-         * 다른 요청이 먼저 열었음 → true
+         * 현재 요청은 findByJarIdForUpdate()에서 기다리게 되고,
+         * 먼저 처리하던 요청이 커밋된 뒤 잠금을 얻는다.
          */
-        when(jarOpenEventRepository.existsByJar_JarId(jarId))
-                .thenReturn(false, true);
-
         when(jarRepository.findByJarIdForUpdate(jarId))
                 .thenReturn(Optional.of(jar));
+
+        /*
+         * 잠금을 얻은 다음 확인했을 때
+         * 앞 요청이 이미 jar_open_events를 만들었다고 가정한다.
+         */
+        when(jarOpenEventRepository.existsByJar_JarId(jarId))
+                .thenReturn(true);
 
         // when
         boolean result = jarOpenProcessor.openIfDue(
@@ -200,11 +229,26 @@ class JarOpenProcessorTest {
         // then
         assertThat(result).isTrue();
 
-        // 다른 요청이 이미 열었으므로 중복 이벤트를 저장하지 않는다.
+        /*
+         * 잠금을 먼저 잡고,
+         * 그다음 오픈 여부를 확인하는 순서를 검증한다.
+         */
+        InOrder inOrder = inOrder(
+                jarRepository,
+                jarOpenEventRepository
+        );
+
+        inOrder.verify(jarRepository)
+                .findByJarIdForUpdate(jarId);
+
+        inOrder.verify(jarOpenEventRepository)
+                .existsByJar_JarId(jarId);
+
+        // 앞 요청이 이미 만들었으므로 또 INSERT하면 안 된다.
         verify(jarOpenEventRepository, never())
                 .save(any(JarOpenEvent.class));
 
-        // 중복 WebSocket과 시스템 채팅도 만들지 않는다.
+        // 중복 실시간 이벤트와 SYSTEM 채팅도 만들지 않는다.
         verifyNoInteractions(
                 jarOpenRealtimeService,
                 chatSystemMessageService
@@ -224,7 +268,7 @@ class JarOpenProcessorTest {
         );
 
         when(jarOpenEventRepository.existsByJar_JarId(jarId))
-                .thenReturn(false, false);
+                .thenReturn(false);
 
         when(jarRepository.findByJarIdForUpdate(jarId))
                 .thenReturn(Optional.of(futureJar));
@@ -260,7 +304,7 @@ class JarOpenProcessorTest {
         Jar dueJar = createJar(jarId, openAt);
 
         when(jarOpenEventRepository.existsByJar_JarId(jarId))
-                .thenReturn(false, false);
+                .thenReturn(false);
 
         when(jarRepository.findByJarIdForUpdate(jarId))
                 .thenReturn(Optional.of(dueJar));
@@ -348,7 +392,7 @@ class JarOpenProcessorTest {
         Jar dueJar = createJar(jarId, openAt);
 
         when(jarOpenEventRepository.existsByJar_JarId(jarId))
-                .thenReturn(false, false);
+                .thenReturn(false);
 
         when(jarRepository.findByJarIdForUpdate(jarId))
                 .thenReturn(Optional.of(dueJar));
@@ -386,7 +430,7 @@ class JarOpenProcessorTest {
         );
 
         when(jarOpenEventRepository.existsByJar_JarId(jarId))
-                .thenReturn(false, false);
+                .thenReturn(false);
 
         when(jarRepository.findByJarIdForUpdate(jarId))
                 .thenReturn(Optional.of(dueJar));

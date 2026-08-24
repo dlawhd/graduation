@@ -40,6 +40,11 @@ import {
 } from "./features/onboarding/OnboardingProvider";
 import OnboardingHelpDialog from "./features/onboarding/components/OnboardingHelpDialog";
 import MemoryJarLogoIcon from "./components/icons/MemoryJarLogoIcon";
+/*
+ * 모바일 화면에서 햄버거 버튼을 누르면
+ * 오른쪽에서 열리는 전용 메뉴 컴포넌트
+ */
+import MobileHeaderMenu from "./components/layout/MobileHeaderMenu";
 // 작은 enum 한글화
 const ROLE_LABEL = {
   OWNER: "방장",
@@ -164,6 +169,17 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   /*
+   * 모바일 햄버거 메뉴 열림 상태
+   *
+   * false = 메뉴 닫힘
+   * true = 오른쪽 슬라이드 메뉴 열림
+   */
+  const [
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  ] = useState(false);
+
+  /*
    * 내정보에서 "Memory Jar 이용 방법"을 눌렀을 때
    * 어떤 안내를 다시 볼지 선택하는 창의 열림 상태
    */
@@ -269,9 +285,10 @@ useEffect(() => {
     // 인증 확인은 끝난 로그아웃 상태로 처리
     setCheckingAuth(false);
 
-    // 로그인 사용자 전용 패널 닫기
+    // 로그인 사용자 전용 패널을 모두 닫는다.
     setProfileOpen(false);
     setNotificationOpen(false);
+    setMobileMenuOpen(false);
 
     // 이용 방법 선택창도 닫는다.
     setOnboardingHelpOpen(false);
@@ -423,6 +440,21 @@ useEffect(() => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  /*
+   * 모바일 메뉴에서 다른 화면으로 이동하면
+   * 이전 메뉴가 화면 위에 남지 않도록 자동으로 닫는다.
+   *
+   * 예:
+   * 햄버거 메뉴
+   * → 내 저금통
+   * → /jars 이동
+   * → 모바일 메뉴 자동 닫힘
+   */
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
 
 
       // --------------------------------------------------------
@@ -613,11 +645,20 @@ useEffect(() => {
       const handleToggleNotification = async () => {
         const nextOpen = !notificationOpen;
 
+        /*
+         * 알림을 열면 다른 헤더 메뉴는 닫는다.
+         *
+         * 알림창과 모바일 메뉴가 동시에 겹쳐 뜨는 것을 막는다.
+         */
         setNotificationOpen(nextOpen);
         setProfileOpen(false);
+        setMobileMenuOpen(false);
 
         if (nextOpen) {
-          await Promise.all([loadNotifications(0, 10), loadUnreadCount()]);
+          await Promise.all([
+            loadNotifications(0, 10),
+            loadUnreadCount(),
+          ]);
         }
       };
 
@@ -709,10 +750,15 @@ useEffect(() => {
       await fetchCsrf();
       await apiClient.post("/api/v1/auth/logout");
 
+        /*
+         * 로그아웃 성공 후
+         * 이전 사용자의 화면 상태를 모두 초기화한다.
+         */
         setMe(null);
         setMyJarsPreview([]);
         setProfileOpen(false);
         setNotificationOpen(false);
+        setMobileMenuOpen(false);
         setUnreadCount(0);
         setNotifications([]);
         setNotificationsError("");
@@ -743,6 +789,20 @@ useEffect(() => {
     "bg-emerald-500 text-white shadow-sm";
 
   /*
+   * 모바일 메뉴를 닫는 공통 함수
+   *
+   * MobileHeaderMenu에서
+   * - X 버튼
+   * - 바깥 배경
+   * - ESC
+   *
+   * 등에 공통으로 사용한다.
+   */
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
+
+  /*
    * OnboardingProvider에는 사용자 전체 정보가 아니라
    * 온보딩 조회에 필요한 사용자 번호만 전달한다.
    */
@@ -765,19 +825,19 @@ useEffect(() => {
             : "border-slate-200/80 bg-white/85",
         ].join(" ")}
       >
-        <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-2 px-4 sm:h-20 sm:gap-4 sm:px-6 lg:px-8">
           {/* 왼쪽 로고 */}
           <Link
             to="/"
-            className="group inline-flex items-center gap-3 rounded-full px-2 py-1 transition"
+            className="group inline-flex min-w-0 items-center gap-2 rounded-full py-1 transition sm:gap-3 sm:px-2"
           >
             {/* 로그인 저금통과 같은 재질을 사용하는 브랜드 로고 아이콘 */}
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100/80 via-cyan-50 to-violet-100/80 shadow-sm ring-1 ring-white/90 transition duration-300 group-hover:scale-105 group-hover:shadow-md">
+            <div className="hidden h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100/80 via-cyan-50 to-violet-100/80 shadow-sm ring-1 ring-white/90 transition duration-300 group-hover:scale-105 group-hover:shadow-md sm:flex">
               <MemoryJarLogoIcon className="h-10 w-10" />
             </div>
 
             <div className="leading-tight">
-              <p className="text-[18px] font-bold uppercase tracking-[0.28em] text-emerald-600">
+              <p className="whitespace-nowrap text-[15px] font-bold uppercase tracking-[0.20em] text-emerald-600 sm:text-[18px] sm:tracking-[0.28em]">
                 Memory Jar
               </p>
 
@@ -792,10 +852,15 @@ useEffect(() => {
             {!checkingAuth && me && (
               <div className="flex items-center gap-2">
                 {/* Home 메뉴 없이 저금통 목록으로 바로 이동한다. */}
+                {/* PC에서는 기존 Jars 버튼을 그대로 보여준다. */}
                 <Link
                   to="/jars"
                   className={[
                     navButtonClass,
+
+                    // 모바일에서는 햄버거 메뉴 안으로 이동했으므로 숨긴다.
+                    "hidden sm:inline-flex",
+
                     location.pathname.startsWith("/jars")
                       ? activeNavClass
                       : inactiveNavClass,
@@ -840,7 +905,7 @@ useEffect(() => {
 
                               {/* 알림 드롭다운 */}
                               {notificationOpen && (
-                                <div className="absolute right-0 top-14 w-[360px] overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+                                <div className="fixed left-4 right-4 top-[4.5rem] z-[70] overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:absolute sm:left-auto sm:right-0 sm:top-14 sm:w-[360px]">
                                   {/* 상단 제목 영역 */}
                                   <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-cyan-50 px-5 py-4">
                                     <div>
@@ -943,7 +1008,10 @@ useEffect(() => {
                             </div>
 
                             {/* 내정보 + 로그아웃 영역 */}
-                            <div className="relative flex items-center gap-2" ref={profileBoxRef}>
+                            <div
+                              className="relative hidden items-center gap-2 sm:flex"
+                              ref={profileBoxRef}
+                            >
                               {/* 내정보 버튼 */}
                               <button
                                 type="button"
@@ -1099,14 +1167,86 @@ useEffect(() => {
                                     </Link>
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                               )}
+                             </div>
+
+                             {/*
+                              * 모바일 햄버거 버튼
+                              *
+                              * sm(640px) 미만에서만 보인다.
+                              * PC에서는 기존 메뉴를 사용한다.
+                              */}
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 /*
+                                  * 햄버거 메뉴를 열 때
+                                  * 알림과 PC 내정보 메뉴는 닫는다.
+                                  */
+                                 setMobileMenuOpen(true);
+                                 setNotificationOpen(false);
+                                 setProfileOpen(false);
+                               }}
+                               className={[
+                                 navButtonClass,
+                                 inactiveNavClass,
+                                 "inline-flex items-center justify-center px-3 sm:hidden",
+                               ].join(" ")}
+                               aria-label="모바일 메뉴 열기"
+                               aria-expanded={mobileMenuOpen}
+                               aria-controls="mobile-header-menu"
+                             >
+                               {/* 햄버거 아이콘 */}
+                               <svg
+                                 viewBox="0 0 24 24"
+                                 className="h-5 w-5"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 strokeWidth="2"
+                                 strokeLinecap="round"
+                               >
+                                 <path d="M4 7h16" />
+                                 <path d="M4 12h16" />
+                                 <path d="M4 17h16" />
+                               </svg>
+                             </button>
+
+                           </div>
+                         )}
           </div>
         </div>
     </header>
     )}
+
+    {/*
+     * 모바일 햄버거 버튼을 눌렀을 때
+     * 오른쪽에서 열리는 슬라이드 메뉴
+     */}
+    {!isLoginSuccessPage &&
+      !checkingAuth &&
+      me && (
+        <MobileHeaderMenu
+          // 햄버거 메뉴 열림 여부
+          isOpen={mobileMenuOpen}
+
+          // 현재 로그인 사용자 정보
+          me={me}
+
+          // 로그아웃 요청 중인지 전달
+          loggingOut={loggingOut}
+
+          // X / 배경 / ESC로 메뉴 닫기
+          onClose={closeMobileMenu}
+
+          // 기존 Memory Jar 이용 방법 선택창 열기
+          onOpenGuide={() =>
+            setOnboardingHelpOpen(true)
+          }
+
+          // 기존 로그아웃 기능 그대로 재사용
+          onLogout={handleLogout}
+        />
+      )}
 
     {/*
      * 내정보에서 열 수 있는 이용 방법 선택창
