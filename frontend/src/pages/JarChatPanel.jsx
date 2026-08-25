@@ -1128,13 +1128,25 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       {/* 입력창 */}
       <form onSubmit={handleSubmit} className="mt-4 flex gap-3">
-        <input
-          type="text"
+        <textarea
+          // 현재 입력한 채팅 내용을 보여준다.
           value={draft}
+
+          // 사용자가 글자를 입력하거나 줄바꿈하면 draft 상태에 그대로 저장한다.
           onChange={(e) => setDraft(e.target.value)}
+
+          // 입력창이 비어 있을 때 보여주는 안내 문구
           placeholder="채팅을 입력해 주세요."
+
+          // 메시지를 전송하는 동안에는 중복 입력을 막는다.
           disabled={sending}
-          className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+
+          // 처음에는 한 줄 높이로 보여준다.
+          rows={1}
+
+          // 기존 채팅 입력창 디자인을 유지하면서
+          // textarea 크기를 사용자가 임의로 잡아당기지 못하게 한다.
+          className="min-w-0 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         <button
