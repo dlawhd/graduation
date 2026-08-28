@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+import { Link } from "react-router-dom";
 /*
  * LoginJarCard 역할
  *
@@ -195,10 +195,11 @@ export default function LoginJarCard({
   }
 
   /*
-   * 아이디 찾기 / 비밀번호 찾기 / 회원가입
+   * 아이디 찾기 / 비밀번호 찾기 임시 처리
    *
-   * 현재는 실제 페이지가 없으므로
-   * 안내 문구만 보여준다.
+   * 회원가입 페이지는 이미 /signup으로 연결됐지만,
+   * 아이디 찾기와 비밀번호 찾기는 아직 별도 페이지를
+   * 만들지 않았기 때문에 안내 문구만 보여준다.
    */
   function handleUtilityClick(actionName) {
     setLocalGuideMessage(
@@ -442,17 +443,19 @@ export default function LoginJarCard({
                     |
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleUtilityClick(
-                        "회원가입"
-                      )
-                    }
+                  {/*
+                   * 회원가입
+                   *
+                   * 이제 실제 회원가입 페이지가 있으므로
+                   * 임시 안내 문구를 띄우지 않고
+                   * /signup 페이지로 바로 이동한다.
+                   */}
+                  <Link
+                    to="/signup"
                     className="transition hover:text-emerald-600"
                   >
                     회원가입
-                  </button>
+                  </Link>
                 </div>
 
                 {/* 자체 로그인 임시 안내 */}
