@@ -98,6 +98,38 @@ public class SecurityConfig {
 
                         // ✅ 로그인 없이 접근 가능한 기본 주소들
                         .requestMatchers("/", "/error", "/login/**", "/oauth2/**").permitAll()
+                        /*
+                         * 자체 회원가입 아이디 중복 확인은
+                         * 로그인하기 전 사용해야 하므로 공개한다.
+                         *
+                         * GET으로만 열어서 필요한 HTTP Method만 허용한다.
+                         */
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/auth/login-id/availability"
+                        ).permitAll()
+
+                        /*
+                         * 회원가입 전에 이메일 인증번호를 받아야 하므로
+                         * 로그인하지 않은 사용자도 호출할 수 있어야 한다.
+                         *
+                         * 단:
+                         *
+                         * permitAll()
+                         * = 로그인 없이 접근 가능
+                         *
+                         * 이라는 뜻이지,
+                         *
+                         * CSRF를 끈다는 뜻은 아니다.
+                         *
+                         * POST 요청이므로 기존 Memory Jar 정책대로
+                         * CSRF 토큰은 계속 필요하다.
+                         */
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/auth/email-verifications"
+                        ).permitAll()
+
                         .requestMatchers("/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
 
                         // JwtAuthenticationFilter가 앞에서 accessToken을 검사해서 로그인 사용자로 인정되면 접근 가능해짐.
@@ -127,6 +159,8 @@ public class SecurityConfig {
 
         return http.build();
     }
+
+
 
     // ✅ CORS 설정 메서드
     // 프론트와 백엔드가 서로 다른 주소일 때브라우저가 "이 요청 허용해도 되나요?"를 검사하는데, 그 허용 규칙을 만드는 메서드.

@@ -51,6 +51,32 @@ spring:
             client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KAKAO_CLIENT_SECRET}
 
 app:
+  # --------------------------------------------------
+  # 이메일 인증번호 HMAC 전용 Secret
+  #
+  # 운영환경에서는 코드나 GitHub에 적지 않고
+  # EC2 환경변수로 전달한다.
+  # --------------------------------------------------
+  auth:
+    email-verification-secret: ${APP_EMAIL_VERIFICATION_SECRET}
+
+  # --------------------------------------------------
+  # AWS SES 운영 설정
+  # --------------------------------------------------
+  ses:
+    # SES는 Region별로 Sandbox/Verified Identity가 따로 관리되므로
+    # 실제 SES를 설정한 Region과 반드시 같아야 한다.
+    region: ${APP_SES_REGION:ap-northeast-2}
+
+    # Amazon SES에서 인증 완료한 발신 이메일
+    #
+    # 예:
+    # no-reply@esjh.shop
+    #
+    # GitHub에 실제 이메일 값을 박아두기보다는
+    # 환경변수로 관리한다.
+    from-email: ${APP_SES_FROM_EMAIL}
+
   jwt:
     secret: ${APP_JWT_SECRET}
     access-exp-seconds: ${APP_JWT_ACCESS_EXP_SECONDS:1800}

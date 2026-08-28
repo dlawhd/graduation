@@ -1,8 +1,10 @@
 package shop.esjh.memoryjar.controller;
 
+import org.springframework.http.MediaType;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
 import shop.esjh.memoryjar.service.AuthCookieService;
+import shop.esjh.memoryjar.service.EmailVerificationDispatchService;
 import shop.esjh.memoryjar.service.RefreshTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,15 +13,20 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
+import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
+import shop.esjh.memoryjar.service.LocalAuthService;
+import shop.esjh.memoryjar.dto.auth.response.EmailVerificationSendResponse;
 import jakarta.servlet.http.Cookie;
+import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 // 컨트롤러 테스트는 요청이 잘 들어오는지, 응답 상태코드가 맞는지, JSON 결과가 맞는지, 서비스를 잘 호출하는지를 빠르게 확인하는 게 목적
 @WebMvcTest(AuthController.class) // AuthController 중심으로 웹 테스트 환경을 만듦
@@ -40,6 +47,23 @@ class AuthControllerTest {
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
+
+    /*
+     * 실제 AWS SES를 호출하지 않도록
+     * Controller 테스트에서는 DispatchService를 Mock으로 사용한다.
+     */
+    @MockitoBean
+    private EmailVerificationDispatchService
+            emailVerificationDispatchService;
+
+    /*
+     * LOCAL 자체 로그인 서비스 Mock
+     *
+     * AuthController 생성자에 새로 추가됐기 때문에
+     * Controller 테스트에서도 가짜 Bean을 넣어준다.
+     */
+    @MockitoBean
+    private LocalAuthService localAuthService;
 
     @Test
     void refresh쿠키가_없으면_401() throws Exception {
@@ -97,5 +121,157 @@ class AuthControllerTest {
 
         // refresh 쿠키 삭제 메서드가 호출되었는지 확인
         verify(authCookieService).clearRefreshCookie(any());
+    }
+
+    @Test
+    void 이메일_인증번호_발송_성공() throws Exception {
+
+        // given
+        LocalDateTime expiresAt =
+                LocalDateTime.of(
+                        2026,
+                        8,
+                        28,
+                        16,
+                        30
+                );
+
+        given(
+                emailVerificationDispatchService
+                        .sendSignupVerificationCode(
+                                "EunSeo@Naver.com"
+                        )
+        ).willReturn(
+                new EmailVerificationDispatchService
+                        .VerificationDispatchResult(
+                        "eunseo@naver.com",
+                        expiresAt
+                )
+        );
+
+
+        // when & then
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "email": "EunSeo@Naver.com"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.email"
+                        ).value(
+                                "eunseo@naver.com"
+                        )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.expiresAt"
+                        ).exists()
+                );
+
+
+        verify(
+                emailVerificationDispatchService
+        ).sendSignupVerificationCode(
+                "EunSeo@Naver.com"
+        );
+    }
+
+    @Test
+    void 이메일_인증번호_발송시_이메일_형식이_잘못되면_400() throws Exception {
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "email": "wrong-email"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isBadRequest()
+                );
+
+
+        /*
+         * DTO 검증에서 이미 막혔기 때문에
+         * 실제 인증번호 발송 Service까지 가면 안 된다.
+         */
+        verifyNoInteractions(
+                emailVerificationDispatchService
+        );
+    }
+
+    @Test
+    void 아이디_중복확인_성공() throws Exception {
+
+        // given
+        given(
+                localAuthService
+                        .checkLoginIdAvailability(
+                                "EunSeo01"
+                        )
+        ).willReturn(
+                new LoginIdAvailabilityResponse(
+                        "eunseo01",
+                        true
+                )
+        );
+
+
+        // when & then
+        mockMvc.perform(
+                        get(
+                                "/api/v1/auth/login-id/availability"
+                        )
+                                .param(
+                                        "loginId",
+                                        "EunSeo01"
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.loginId"
+                        ).value(
+                                "eunseo01"
+                        )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.available"
+                        ).value(
+                                true
+                        )
+                );
+
+
+        verify(
+                localAuthService
+        ).checkLoginIdAvailability(
+                "EunSeo01"
+        );
     }
 }

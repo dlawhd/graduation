@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.config;
 
+import org.springframework.http.MediaType;
 import shop.esjh.memoryjar.auth.OAuth2SuccessHandler;
 import shop.esjh.memoryjar.jwt.JwtAuthenticationFilter;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
@@ -21,8 +22,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
+import shop.esjh.memoryjar.service.EmailVerificationDispatchService;
+import shop.esjh.memoryjar.service.LocalAuthService;
+
+import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -59,6 +65,17 @@ class SecurityConfigTest {
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private EmailVerificationDispatchService
+            emailVerificationDispatchService;
+
+    /*
+     * 실제 LOCAL 인증 비즈니스 로직은 필요 없고
+     * 이번 테스트에서는 Security 접근 규칙만 확인한다.
+     */
+    @MockitoBean
+    private LocalAuthService localAuthService;
 
     /**
      * 각 테스트 시작 전에 mock 필터 동작을 미리 설정한다.
@@ -147,6 +164,25 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("아이디 중복 확인 API는 로그인 없이 접근할 수 있다")
+    void loginIdAvailability_withoutLogin_success()
+            throws Exception {
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/auth/login-id/availability"
+                        )
+                                .param(
+                                        "loginId",
+                                        "eunseo01"
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                );
+    }
+
+    @Test
     @DisplayName("허용된 Origin 으로 온 preflight 요청에는 CORS 헤더가 내려간다")
     void cors_allowedOrigin_success() throws Exception {
         mockMvc.perform(options("/api/test/protected")
@@ -178,6 +214,87 @@ class SecurityConfigTest {
 
         verify(jwtAuthenticationFilter, atLeastOnce())
                 .doFilter(any(ServletRequest.class), any(ServletResponse.class), any(FilterChain.class));
+    }
+
+    @Test
+    @DisplayName("이메일 인증번호 발송 API는 로그인 없이 접근할 수 있다")
+    void emailVerification_withoutLogin_success()
+            throws Exception {
+
+        /*
+         * Service 결과는 가짜 값으로 준비한다.
+         *
+         * 이 테스트의 목적은 실제 이메일 발송이 아니라
+         * Security에서 401로 막히지 않는지 보는 것이다.
+         */
+        given(
+                emailVerificationDispatchService
+                        .sendSignupVerificationCode(
+                                "eunseo@naver.com"
+                        )
+        ).willReturn(
+                new EmailVerificationDispatchService
+                        .VerificationDispatchResult(
+                        "eunseo@naver.com",
+                        LocalDateTime.now()
+                                .plusMinutes(5)
+                )
+        );
+
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications"
+                        )
+
+                                /*
+                                 * POST 요청이므로
+                                 * Memory Jar의 CSRF 정책은 그대로 지킨다.
+                                 */
+                                .with(
+                                        csrf()
+                                )
+
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+
+                                .content(
+                                        """
+                                        {
+                                          "email": "eunseo@naver.com"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                );
+    }
+
+    @Test
+    @DisplayName("이메일 인증번호 발송 API는 CSRF 토큰이 없으면 차단된다")
+    void emailVerification_withoutCsrf_isForbidden()
+            throws Exception {
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "email": "eunseo@naver.com"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isForbidden()
+                );
     }
 
     @TestConfiguration

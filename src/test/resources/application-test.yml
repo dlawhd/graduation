@@ -71,6 +71,22 @@ app:
   # 테스트용 프론트 주소
   frontend-url: http://localhost:3000
 
+  # 이메일 인증 테스트 전용 Secret
+  #
+  # 실제 운영 Secret을 테스트에 절대로 사용하지 않는다.
+  auth:
+    email-verification-secret: test-email-verification-secret-test-key-123456789
+
+  # --------------------------------------------------
+  # SES 테스트 전용 설정
+  #
+  # 단위/통합 테스트에서는 실제 이메일을 보내지 않는다.
+  # Spring Context가 정상적으로 만들어지기 위한 가짜 값이다.
+  # --------------------------------------------------
+  ses:
+    region: ap-northeast-2
+    from-email: no-reply@test-memory-jar.example
+
   cors:
     # 테스트 요청에서 허용할 프론트 주소
     allowed-origin-patterns:

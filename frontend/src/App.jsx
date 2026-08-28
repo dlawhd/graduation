@@ -18,6 +18,7 @@ import JarsNewPage from "./pages/JarsNewPage";
 import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
 import apiClient, { fetchCsrf } from "./api/apiClient";
+import SignupPage from "./pages/SignupPage";
 import {
   AUTH_SESSION_EXPIRED_EVENT,
 } from "./api/authSessionUtils";
@@ -1308,6 +1309,18 @@ useEffect(() => {
               />
             }
           />
+
+          {/*
+           * Memory Jar 자체 회원가입 페이지
+           *
+           * 로그인하지 않은 사용자도 접근할 수 있는
+           * 공개 페이지다.
+           */}
+          <Route
+            path="/signup"
+            element={<SignupPage />}
+          />
+
           <Route path="/login/success" element={<LoginSuccess />} />
           <Route path="/jars" element={<JarsPage />} />
           <Route path="/jars/new" element={<JarsNewPage />} />

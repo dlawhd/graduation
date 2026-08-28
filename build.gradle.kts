@@ -42,6 +42,15 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
 
+	// ✅ Memory Jar 자체 로그인 비밀번호를 Argon2id로 안전하게 Hash하기 위해 사용
+	//
+	// Spring Security의 Argon2PasswordEncoder는
+	// 내부적으로 Bouncy Castle 구현이 필요하다.
+	//
+	// 사용자가 입력한 비밀번호 원문을 DB에 저장하지 않고
+	// 되돌릴 수 없는 안전한 Hash 값으로 바꾸는 데 사용한다.
+	implementation("org.bouncycastle:bcprov-jdk18on:1.85.2")
+
 	// Redis
 	// implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
@@ -49,6 +58,9 @@ dependencies {
 	implementation(platform("software.amazon.awssdk:bom:2.31.67"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:sts")
+
+	// ✅ Memory Jar 회원가입 인증메일을 AWS SES로 발송하기 위한 SDK
+	implementation("software.amazon.awssdk:sesv2")
 
 	// ✅ 이미지 썸네일 생성용
 	implementation("net.coobird:thumbnailator:0.4.20")

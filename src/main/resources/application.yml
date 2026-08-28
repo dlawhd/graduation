@@ -117,6 +117,32 @@ spring:
 app:
   frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
 
+  # --------------------------------------------------
+  # Memory Jar 자체 로그인 / 이메일 인증 설정
+  # --------------------------------------------------
+  auth:
+    # 로컬 개발용 기본값이야.
+    #
+    # 실제 운영환경에서는 반드시
+    # APP_EMAIL_VERIFICATION_SECRET 환경변수로 덮어쓴다.
+    email-verification-secret: ${APP_EMAIL_VERIFICATION_SECRET:local-dev-email-verification-secret-change-me}
+
+  # --------------------------------------------------
+  # Amazon SES 이메일 발송 설정
+  # --------------------------------------------------
+  ses:
+    # Amazon SES를 사용할 AWS Region
+    #
+    # Memory Jar의 AWS 인프라가 서울 Region을 사용하므로
+    # 기본값도 ap-northeast-2로 둔다.
+    region: ${APP_SES_REGION:ap-northeast-2}
+
+    # SES에서 인증된 발신 이메일 주소
+    #
+    # 로컬 개발에서도 실제 메일을 보낼 경우
+    # 환경변수 APP_SES_FROM_EMAIL을 설정한다.
+    from-email: ${APP_SES_FROM_EMAIL:}
+
   cors:
     # frontend-url과 같은 환경변수를 사용한다.
     # 프론트 주소를 변경하면 REST와 WebSocket 허용 주소도 함께 변경된다.
