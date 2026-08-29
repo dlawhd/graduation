@@ -109,34 +109,82 @@ public class SecurityConfig {
                                 "/api/v1/auth/login-id/availability"
                         ).permitAll()
 
-                        /*
-                         * 회원가입 전에 이메일 인증번호를 받아야 하므로
-                         * 로그인하지 않은 사용자도 호출할 수 있어야 한다.
-                         *
-                         * 단:
-                         *
-                         * permitAll()
-                         * = 로그인 없이 접근 가능
-                         *
-                         * 이라는 뜻이지,
-                         *
-                         * CSRF를 끈다는 뜻은 아니다.
-                         *
-                         * POST 요청이므로 기존 Memory Jar 정책대로
-                         * CSRF 토큰은 계속 필요하다.
-                         */
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/auth/email-verifications"
-                        ).permitAll()
+                                /*
+                                 * 자체 회원가입 아이디 중복 확인은
+                                 * 로그인하기 전 사용해야 하므로 공개한다.
+                                 *
+                                 * GET으로만 열어서 필요한 HTTP Method만 허용한다.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/v1/auth/login-id/availability"
+                                ).permitAll()
 
-                        .requestMatchers("/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
+                                /*
+                                 * 회원가입 전에 이메일 인증번호를 받아야 하므로
+                                 * 로그인하지 않은 사용자도 호출할 수 있어야 한다.
+                                 *
+                                 * permitAll()
+                                 * = 로그인 없이 접근 가능
+                                 *
+                                 * 단, POST 요청이므로 CSRF는 계속 필요하다.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/v1/auth/email-verifications"
+                                ).permitAll()
 
-                        // JwtAuthenticationFilter가 앞에서 accessToken을 검사해서 로그인 사용자로 인정되면 접근 가능해짐.
-                        .requestMatchers("/api/**").authenticated()
+                                /*
+                                 * 회원가입 이메일 인증번호 확인
+                                 *
+                                 * 회원가입 전에 사용해야 하는 API이므로
+                                 * 로그인하지 않은 사용자도 접근할 수 있어야 한다.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/v1/auth/email-verifications/confirm"
+                                ).permitAll()
 
-                        // ✅ /api/** 는 로그인 필요
-                        .anyRequest().permitAll()
+                                /*
+                                 * 최종 자체 회원가입
+                                 *
+                                 * 아직 계정이 없는 사용자가 호출하는 API이므로
+                                 * 로그인 인증을 요구하면 안 된다.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/v1/auth/signup"
+                                ).permitAll()
+
+                                /*
+                                 * 아이디 / 비밀번호 자체 로그인
+                                 *
+                                 * 로그인을 시작하기 위한 API이므로
+                                 * 로그인하지 않은 사용자도 호출할 수 있어야 한다.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/v1/auth/login"
+                                ).permitAll()
+
+                                /*
+                                 * 기존 Access Token 재발급 / 로그아웃 API
+                                 */
+                                .requestMatchers(
+                                        "/api/v1/auth/refresh",
+                                        "/api/v1/auth/logout"
+                                ).permitAll()
+
+                                /*
+                                 * 위에서 별도로 permitAll() 처리하지 않은
+                                 * 모든 /api/** 요청은 로그인한 사용자만 접근할 수 있다.
+                                 */
+                                .requestMatchers("/api/**").authenticated()
+
+                                /*
+                                 * API가 아닌 나머지 경로는 허용한다.
+                                 */
+                                .anyRequest().permitAll()
                 )
 
                 /*
