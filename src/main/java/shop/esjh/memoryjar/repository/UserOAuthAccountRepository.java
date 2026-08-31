@@ -3,6 +3,7 @@ package shop.esjh.memoryjar.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import shop.esjh.memoryjar.entity.UserOAuthAccount;
 
+import java.util.List;
 import java.util.Optional;
 
 /*
@@ -72,5 +73,24 @@ public interface UserOAuthAccountRepository
     Optional<UserOAuthAccount> findByUser_IdAndProvider(
             Long userId,
             String provider
+    );
+
+    /*
+     * 특정 Memory Jar 사용자에게 연결되어 있는
+     * 모든 소셜 로그인 계정을 조회한다.
+     *
+     * 예:
+     *
+     * User #10
+     *   ├─ NAVER
+     *   ├─ GOOGLE
+     *   └─ KAKAO
+     *
+     * 회원가입 이메일 인증이 끝난 뒤
+     * "이 이메일은 어떤 로그인 방법을 사용하고 있지?"
+     * 를 확인할 때 사용한다.
+     */
+    List<UserOAuthAccount> findAllByUser_Id(
+            Long userId
     );
 }

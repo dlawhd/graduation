@@ -1,5 +1,7 @@
 package shop.esjh.memoryjar.controller;
 
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
@@ -15,6 +17,7 @@ import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
 import shop.esjh.memoryjar.dto.auth.response.EmailVerificationSendResponse;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
@@ -190,10 +193,35 @@ class AuthControllerTest {
         );
     }
 
+    /*
+     * =========================================================
+     * 이메일 인증 성공 + 기존 NAVER 계정 조회 테스트
+     * =========================================================
+     *
+     * 확인하는 흐름:
+     *
+     * 1. 사용자가 이메일 인증번호를 정확하게 입력한다.
+     * 2. EmailVerificationService에서 인증 성공 결과를 반환한다.
+     * 3. 인증된 이메일이 기존 계정인지 LocalAuthService에 확인한다.
+     * 4. 기존 NAVER 계정이라면
+     *    existingAccount=true,
+     *    loginMethods=["NAVER"]
+     *    가 프론트로 내려가는지 확인한다.
+     */
     @Test
     void 이메일_인증번호_확인_성공()
             throws Exception {
 
+        /*
+         * =====================================================
+         * given
+         * =====================================================
+         */
+
+        /*
+         * 이메일 인증 완료 후 발급되는
+         * verificationToken의 만료 시간이다.
+         */
         LocalDateTime expiresAt =
                 LocalDateTime.of(
                         2026,
@@ -203,6 +231,13 @@ class AuthControllerTest {
                         0
                 );
 
+
+        /*
+         * 사용자가 입력한 인증번호가 맞다고 가정한다.
+         *
+         * 실제 AWS SES나 DB 인증 로직을 실행하는 것이 아니라
+         * Controller 테스트에서는 Mock 결과를 반환한다.
+         */
         given(
                 emailVerificationService
                         .verifySignupCode(
@@ -219,6 +254,40 @@ class AuthControllerTest {
         );
 
 
+        /*
+         * 인증까지 성공한 이메일을 확인했더니
+         * 이미 NAVER 소셜 로그인으로
+         * 가입되어 있는 사용자라고 가정한다.
+         *
+         * 결과:
+         *
+         * existingAccount = true
+         * loginMethods = ["NAVER"]
+         */
+        given(
+                localAuthService
+                        .findExistingAccountLoginMethods(
+                                "eunseo@naver.com"
+                        )
+        ).willReturn(
+                new LocalAuthService
+                        .ExistingAccountLoginMethods(
+                        true,
+                        List.of(
+                                "NAVER"
+                        )
+                )
+        );
+
+
+        /*
+         * =====================================================
+         * when & then
+         * =====================================================
+         *
+         * 실제 사용자가 이메일 인증번호 확인 API를
+         * 호출한 것처럼 요청한다.
+         */
         mockMvc.perform(
                         post(
                                 "/api/v1/auth/email-verifications/confirm"
@@ -235,9 +304,17 @@ class AuthControllerTest {
                                         """
                                 )
                 )
+
+                /*
+                 * 정상 인증이므로 HTTP 200
+                 */
                 .andExpect(
                         status().isOk()
                 )
+
+                /*
+                 * 인증된 이메일 확인
+                 */
                 .andExpect(
                         jsonPath(
                                 "$.data.email"
@@ -245,13 +322,182 @@ class AuthControllerTest {
                                 "eunseo@naver.com"
                         )
                 )
+
+                /*
+                 * 회원가입에 사용할
+                 * verificationToken 확인
+                 */
                 .andExpect(
                         jsonPath(
                                 "$.data.verificationToken"
                         ).value(
                                 "verification-token"
                         )
+                )
+
+                /*
+                 * 이미 존재하는 계정인지 확인한다.
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.existingAccount"
+                        ).value(
+                                true
+                        )
+                )
+
+                /*
+                 * 기존 로그인 방법이
+                 * NAVER인지 확인한다.
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.loginMethods[0]"
+                        ).value(
+                                "NAVER"
+                        )
                 );
+
+
+        /*
+         * Controller가 인증 성공 후
+         * 기존 계정 조회 Service까지
+         * 정확하게 호출했는지 확인한다.
+         */
+        verify(
+                localAuthService
+        ).findExistingAccountLoginMethods(
+                "eunseo@naver.com"
+        );
+    }
+
+    /*
+     * =========================================================
+     * 신규 이메일 인증 성공 테스트
+     * =========================================================
+     *
+     * 아직 Memory Jar에서 사용되지 않은 이메일이면:
+     *
+     * existingAccount = false
+     * loginMethods = []
+     *
+     * 가 내려오는지 확인한다.
+     *
+     * 프론트는 이 결과를 보고
+     * "Memory Jar 시작하기" 버튼을 보여준다.
+     */
+    @Test
+    void 이메일_인증번호_확인_성공_신규이메일()
+            throws Exception {
+
+        /*
+         * 인증 토큰 만료 시간
+         */
+        LocalDateTime expiresAt =
+                LocalDateTime.of(
+                        2026,
+                        8,
+                        31,
+                        21,
+                        0
+                );
+
+
+        /*
+         * 이메일 인증번호가 정상이라고 가정한다.
+         */
+        given(
+                emailVerificationService
+                        .verifySignupCode(
+                                "new@example.com",
+                                "123456"
+                        )
+        ).willReturn(
+                new EmailVerificationService
+                        .VerifiedEmailVerification(
+                        "new@example.com",
+                        "new-verification-token",
+                        expiresAt
+                )
+        );
+
+
+        /*
+         * 이 이메일은 기존 User가 없는
+         * 완전히 새로운 이메일이라고 가정한다.
+         */
+        given(
+                localAuthService
+                        .findExistingAccountLoginMethods(
+                                "new@example.com"
+                        )
+        ).willReturn(
+                new LocalAuthService
+                        .ExistingAccountLoginMethods(
+                        false,
+                        List.of()
+                )
+        );
+
+
+        /*
+         * 실제 HTTP 요청
+         */
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications/confirm"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "email": "new@example.com",
+                                          "code": "123456"
+                                        }
+                                        """
+                                )
+                )
+
+                /*
+                 * 정상 응답
+                 */
+                .andExpect(
+                        status().isOk()
+                )
+
+                /*
+                 * 신규 사용자이므로 false
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.existingAccount"
+                        ).value(
+                                false
+                        )
+                )
+
+                /*
+                 * 아직 로그인 방법이 없으므로
+                 * 빈 배열이어야 한다.
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.loginMethods"
+                        ).isEmpty()
+                );
+
+
+        /*
+         * 기존 계정 확인 Service가
+         * 정확한 이메일로 호출됐는지 확인한다.
+         */
+        verify(
+                localAuthService
+        ).findExistingAccountLoginMethods(
+                "new@example.com"
+        );
     }
 
     @Test
@@ -283,6 +529,85 @@ class AuthControllerTest {
          */
         verifyNoInteractions(
                 emailVerificationDispatchService
+        );
+    }
+
+    /*
+     * =========================================================
+     * 회원가입 비밀번호 HTTP 검증 테스트
+     * =========================================================
+     *
+     * 프론트를 거치지 않고
+     * /api/v1/auth/signup API를 직접 호출하더라도
+     * 약한 비밀번호가 서버에서 차단되는지 확인한다.
+     */
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                    "memory1234",
+                    "memory!!!!",
+                    "12345678!"
+            }
+    )
+    void 회원가입_비밀번호_필수조건이_빠지면_400(
+            String invalidPassword
+    ) throws Exception {
+
+        /*
+         * 실제 회원가입 API처럼 JSON 요청을 보낸다.
+         *
+         * password만 잘못된 값이고
+         * 나머지 필드는 정상값이다.
+         */
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/signup"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "eunseo01",
+                                          "password": "%s",
+                                          "nickname": "은서",
+                                          "email": "eunseo@example.com",
+                                          "verificationToken": "verification-token"
+                                        }
+                                        """.formatted(
+                                                invalidPassword
+                                        )
+                                )
+                )
+
+                /*
+                 * DTO의 @Pattern 검증에서
+                 * 400 Bad Request가 나와야 한다.
+                 */
+                .andExpect(
+                        status().isBadRequest()
+                )
+
+                /*
+                 * 사용자에게 보여줄 오류 메시지도
+                 * 우리가 정한 정책과 일치해야 한다.
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.error.message"
+                        ).value(
+                                "비밀번호는 영문, 숫자, 특수문자를 각각 1자 이상 포함해 주세요."
+                        )
+                );
+
+        /*
+         * @Valid에서 이미 막혔으므로
+         * 실제 LocalAuthService.signup()까지
+         * 넘어가면 안 된다.
+         */
+        verifyNoInteractions(
+                localAuthService
         );
     }
 

@@ -10,10 +10,12 @@ import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserLocalCredential;
+import shop.esjh.memoryjar.entity.UserOAuthAccount;
 import shop.esjh.memoryjar.repository.UserLocalCredentialRepository;
+import shop.esjh.memoryjar.repository.UserOAuthAccountRepository;
 import shop.esjh.memoryjar.repository.UserRepository;
 
-import java.util.Locale;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /*
@@ -76,6 +78,49 @@ public class LocalAuthService {
                     "^[a-z0-9_]{4,20}$"
             );
 
+    /*
+     * =========================================================
+     * Memory Jar에서 지원하는 소셜 로그인 종류
+     * =========================================================
+     *
+     * 회원가입 이메일 인증 후
+     * DB에서 로그인 방법을 찾았을 때
+     * 실제 Memory Jar에서 지원하는 Provider만
+     * 프론트에 전달하기 위한 목록이다.
+     */
+    private static final Set<String>
+            SUPPORTED_SOCIAL_PROVIDERS =
+            Set.of(
+                    "NAVER",
+                    "GOOGLE",
+                    "KAKAO"
+            );
+
+    /*
+     * =========================================================
+     * Memory Jar 회원가입 비밀번호 규칙
+     * =========================================================
+     *
+     * 비밀번호는 아래 세 종류를
+     * 각각 최소 1자 이상 포함해야 한다.
+     *
+     * - 영문
+     * - 숫자
+     * - 특수문자
+     *
+     * Pattern을 static final로 한 번만 만들어 두는 이유:
+     *
+     * 회원가입 요청이 올 때마다 정규식을
+     * 새로 컴파일하지 않고 재사용할 수 있다.
+     */
+    private static final Pattern
+            SIGNUP_PASSWORD_PATTERN =
+            Pattern.compile(
+                    "^(?=.*[A-Za-z])" +
+                            "(?=.*[0-9])" +
+                            "(?=.*[\\x21-\\x2F\\x3A-\\x40\\x5B-\\x60\\x7B-\\x7E]).+$"
+            );
+
 
     private final UserLocalCredentialRepository
             userLocalCredentialRepository;
@@ -89,6 +134,12 @@ public class LocalAuthService {
     private final PasswordEncoder
             passwordEncoder;
 
+    /*
+     * NAVER / GOOGLE / KAKAO처럼
+     * User에게 연결된 OAuth 로그인 방법을 조회한다.
+     */
+    private final UserOAuthAccountRepository
+            userOAuthAccountRepository;
 
     /*
      * 생성자 주입
@@ -100,7 +151,8 @@ public class LocalAuthService {
             UserLocalCredentialRepository userLocalCredentialRepository,
             UserRepository userRepository,
             EmailVerificationService emailVerificationService,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            UserOAuthAccountRepository userOAuthAccountRepository
     ) {
 
         this.userLocalCredentialRepository =
@@ -114,6 +166,9 @@ public class LocalAuthService {
 
         this.passwordEncoder =
                 passwordEncoder;
+
+        this.userOAuthAccountRepository =
+                userOAuthAccountRepository;
     }
 
 
@@ -170,6 +225,294 @@ public class LocalAuthService {
                 normalizedLoginId,
                 available
         );
+    }
+
+    /*
+     * =========================================================
+     * 기존 계정 + 로그인 방법 조회
+     * =========================================================
+     *
+     * 이메일 인증번호 확인까지 성공한 뒤
+     * AuthController가 이 메서드를 호출한다.
+     *
+     * 반환 예:
+     *
+     * 신규 이메일
+     *
+     * existingAccount = false
+     * loginMethods = []
+     *
+     *
+     * 기존 NAVER 사용자
+     *
+     * existingAccount = true
+     * loginMethods = ["NAVER"]
+     *
+     *
+     * LOCAL + GOOGLE 사용자
+     *
+     * existingAccount = true
+     * loginMethods = ["LOCAL", "GOOGLE"]
+     */
+    public ExistingAccountLoginMethods
+    findExistingAccountLoginMethods(
+            String email
+    ) {
+
+        /*
+         * 이메일을 DB에서 사용하는 형태와
+         * 동일하게 정리한다.
+         *
+         * 예:
+         *
+         * " EunSeo@Naver.com "
+         *
+         *     ↓
+         *
+         * "eunseo@naver.com"
+         */
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+        /*
+         * soft delete된 사용자까지 포함해
+         * 이 이메일이 과거에라도 사용됐는지 먼저 확인한다.
+         *
+         * 현재 회원가입 서비스도 동일하게
+         * 삭제된 User까지 포함해서 이메일 재사용을 막고 있다.
+         */
+        long existingCount =
+                userRepository
+                        .countIncludingDeletedByEmail(
+                                normalizedEmail
+                        );
+
+        /*
+         * 한 번도 사용되지 않은 이메일이면
+         * 신규 회원가입 대상이다.
+         */
+        if (existingCount == 0) {
+
+            return new ExistingAccountLoginMethods(
+                    false,
+                    List.of()
+            );
+        }
+
+        /*
+         * 현재 활성 상태인 User를 찾는다.
+         *
+         * User에는:
+         *
+         * @SQLRestriction("deleted_at IS NULL")
+         *
+         * 이 있으므로 일반 findByEmail()은
+         * 탈퇴한 사용자를 자동으로 제외한다.
+         */
+        return userRepository
+                .findByEmail(
+                        normalizedEmail
+                )
+                .map(
+                        this::buildExistingAccountLoginMethods
+                )
+                /*
+                 * 이메일은 과거에 사용됐지만
+                 * 현재 활성 User가 없다면
+                 * 탈퇴 계정일 가능성이 있다.
+                 *
+                 * 신규 이메일로 잘못 판단하면
+                 * 회원가입 버튼을 보여줬다가
+                 * 실제 signup에서 409가 발생하므로
+                 * existingAccount=true로 유지한다.
+                 */
+                .orElseGet(
+                        () ->
+                                new ExistingAccountLoginMethods(
+                                        true,
+                                        List.of()
+                                )
+                );
+    }
+
+
+    /*
+     * =========================================================
+     * 활성 User의 로그인 방법 만들기
+     * =========================================================
+     */
+    private ExistingAccountLoginMethods
+    buildExistingAccountLoginMethods(
+            User user
+    ) {
+
+        /*
+         * 최종적으로 프론트에 내려줄
+         * 로그인 방법 목록이다.
+         *
+         * 표시 순서는:
+         *
+         * LOCAL
+         * NAVER
+         * GOOGLE
+         * KAKAO
+         *
+         * 로 고정한다.
+         */
+        List<String> loginMethods =
+                new ArrayList<>();
+
+
+        /*
+         * =====================================================
+         * LOCAL 로그인 확인
+         * =====================================================
+         *
+         * user_local_credentials에 이 User의 row가 있으면
+         * 아이디 + 비밀번호 로그인도 가능한 사용자다.
+         */
+        boolean hasLocalLogin =
+                userLocalCredentialRepository
+                        .findByUser_Id(
+                                user.getId()
+                        )
+                        .isPresent();
+
+        if (hasLocalLogin) {
+            loginMethods.add(
+                    "LOCAL"
+            );
+        }
+
+
+        /*
+         * =====================================================
+         * 소셜 로그인 확인
+         * =====================================================
+         *
+         * Set을 사용하는 이유:
+         *
+         * 같은 NAVER가
+         * users.provider와 user_oauth_accounts 양쪽에서
+         * 발견되어도 한 번만 표시하기 위해서다.
+         */
+        Set<String> socialProviders =
+                new HashSet<>();
+
+
+        /*
+         * 기존 users.provider 컬럼은
+         * 이전 OAuth 사용자와의 호환성을 위해
+         * 아직 남아 있으므로 이것도 확인한다.
+         */
+        addSupportedSocialProvider(
+                socialProviders,
+                user.getProvider()
+        );
+
+
+        /*
+         * 현재 정식 OAuth 계정 저장소인
+         * user_oauth_accounts에서도 모두 조회한다.
+         */
+        userOAuthAccountRepository
+                .findAllByUser_Id(
+                        user.getId()
+                )
+                .stream()
+                .map(
+                        UserOAuthAccount::getProvider
+                )
+                .forEach(
+                        provider ->
+                                addSupportedSocialProvider(
+                                        socialProviders,
+                                        provider
+                                )
+                );
+
+
+        /*
+         * HashSet의 순서는 보장되지 않으므로
+         * 사용자 화면에서 항상 같은 순서로 보이도록
+         * 직접 순서를 정해서 넣는다.
+         */
+        for (
+                String provider :
+                List.of(
+                        "NAVER",
+                        "GOOGLE",
+                        "KAKAO"
+                )
+        ) {
+
+            if (
+                    socialProviders
+                            .contains(
+                                    provider
+                            )
+            ) {
+
+                loginMethods.add(
+                        provider
+                );
+            }
+        }
+
+
+        return new ExistingAccountLoginMethods(
+                true,
+                loginMethods
+        );
+    }
+
+
+    /*
+     * OAuth Provider 문자열을 정리한 뒤
+     * Memory Jar에서 실제 지원하는 Provider인 경우에만
+     * Set에 넣어준다.
+     */
+    private static void addSupportedSocialProvider(
+            Set<String> providers,
+            String provider
+    ) {
+
+        /*
+         * null 또는 빈 문자열은 무시한다.
+         */
+        if (!StringUtils.hasText(provider)) {
+            return;
+        }
+
+        /*
+         * naver / Naver / NAVER
+         *
+         * 어떤 형태로 들어와도
+         * NAVER처럼 대문자로 통일한다.
+         */
+        String normalizedProvider =
+                provider
+                        .trim()
+                        .toUpperCase(
+                                Locale.ROOT
+                        );
+
+        /*
+         * 우리가 지원하는 Provider만 허용한다.
+         */
+        if (
+                SUPPORTED_SOCIAL_PROVIDERS
+                        .contains(
+                                normalizedProvider
+                        )
+        ) {
+
+            providers.add(
+                    normalizedProvider
+            );
+        }
     }
 
     /*
@@ -482,12 +825,32 @@ public class LocalAuthService {
 
 
     /*
-     * 회원가입 비밀번호 최소 규칙
+     * =========================================================
+     * 회원가입 비밀번호 검증
+     * =========================================================
+     *
+     * Controller의 DTO 검증을 통과했더라도
+     * Service 자체에서도 비밀번호 정책을 다시 확인한다.
+     *
+     * 이렇게 두 번 확인하는 이유:
+     *
+     * Controller가 아닌 다른 내부 코드에서
+     * signup()을 직접 호출하더라도
+     * 잘못된 비밀번호로 계정이 생성되지 않게 하기 위해서다.
      */
     private void validateSignupPassword(
             String password
     ) {
 
+        /*
+         * =====================================================
+         * 1. 비밀번호 길이 검사
+         * =====================================================
+         *
+         * null이거나
+         * 8자보다 짧거나
+         * 100자보다 길면 회원가입을 진행하지 않는다.
+         */
         if (
                 password == null
                         || password.length() < 8
@@ -498,8 +861,56 @@ public class LocalAuthService {
                     "비밀번호는 8~100자로 입력해 주세요."
             );
         }
+
+        /*
+         * =====================================================
+         * 2. 문자 종류 검사
+         * =====================================================
+         *
+         * 반드시 아래 세 종류가 모두 들어 있어야 한다.
+         *
+         * 영문 ✅
+         * 숫자 ✅
+         * 특수문자 ✅
+         */
+        if (
+                !SIGNUP_PASSWORD_PATTERN
+                        .matcher(password)
+                        .matches()
+        ) {
+
+            throw new IllegalArgumentException(
+                    "비밀번호는 영문, 숫자, 특수문자를 각각 1자 이상 포함해 주세요."
+            );
+        }
     }
 
+    /*
+     * 이메일 인증을 끝낸 사용자의
+     * 기존 계정 여부와 로그인 방법을 담는 결과 객체다.
+     *
+     * 이 객체는 Service 내부 결과이고,
+     * AuthController가 API Response DTO로 다시 변환한다.
+     */
+    public record ExistingAccountLoginMethods(
+            boolean existingAccount,
+            List<String> loginMethods
+    ) {
+
+        /*
+         * 외부에서 전달된 List가 나중에 수정되지 않도록
+         * 불변 List로 한 번 감싸준다.
+         */
+        public ExistingAccountLoginMethods {
+
+            loginMethods =
+                    loginMethods == null
+                            ? List.of()
+                            : List.copyOf(
+                            loginMethods
+                    );
+        }
+    }
 
     /*
      * Controller가 회원가입 성공 후
@@ -510,4 +921,6 @@ public class LocalAuthService {
             String loginId
     ) {
     }
+
+
 }

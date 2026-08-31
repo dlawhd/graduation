@@ -203,11 +203,32 @@ public class AuthController {
                         );
 
 
+        /*
+         * 이메일 인증번호가 실제로 맞았으므로
+         * 이제 이 이메일이 기존 Memory Jar 계정인지와
+         * 어떤 로그인 방법을 가지고 있는지 확인한다.
+         *
+         * 이메일 인증 성공 "후"에 확인하는 것이 중요하다.
+         */
+        LocalAuthService.ExistingAccountLoginMethods
+                accountInfo =
+                localAuthService
+                        .findExistingAccountLoginMethods(
+                                result.email()
+                        );
+
+
+        /*
+         * 인증 결과 + 기존 계정 정보를
+         * 프론트에 한 번에 전달한다.
+         */
         EmailVerificationConfirmResponse response =
                 new EmailVerificationConfirmResponse(
                         result.email(),
                         result.verificationToken(),
-                        result.verificationExpiresAt()
+                        result.verificationExpiresAt(),
+                        accountInfo.existingAccount(),
+                        accountInfo.loginMethods()
                 );
 
 
