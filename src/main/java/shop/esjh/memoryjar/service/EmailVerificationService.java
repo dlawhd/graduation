@@ -78,6 +78,28 @@ public class EmailVerificationService {
     private static final long RESEND_COOLDOWN_SECONDS =
             60;
 
+    /*
+     * 인증번호를 연속으로 틀릴 수 있는 최대 횟수
+     */
+    private static final int MAX_VERIFICATION_ATTEMPTS =
+            5;
+
+
+    /*
+     * 인증번호 확인 성공 후 발급되는 verificationToken은
+     * 15분 동안 회원가입에 사용할 수 있다.
+     */
+    private static final long VERIFICATION_TOKEN_EXPIRE_MINUTES =
+            15;
+
+
+    /*
+     * 인증번호 형식
+     */
+    private static final Pattern VERIFICATION_CODE_PATTERN =
+            Pattern.compile(
+                    "^\\d{6}$"
+            );
 
     /*
      * 이메일 형식을 너무 복잡하게 제한하지 않으면서
@@ -137,6 +159,331 @@ public class EmailVerificationService {
         return issueCode(
                 email,
                 EmailVerificationPurpose.SIGNUP
+        );
+    }
+
+    /*
+     * =========================================================
+     * 회원가입 인증번호 확인
+     * =========================================================
+     *
+     * 사용자가 이메일로 받은 6자리 인증번호를 검증한다.
+     *
+     * 성공하면 최종 회원가입에서 사용할
+     * verificationToken을 새로 발급한다.
+     *
+     * noRollbackFor가 있는 이유:
+     *
+     * 인증번호가 틀렸을 때 attemptCount를 증가시킨 뒤
+     * ResponseStatusException을 던져도
+     * 실패 횟수는 DB에 남아야 하기 때문이다.
+     */
+    @Transactional(
+            noRollbackFor =
+                    ResponseStatusException.class
+    )
+    public VerifiedEmailVerification verifySignupCode(
+            String email,
+            String rawCode
+    ) {
+
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+        validateVerificationCode(
+                rawCode
+        );
+
+        LocalDateTime now =
+                LocalDateTime.now(
+                        KST
+                );
+
+        /*
+         * 같은 인증 요청을 동시에 여러 번 확인하는 상황을 막기 위해
+         * 비관적 쓰기 잠금으로 조회한다.
+         */
+        EmailVerification verification =
+                emailVerificationRepository
+                        .findByEmailAndPurposeForUpdate(
+                                normalizedEmail,
+                                EmailVerificationPurpose.SIGNUP
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.BAD_REQUEST,
+                                                "먼저 인증번호를 받아 주세요."
+                                        )
+                        );
+
+
+        /*
+         * 이미 5번 이상 틀렸다면
+         * 더 이상 인증번호 확인을 허용하지 않는다.
+         */
+        if (
+                verification.getAttemptCount()
+                        >= MAX_VERIFICATION_ATTEMPTS
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "인증번호 확인 가능 횟수를 초과했어요. 인증번호를 다시 받아 주세요."
+            );
+        }
+
+
+        /*
+         * 인증번호 자체가 이미 만료됐다면
+         * 확인할 수 없다.
+         */
+        if (
+                verification.isCodeExpired(
+                        now
+                )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "인증번호가 만료됐어요. 인증번호를 다시 받아 주세요."
+            );
+        }
+
+
+        /*
+         * 사용자가 입력한 원본 번호를
+         * DB의 HMAC Hash와 비교한다.
+         */
+        boolean matches =
+                emailVerificationCrypto
+                        .matches(
+                                normalizedEmail,
+                                EmailVerificationPurpose.SIGNUP,
+                                rawCode,
+                                verification.getCodeHash()
+                        );
+
+
+        if (!matches) {
+
+            /*
+             * 틀린 번호라면 실패 횟수를 증가시킨다.
+             */
+            verification
+                    .increaseAttemptCount();
+
+            emailVerificationRepository.save(
+                    verification
+            );
+
+
+            /*
+             * 이번 실패로 최대 횟수에 도달했다면
+             * 재발송하도록 안내한다.
+             */
+            if (
+                    verification.getAttemptCount()
+                            >= MAX_VERIFICATION_ATTEMPTS
+            ) {
+
+                throw new ResponseStatusException(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "인증번호 확인 가능 횟수를 초과했어요. 인증번호를 다시 받아 주세요."
+                );
+            }
+
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "인증번호가 올바르지 않아요."
+            );
+        }
+
+
+        /*
+         * 인증번호가 정확하면
+         * 최종 회원가입에서 사용할 랜덤 토큰을 만든다.
+         */
+        String rawVerificationToken =
+                emailVerificationCrypto
+                        .generateVerificationToken();
+
+
+        /*
+         * DB에는 토큰 원본이 아니라 Hash만 저장한다.
+         */
+        String verificationTokenHash =
+                emailVerificationCrypto
+                        .hashVerificationToken(
+                                normalizedEmail,
+                                EmailVerificationPurpose.SIGNUP,
+                                rawVerificationToken
+                        );
+
+
+        LocalDateTime verificationExpiresAt =
+                now.plusMinutes(
+                        VERIFICATION_TOKEN_EXPIRE_MINUTES
+                );
+
+
+        /*
+         * 인증 완료 상태를 Entity에 기록한다.
+         */
+        verification.markVerified(
+                verificationTokenHash,
+                now,
+                verificationExpiresAt
+        );
+
+
+        emailVerificationRepository.save(
+                verification
+        );
+
+
+        return new VerifiedEmailVerification(
+                normalizedEmail,
+                rawVerificationToken,
+                verificationExpiresAt
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 최종 회원가입에서 verificationToken 사용
+     * =========================================================
+     *
+     * 인증번호 확인에 성공했다고 해서
+     * 프론트의 verified=true만 믿으면 안 된다.
+     *
+     * 회원가입 요청에서 서버가 발급했던
+     * verificationToken까지 다시 검증한다.
+     */
+    @Transactional
+    public void consumeSignupVerification(
+            String email,
+            String rawVerificationToken
+    ) {
+
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+
+        if (
+                !StringUtils.hasText(
+                        rawVerificationToken
+                )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이메일 인증을 완료해 주세요."
+            );
+        }
+
+
+        LocalDateTime now =
+                LocalDateTime.now(
+                        KST
+                );
+
+
+        EmailVerification verification =
+                emailVerificationRepository
+                        .findByEmailAndPurposeForUpdate(
+                                normalizedEmail,
+                                EmailVerificationPurpose.SIGNUP
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.BAD_REQUEST,
+                                                "이메일 인증 정보를 찾을 수 없어요."
+                                        )
+                        );
+
+
+        /*
+         * 인증번호 확인 자체가 끝나지 않은 상태
+         */
+        if (
+                verification.getVerifiedAt() == null
+                        || verification.getVerificationTokenHash() == null
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이메일 인증을 완료해 주세요."
+            );
+        }
+
+
+        /*
+         * 이미 다른 회원가입에서 사용한 토큰
+         */
+        if (
+                verification.isConsumed()
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이미 사용된 이메일 인증이에요. 인증번호를 다시 받아 주세요."
+            );
+        }
+
+
+        /*
+         * 인증 완료 토큰의 15분 사용기간이 끝난 경우
+         */
+        if (
+                verification.isVerificationExpired(
+                        now
+                )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이메일 인증 시간이 만료됐어요. 인증번호를 다시 받아 주세요."
+            );
+        }
+
+
+        boolean matches =
+                emailVerificationCrypto
+                        .matchesVerificationToken(
+                                normalizedEmail,
+                                EmailVerificationPurpose.SIGNUP,
+                                rawVerificationToken,
+                                verification.getVerificationTokenHash()
+                        );
+
+
+        if (!matches) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이메일 인증 정보가 올바르지 않아요."
+            );
+        }
+
+
+        /*
+         * 회원가입에 실제로 사용됐으므로
+         * 다시 사용할 수 없도록 소비 처리한다.
+         */
+        verification.consume(
+                now
+        );
+
+        emailVerificationRepository.save(
+                verification
         );
     }
 
@@ -376,6 +723,29 @@ public class EmailVerificationService {
         return normalized;
     }
 
+    /*
+     * 인증번호가 정확히 숫자 6자리인지 확인한다.
+     */
+    private void validateVerificationCode(
+            String rawCode
+    ) {
+
+        if (
+                !StringUtils.hasText(
+                        rawCode
+                )
+                        || !VERIFICATION_CODE_PATTERN
+                        .matcher(
+                                rawCode
+                        )
+                        .matches()
+        ) {
+
+            throw new IllegalArgumentException(
+                    "인증번호는 숫자 6자리여야 해요."
+            );
+        }
+    }
 
     /*
      * 인증번호를 발급한 뒤
@@ -387,6 +757,20 @@ public class EmailVerificationService {
             String email,
             String rawCode,
             LocalDateTime expiresAt
+    ) {
+    }
+
+    /*
+     * 인증번호 확인 성공 후
+     * Controller에 전달할 내부 결과 객체
+     */
+    public record VerifiedEmailVerification(
+
+            String email,
+
+            String verificationToken,
+
+            LocalDateTime verificationExpiresAt
     ) {
     }
 }

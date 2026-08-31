@@ -6,8 +6,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
 import shop.esjh.memoryjar.repository.UserLocalCredentialRepository;
+import shop.esjh.memoryjar.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +34,18 @@ class LocalAuthServiceTest {
     @Mock
     private UserLocalCredentialRepository
             userLocalCredentialRepository;
+
+    @Mock
+    private UserRepository
+            userRepository;
+
+    @Mock
+    private EmailVerificationService
+            emailVerificationService;
+
+    @Mock
+    private PasswordEncoder
+            passwordEncoder;
 
     @InjectMocks
     private LocalAuthService localAuthService;

@@ -8,6 +8,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.Base64;
 
 /*
  * EmailVerificationCrypto 역할
@@ -39,6 +41,13 @@ public class EmailVerificationCrypto {
 
     private static final String ALGORITHM =
             "HmacSHA256";
+
+    /*
+     * 이메일 인증 완료 토큰도
+     * 예측하기 어려운 랜덤값으로 만들어야 한다.
+     */
+    private static final SecureRandom SECURE_RANDOM =
+            new SecureRandom();
 
     /*
      * 이메일 인증 전용 비밀키
@@ -175,6 +184,112 @@ public class EmailVerificationCrypto {
                 )
         );
     }
+
+    /*
+     * 이메일 인증에 성공한 뒤
+     * 회원가입에서 사용할 1회성 인증 완료 토큰을 만든다.
+     *
+     * 32바이트 랜덤값을 URL-safe Base64 문자열로 변환한다.
+     */
+    public String generateVerificationToken() {
+
+        byte[] bytes =
+                new byte[32];
+
+        SECURE_RANDOM.nextBytes(
+                bytes
+        );
+
+        return Base64
+                .getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(
+                        bytes
+                );
+    }
+
+
+    /*
+     * verificationToken도 DB에 원본을 저장하지 않는다.
+     *
+     * 이메일 + 목적 + 토큰 원본을 묶어서
+     * HMAC-SHA256 Hash를 생성한다.
+     */
+    public String hashVerificationToken(
+            String email,
+            EmailVerificationPurpose purpose,
+            String rawToken
+    ) {
+
+        try {
+
+            Mac mac =
+                    Mac.getInstance(
+                            ALGORITHM
+                    );
+
+            mac.init(
+                    secretKey
+            );
+
+            String payload =
+                    "TOKEN"
+                            + "|"
+                            + purpose.name()
+                            + "|"
+                            + email
+                            + "|"
+                            + rawToken;
+
+            byte[] digest =
+                    mac.doFinal(
+                            payload.getBytes(
+                                    StandardCharsets.UTF_8
+                            )
+                    );
+
+            return toHex(
+                    digest
+            );
+
+        } catch (Exception ex) {
+
+            throw new IllegalStateException(
+                    "이메일 인증 토큰 Hash 생성에 실패했습니다.",
+                    ex
+            );
+        }
+    }
+
+
+    /*
+     * 회원가입에서 전달받은 verificationToken이
+     * DB에 저장된 Hash와 같은 토큰인지 확인한다.
+     */
+    public boolean matchesVerificationToken(
+            String email,
+            EmailVerificationPurpose purpose,
+            String rawToken,
+            String expectedHash
+    ) {
+
+        String actualHash =
+                hashVerificationToken(
+                        email,
+                        purpose,
+                        rawToken
+                );
+
+        return MessageDigest.isEqual(
+                actualHash.getBytes(
+                        StandardCharsets.UTF_8
+                ),
+                expectedHash.getBytes(
+                        StandardCharsets.UTF_8
+                )
+        );
+    }
+
 
 
     /*

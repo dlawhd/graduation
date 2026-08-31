@@ -45,4 +45,25 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByIdForUpdate(
             @Param("userId") Long userId
     );
+
+    /*
+     * LOCAL 회원가입 시 이메일 중복 여부를
+     * soft delete된 사용자까지 포함해서 검사한다.
+     *
+     * users.email에는 DB UNIQUE 제약이 있기 때문에
+     * 삭제된 row도 포함해서 확인해야
+     * 나중에 DB UNIQUE 오류가 500으로 터지는 것을 막을 수 있다.
+     */
+    @Query(
+            value = """
+                SELECT COUNT(*)
+                FROM users
+                WHERE email = :email
+                """,
+            nativeQuery = true
+    )
+    long countIncludingDeletedByEmail(
+            @Param("email")
+            String email
+    );
 }

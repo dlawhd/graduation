@@ -451,4 +451,72 @@ public class EmailVerification {
                 codeExpiresAt
         );
     }
+
+    /*
+     * 이메일 인증번호 확인에 성공했을 때 호출한다.
+     *
+     * 인증 완료 시각,
+     * verificationToken Hash,
+     * 회원가입에서 사용할 수 있는 만료시간을 저장한다.
+     */
+    public void markVerified(
+            String verificationTokenHash,
+            LocalDateTime verifiedAt,
+            LocalDateTime verificationExpiresAt
+    ) {
+
+        this.verifiedAt =
+                verifiedAt;
+
+        this.verificationTokenHash =
+                verificationTokenHash;
+
+        this.verificationExpiresAt =
+                verificationExpiresAt;
+
+        /*
+         * 새 인증 성공 상태이므로
+         * 아직 사용되지 않은 상태로 만든다.
+         */
+        this.consumedAt =
+                null;
+    }
+
+
+    /*
+     * 인증 완료 토큰의 사용 가능 시간이
+     * 지났는지 확인한다.
+     */
+    public boolean isVerificationExpired(
+            LocalDateTime now
+    ) {
+
+        return verificationExpiresAt == null
+                || !now.isBefore(
+                verificationExpiresAt
+        );
+    }
+
+
+    /*
+     * 이 인증 완료 결과가
+     * 이미 회원가입에 사용됐는지 확인한다.
+     */
+    public boolean isConsumed() {
+
+        return consumedAt != null;
+    }
+
+
+    /*
+     * 최종 회원가입에서 인증 완료 토큰을 사용한 뒤
+     * 다시 재사용하지 못하도록 소비 처리한다.
+     */
+    public void consume(
+            LocalDateTime now
+    ) {
+
+        this.consumedAt =
+                now;
+    }
 }

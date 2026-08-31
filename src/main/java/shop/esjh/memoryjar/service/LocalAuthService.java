@@ -1,10 +1,17 @@
 package shop.esjh.memoryjar.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
+import shop.esjh.memoryjar.entity.User;
+import shop.esjh.memoryjar.entity.UserLocalCredential;
 import shop.esjh.memoryjar.repository.UserLocalCredentialRepository;
+import shop.esjh.memoryjar.repository.UserRepository;
 
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -73,6 +80,15 @@ public class LocalAuthService {
     private final UserLocalCredentialRepository
             userLocalCredentialRepository;
 
+    private final UserRepository
+            userRepository;
+
+    private final EmailVerificationService
+            emailVerificationService;
+
+    private final PasswordEncoder
+            passwordEncoder;
+
 
     /*
      * 생성자 주입
@@ -81,10 +97,23 @@ public class LocalAuthService {
      * 자동으로 넣어준다.
      */
     public LocalAuthService(
-            UserLocalCredentialRepository userLocalCredentialRepository
+            UserLocalCredentialRepository userLocalCredentialRepository,
+            UserRepository userRepository,
+            EmailVerificationService emailVerificationService,
+            PasswordEncoder passwordEncoder
     ) {
+
         this.userLocalCredentialRepository =
                 userLocalCredentialRepository;
+
+        this.userRepository =
+                userRepository;
+
+        this.emailVerificationService =
+                emailVerificationService;
+
+        this.passwordEncoder =
+                passwordEncoder;
     }
 
 
@@ -141,6 +170,184 @@ public class LocalAuthService {
                 normalizedLoginId,
                 available
         );
+    }
+
+    /*
+     * =========================================================
+     * Memory Jar 자체 회원가입
+     * =========================================================
+     *
+     * 처리 흐름:
+     *
+     * 1. 아이디 정규화
+     * 2. 이메일 정규화
+     * 3. 아이디 중복 확인
+     * 4. 이메일 중복 확인
+     * 5. 이메일 verificationToken 검증
+     * 6. Argon2 비밀번호 Hash
+     * 7. User 생성
+     * 8. UserLocalCredential 생성
+     */
+    @Transactional
+    public LocalAuthResult signup(
+            String loginId,
+            String password,
+            String nickname,
+            String email,
+            String verificationToken
+    ) {
+
+        String normalizedLoginId =
+                normalizeLoginId(
+                        loginId
+                );
+
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+        String normalizedNickname =
+                normalizeNickname(
+                        nickname
+                );
+
+        validateSignupPassword(
+                password
+        );
+
+
+        /*
+         * 아이디가 이미 한 번이라도 사용된 적 있다면 막는다.
+         */
+        if (
+                userLocalCredentialRepository
+                        .countIncludingDeletedByLoginId(
+                                normalizedLoginId
+                        ) > 0
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 사용 중인 아이디예요."
+            );
+        }
+
+
+        /*
+         * 같은 이메일의 기존 Memory Jar 계정이 있으면
+         * 자동으로 LOCAL 계정을 합치지 않는다.
+         *
+         * 기존 로그인 방법을 사용하도록 안내한다.
+         */
+        if (
+                userRepository
+                        .countIncludingDeletedByEmail(
+                                normalizedEmail
+                        ) > 0
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 Memory Jar에 가입된 이메일이에요. 기존 로그인 방법을 이용해 주세요."
+            );
+        }
+
+
+        /*
+         * 서버가 실제로 발급했던 verificationToken인지 확인하고
+         * 이번 회원가입에서 1회 사용 처리한다.
+         *
+         * 아래 User/Credential 저장이 실패하면
+         * 같은 트랜잭션이 rollback되므로 consume도 함께 되돌아간다.
+         */
+        emailVerificationService
+                .consumeSignupVerification(
+                        normalizedEmail,
+                        verificationToken
+                );
+
+
+        /*
+         * 비밀번호 원본은 DB에 넣지 않는다.
+         */
+        String passwordHash =
+                passwordEncoder.encode(
+                        password
+                );
+
+
+        try {
+
+            /*
+             * LOCAL 회원은 OAuth Provider가 없으므로
+             * provider / providerId는 NULL이다.
+             */
+            User user =
+                    User.builder()
+                            .email(
+                                    normalizedEmail
+                            )
+                            .name(
+                                    normalizedNickname
+                            )
+                            .provider(
+                                    null
+                            )
+                            .providerId(
+                                    null
+                            )
+                            .build();
+
+
+            user =
+                    userRepository
+                            .saveAndFlush(
+                                    user
+                            );
+
+
+            UserLocalCredential credential =
+                    UserLocalCredential
+                            .builder()
+                            .user(
+                                    user
+                            )
+                            .loginId(
+                                    normalizedLoginId
+                            )
+                            .passwordHash(
+                                    passwordHash
+                            )
+                            .build();
+
+
+            userLocalCredentialRepository
+                    .saveAndFlush(
+                            credential
+                    );
+
+
+            return new LocalAuthResult(
+                    user,
+                    normalizedLoginId
+            );
+
+        } catch (DataIntegrityViolationException ex) {
+
+            /*
+             * 동시에 두 회원가입 요청이 들어오는 경우
+             * 사전 중복 검사만으로는 100% 막을 수 없다.
+             *
+             * 최종 안전장치인 DB UNIQUE 오류도
+             * 사용자에게 500이 아니라 409로 전달한다.
+             */
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 사용 중인 아이디 또는 이메일이에요.",
+                    ex
+            );
+        }
     }
 
 
@@ -206,5 +413,101 @@ public class LocalAuthService {
 
 
         return normalized;
+    }
+
+    /*
+     * 이메일도 DB에 저장하기 전에
+     * 앞뒤 공백 제거 + 소문자로 통일한다.
+     */
+    private String normalizeEmail(
+            String email
+    ) {
+
+        if (!StringUtils.hasText(email)) {
+
+            throw new IllegalArgumentException(
+                    "이메일을 입력해 주세요."
+            );
+        }
+
+        String normalized =
+                email
+                        .trim()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
+
+        if (
+                normalized.length() > 255
+                        || !normalized.contains("@")
+        ) {
+
+            throw new IllegalArgumentException(
+                    "이메일 형식을 확인해 주세요."
+            );
+        }
+
+        return normalized;
+    }
+
+
+    /*
+     * 닉네임 정리
+     */
+    private String normalizeNickname(
+            String nickname
+    ) {
+
+        if (!StringUtils.hasText(nickname)) {
+
+            throw new IllegalArgumentException(
+                    "닉네임을 입력해 주세요."
+            );
+        }
+
+        String normalized =
+                nickname.trim();
+
+        if (
+                normalized.length() > 50
+        ) {
+
+            throw new IllegalArgumentException(
+                    "닉네임은 50자 이하로 입력해 주세요."
+            );
+        }
+
+        return normalized;
+    }
+
+
+    /*
+     * 회원가입 비밀번호 최소 규칙
+     */
+    private void validateSignupPassword(
+            String password
+    ) {
+
+        if (
+                password == null
+                        || password.length() < 8
+                        || password.length() > 100
+        ) {
+
+            throw new IllegalArgumentException(
+                    "비밀번호는 8~100자로 입력해 주세요."
+            );
+        }
+    }
+
+
+    /*
+     * Controller가 회원가입 성공 후
+     * JWT 쿠키를 발급할 때 사용할 결과 객체
+     */
+    public record LocalAuthResult(
+            User user,
+            String loginId
+    ) {
     }
 }

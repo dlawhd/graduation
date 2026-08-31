@@ -2,6 +2,7 @@ package shop.esjh.memoryjar.config.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import shop.esjh.memoryjar.dto.response.ErrorEnvelope;
 import shop.esjh.memoryjar.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -89,6 +90,40 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(ErrorEnvelope.of(error));
     }
+
+    /*
+     * 요청한 Controller/API 경로 자체가 존재하지 않는 경우
+     *
+     * 서버 내부 장애가 아니라
+     * 존재하지 않는 주소이므로 404로 응답한다.
+     */
+    @ExceptionHandler(
+            NoResourceFoundException.class
+    )
+    public ResponseEntity<ErrorEnvelope>
+    handleNoResourceFound(
+            NoResourceFoundException ex,
+            HttpServletRequest request
+    ) {
+
+        ErrorResponse error =
+                ErrorResponse.of(
+                        "NOT_FOUND",
+                        "요청한 API를 찾을 수 없습니다.",
+                        request.getRequestURI()
+                );
+
+        return ResponseEntity
+                .status(
+                        HttpStatus.NOT_FOUND
+                )
+                .body(
+                        ErrorEnvelope.of(
+                                error
+                        )
+                );
+    }
+
     // ✅ 그 밖의 모든 예외 처리
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorEnvelope> handleException(

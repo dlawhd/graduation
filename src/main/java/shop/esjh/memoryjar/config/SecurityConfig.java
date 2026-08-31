@@ -110,17 +110,6 @@ public class SecurityConfig {
                         ).permitAll()
 
                                 /*
-                                 * 자체 회원가입 아이디 중복 확인은
-                                 * 로그인하기 전 사용해야 하므로 공개한다.
-                                 *
-                                 * GET으로만 열어서 필요한 HTTP Method만 허용한다.
-                                 */
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/v1/auth/login-id/availability"
-                                ).permitAll()
-
-                                /*
                                  * 회원가입 전에 이메일 인증번호를 받아야 하므로
                                  * 로그인하지 않은 사용자도 호출할 수 있어야 한다.
                                  *

@@ -3,9 +3,7 @@ package shop.esjh.memoryjar.controller;
 import org.springframework.http.MediaType;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
-import shop.esjh.memoryjar.service.AuthCookieService;
-import shop.esjh.memoryjar.service.EmailVerificationDispatchService;
-import shop.esjh.memoryjar.service.RefreshTokenService;
+import shop.esjh.memoryjar.service.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -14,7 +12,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
-import shop.esjh.memoryjar.service.LocalAuthService;
 import shop.esjh.memoryjar.dto.auth.response.EmailVerificationSendResponse;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
@@ -47,6 +44,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private EmailVerificationService emailVerificationService;
 
     /*
      * 실제 AWS SES를 호출하지 않도록
@@ -188,6 +188,70 @@ class AuthControllerTest {
         ).sendSignupVerificationCode(
                 "EunSeo@Naver.com"
         );
+    }
+
+    @Test
+    void 이메일_인증번호_확인_성공()
+            throws Exception {
+
+        LocalDateTime expiresAt =
+                LocalDateTime.of(
+                        2026,
+                        8,
+                        29,
+                        15,
+                        0
+                );
+
+        given(
+                emailVerificationService
+                        .verifySignupCode(
+                                "eunseo@naver.com",
+                                "481076"
+                        )
+        ).willReturn(
+                new EmailVerificationService
+                        .VerifiedEmailVerification(
+                        "eunseo@naver.com",
+                        "verification-token",
+                        expiresAt
+                )
+        );
+
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications/confirm"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "email": "eunseo@naver.com",
+                                          "code": "481076"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.email"
+                        ).value(
+                                "eunseo@naver.com"
+                        )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.verificationToken"
+                        ).value(
+                                "verification-token"
+                        )
+                );
     }
 
     @Test

@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import shop.esjh.memoryjar.service.EmailVerificationDispatchService;
+import shop.esjh.memoryjar.service.EmailVerificationService;
 import shop.esjh.memoryjar.service.LocalAuthService;
 
 import java.time.LocalDateTime;
@@ -70,6 +71,10 @@ class SecurityConfigTest {
     private EmailVerificationDispatchService
             emailVerificationDispatchService;
 
+    @MockitoBean
+    private EmailVerificationService
+            emailVerificationService;
+
     /*
      * 실제 LOCAL 인증 비즈니스 로직은 필요 없고
      * 이번 테스트에서는 Security 접근 규칙만 확인한다.
@@ -106,6 +111,85 @@ class SecurityConfigTest {
             return null;
         }).when(jwtAuthenticationFilter)
                 .doFilter(any(ServletRequest.class), any(ServletResponse.class), any(FilterChain.class));
+    }
+
+    @Test
+    @DisplayName("이메일 인증번호 확인 API는 로그인 없이 접근할 수 있다")
+    void emailVerificationConfirm_withoutLogin_success()
+            throws Exception {
+
+        given(
+                emailVerificationService
+                        .verifySignupCode(
+                                "eunseo@naver.com",
+                                "481076"
+                        )
+        ).willReturn(
+                new EmailVerificationService
+                        .VerifiedEmailVerification(
+                        "eunseo@naver.com",
+                        "verification-token",
+                        LocalDateTime.now()
+                                .plusMinutes(15)
+                )
+        );
+
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications/confirm"
+                        )
+                                .with(
+                                        csrf()
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "email": "eunseo@naver.com",
+                                          "code": "481076"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                );
+    }
+
+    @Test
+    @DisplayName("이메일 인증번호 확인 API는 CSRF 토큰이 없으면 차단된다")
+    void emailVerificationConfirm_withoutCsrf_forbidden()
+            throws Exception {
+
+        /*
+         * /confirm은 회원가입 전 사용하는 공개 API라서
+         * 로그인은 필요하지 않다.
+         *
+         * 하지만 POST 요청이기 때문에
+         * CSRF 토큰이 없으면 Spring Security가 403으로 막아야 한다.
+         */
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/email-verifications/confirm"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "email": "eunseo@naver.com",
+                                          "code": "481076"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isForbidden()
+                );
     }
 
     @Test

@@ -2,14 +2,15 @@ package shop.esjh.memoryjar.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.util.StringUtils;
+import shop.esjh.memoryjar.dto.auth.request.EmailVerificationConfirmRequest;
 import shop.esjh.memoryjar.dto.auth.request.EmailVerificationSendRequest;
+import shop.esjh.memoryjar.dto.auth.request.LocalSignupRequest;
+import shop.esjh.memoryjar.dto.auth.response.EmailVerificationConfirmResponse;
 import shop.esjh.memoryjar.dto.auth.response.EmailVerificationSendResponse;
+import shop.esjh.memoryjar.dto.auth.response.LocalAuthResponse;
 import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
-import shop.esjh.memoryjar.service.AuthCookieService;
-import shop.esjh.memoryjar.service.EmailVerificationDispatchService;
-import shop.esjh.memoryjar.service.LocalAuthService;
-import shop.esjh.memoryjar.service.RefreshTokenService;
+import shop.esjh.memoryjar.service.*;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +35,10 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final LocalAuthService localAuthService;
     private final EmailVerificationDispatchService emailVerificationDispatchService;
+    /*
+     * 인증번호 확인과 verificationToken 검증 담당
+     */
+    private final EmailVerificationService emailVerificationService;
 
 
     // ✅ 생성자 주입
@@ -42,13 +47,15 @@ public class AuthController {
             AuthCookieService authCookieService,
             JwtTokenProvider jwtTokenProvider,
             LocalAuthService localAuthService,
-            EmailVerificationDispatchService emailVerificationDispatchService
+            EmailVerificationDispatchService emailVerificationDispatchService,
+            EmailVerificationService emailVerificationService
     ) {
         this.refreshTokenService = refreshTokenService;
         this.authCookieService = authCookieService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.localAuthService = localAuthService;
         this.emailVerificationDispatchService = emailVerificationDispatchService;
+        this.emailVerificationService = emailVerificationService;
     }
 
     /*
@@ -171,6 +178,99 @@ public class AuthController {
         );
     }
 
+    /*
+     * POST /api/v1/auth/email-verifications/confirm
+     *
+     * 사용자가 이메일로 받은 6자리 인증번호를 확인한다.
+     */
+    @PostMapping(
+            "/email-verifications/confirm"
+    )
+    public ApiResponse<EmailVerificationConfirmResponse>
+    confirmEmailVerification(
+
+            @Valid
+            @RequestBody
+            EmailVerificationConfirmRequest request
+    ) {
+
+        EmailVerificationService
+                .VerifiedEmailVerification result =
+                emailVerificationService
+                        .verifySignupCode(
+                                request.email(),
+                                request.code()
+                        );
+
+
+        EmailVerificationConfirmResponse response =
+                new EmailVerificationConfirmResponse(
+                        result.email(),
+                        result.verificationToken(),
+                        result.verificationExpiresAt()
+                );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
+
+    /*
+     * POST /api/v1/auth/signup
+     *
+     * 이메일 인증까지 완료된 사용자의
+     * Memory Jar 자체 계정을 생성한다.
+     *
+     * 성공하면 소셜 로그인과 동일하게
+     * Access Token / Refresh Token 쿠키도 바로 발급해서
+     * 회원가입과 동시에 로그인 상태가 된다.
+     */
+    @PostMapping("/signup")
+    public ApiResponse<LocalAuthResponse>
+    signup(
+
+            @Valid
+            @RequestBody
+            LocalSignupRequest request,
+
+            HttpServletResponse httpResponse
+    ) {
+
+        LocalAuthService.LocalAuthResult result =
+                localAuthService.signup(
+                        request.loginId(),
+                        request.password(),
+                        request.nickname(),
+                        request.email(),
+                        request.verificationToken()
+                );
+
+
+        /*
+         * 가입 직후 JWT/Refresh 쿠키 발급
+         */
+        issueLocalAuthCookies(
+                result.user(),
+                httpResponse
+        );
+
+
+        LocalAuthResponse response =
+                new LocalAuthResponse(
+                        result.user().getId(),
+                        result.loginId(),
+                        result.user().getName(),
+                        result.user().getEmail()
+                );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
+
+
     // ✅ POST /api/v1/auth/refresh
     // 출입증(accessToken)이 만료되기 전에 재발급 쿠폰(refreshToken)으로 새 출입증을 다시 받는 API
     @PostMapping("/refresh")
@@ -271,5 +371,79 @@ public class AuthController {
         authCookieService.clearSessionCookie(response);
 
         return ApiResponse.of(Map.of("ok", true));
+    }
+
+    /*
+     * 자체 회원가입 / 자체 로그인 성공 후
+     * Access Token과 Refresh Token 쿠키를 발급한다.
+     */
+    private void issueLocalAuthCookies(
+            User user,
+            HttpServletResponse response
+    ) {
+
+        /*
+         * DB에 저장되는 Refresh Token을 새로 발급한다.
+         */
+        String refreshToken =
+                refreshTokenService.issue(
+                        user
+                );
+
+
+        /*
+         * Access Token에 담을 사용자 정보
+         */
+        Map<String, Object> claims =
+                new HashMap<>();
+
+        claims.put(
+                "email",
+                user.getEmail()
+        );
+
+        claims.put(
+                "name",
+                user.getName()
+        );
+
+
+        if (
+                StringUtils.hasText(
+                        user.getBirthyear()
+                )
+        ) {
+
+            claims.put(
+                    "birthyear",
+                    user.getBirthyear()
+            );
+        }
+
+
+        String accessToken =
+                jwtTokenProvider
+                        .createAccessToken(
+                                String.valueOf(
+                                        user.getId()
+                                ),
+                                claims
+                        );
+
+
+        /*
+         * HttpOnly Cookie 저장
+         */
+        authCookieService
+                .setAccessCookie(
+                        response,
+                        accessToken
+                );
+
+        authCookieService
+                .setRefreshCookie(
+                        response,
+                        refreshToken
+                );
     }
 }
