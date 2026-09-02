@@ -2,7 +2,9 @@ package shop.esjh.memoryjar.controller;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
 import shop.esjh.memoryjar.service.*;
@@ -67,6 +69,478 @@ class AuthControllerTest {
      */
     @MockitoBean
     private LocalAuthService localAuthService;
+
+    /*
+     * =========================================================
+     * Memory Jar 자체 로그인 Controller 테스트
+     * =========================================================
+     *
+     * LocalAuthServiceTest에서는:
+     *
+     * - 아이디가 존재하는지
+     * - 비밀번호가 맞는지
+     *
+     * 같은 실제 로그인 판단 로직을 검사했다.
+     *
+     * 여기 AuthControllerTest에서는:
+     *
+     * HTTP 로그인 요청
+     *      ↓
+     * LocalAuthService.login()
+     *      ↓
+     * Access Token 생성
+     *      ↓
+     * Refresh Token 생성
+     *      ↓
+     * HttpOnly Cookie 저장
+     *      ↓
+     * 사용자 정보 JSON 응답
+     *
+     * 연결이 제대로 되는지를 확인한다.
+     */
+
+
+    @Test
+    void 자체로그인_성공시_사용자정보와_인증쿠키를_발급한다()
+            throws Exception {
+
+        /*
+         * =====================================================
+         * given
+         * =====================================================
+         *
+         * 아이디:
+         * eunseo01
+         *
+         * 비밀번호:
+         * Memory123!
+         *
+         * 로 로그인하는 상황을 만든다.
+         */
+
+        User user =
+                User.builder()
+                        .id(
+                                10L
+                        )
+                        .email(
+                                "eunseo@example.com"
+                        )
+                        .name(
+                                "은서"
+                        )
+                        .birthyear(
+                                "2000"
+                        )
+
+                        /*
+                         * 자체 가입 사용자는
+                         * 기존 단일 OAuth provider 값이 없어도 된다.
+                         */
+                        .provider(
+                                null
+                        )
+                        .providerId(
+                                null
+                        )
+                        .build();
+
+
+        /*
+         * LocalAuthService.login()이 성공하면
+         *
+         * User + 정규화된 loginId
+         *
+         * 를 반환한다고 가정한다.
+         */
+        given(
+                localAuthService.login(
+                        "eunseo01",
+                        "Memory123!"
+                )
+        ).willReturn(
+                new LocalAuthService.LocalAuthResult(
+                        user,
+                        "eunseo01"
+                )
+        );
+
+
+        /*
+         * 로그인 성공 후 발급되는
+         * Refresh Token
+         */
+        given(
+                refreshTokenService.issue(
+                        user
+                )
+        ).willReturn(
+                "new-refresh-token"
+        );
+
+
+        /*
+         * 로그인 성공 후 발급되는
+         * Access Token
+         */
+        given(
+                jwtTokenProvider
+                        .createAccessToken(
+                                eq(
+                                        "10"
+                                ),
+                                anyMap()
+                        )
+        ).willReturn(
+                "new-access-token"
+        );
+
+
+        /*
+         * =====================================================
+         * when & then
+         * =====================================================
+         *
+         * 실제 프론트 LoginJarCard가 보내는 것과 같은
+         * POST 요청을 만든다.
+         */
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/login"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "eunseo01",
+                                          "password": "Memory123!"
+                                        }
+                                        """
+                                )
+                )
+
+                /*
+                 * 로그인 성공
+                 */
+                .andExpect(
+                        status().isOk()
+                )
+
+                /*
+                 * 사용자 번호
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.userId"
+                        ).value(
+                                10L
+                        )
+                )
+
+                /*
+                 * LOCAL 로그인 아이디
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.loginId"
+                        ).value(
+                                "eunseo01"
+                        )
+                )
+
+                /*
+                 * Memory Jar 닉네임
+                 *
+                 * LocalAuthResponse의 필드 이름은
+                 * nickname이다.
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.nickname"
+                        ).value(
+                                "은서"
+                        )
+                )
+
+                /*
+                 * 이메일
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.data.email"
+                        ).value(
+                                "eunseo@example.com"
+                        )
+                );
+
+
+        /*
+         * =====================================================
+         * Service 연결 확인
+         * =====================================================
+         */
+
+        /*
+         * 사용자가 입력한 아이디/비밀번호가
+         * LocalAuthService에 정확히 전달됐는지 확인한다.
+         */
+        verify(
+                localAuthService
+        ).login(
+                "eunseo01",
+                "Memory123!"
+        );
+
+
+        /*
+         * 로그인 성공 후
+         * Refresh Token을 생성했는지 확인한다.
+         */
+        verify(
+                refreshTokenService
+        ).issue(
+                user
+        );
+
+
+        /*
+         * Access Token을 실제 쿠키에 저장했는지 확인한다.
+         */
+        verify(
+                authCookieService
+        ).setAccessCookie(
+                any(),
+                eq(
+                        "new-access-token"
+                )
+        );
+
+
+        /*
+         * Refresh Token 역시
+         * HttpOnly Cookie에 저장했는지 확인한다.
+         */
+        verify(
+                authCookieService
+        ).setRefreshCookie(
+                any(),
+                eq(
+                        "new-refresh-token"
+                )
+        );
+    }
+
+    @Test
+    void 자체로그인_아이디나_비밀번호가_틀리면_401을_반환한다()
+            throws Exception {
+
+        /*
+         * =====================================================
+         * given
+         * =====================================================
+         *
+         * Service에서는:
+         *
+         * 존재하지 않는 아이디
+         * 또는
+         * 잘못된 비밀번호
+         *
+         * 모두 같은 401 오류로 처리한다.
+         *
+         * 보안상 어느 부분이 틀렸는지
+         * 따로 알려주지 않는다.
+         */
+        given(
+                localAuthService.login(
+                        "eunseo01",
+                        "Wrong123!"
+                )
+        ).willThrow(
+                new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "아이디 또는 비밀번호가 올바르지 않아요."
+                )
+        );
+
+
+        /*
+         * =====================================================
+         * when & then
+         * =====================================================
+         */
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/login"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "eunseo01",
+                                          "password": "Wrong123!"
+                                        }
+                                        """
+                                )
+                )
+
+                /*
+                 * HTTP 401
+                 */
+                .andExpect(
+                        status().isUnauthorized()
+                )
+
+                /*
+                 * 공통 ErrorEnvelope의 code
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.error.code"
+                        ).value(
+                                "UNAUTHORIZED"
+                        )
+                )
+
+                /*
+                 * 사용자에게 내려가는 로그인 실패 문구
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.error.message"
+                        ).value(
+                                "아이디 또는 비밀번호가 올바르지 않아요."
+                        )
+                );
+
+
+        /*
+         * 로그인 검증 자체는 호출되어야 한다.
+         */
+        verify(
+                localAuthService
+        ).login(
+                "eunseo01",
+                "Wrong123!"
+        );
+
+
+        /*
+         * 로그인에 실패했으므로
+         *
+         * Refresh Token
+         * Access Token
+         * Cookie
+         *
+         * 를 만들면 안 된다.
+         */
+        verifyNoInteractions(
+                refreshTokenService,
+                jwtTokenProvider,
+                authCookieService
+        );
+    }
+
+    @Test
+    void 자체로그인_비밀번호가_비어있으면_400이고_Service를_호출하지_않는다()
+            throws Exception {
+
+        /*
+         * 비밀번호를 빈 문자열로 보낸다.
+         */
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/login"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "eunseo01",
+                                          "password": ""
+                                        }
+                                        """
+                                )
+                )
+
+                /*
+                 * DTO @Valid 단계에서 차단
+                 */
+                .andExpect(
+                        status().isBadRequest()
+                )
+
+                /*
+                 * LocalLoginRequest에서 정한 메시지
+                 */
+                .andExpect(
+                        jsonPath(
+                                "$.error.message"
+                        ).value(
+                                "비밀번호를 입력해 주세요."
+                        )
+                );
+
+
+        /*
+         * DTO에서 막혔으므로
+         * 실제 로그인 Service까지 가면 안 된다.
+         */
+        verifyNoInteractions(
+                localAuthService
+        );
+    }
+
+    @Test
+    void 자체로그인_아이디가_비어있으면_400이고_Service를_호출하지_않는다()
+            throws Exception {
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/login"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "",
+                                          "password": "Memory123!"
+                                        }
+                                        """
+                                )
+                )
+
+                /*
+                 * @NotBlank에서 차단
+                 */
+                .andExpect(
+                        status().isBadRequest()
+                )
+
+                .andExpect(
+                        jsonPath(
+                                "$.error.message"
+                        ).value(
+                                "아이디를 입력해 주세요."
+                        )
+                );
+
+
+        /*
+         * 잘못된 HTTP 요청이므로
+         * 로그인 Service까지 가지 않는다.
+         */
+        verifyNoInteractions(
+                localAuthService
+        );
+    }
 
     @Test
     void refresh쿠키가_없으면_401() throws Exception {

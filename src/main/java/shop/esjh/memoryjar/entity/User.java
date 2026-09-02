@@ -69,10 +69,68 @@ public class User extends BaseEntity{
     )
     private String providerId;
 
-    public void updateProfile(String email, String name, String birthyear) {
-        // 최신 값으로 업데이트(없으면 유지)
-        if (email != null) this.email = email;
-        if (name != null) this.name = name;
-        if (birthyear != null) this.birthyear = birthyear;
+    /*
+     * OAuth 로그인에서 받은 프로필 정보를 갱신한다.
+     *
+     * 중요한 점:
+     *
+     * users.name은 이제 단순한 OAuth 이름이 아니라
+     * Memory Jar에서 사용하는 "닉네임" 역할을 한다.
+     *
+     * 따라서 사용자가 직접 닉네임을 변경한 뒤
+     * NAVER / GOOGLE / KAKAO로 다시 로그인해도
+     * 소셜 서비스의 이름으로 덮어쓰면 안 된다.
+     */
+    public void updateProfile(
+            String email,
+            String name,
+            String birthyear
+    ) {
+
+        /*
+         * 이메일은 최신 OAuth 정보를 반영한다.
+         */
+        if (email != null) {
+            this.email = email;
+        }
+
+
+        /*
+         * 기존 닉네임이 아예 없는 사용자에게만
+         * OAuth 이름을 최초 기본값으로 사용한다.
+         *
+         * 이미 Memory Jar 닉네임이 있다면
+         * 절대로 덮어쓰지 않는다.
+         */
+        if (
+                (this.name == null
+                        || this.name.isBlank())
+                        &&
+                        name != null
+                        && !name.isBlank()
+        ) {
+
+            this.name = name;
+        }
+
+
+        /*
+         * 출생연도는 Provider에서 새 값을 받았을 때 갱신한다.
+         */
+        if (birthyear != null) {
+            this.birthyear = birthyear;
+        }
+    }
+
+
+    /*
+     * 사용자가 Memory Jar 안에서
+     * 직접 닉네임을 변경할 때 사용하는 메서드
+     */
+    public void changeNickname(
+            String nickname
+    ) {
+
+        this.name = nickname;
     }
 }

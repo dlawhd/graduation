@@ -1,5 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+
+/*
+ * Memory Jar 자체 아이디/비밀번호 로그인 API
+ */
+import {
+  loginLocal,
+  getAuthErrorMessage,
+} from "../../api/authApi";
 /*
  * LoginJarCard 역할
  *
@@ -115,6 +123,23 @@ export default function LoginJarCard({
     useState("");
 
   /*
+   * 자체 로그인 요청 상태
+   *
+   * idle
+   * → 로그인 요청 전
+   *
+   * submitting
+   * → 서버에 아이디/비밀번호 확인 중
+   *
+   * error
+   * → 로그인 실패
+   */
+  const [
+    localLoginStatus,
+    setLocalLoginStatus,
+  ] = useState("idle");
+
+  /*
    * 자체 로그인 관련 버튼을 눌렀을 때
    * 임시 안내 문구를 보여주기 위한 상태다.
    */
@@ -124,13 +149,13 @@ export default function LoginJarCard({
   ] = useState("");
 
   /*
-   * 세션을 확인 중이거나
-   * 소셜 OAuth 화면으로 이동 중이면
-   * 다른 로그인 버튼을 또 누르지 못하게 막는다.
+   * OAuth 로그인이나 LOCAL 로그인이 진행 중일 때
+   * 버튼 중복 클릭을 막는다.
    */
   const isBusy =
     checkingSession ||
-    Boolean(redirectingProvider);
+    Boolean(redirectingProvider) ||
+    localLoginStatus === "submitting";
 
   /*
    * 현재 어느 OAuth Provider로
@@ -162,22 +187,45 @@ export default function LoginJarCard({
               : "";
 
   /*
-   * Memory Jar 자체 로그인 버튼 처리
+   * =========================================================
+   * Memory Jar 자체 로그인
+   * =========================================================
    *
-   * 지금은 프론트 UI 단계라서
-   * 입력값 존재 여부만 확인한다.
+   * 예전에는 여기에서:
+   *
+   * "Memory Jar 로그인 기능은 다음 단계에서 연결할게요."
+   *
+   * 문구만 보여줬다.
+   *
+   * 이제 실제:
+   *
+   * POST /api/v1/auth/login
+   *
+   * 을 호출한다.
    */
-  function handleLocalLoginSubmit(event) {
+  async function handleLocalLoginSubmit(
+    event
+  ) {
     event.preventDefault();
 
     /*
-     * 아이디 또는 비밀번호가 비어 있으면
-     * 사용자에게 먼저 입력해 달라고 알려준다.
+     * 아이디 앞뒤 공백은 제거한다.
+     *
+     * 비밀번호는 공백까지 실제 비밀번호의 일부일 수 있으므로
+     * trim()하지 않는다.
+     */
+    const normalizedLoginId =
+      loginId.trim();
+
+    /*
+     * 빈 값 검사
      */
     if (
-      !loginId.trim() ||
-      !password.trim()
+      !normalizedLoginId ||
+      !password
     ) {
+      setLocalLoginStatus("error");
+
       setLocalGuideMessage(
         "아이디와 비밀번호를 입력해 주세요."
       );
@@ -185,13 +233,68 @@ export default function LoginJarCard({
       return;
     }
 
+
     /*
-     * 아직 백엔드 로그인 API를 만들지 않았으므로
-     * 실제 인증 요청 대신 안내 문구만 보여준다.
+     * 빠르게 여러 번 클릭했을 때
+     * 중복 로그인 요청을 막는다.
      */
-    setLocalGuideMessage(
-      "Memory Jar 로그인 기능은 다음 단계에서 연결할게요."
+    if (
+      localLoginStatus ===
+      "submitting"
+    ) {
+      return;
+    }
+
+
+    setLocalLoginStatus(
+      "submitting"
     );
+
+    setLocalGuideMessage(
+      "로그인 정보를 확인하고 있어요."
+    );
+
+
+    try {
+
+      /*
+       * 실제 백엔드 로그인 API 호출
+       *
+       * POST /api/v1/auth/login
+       */
+      await loginLocal({
+        loginId:
+          normalizedLoginId,
+
+        password,
+      });
+
+
+      /*
+       * 로그인 성공 시 백엔드가 이미
+       * Access / Refresh Token을
+       * HttpOnly Cookie에 넣어준 상태다.
+       *
+       * App을 새로 시작하면
+       * /api/v1/me가 새 로그인 정보를 읽는다.
+       */
+      window.location.replace(
+        "/jars"
+      );
+
+    } catch (error) {
+
+      setLocalLoginStatus(
+        "error"
+      );
+
+      setLocalGuideMessage(
+        getAuthErrorMessage(
+          error,
+          "아이디 또는 비밀번호가 올바르지 않아요."
+        )
+      );
+    }
   }
 
   /*
@@ -402,7 +505,9 @@ export default function LoginJarCard({
                     disabled={isBusy}
                     className="mt-3 h-10 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-sm font-black text-white shadow-md shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
                   >
-                    Memory Jar 로그인
+                    {localLoginStatus === "submitting"
+                      ? "로그인 중..."
+                      : "Memory Jar 로그인"}
                   </button>
                 </form>
 
@@ -463,7 +568,13 @@ export default function LoginJarCard({
                   <p
                     role="status"
                     aria-live="polite"
-                    className="mt-2 rounded-xl bg-emerald-50 px-2.5 py-1.5 text-center text-[10px] font-semibold leading-4 text-emerald-700"
+                    className={[
+                      "mt-2 rounded-xl px-2.5 py-1.5 text-center text-[10px] font-semibold leading-4",
+
+                      localLoginStatus === "error"
+                        ? "bg-rose-50 text-rose-600"
+                        : "bg-emerald-50 text-emerald-700",
+                    ].join(" ")}
                   >
                     {localGuideMessage}
                   </p>

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.util.StringUtils;
 import shop.esjh.memoryjar.dto.auth.request.EmailVerificationConfirmRequest;
 import shop.esjh.memoryjar.dto.auth.request.EmailVerificationSendRequest;
+import shop.esjh.memoryjar.dto.auth.request.LocalLoginRequest;
 import shop.esjh.memoryjar.dto.auth.request.LocalSignupRequest;
 import shop.esjh.memoryjar.dto.auth.response.EmailVerificationConfirmResponse;
 import shop.esjh.memoryjar.dto.auth.response.EmailVerificationSendResponse;
@@ -291,6 +292,78 @@ public class AuthController {
         );
     }
 
+    /*
+     * =========================================================
+     * POST /api/v1/auth/login
+     * =========================================================
+     *
+     * Memory Jar 자체 아이디 + 비밀번호 로그인 API
+     *
+     * 로그인 성공:
+     *
+     * 1. User 확인
+     * 2. Access Token 발급
+     * 3. Refresh Token 발급
+     * 4. 두 토큰을 HttpOnly Cookie에 저장
+     * 5. 사용자 정보를 응답
+     *
+     * 이후 프론트는 /jars로 이동한다.
+     */
+    @PostMapping("/login")
+    public ApiResponse<LocalAuthResponse> login(
+
+            /*
+             * 아이디와 비밀번호를 검증해서 받는다.
+             */
+            @Valid
+            @RequestBody
+            LocalLoginRequest request,
+
+            /*
+             * 로그인 성공 후
+             * JWT 쿠키를 응답에 심기 위해 필요하다.
+             */
+            HttpServletResponse httpResponse
+    ) {
+
+        /*
+         * 실제 아이디 / 비밀번호 검사
+         */
+        LocalAuthService.LocalAuthResult result =
+                localAuthService.login(
+                        request.loginId(),
+                        request.password()
+                );
+
+
+        /*
+         * 회원가입 때 이미 만들어둔
+         * JWT 쿠키 발급 로직을 그대로 재사용한다.
+         *
+         * 중복 코드를 만들지 않는 게 중요하다.
+         */
+        issueLocalAuthCookies(
+                result.user(),
+                httpResponse
+        );
+
+
+        /*
+         * 프론트에 필요한 최소 사용자 정보 반환
+         */
+        LocalAuthResponse response =
+                new LocalAuthResponse(
+                        result.user().getId(),
+                        result.loginId(),
+                        result.user().getName(),
+                        result.user().getEmail()
+                );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
 
     // ✅ POST /api/v1/auth/refresh
     // 출입증(accessToken)이 만료되기 전에 재발급 쿠폰(refreshToken)으로 새 출입증을 다시 받는 API

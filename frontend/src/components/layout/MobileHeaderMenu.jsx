@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import MemoryJarLogoIcon from "../icons/MemoryJarLogoIcon";
+import NicknameEditor from "../profile/NicknameEditor";
 
 export default function MobileHeaderMenu({
   isOpen,
@@ -27,6 +28,12 @@ export default function MobileHeaderMenu({
   onClose,
   onOpenGuide,
   onLogout,
+
+  /*
+   * 닉네임 변경 후
+   * App의 me를 갱신하는 함수
+   */
+  onNicknameUpdated,
 }) {
   // "내정보"를 눌렀을 때 상세 정보를 펼칠지 기억한다.
   const [profileDetailOpen, setProfileDetailOpen] = useState(false);
@@ -281,6 +288,12 @@ export default function MobileHeaderMenu({
                         {me?.name || "정보 없음"}
                       </span>
                     </div>
+                    <NicknameEditor
+                      me={me}
+                      onNicknameUpdated={
+                        onNicknameUpdated
+                      }
+                    />
 
                     {/* 이메일 */}
                     <div className="mt-3 flex items-start justify-between gap-4">

@@ -1,10 +1,13 @@
 package shop.esjh.memoryjar.service;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserOAuthAccount;
+import shop.esjh.memoryjar.policy.NicknamePolicy;
 import shop.esjh.memoryjar.repository.UserOAuthAccountRepository;
 import shop.esjh.memoryjar.repository.UserRepository;
 
@@ -269,6 +272,96 @@ public class UserService {
         return user;
     }
 
+    /*
+     * =========================================================
+     * 로그인한 사용자 조회
+     * =========================================================
+     *
+     * JWT 안의 name을 그대로 사용하는 대신
+     * DB에서 최신 User를 읽는다.
+     *
+     * 그래야 닉네임 변경 직후 새로고침해도
+     * 최신 닉네임이 보인다.
+     */
+    @Transactional(readOnly = true)
+    public User getUser(
+            Long userId
+    ) {
+
+        return userRepository
+                .findById(
+                        userId
+                )
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "사용자 정보를 찾을 수 없어요."
+                                )
+                );
+    }
+
+
+    /*
+     * =========================================================
+     * Memory Jar 닉네임 변경
+     * =========================================================
+     *
+     * LOCAL / NAVER / GOOGLE / KAKAO 여부와 관계없이
+     * User 테이블 하나를 수정한다.
+     *
+     * 그래서 모든 로그인 방식에서
+     * 같은 기능을 사용할 수 있다.
+     */
+    @Transactional
+    public User changeNickname(
+            Long userId,
+            String nickname
+    ) {
+
+        /*
+         * 공통 닉네임 정책 적용
+         */
+        String normalizedNickname =
+                NicknamePolicy
+                        .normalizeAndValidate(
+                                nickname
+                        );
+
+
+        /*
+         * 현재 로그인 사용자 조회
+         */
+        User user =
+                userRepository
+                        .findById(
+                                userId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND,
+                                                "사용자 정보를 찾을 수 없어요."
+                                        )
+                        );
+
+
+        /*
+         * User 엔티티의 닉네임 변경
+         */
+        user.changeNickname(
+                normalizedNickname
+        );
+
+
+        /*
+         * 변경된 User 저장
+         */
+        return userRepository.save(
+                user
+        );
+    }
+    
     /*
      * OAuth Provider 이름을 DB에서 사용하는 형태로 통일한다.
      *

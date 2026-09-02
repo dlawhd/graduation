@@ -84,12 +84,23 @@ public record LocalSignupRequest(
         String password,
 
         /*
-         * Memory Jar 안에서 사용할 닉네임
+         * Memory Jar 닉네임
+         *
+         * 특수문자는 허용하지 않는다.
+         *
+         * 자세한 한글/영문 길이 계산은
+         * NicknamePolicy에서 한 번 더 검증한다.
          */
-        @NotBlank(message = "닉네임을 입력해 주세요.")
+        @NotBlank(
+                message = "닉네임을 입력해 주세요."
+        )
         @Size(
-                max = 50,
-                message = "닉네임은 50자 이하로 입력해 주세요."
+                max = 16,
+                message = "닉네임 길이를 확인해 주세요."
+        )
+        @Pattern(
+                regexp = "^[가-힣A-Za-z0-9]+$",
+                message = "닉네임은 한글, 영문, 숫자만 사용할 수 있어요."
         )
         String nickname,
 

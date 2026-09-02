@@ -22,9 +22,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
-import shop.esjh.memoryjar.service.EmailVerificationDispatchService;
-import shop.esjh.memoryjar.service.EmailVerificationService;
-import shop.esjh.memoryjar.service.LocalAuthService;
+import shop.esjh.memoryjar.service.*;
+/*
+ * LOCAL 로그인에 성공한 가짜 사용자를 만들 때 사용한다.
+ */
+import shop.esjh.memoryjar.entity.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -82,6 +84,27 @@ class SecurityConfigTest {
      */
     @MockitoBean
     private LocalAuthService localAuthService;
+
+    /*
+     * LOCAL 로그인 성공 후 Refresh Token을 발급하는 Service.
+     *
+     * SecurityConfigTest에서는 실제 DB에 토큰을 저장할 필요가 없으므로
+     * Mock으로 교체한다.
+     */
+    @MockitoBean
+    private RefreshTokenService refreshTokenService;
+
+
+    /*
+     * 로그인 성공 후 Access / Refresh Token을
+     * HttpOnly Cookie에 넣어주는 Service.
+     *
+     * 여기서는 실제 쿠키 구현 자체보다
+     * Security 접근 규칙을 확인하는 것이 목적이므로
+     * Mock으로 사용한다.
+     */
+    @MockitoBean
+    private AuthCookieService authCookieService;
 
     /**
      * 각 테스트 시작 전에 mock 필터 동작을 미리 설정한다.
@@ -184,6 +207,204 @@ class SecurityConfigTest {
                         status().isOk()
                 );
     }
+
+    @Test
+    @DisplayName("LOCAL 로그인 API는 로그인하지 않은 사용자도 CSRF 토큰이 있으면 접근할 수 있다")
+    void localLogin_withoutLogin_withCsrf_success()
+            throws Exception {
+
+        /*
+         * =========================================================
+         * given
+         * =========================================================
+         *
+         * 아직 로그인하지 않은 사용자가
+         *
+         * 아이디:
+         * eunseo01
+         *
+         * 비밀번호:
+         * Memory123!
+         *
+         * 를 입력했다고 가정한다.
+         */
+
+
+        /*
+         * LOCAL 로그인 성공 결과로 사용할
+         * 가짜 User를 만든다.
+         */
+        User user =
+                User.builder()
+                        .id(
+                                10L
+                        )
+                        .email(
+                                "eunseo@example.com"
+                        )
+                        .name(
+                                "은서"
+                        )
+
+                        /*
+                         * 자체 가입 사용자는
+                         * OAuth Provider가 없어도 된다.
+                         */
+                        .provider(
+                                null
+                        )
+                        .providerId(
+                                null
+                        )
+                        .build();
+
+
+        /*
+         * LocalAuthService에서는
+         * 아이디와 비밀번호가 정상이라고 가정한다.
+         */
+        given(
+                localAuthService.login(
+                        "eunseo01",
+                        "Memory123!"
+                )
+        ).willReturn(
+                new LocalAuthService.LocalAuthResult(
+                        user,
+                        "eunseo01"
+                )
+        );
+
+
+        /*
+         * Refresh Token도 실제 DB에 만들지 않고
+         * 가짜 값을 반환한다.
+         */
+        given(
+                refreshTokenService.issue(
+                        user
+                )
+        ).willReturn(
+                "test-refresh-token"
+        );
+
+
+        /*
+         * Access Token 역시
+         * 실제 JWT를 생성하지 않고 가짜 문자열을 사용한다.
+         */
+        given(
+                jwtTokenProvider.createAccessToken(
+                        any(),
+                        any()
+                )
+        ).willReturn(
+                "test-access-token"
+        );
+
+
+        /*
+         * =========================================================
+         * when & then
+         * =========================================================
+         *
+         * 중요한 점:
+         *
+         * .with(user(...))
+         *
+         * 를 넣지 않는다.
+         *
+         * 즉 정말 "로그인하지 않은 상태"로 요청한다.
+         */
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/login"
+                        )
+
+                                /*
+                                 * POST 요청이므로
+                                 * 로그인 API라도 CSRF 토큰은 필요하다.
+                                 */
+                                .with(
+                                        csrf()
+                                )
+
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "eunseo01",
+                                          "password": "Memory123!"
+                                        }
+                                        """
+                                )
+                )
+
+                /*
+                 * SecurityConfig에서 permitAll 되어 있으므로
+                 * 401이 아니라 정상적으로 Controller까지 들어가야 한다.
+                 */
+                .andExpect(
+                        status().isOk()
+                );
+    }
+
+    @Test
+    @DisplayName("LOCAL 로그인 API는 공개 API여도 CSRF 토큰이 없으면 차단된다")
+    void localLogin_withoutCsrf_forbidden()
+            throws Exception {
+
+        /*
+         * =========================================================
+         * LOCAL 로그인 API는 permitAll이지만
+         * POST 요청이므로 CSRF 보호는 그대로 적용된다.
+         *
+         * 즉:
+         *
+         * 로그인 필요 여부와
+         * CSRF 필요 여부는 서로 다른 문제다.
+         *
+         *
+         * 로그인:
+         * 필요 없음
+         *
+         * CSRF:
+         * 필요함
+         * =========================================================
+         */
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/login"
+                        )
+                                /*
+                                 * 일부러 .with(csrf())를 넣지 않는다.
+                                 */
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "eunseo01",
+                                          "password": "Memory123!"
+                                        }
+                                        """
+                                )
+                )
+
+                /*
+                 * Spring Security의 CSRF Filter가
+                 * Controller에 도착하기 전에 차단해야 한다.
+                 */
+                .andExpect(
+                        status().isForbidden()
+                );
+    }
+
 
     @Test
     @DisplayName("이메일 인증번호 확인 API는 CSRF 토큰이 없으면 차단된다")

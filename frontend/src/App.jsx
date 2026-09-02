@@ -19,6 +19,7 @@ import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
 import apiClient, { fetchCsrf } from "./api/apiClient";
 import SignupPage from "./pages/SignupPage";
+import NicknameEditor from "./components/profile/NicknameEditor";
 import {
   AUTH_SESSION_EXPIRED_EVENT,
 } from "./api/authSessionUtils";
@@ -1062,6 +1063,17 @@ useEffect(() => {
                                         <p className="truncate text-sm text-slate-500">
                                           {me?.email || "이메일 정보 없음"}
                                         </p>
+                                        <NicknameEditor
+                                          me={me}
+
+                                          /*
+                                           * 닉네임 변경 성공 시
+                                           * App 전체의 로그인 사용자 정보를 즉시 갱신한다.
+                                           */
+                                          onNicknameUpdated={
+                                            setMe
+                                          }
+                                        />
                                       </div>
                                     </div>
                                   </div>
@@ -1246,6 +1258,14 @@ useEffect(() => {
 
           // 기존 로그아웃 기능 그대로 재사용
           onLogout={handleLogout}
+
+          /*
+          * 모바일에서도 닉네임 변경 직후
+          * 헤더 전체 사용자 정보를 갱신한다.
+          */
+          onNicknameUpdated={
+            setMe
+          }
         />
       )}
 

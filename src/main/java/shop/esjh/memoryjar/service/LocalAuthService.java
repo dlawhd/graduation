@@ -11,6 +11,7 @@ import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserLocalCredential;
 import shop.esjh.memoryjar.entity.UserOAuthAccount;
+import shop.esjh.memoryjar.policy.NicknamePolicy;
 import shop.esjh.memoryjar.repository.UserLocalCredentialRepository;
 import shop.esjh.memoryjar.repository.UserOAuthAccountRepository;
 import shop.esjh.memoryjar.repository.UserRepository;
@@ -517,6 +518,145 @@ public class LocalAuthService {
 
     /*
      * =========================================================
+     * Memory Jar 자체 로그인
+     * =========================================================
+     *
+     * 사용자가 로그인 화면에서 입력한:
+     *
+     * 아이디 + 비밀번호
+     *
+     * 를 실제 DB 정보와 비교한다.
+     *
+     *
+     * 처리 순서:
+     *
+     * 1. 아이디 앞뒤 공백 제거
+     * 2. 아이디 소문자 변환
+     * 3. user_local_credentials에서 아이디 조회
+     * 4. 입력 비밀번호와 저장된 Hash 비교
+     * 5. 성공하면 User 반환
+     *
+     *
+     * 보안상 중요한 점:
+     *
+     * "아이디가 없습니다."
+     * "비밀번호가 틀렸습니다."
+     *
+     * 를 따로 알려주지 않는다.
+     *
+     * 둘 다:
+     *
+     * "아이디 또는 비밀번호가 올바르지 않아요."
+     *
+     * 로 처리한다.
+     *
+     * 그래야 공격자가 어떤 아이디가 실제 존재하는지
+     * 쉽게 알아내기 어렵다.
+     */
+    public LocalAuthResult login(
+            String loginId,
+            String password
+    ) {
+
+        /*
+         * 회원가입에서 사용하는 것과 동일한 방식으로
+         * 로그인 아이디도 표준 형태로 정리한다.
+         *
+         * EunSeo01
+         *     ↓
+         * eunseo01
+         */
+        String normalizedLoginId =
+                normalizeLoginId(
+                        loginId
+                );
+
+
+        /*
+         * 비밀번호가 없는 경우
+         * DB 조회를 진행할 필요가 없다.
+         */
+        if (!StringUtils.hasText(password)) {
+
+            throw invalidLoginException();
+        }
+
+
+        /*
+         * 아이디에 해당하는 LOCAL 로그인 정보를 찾는다.
+         *
+         * 없는 아이디여도
+         * "아이디가 존재하지 않는다"고 알려주지 않는다.
+         */
+        UserLocalCredential credential =
+                userLocalCredentialRepository
+                        .findByLoginId(
+                                normalizedLoginId
+                        )
+                        .orElseThrow(
+                                this::invalidLoginException
+                        );
+
+
+        /*
+         * 사용자가 입력한 원본 비밀번호와
+         * DB에 저장된 Hash를 비교한다.
+         *
+         * 비밀번호를 다시 암호화해서 == 비교하는 방식이 아니다.
+         *
+         * PasswordEncoder가 안전하게 비교해 준다.
+         */
+        boolean passwordMatches =
+                passwordEncoder.matches(
+                        password,
+                        credential.getPasswordHash()
+                );
+
+
+        /*
+         * 비밀번호가 다르면 로그인 실패
+         */
+        if (!passwordMatches) {
+
+            throw invalidLoginException();
+        }
+
+
+        /*
+         * Credential에 연결되어 있는
+         * 실제 Memory Jar User를 가져온다.
+         */
+        User user =
+                credential.getUser();
+
+
+        /*
+         * Controller에서는 이 User를 가지고
+         * Access Token / Refresh Token 쿠키를 발급한다.
+         */
+        return new LocalAuthResult(
+                user,
+                normalizedLoginId
+        );
+    }
+
+
+    /*
+     * 로그인 실패 응답을 한곳에서 만든다.
+     *
+     * 아이디 없음 / 비밀번호 틀림을
+     * 똑같은 메시지로 처리하기 위한 메서드야.
+     */
+    private ResponseStatusException invalidLoginException() {
+
+        return new ResponseStatusException(
+                HttpStatus.UNAUTHORIZED,
+                "아이디 또는 비밀번호가 올바르지 않아요."
+        );
+    }
+
+    /*
+     * =========================================================
      * Memory Jar 자체 회원가입
      * =========================================================
      *
@@ -795,32 +935,21 @@ public class LocalAuthService {
 
 
     /*
-     * 닉네임 정리
+     * 회원가입 닉네임 검증
+     *
+     * 실제 규칙은 NicknamePolicy 한곳에서 관리한다.
+     *
+     * 그래야 회원가입과 닉네임 변경의 규칙이
+     * 서로 달라지는 문제를 막을 수 있다.
      */
     private String normalizeNickname(
             String nickname
     ) {
 
-        if (!StringUtils.hasText(nickname)) {
-
-            throw new IllegalArgumentException(
-                    "닉네임을 입력해 주세요."
-            );
-        }
-
-        String normalized =
-                nickname.trim();
-
-        if (
-                normalized.length() > 50
-        ) {
-
-            throw new IllegalArgumentException(
-                    "닉네임은 50자 이하로 입력해 주세요."
-            );
-        }
-
-        return normalized;
+        return NicknamePolicy
+                .normalizeAndValidate(
+                        nickname
+                );
     }
 
 

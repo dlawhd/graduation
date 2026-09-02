@@ -6,6 +6,9 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import MemoryJarLogoIcon from "../components/icons/MemoryJarLogoIcon";
+import {
+  validateNickname,
+} from "../utils/nicknamePolicy";
 
 /*
  * 자체 회원가입에서 사용하는 인증 API 함수
@@ -116,6 +119,64 @@ function formatRemainingTime(
 
 
 /*
+ * PasswordVisibilityIcon 역할
+ *
+ * 비밀번호가 현재 보이는 상태인지에 따라
+ * 눈 아이콘 모양을 바꿔준다.
+ */
+function PasswordVisibilityIcon({
+  visible,
+}) {
+  /*
+   * 비밀번호가 보이는 상태
+   * → 눈에 사선이 있는 아이콘
+   */
+  if (visible) {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 3l18 18" />
+        <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
+        <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c6.5 0 9.5 8 9.5 8a15 15 0 0 1-2.1 3.3" />
+        <path d="M6.6 6.6C3.8 8.4 2.5 12 2.5 12S5.5 20 12 20a9.8 9.8 0 0 0 4-.8" />
+      </svg>
+    );
+  }
+
+  /*
+   * 비밀번호가 숨겨진 상태
+   * → 일반 눈 아이콘
+   */
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2.5 12S5.5 4 12 4s9.5 8 9.5 8-3 8-9.5 8-9.5-8-9.5-8Z" />
+      <circle
+        cx="12"
+        cy="12"
+        r="2.5"
+      />
+    </svg>
+  );
+}
+
+/*
  * SignupPage 역할
  *
  * Memory Jar 자체 계정을 새로 만드는 회원가입 화면이야.
@@ -176,6 +237,30 @@ export default function SignupPage() {
 
   // 비밀번호
   const [password, setPassword] = useState("");
+
+  /*
+   * 비밀번호 보기 / 숨기기 상태
+   *
+   * false
+   * → ••••••••
+   *
+   * true
+   * → Memory123!
+   */
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
+
+  /*
+   * 비밀번호 확인 칸도
+   * 같은 방식으로 따로 제어한다.
+   */
+  const [
+    showPasswordConfirm,
+    setShowPasswordConfirm,
+  ] = useState(false);
 
   // 비밀번호를 한 번 더 입력해서 오타를 확인한다.
   const [passwordConfirm, setPasswordConfirm] =
@@ -394,10 +479,9 @@ export default function SignupPage() {
    * 화면 안내 문구
    * =========================================================
    *
-   * 이번 단계에서는 아직 API를 호출하지 않으므로
-   * 버튼을 눌렀을 때 "다음 단계에서 연결" 안내만 보여준다.
-   *
-   * 다음 단계에서 실제 성공/실패 메시지 상태로 바꿀 거야.
+   * 회원가입 과정에서 발생하는
+   * 진행 상태와 성공/실패 안내 문구를
+   * 사용자에게 보여주기 위해 사용한다.
    */
   const [guideMessage, setGuideMessage] =
     useState("");
@@ -541,14 +625,18 @@ export default function SignupPage() {
     !isPasswordMatched;
 
   /*
-   * 닉네임은 최소한 공백만 입력한 상태는
-   * 허용하지 않는다.
+   * 공통 닉네임 정책으로 검사한다.
    *
-   * 정확한 최대 길이는 백엔드 DTO를 다시 확인한 뒤
-   * 서버와 동일하게 맞추는 것이 안전하다.
+   * 회원가입과 닉네임 변경이
+   * 완전히 같은 규칙을 사용한다.
    */
+  const nicknameValidation =
+    validateNickname(
+      nickname
+    );
+
   const isNicknameValid =
-    nickname.trim().length > 0;
+    nicknameValidation.valid;
 
   /*
    * 이메일 인증은 인증번호 확인 성공뿐 아니라
@@ -1951,26 +2039,100 @@ export default function SignupPage() {
                 비밀번호
               </label>
 
-              <input
-                id="signup-password"
-                type="password"
-                value={password}
-                onChange={(event) => {
-                  setPassword(
-                    event.target.value
-                  );
+              {/*
+               * 비밀번호 입력창 + 눈 버튼
+               *
+               * showPassword가:
+               *
+               * false → 비밀번호를 ••••• 형태로 숨김
+               * true  → 실제 입력한 글자를 보여줌
+               */}
+              <div className="relative">
+
+                <input
+                  id="signup-password"
 
                   /*
-                   * 사용자가 입력값을 다시 수정하기 시작하면
-                   * 이전 회원가입 실패 상태를 초기화한다.
+                   * 눈 버튼 상태에 따라
+                   * input type을 바꾼다.
                    */
-                  setSignupStatus("idle");
-                  setGuideMessage("");
-                }}
-                autoComplete="new-password"
-                placeholder="비밀번호를 입력해 주세요."
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100/70"
-              />
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+
+                  value={password}
+
+                  onChange={(event) => {
+                    setPassword(
+                      event.target.value
+                    );
+
+                    /*
+                     * 사용자가 비밀번호를 수정하면
+                     * 이전 회원가입 오류 상태를 초기화한다.
+                     */
+                    setSignupStatus("idle");
+                    setGuideMessage("");
+                  }}
+
+                  autoComplete="new-password"
+
+                  placeholder="비밀번호를 입력해 주세요."
+
+                  /*
+                   * pr-12:
+                   *
+                   * 오른쪽에 눈 버튼이 들어가기 때문에
+                   * 입력한 글자가 눈 아이콘과 겹치지 않도록
+                   * 오른쪽 여백을 넉넉하게 준다.
+                   */
+                  className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-4 pr-12 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100/70"
+                />
+
+
+                {/*
+                 * 비밀번호 보기 / 숨기기 버튼
+                 *
+                 * type="button"이 매우 중요하다.
+                 *
+                 * 이 버튼이 회원가입 form 안에 있기 때문에
+                 * type을 지정하지 않으면
+                 * 실수로 회원가입 submit 버튼처럼 동작할 수 있다.
+                 */}
+                <button
+                  type="button"
+
+                  onClick={() => {
+                    setShowPassword(
+                      (previous) =>
+                        !previous
+                    );
+                  }}
+
+                  aria-label={
+                    showPassword
+                      ? "비밀번호 숨기기"
+                      : "비밀번호 보기"
+                  }
+
+                  title={
+                    showPassword
+                      ? "비밀번호 숨기기"
+                      : "비밀번호 보기"
+                  }
+
+                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200"
+                >
+
+                  <PasswordVisibilityIcon
+                    visible={showPassword}
+                  />
+
+                </button>
+
+              </div>
               {/*
                * 비밀번호 조건 안내
                *
@@ -2079,25 +2241,93 @@ export default function SignupPage() {
                 비밀번호 확인
               </label>
 
-              <input
-                id="signup-password-confirm"
-                type="password"
-                value={passwordConfirm}
-                onChange={(event) => {
-                  setPasswordConfirm(
-                    event.target.value
-                  );
-                  setGuideMessage("");
-                }}
-                autoComplete="new-password"
-                placeholder="비밀번호를 한 번 더 입력해 주세요."
-                className={[
-                  "w-full rounded-2xl border bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-300 focus:ring-4",
-                  passwordMismatch
-                    ? "border-rose-300 focus:border-rose-300 focus:ring-rose-100"
-                    : "border-slate-200 focus:border-emerald-300 focus:ring-emerald-100/70",
-                ].join(" ")}
-              />
+              {/*
+               * 비밀번호 확인 입력창 + 눈 버튼
+               */}
+              <div className="relative">
+
+                <input
+                  id="signup-password-confirm"
+
+                  /*
+                   * 비밀번호 확인은
+                   * showPasswordConfirm 상태를 따로 사용한다.
+                   *
+                   * 그래서 첫 번째 비밀번호 눈 버튼과
+                   * 서로 독립적으로 동작한다.
+                   */
+                  type={
+                    showPasswordConfirm
+                      ? "text"
+                      : "password"
+                  }
+
+                  value={passwordConfirm}
+
+                  onChange={(event) => {
+                    setPasswordConfirm(
+                      event.target.value
+                    );
+
+                    setGuideMessage("");
+                  }}
+
+                  autoComplete="new-password"
+
+                  placeholder="비밀번호를 한 번 더 입력해 주세요."
+
+                  className={[
+                    /*
+                     * 오른쪽 눈 아이콘 때문에
+                     * pr-12를 사용한다.
+                     */
+                    "w-full rounded-2xl border bg-white py-3.5 pl-4 pr-12 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-300 focus:ring-4",
+
+                    passwordMismatch
+                      ? "border-rose-300 focus:border-rose-300 focus:ring-rose-100"
+                      : "border-slate-200 focus:border-emerald-300 focus:ring-emerald-100/70",
+
+                  ].join(" ")}
+                />
+
+
+                {/*
+                 * 비밀번호 확인 보기 / 숨기기
+                 */}
+                <button
+                  type="button"
+
+                  onClick={() => {
+                    setShowPasswordConfirm(
+                      (previous) =>
+                        !previous
+                    );
+                  }}
+
+                  aria-label={
+                    showPasswordConfirm
+                      ? "비밀번호 확인 숨기기"
+                      : "비밀번호 확인 보기"
+                  }
+
+                  title={
+                    showPasswordConfirm
+                      ? "비밀번호 확인 숨기기"
+                      : "비밀번호 확인 보기"
+                  }
+
+                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200"
+                >
+
+                  <PasswordVisibilityIcon
+                    visible={
+                      showPasswordConfirm
+                    }
+                  />
+
+                </button>
+
+              </div>
 
               {/*
                * 비밀번호 확인 결과
@@ -2138,17 +2368,92 @@ export default function SignupPage() {
               <input
                 id="signup-nickname"
                 type="text"
+
                 value={nickname}
+
+                /*
+                 * 영어/숫자는 최대 16글자이므로
+                 * HTML에서도 일단 16글자를 넘지 못하게 막는다.
+                 *
+                 * 한글 8자 제한은
+                 * nicknameValidation에서 별도로 계산한다.
+                 */
+                maxLength={16}
+
                 onChange={(event) => {
-                  setNickname(event.target.value);
+
+                  setNickname(
+                    event.target.value
+                  );
+
+                  /*
+                   * 닉네임을 수정하면
+                   * 이전 공통 안내 문구를 지운다.
+                   */
                   setGuideMessage("");
                 }}
+
                 autoComplete="nickname"
+
                 placeholder="Memory Jar에서 보여줄 이름"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100/70"
+
+                className={[
+                  "w-full rounded-2xl border bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-300 focus:ring-4",
+
+                  /*
+                   * 아무것도 입력하지 않았을 때는 기본 테두리.
+                   *
+                   * 입력했는데 규칙에 맞지 않으면 빨간색.
+                   *
+                   * 사용할 수 있으면 민트색.
+                   */
+                  !nickname
+                    ? "border-slate-200 focus:border-emerald-300 focus:ring-emerald-100/70"
+
+                    : nicknameValidation.valid
+                      ? "border-emerald-300 focus:border-emerald-300 focus:ring-emerald-100/70"
+
+                      : "border-rose-300 focus:border-rose-300 focus:ring-rose-100",
+
+                ].join(" ")}
               />
 
-              <p className="mt-2 text-xs font-medium text-slate-400">
+
+              {/*
+               * 사용자가 닉네임을 입력하기 시작하면
+               * 현재 닉네임이 사용 가능한지 바로 알려준다.
+               */}
+              {nickname && (
+
+                <p
+                  role="status"
+                  aria-live="polite"
+
+                  className={[
+                    "mt-2 text-xs font-bold leading-5",
+
+                    nicknameValidation.valid
+                      ? "text-emerald-600"
+                      : "text-rose-500",
+
+                  ].join(" ")}
+                >
+                  {nicknameValidation.message}
+                </p>
+
+              )}
+
+
+              {/*
+               * 닉네임 기본 규칙 안내
+               */}
+              <p className="mt-1.5 text-xs font-medium leading-5 text-slate-400">
+                한글은 최대 8자, 영문과 숫자는 최대 16자까지 사용할 수 있어요.
+                특수문자와 공백은 사용할 수 없습니다.
+              </p>
+
+
+              <p className="mt-1 text-xs font-medium text-slate-400">
                 다른 사용자와 같은 닉네임도 사용할 수 있어요.
               </p>
             </div>

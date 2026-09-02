@@ -6,6 +6,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserOAuthAccount;
 import shop.esjh.memoryjar.repository.UserOAuthAccountRepository;
@@ -52,7 +54,7 @@ class UserServiceTest {
      * 기존 User를 사용해야 한다.
      */
     @Test
-    void findOrCreateOAuthUser_이미_연결된_OAuth계정이면_기존회원의_프로필만_갱신한다() {
+    void findOrCreateOAuthUser_이미_연결된_OAuth계정이면_기존닉네임을_유지한다() {
 
         // given
         String provider =
@@ -131,11 +133,26 @@ class UserServiceTest {
                 "new@example.com"
         );
 
-        // 최신 이름으로 변경
+        /*
+         * =========================================================
+         * 닉네임은 유지되어야 한다.
+         * =========================================================
+         *
+         * Google에서 이번 로그인 때:
+         *
+         * "새이름"
+         *
+         * 을 내려줬더라도 기존 Memory Jar User에게
+         * 이미 "옛날이름"이라는 닉네임이 있다.
+         *
+         * 이 값은 사용자가 Memory Jar에서 직접
+         * 변경했을 수도 있기 때문에 OAuth 재로그인이
+         * 함부로 덮어쓰면 안 된다.
+         */
         assertThat(
                 result.getName()
         ).isEqualTo(
-                "새이름"
+                "옛날이름"
         );
 
         /*
@@ -452,12 +469,24 @@ class UserServiceTest {
         );
 
         /*
-         * 로그인 시 받은 최신 이름은 갱신된다.
+         * =========================================================
+         * 기존 Memory Jar 닉네임은 유지한다.
+         * =========================================================
+         *
+         * NAVER로 처음 가입한 기존 User의 닉네임:
+         *
+         * 기존이름
+         *
+         * Google 로그인에서 받은 이름:
+         *
+         * Google에서 받은 새 이름
+         *
+         * 이 경우 Google 이름으로 덮어쓰지 않는다.
          */
         assertThat(
                 result.getName()
         ).isEqualTo(
-                "Google에서 받은 새 이름"
+                "기존이름"
         );
 
         /*
@@ -614,12 +643,15 @@ class UserServiceTest {
         );
 
         /*
-         * 로그인할 때 받은 최신 이름은 갱신된다.
+         * 기존 Memory Jar 닉네임은 유지한다.
+         *
+         * Kakao가 내려준 프로필 이름은
+         * 이미 사용 중인 닉네임을 덮어쓰지 않는다.
          */
         assertThat(
                 result.getName()
         ).isEqualTo(
-                "카카오에서 받은 이름"
+                "기존이름"
         );
 
         /*
@@ -767,14 +799,32 @@ class UserServiceTest {
         );
 
         /*
-         * NAVER에서 받은 최신 프로필은 User에 반영한다.
+         * =========================================================
+         * 닉네임은 기존 값을 유지한다.
+         * =========================================================
+         *
+         * 기존 Google User의 닉네임:
+         * Google회원
+         *
+         * NAVER에서 내려준 이름:
+         * 네이버이름
+         *
+         * OAuth 로그인은 기존 Memory Jar 닉네임을
+         * 덮어쓰지 않는다.
          */
         assertThat(
                 result.getName()
         ).isEqualTo(
-                "네이버이름"
+                "Google회원"
         );
 
+
+        /*
+         * birthyear는 닉네임과 다르다.
+         *
+         * NAVER에서 새로운 출생연도를 내려줬으므로
+         * 최신 프로필 정보로 갱신한다.
+         */
         assertThat(
                 result.getBirthyear()
         ).isEqualTo(
@@ -812,6 +862,533 @@ class UserServiceTest {
         ).isEqualTo(
                 "naver-new-999"
         );
+    }
+
+    @Test
+    void findOrCreateOAuthUser_기존닉네임이_비어있으면_OAuth이름을_최초닉네임으로_사용한다() {
+
+        /*
+         * =========================================================
+         * given
+         * =========================================================
+         *
+         * 아주 예전 데이터 등으로 인해
+         * User의 nickname(name)이 없는 상황을 가정한다.
+         */
+        User existingUser =
+                User.builder()
+                        .provider(
+                                "GOOGLE"
+                        )
+                        .providerId(
+                                "google-old-123"
+                        )
+                        .email(
+                                "old@example.com"
+                        )
+
+                        /*
+                         * 아직 Memory Jar 닉네임이 없다.
+                         */
+                        .name(
+                                null
+                        )
+                        .birthyear(
+                                null
+                        )
+                        .build();
+
+
+        UserOAuthAccount existingOAuthAccount =
+                UserOAuthAccount.builder()
+                        .user(
+                                existingUser
+                        )
+                        .provider(
+                                "GOOGLE"
+                        )
+                        .providerId(
+                                "google-old-123"
+                        )
+                        .build();
+
+
+        when(
+                userOAuthAccountRepository
+                        .findByProviderAndProviderId(
+                                "GOOGLE",
+                                "google-old-123"
+                        )
+        ).thenReturn(
+                Optional.of(
+                        existingOAuthAccount
+                )
+        );
+
+
+        when(
+                userRepository.save(
+                        existingUser
+                )
+        ).thenReturn(
+                existingUser
+        );
+
+
+        /*
+         * =========================================================
+         * when
+         * =========================================================
+         */
+        User result =
+                userService.findOrCreateOAuthUser(
+                        "GOOGLE",
+                        "google-old-123",
+                        "new@example.com",
+                        "Google이름",
+                        null
+                );
+
+
+        /*
+         * =========================================================
+         * then
+         * =========================================================
+         *
+         * 기존 닉네임 자체가 없었기 때문에
+         * OAuth 이름을 최초 기본 닉네임으로 사용할 수 있다.
+         */
+        assertThat(
+                result.getName()
+        ).isEqualTo(
+                "Google이름"
+        );
+
+
+        /*
+         * 이메일 역시 최신 값으로 갱신된다.
+         */
+        assertThat(
+                result.getEmail()
+        ).isEqualTo(
+                "new@example.com"
+        );
+    }
+
+    /*
+     * =========================================================
+     * Memory Jar 닉네임 변경 테스트
+     * =========================================================
+     *
+     * 로그인 방식과 관계없이
+     * User 한 명의 Memory Jar 닉네임을 변경한다.
+     */
+
+
+    @Test
+    void changeNickname_정상닉네임이면_변경하고_저장한다() {
+
+        /*
+         * =========================================================
+         * given
+         * =========================================================
+         */
+        User user =
+                User.builder()
+                        .id(
+                                1L
+                        )
+                        .provider(
+                                "GOOGLE"
+                        )
+                        .providerId(
+                                "google-123"
+                        )
+                        .email(
+                                "user@example.com"
+                        )
+                        .name(
+                                "기존닉네임"
+                        )
+                        .birthyear(
+                                "2000"
+                        )
+                        .build();
+
+
+        /*
+         * userId = 1 사용자가 존재한다고 가정한다.
+         */
+        when(
+                userRepository.findById(
+                        1L
+                )
+        ).thenReturn(
+                Optional.of(
+                        user
+                )
+        );
+
+
+        /*
+         * 저장하면 같은 User를 반환하도록 한다.
+         */
+        when(
+                userRepository.save(
+                        user
+                )
+        ).thenReturn(
+                user
+        );
+
+
+        /*
+         * =========================================================
+         * when
+         * =========================================================
+         */
+        User result =
+                userService.changeNickname(
+                        1L,
+                        "새닉네임"
+                );
+
+
+        /*
+         * =========================================================
+         * then
+         * =========================================================
+         */
+
+        /*
+         * 실제 User의 nickname이 바뀌어야 한다.
+         */
+        assertThat(
+                result.getName()
+        ).isEqualTo(
+                "새닉네임"
+        );
+
+
+        /*
+         * 정확한 사용자 번호로 조회했는지 확인한다.
+         */
+        verify(
+                userRepository
+        ).findById(
+                1L
+        );
+
+
+        /*
+         * 변경한 User를 DB에 저장했는지 확인한다.
+         */
+        verify(
+                userRepository
+        ).save(
+                user
+        );
+
+
+        /*
+         * 닉네임 변경은 OAuth 계정을 추가하거나
+         * 수정하는 작업이 아니다.
+         */
+        verifyNoInteractions(
+                userOAuthAccountRepository
+        );
+    }
+
+    @Test
+    void changeNickname_LOCAL사용자도_닉네임을_변경할수있다() {
+
+        /*
+         * LOCAL 가입자는 OAuth Provider가 없다.
+         */
+        User localUser =
+                User.builder()
+                        .id(
+                                2L
+                        )
+                        .provider(
+                                null
+                        )
+                        .providerId(
+                                null
+                        )
+                        .email(
+                                "local@example.com"
+                        )
+                        .name(
+                                "기존LOCAL"
+                        )
+                        .build();
+
+
+        when(
+                userRepository.findById(
+                        2L
+                )
+        ).thenReturn(
+                Optional.of(
+                        localUser
+                )
+        );
+
+
+        when(
+                userRepository.save(
+                        localUser
+                )
+        ).thenReturn(
+                localUser
+        );
+
+
+        /*
+         * LOCAL 사용자도 동일한 API/Service를 이용한다.
+         */
+        User result =
+                userService.changeNickname(
+                        2L,
+                        "로컬사용자"
+                );
+
+
+        assertThat(
+                result.getName()
+        ).isEqualTo(
+                "로컬사용자"
+        );
+
+
+        verify(
+                userRepository
+        ).save(
+                localUser
+        );
+    }
+
+    @Test
+    void changeNickname_특수문자가_포함되면_예외가_발생한다() {
+
+        /*
+         * =========================================================
+         * when & then
+         * =========================================================
+         *
+         * ! 는 허용하지 않는 특수문자다.
+         */
+        assertThatThrownBy(
+                () ->
+                        userService.changeNickname(
+                                1L,
+                                "은서!"
+                        )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "닉네임은 한글, 영문, 숫자만 사용할 수 있어요."
+                );
+
+
+        /*
+         * NicknamePolicy에서 먼저 차단되므로
+         * DB 조회조차 하지 않는 것이 정상이다.
+         */
+        verifyNoInteractions(
+                userRepository
+        );
+
+        verifyNoInteractions(
+                userOAuthAccountRepository
+        );
+    }
+
+    @Test
+    void changeNickname_한글9자는_길이초과로_예외가_발생한다() {
+
+        /*
+         * 한글 9자
+         *
+         * 한글 1자 = 2칸
+         *
+         * 9 × 2 = 18
+         *
+         * 최대 16칸을 넘는다.
+         */
+        String tooLongNickname =
+                "가나다라마바사아자";
+
+
+        assertThatThrownBy(
+                () ->
+                        userService.changeNickname(
+                                1L,
+                                tooLongNickname
+                        )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "닉네임은 한글 8자 또는 영문과 숫자 16자 이내로 입력해 주세요."
+                );
+
+
+        /*
+         * 잘못된 닉네임이므로
+         * 사용자 DB를 조회할 필요도 없다.
+         */
+        verifyNoInteractions(
+                userRepository
+        );
+    }
+
+    @Test
+    void changeNickname_존재하지않는_사용자면_404예외가_발생한다() {
+
+        /*
+         * userId = 999는 존재하지 않는다고 가정한다.
+         */
+        when(
+                userRepository.findById(
+                        999L
+                )
+        ).thenReturn(
+                Optional.empty()
+        );
+
+
+        assertThatThrownBy(
+                () ->
+                        userService.changeNickname(
+                                999L,
+                                "새닉네임"
+                        )
+        )
+                .isInstanceOfSatisfying(
+                        ResponseStatusException.class,
+
+                        exception -> {
+
+                            /*
+                             * 사용자 없음 = 404
+                             */
+                            assertThat(
+                                    exception.getStatusCode()
+                            ).isEqualTo(
+                                    HttpStatus.NOT_FOUND
+                            );
+
+
+                            assertThat(
+                                    exception.getReason()
+                            ).isEqualTo(
+                                    "사용자 정보를 찾을 수 없어요."
+                            );
+                        }
+                );
+
+
+        /*
+         * 사용자를 못 찾았으므로
+         * save는 절대 실행되면 안 된다.
+         */
+        verify(
+                userRepository,
+                never()
+        ).save(
+                any(User.class)
+        );
+    }
+
+    /*
+     * =========================================================
+     * 내 정보 조회용 User 조회 테스트
+     * =========================================================
+     */
+
+
+    @Test
+    void getUser_존재하는_사용자면_User를_반환한다() {
+
+        User user =
+                User.builder()
+                        .id(
+                                1L
+                        )
+                        .email(
+                                "user@example.com"
+                        )
+                        .name(
+                                "은서"
+                        )
+                        .build();
+
+
+        when(
+                userRepository.findById(
+                        1L
+                )
+        ).thenReturn(
+                Optional.of(
+                        user
+                )
+        );
+
+
+        User result =
+                userService.getUser(
+                        1L
+                );
+
+
+        assertThat(
+                result
+        ).isSameAs(
+                user
+        );
+    }
+
+    @Test
+    void getUser_존재하지않는_사용자면_404예외가_발생한다() {
+
+        when(
+                userRepository.findById(
+                        999L
+                )
+        ).thenReturn(
+                Optional.empty()
+        );
+
+
+        assertThatThrownBy(
+                () ->
+                        userService.getUser(
+                                999L
+                        )
+        )
+                .isInstanceOfSatisfying(
+                        ResponseStatusException.class,
+
+                        exception -> {
+
+                            assertThat(
+                                    exception.getStatusCode()
+                            ).isEqualTo(
+                                    HttpStatus.NOT_FOUND
+                            );
+
+                            assertThat(
+                                    exception.getReason()
+                            ).isEqualTo(
+                                    "사용자 정보를 찾을 수 없어요."
+                            );
+                        }
+                );
     }
 
     /*
