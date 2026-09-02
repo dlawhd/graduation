@@ -27,6 +27,7 @@ import shop.esjh.memoryjar.service.EmailVerificationService;
 import shop.esjh.memoryjar.service.LocalAuthService;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -118,6 +119,9 @@ class SecurityConfigTest {
     void emailVerificationConfirm_withoutLogin_success()
             throws Exception {
 
+        /*
+         * 이메일 인증번호가 정상이라고 가정한다.
+         */
         given(
                 emailVerificationService
                         .verifySignupCode(
@@ -131,6 +135,28 @@ class SecurityConfigTest {
                         "verification-token",
                         LocalDateTime.now()
                                 .plusMinutes(15)
+                )
+        );
+
+
+        /*
+         * 이메일 인증 성공 후 Controller가
+         * 기존 계정 여부도 확인하기 때문에
+         * 그 결과 역시 Mock으로 준비한다.
+         *
+         * 이 Security 테스트에서는
+         * 신규 이메일이라고 가정한다.
+         */
+        given(
+                localAuthService
+                        .findExistingAccountLoginMethods(
+                                "eunseo@naver.com"
+                        )
+        ).willReturn(
+                new LocalAuthService
+                        .ExistingAccountLoginMethods(
+                        false,
+                        List.of()
                 )
         );
 
