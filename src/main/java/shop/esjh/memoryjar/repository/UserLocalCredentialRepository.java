@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.repository;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,21 +34,55 @@ public interface UserLocalCredentialRepository
     /*
      * loginId로 LOCAL 로그인 정보를 조회한다.
      *
-     * 나중에 실제 로그인 API에서 가장 중요하게 사용한다.
+     * 이 메서드는 실제 LOCAL 로그인에서 사용한다.
      *
-     * 예:
+     * 중요한 점:
      *
-     * 사용자가:
+     * UserLocalCredential의 user 관계는
+     * 평소에는 LAZY 방식으로 유지하고 있다.
      *
-     * 아이디: eunseo01
-     * 비밀번호: ********
+     * 즉, 필요하지 않을 때는 User까지
+     * 무조건 조회하지 않아서 불필요한 DB 조회를 줄인다.
      *
-     * 를 입력하면 먼저:
+     * 하지만 로그인 성공 후에는 Controller에서:
      *
-     * findByLoginId("eunseo01")
+     * - userId
+     * - email
+     * - name
+     * - birthyear
      *
-     * 로 Credential을 찾는다.
+     * 같은 User 정보가 바로 필요하다.
+     *
+     * 그래서 로그인용 findByLoginId()를 실행할 때만
+     * @EntityGraph를 이용해서 User까지 함께 가져온다.
+     *
+     * 쉽게 말하면:
+     *
+     * 기존
+     * Credential만 조회
+     *      ↓
+     * User는 나중에 조회
+     *      ↓
+     * Service 트랜잭션 종료
+     *      ↓
+     * Controller에서 User 조회 시도
+     *      ↓
+     * LazyInitializationException
+     *
+     *
+     * 수정 후
+     * Credential + User를 로그인 조회에서 함께 가져옴
+     *      ↓
+     * Service 트랜잭션이 끝나도
+     * 이미 User 데이터가 준비되어 있음
+     *      ↓
+     * Controller에서 email/name 등을 안전하게 사용 가능
      */
+    @EntityGraph(
+            attributePaths = {
+                    "user"
+            }
+    )
     Optional<UserLocalCredential> findByLoginId(
             String loginId
     );

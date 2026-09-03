@@ -12,6 +12,7 @@ import shop.esjh.memoryjar.config.JpaAuditConfig;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserLocalCredential;
 import shop.esjh.memoryjar.repository.support.AbstractMariaDbRepositoryTest;
+import jakarta.persistence.PersistenceUnitUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -202,6 +203,24 @@ class UserLocalCredentialRepositoryTest
                                 "eunseo01"
                         )
                         .orElseThrow();
+
+        /*
+         * 로그인 조회에서는 User까지 미리 로딩되어 있어야 한다.
+         *
+         * Service 트랜잭션이 끝난 이후 Controller에서
+         * email/name 등의 User 정보를 사용하기 때문이다.
+         */
+        PersistenceUnitUtil persistenceUnitUtil =
+                entityManager
+                        .getEntityManagerFactory()
+                        .getPersistenceUnitUtil();
+
+        assertThat(
+                persistenceUnitUtil.isLoaded(
+                        result,
+                        "user"
+                )
+        ).isTrue();
 
 
         // then
