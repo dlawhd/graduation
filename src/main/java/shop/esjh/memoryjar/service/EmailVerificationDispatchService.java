@@ -210,6 +210,66 @@ public class EmailVerificationDispatchService {
     }
 
     /*
+     * =========================================================
+     * 비밀번호 재설정 인증번호 발송
+     * =========================================================
+     *
+     * 처리 순서:
+     *
+     * PASSWORD_RESET 인증번호 DB 저장
+     *      ↓
+     * DB Transaction 종료
+     *      ↓
+     * AWS SES 발송
+     *
+     * SES 호출 중 DB Connection을 잡고 있지 않는
+     * 기존 구조를 그대로 유지한다.
+     */
+    @Transactional(
+            propagation = Propagation.NOT_SUPPORTED
+    )
+    public VerificationDispatchResult
+    sendPasswordResetVerificationCode(
+            String email
+    ) {
+
+        /*
+         * PASSWORD_RESET 목적의
+         * 6자리 인증번호 생성 + Hash 저장
+         */
+        EmailVerificationService
+                .IssuedVerificationCode issuedCode =
+                emailVerificationService
+                        .issuePasswordResetCode(
+                                email
+                        );
+
+
+        /*
+         * 실제 이메일 발송
+         *
+         * 아이디 찾기에서 메일 문구를
+         * "Memory Jar 본인 확인" 공통 문구로
+         * 변경했기 때문에 기존 SES 발송기를 그대로 재사용한다.
+         */
+        emailSenderService
+                .sendSignupVerificationCode(
+                        issuedCode.email(),
+                        issuedCode.rawCode(),
+                        issuedCode.expiresAt()
+                );
+
+
+        /*
+         * 브라우저에는 실제 인증번호를 주지 않는다.
+         */
+        return new VerificationDispatchResult(
+                issuedCode.email(),
+                issuedCode.expiresAt()
+        );
+    }
+
+    /*
      * 인증메일 발송 완료 후
      * 외부에 알려줘도 되는 정보만 담는다.
      *

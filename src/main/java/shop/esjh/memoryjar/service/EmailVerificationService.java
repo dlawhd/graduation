@@ -239,6 +239,71 @@ public class EmailVerificationService {
         );
     }
 
+    /*
+     * =========================================================
+     * 비밀번호 재설정 인증번호 발급
+     * =========================================================
+     *
+     * 기존 회원가입/아이디 찾기 인증 구조를
+     * 그대로 재사용하지만,
+     *
+     * purpose는 PASSWORD_RESET으로 완전히 분리한다.
+     *
+     * 따라서 SIGNUP 인증번호를
+     * 비밀번호 재설정에 사용할 수 없다.
+     */
+    @Transactional
+    public IssuedVerificationCode issuePasswordResetCode(
+            String email
+    ) {
+
+        return issueCode(
+                email,
+                EmailVerificationPurpose.PASSWORD_RESET
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 비밀번호 재설정 인증번호 확인
+     * =========================================================
+     *
+     * 아이디 찾기와 다른 점:
+     *
+     * 아이디 찾기:
+     * → 인증 성공 즉시 결과를 보여주고 끝
+     *
+     * 비밀번호 재설정:
+     * → 인증 성공 후
+     *   passwordResetToken을 다음 단계에서 한 번 더 사용
+     *
+     * 따라서 여기서는 인증 결과를
+     * 즉시 consume하지 않는다.
+     */
+    @Transactional(
+            noRollbackFor =
+                    ResponseStatusException.class
+    )
+    public VerifiedEmailVerification verifyPasswordResetCode(
+            String email,
+            String rawCode
+    ) {
+
+        return verifyCode(
+                email,
+                rawCode,
+                EmailVerificationPurpose.PASSWORD_RESET,
+
+                /*
+                 * false:
+                 *
+                 * 새 비밀번호 변경 단계까지
+                 * Token을 살아 있게 둔다.
+                 */
+                false
+        );
+    }
 
     /*
      * =========================================================
@@ -480,18 +545,59 @@ public class EmailVerificationService {
 
     /*
      * =========================================================
-     * 최종 회원가입에서 verificationToken 사용
+     * 회원가입 인증 완료 Token 사용
      * =========================================================
-     *
-     * 인증번호 확인에 성공했다고 해서
-     * 프론트의 verified=true만 믿으면 안 된다.
-     *
-     * 회원가입 요청에서 서버가 발급했던
-     * verificationToken까지 다시 검증한다.
      */
     @Transactional
     public void consumeSignupVerification(
             String email,
+            String rawVerificationToken
+    ) {
+
+        consumeVerification(
+                email,
+                EmailVerificationPurpose.SIGNUP,
+                rawVerificationToken
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 비밀번호 재설정 Token 사용
+     * =========================================================
+     *
+     * 인증번호 확인 후 받은 passwordResetToken을
+     * 실제 비밀번호 변경 시점에 1회 사용 처리한다.
+     */
+    @Transactional
+    public void consumePasswordResetVerification(
+            String email,
+            String rawPasswordResetToken
+    ) {
+
+        consumeVerification(
+                email,
+                EmailVerificationPurpose.PASSWORD_RESET,
+                rawPasswordResetToken
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 이메일 인증 완료 Token 공통 소비 로직
+     * =========================================================
+     *
+     * SIGNUP과 PASSWORD_RESET은
+     * 검증 방법 자체가 동일하기 때문에
+     * 하나의 메서드에서 관리한다.
+     *
+     * 목적(purpose)만 다르게 전달한다.
+     */
+    private void consumeVerification(
+            String email,
+            EmailVerificationPurpose purpose,
             String rawVerificationToken
     ) {
 
@@ -501,6 +607,10 @@ public class EmailVerificationService {
                 );
 
 
+        /*
+         * Token이 없다면
+         * 이메일 인증을 정상적으로 완료한 요청이 아니다.
+         */
         if (
                 !StringUtils.hasText(
                         rawVerificationToken
@@ -520,11 +630,15 @@ public class EmailVerificationService {
                 );
 
 
+        /*
+         * 같은 Token을 동시에 두 요청이 사용하지 못하도록
+         * DB row를 잠그고 확인한다.
+         */
         EmailVerification verification =
                 emailVerificationRepository
                         .findByEmailAndPurposeForUpdate(
                                 normalizedEmail,
-                                EmailVerificationPurpose.SIGNUP
+                                purpose
                         )
                         .orElseThrow(
                                 () ->
@@ -536,11 +650,15 @@ public class EmailVerificationService {
 
 
         /*
-         * 인증번호 확인 자체가 끝나지 않은 상태
+         * 인증번호 확인 자체가
+         * 아직 성공하지 않은 상태
          */
         if (
-                verification.getVerifiedAt() == null
-                        || verification.getVerificationTokenHash() == null
+                verification.getVerifiedAt() ==
+                        null
+                        ||
+                        verification.getVerificationTokenHash() ==
+                                null
         ) {
 
             throw new ResponseStatusException(
@@ -551,7 +669,8 @@ public class EmailVerificationService {
 
 
         /*
-         * 이미 다른 회원가입에서 사용한 토큰
+         * 이미 회원가입 또는 이전 비밀번호 재설정에서
+         * 사용한 Token은 재사용할 수 없다.
          */
         if (
                 verification.isConsumed()
@@ -565,7 +684,7 @@ public class EmailVerificationService {
 
 
         /*
-         * 인증 완료 토큰의 15분 사용기간이 끝난 경우
+         * 인증 성공 후 15분이 지난 경우
          */
         if (
                 verification.isVerificationExpired(
@@ -580,13 +699,19 @@ public class EmailVerificationService {
         }
 
 
+        /*
+         * 사용자가 보낸 Token 원문을
+         * 서버 HMAC으로 다시 Hash해서
+         * DB Hash와 비교한다.
+         */
         boolean matches =
                 emailVerificationCrypto
                         .matchesVerificationToken(
                                 normalizedEmail,
-                                EmailVerificationPurpose.SIGNUP,
+                                purpose,
                                 rawVerificationToken,
-                                verification.getVerificationTokenHash()
+                                verification
+                                        .getVerificationTokenHash()
                         );
 
 
@@ -600,12 +725,13 @@ public class EmailVerificationService {
 
 
         /*
-         * 회원가입에 실제로 사용됐으므로
-         * 다시 사용할 수 없도록 소비 처리한다.
+         * 실제 작업에 사용됐으므로
+         * 다시 사용할 수 없도록 소비한다.
          */
         verification.consume(
                 now
         );
+
 
         emailVerificationRepository.save(
                 verification

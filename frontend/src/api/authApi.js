@@ -518,6 +518,174 @@ export async function confirmLoginIdRecovery({
   );
 }
 
+/*
+ * =========================================================
+ * 8. 비밀번호 찾기 - LOCAL 아이디 존재 확인
+ * =========================================================
+ *
+ * POST
+ * /api/v1/auth/password-reset/login-id/check
+ *
+ * 사용자가 입력한 아이디가
+ * 실제 활성 LOCAL 계정인지 확인한다.
+ */
+export async function checkPasswordResetLoginId(
+  loginId
+) {
+  /*
+   * POST 요청이므로 CSRF 토큰을 먼저 준비한다.
+   */
+  await fetchCsrf();
+
+  const response =
+    await apiClient.post(
+      `${AUTH_API_PATH}/password-reset/login-id/check`,
+
+      {
+        loginId,
+      },
+
+      /*
+       * 아직 로그인하기 전 사용하는 공개 인증 API이므로
+       * 401 자동 Refresh를 사용하지 않는다.
+       */
+      publicAuthConfig()
+    );
+
+  return extractData(
+    response
+  );
+}
+
+
+/*
+ * =========================================================
+ * 9. 비밀번호 찾기 - 이메일 인증번호 발송
+ * =========================================================
+ *
+ * POST
+ * /api/v1/auth/password-reset/email-verifications
+ *
+ * 서버에서:
+ *
+ * loginId + email
+ *
+ * 이 같은 LOCAL 계정인지 확인한 뒤
+ * 일치할 때만 인증번호를 발송한다.
+ */
+export async function sendPasswordResetEmailVerification({
+  loginId,
+  email,
+}) {
+  await fetchCsrf();
+
+  const response =
+    await apiClient.post(
+      `${AUTH_API_PATH}/password-reset/email-verifications`,
+
+      {
+        loginId,
+        email,
+      },
+
+      publicAuthConfig()
+    );
+
+  return extractData(
+    response
+  );
+}
+
+
+/*
+ * =========================================================
+ * 10. 비밀번호 찾기 - 이메일 인증번호 확인
+ * =========================================================
+ *
+ * POST
+ * /api/v1/auth/password-reset/email-verifications/confirm
+ *
+ * 인증번호가 맞으면 새 비밀번호 변경에 사용할
+ * 1회용 passwordResetToken을 내려준다.
+ */
+export async function confirmPasswordResetEmailVerification({
+  loginId,
+  email,
+  code,
+}) {
+  await fetchCsrf();
+
+  const response =
+    await apiClient.post(
+      `${AUTH_API_PATH}/password-reset/email-verifications/confirm`,
+
+      {
+        loginId,
+        email,
+        code,
+      },
+
+      publicAuthConfig()
+    );
+
+  return extractData(
+    response
+  );
+}
+
+
+/*
+ * =========================================================
+ * 11. 실제 새 비밀번호 저장
+ * =========================================================
+ *
+ * POST
+ * /api/v1/auth/password-reset
+ *
+ * 이메일 본인 인증까지 끝난 뒤:
+ *
+ * - passwordResetToken
+ * - 새 비밀번호
+ * - 새 비밀번호 확인
+ *
+ * 을 서버로 보낸다.
+ *
+ * 성공하면 백엔드에서:
+ *
+ * - 새 Argon2 Hash 저장
+ * - 기존 Refresh Token 전체 폐기
+ * - 현재 브라우저 인증 Cookie 삭제
+ *
+ * 까지 처리한다.
+ */
+export async function resetLocalPassword({
+  loginId,
+  email,
+  passwordResetToken,
+  newPassword,
+  newPasswordConfirm,
+}) {
+  await fetchCsrf();
+
+  const response =
+    await apiClient.post(
+      `${AUTH_API_PATH}/password-reset`,
+
+      {
+        loginId,
+        email,
+        passwordResetToken,
+        newPassword,
+        newPasswordConfirm,
+      },
+
+      publicAuthConfig()
+    );
+
+  return extractData(
+    response
+  );
+}
 
 /*
  * =========================================================
@@ -578,6 +746,9 @@ export function getAuthErrorMessage(
  * authApi.loginLocal(...);
  */
 const authApi = {
+  /*
+   * 회원가입 / 로그인
+   */
   checkLoginIdAvailability,
   sendSignupEmailVerification,
   confirmSignupEmailVerification,
@@ -590,6 +761,17 @@ const authApi = {
   sendLoginIdRecoveryEmailVerification,
   confirmLoginIdRecovery,
 
+  /*
+   * 비밀번호 찾기 / 재설정
+   */
+  checkPasswordResetLoginId,
+  sendPasswordResetEmailVerification,
+  confirmPasswordResetEmailVerification,
+  resetLocalPassword,
+
+  /*
+   * 공통 오류 메시지
+   */
   getAuthErrorMessage,
 };
 

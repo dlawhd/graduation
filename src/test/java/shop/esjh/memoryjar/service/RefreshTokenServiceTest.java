@@ -186,6 +186,100 @@ class RefreshTokenServiceTest {
         verifyNoInteractions(refreshTokenRepository);
     }
 
+    /*
+     * =========================================================
+     * 비밀번호 재설정 후 전체 Refresh Token 폐기 테스트
+     * =========================================================
+     *
+     * 사용자 ID를 전달하면 Repository의
+     * 전체 Token 폐기 UPDATE가 정확히 한 번 호출되는지 확인한다.
+     */
+    @Test
+    void revokeAllForUser는_사용자의_활성_RefreshToken을_모두_폐기한다() {
+
+        // given
+
+        /*
+         * User #7의 활성 Refresh Token이
+         * 3개 있다고 가정한다.
+         */
+        when(
+                refreshTokenRepository
+                        .revokeAllActiveByUserId(
+                                eq(7L),
+                                any(LocalDateTime.class)
+                        )
+        ).thenReturn(
+                3
+        );
+
+
+        // when
+
+        int revokedCount =
+                refreshTokenService
+                        .revokeAllForUser(
+                                7L
+                        );
+
+
+        // then
+
+        /*
+         * DB에서 실제로 폐기됐다고 반환한 개수
+         */
+        assertThat(
+                revokedCount
+        ).isEqualTo(
+                3
+        );
+
+
+        /*
+         * Repository의 일괄 UPDATE가
+         * 정확히 한 번 실행됐는지 확인한다.
+         */
+        verify(
+                refreshTokenRepository,
+                times(1)
+        ).revokeAllActiveByUserId(
+                eq(7L),
+                any(LocalDateTime.class)
+        );
+    }
+
+    /*
+     * User ID 없이 전체 Token을 폐기하려는 요청은
+     * 잘못된 Service 호출이므로 즉시 막는다.
+     */
+    @Test
+    void revokeAllForUser는_userId가_null이면_예외가_난다() {
+
+        // when & then
+        assertThatThrownBy(
+                () ->
+                        refreshTokenService
+                                .revokeAllForUser(
+                                        null
+                                )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "사용자 ID가 필요합니다."
+                );
+
+
+        /*
+         * 입력 단계에서 이미 실패했으므로
+         * Repository에 DB 요청을 보내면 안 된다.
+         */
+        verifyNoInteractions(
+                refreshTokenRepository
+        );
+    }
+
     @Test
     void revokeIfPresent는_유효한_토큰을_잠금조회하고_폐기한다() {
         // given

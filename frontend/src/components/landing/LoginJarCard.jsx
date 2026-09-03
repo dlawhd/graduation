@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 
 /*
@@ -149,6 +152,56 @@ export default function LoginJarCard({
   ] = useState("");
 
   /*
+   * =========================================================
+   * 비밀번호 재설정 성공 메시지
+   * =========================================================
+   *
+   * FindPasswordPage에서 비밀번호 변경에 성공하면
+   * 로그인 화면으로 돌아오기 전에 sessionStorage에
+   * 성공 문구 하나만 저장한다.
+   *
+   * 여기서 한 번 읽고 바로 삭제하기 때문에
+   * 새로고침할 때 계속 반복해서 나타나지 않는다.
+   *
+   * 비밀번호나 passwordResetToken 같은
+   * 민감한 값은 sessionStorage에 저장하지 않는다.
+   */
+  useEffect(() => {
+
+    const successMessage =
+      sessionStorage.getItem(
+        "passwordResetSuccessMessage"
+      );
+
+
+    if (!successMessage) {
+      return;
+    }
+
+
+    /*
+     * 로그인 화면 안내 영역에
+     * 성공 메시지를 표시한다.
+     */
+    setLocalLoginStatus(
+      "idle"
+    );
+
+    setLocalGuideMessage(
+      successMessage
+    );
+
+
+    /*
+     * 한 번 표시했으므로 즉시 삭제한다.
+     */
+    sessionStorage.removeItem(
+      "passwordResetSuccessMessage"
+    );
+
+  }, []);
+
+  /*
    * OAuth 로그인이나 LOCAL 로그인이 진행 중일 때
    * 버튼 중복 클릭을 막는다.
    */
@@ -295,23 +348,6 @@ export default function LoginJarCard({
         )
       );
     }
-  }
-
-  /*
-   * =========================================================
-   * 비밀번호 찾기 임시 처리
-   * =========================================================
-   *
-   * 아이디 찾기는 이제 /find-id 실제 페이지로 연결됐다.
-   *
-   * 비밀번호 찾기는 다음 단계에서 구현할 예정이므로
-   * 현재는 안내 문구만 보여준다.
-   */
-  function handlePasswordRecoveryClick() {
-
-    setLocalGuideMessage(
-      "비밀번호 찾기 기능은 다음 단계에서 연결할게요."
-    );
   }
 
   return (
@@ -539,17 +575,19 @@ export default function LoginJarCard({
                     |
                   </span>
 
-                  <button
-                    type="button"
-
-                    onClick={
-                      handlePasswordRecoveryClick
-                    }
-
+                  {/*
+                   * =========================================================
+                   * 비밀번호 찾기
+                   * =========================================================
+                   *
+                   * 실제 비밀번호 재설정 페이지로 이동한다.
+                   */}
+                  <Link
+                    to="/find-password"
                     className="transition hover:text-emerald-600"
                   >
                     비밀번호 찾기
-                  </button>
+                  </Link>
 
                   <span className="text-slate-300">
                     |

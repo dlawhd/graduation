@@ -2,10 +2,7 @@ package shop.esjh.memoryjar.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.util.StringUtils;
-import shop.esjh.memoryjar.dto.auth.request.EmailVerificationConfirmRequest;
-import shop.esjh.memoryjar.dto.auth.request.EmailVerificationSendRequest;
-import shop.esjh.memoryjar.dto.auth.request.LocalLoginRequest;
-import shop.esjh.memoryjar.dto.auth.request.LocalSignupRequest;
+import shop.esjh.memoryjar.dto.auth.request.*;
 import shop.esjh.memoryjar.dto.auth.response.*;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.*;
@@ -398,6 +395,222 @@ public class AuthController {
 
     /*
      * =========================================================
+     * POST /api/v1/auth/password-reset/login-id/check
+     * =========================================================
+     *
+     * 비밀번호 찾기의 첫 번째 단계.
+     *
+     * 입력한 LOCAL loginId가
+     * 실제 활성 계정인지 확인한다.
+     */
+    @PostMapping(
+            "/password-reset/login-id/check"
+    )
+    public ApiResponse<PasswordResetLoginIdCheckResponse>
+    checkPasswordResetLoginId(
+
+            @Valid
+            @RequestBody
+            PasswordResetLoginIdCheckRequest request
+    ) {
+
+        PasswordResetLoginIdCheckResponse response =
+                localAuthService
+                        .checkPasswordResetLoginId(
+                                request.loginId()
+                        );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
+
+    /*
+     * =========================================================
+     * POST
+     * /api/v1/auth/password-reset/email-verifications
+     * =========================================================
+     *
+     * 아이디가 확인된 뒤
+     * 사용자가 직접 입력한 이메일로 인증번호를 보낸다.
+     *
+     *
+     * 매우 중요:
+     *
+     * 아이디와 이메일이
+     * 같은 User에 속하는지 먼저 확인한다.
+     */
+    @PostMapping(
+            "/password-reset/email-verifications"
+    )
+    public ApiResponse<EmailVerificationSendResponse>
+    sendPasswordResetEmailVerification(
+
+            @Valid
+            @RequestBody
+            PasswordResetEmailVerificationSendRequest request
+    ) {
+
+        /*
+         * 먼저:
+         *
+         * loginId + email
+         *
+         * 이 같은 LOCAL 계정인지 확인한다.
+         */
+        LocalAuthService.PasswordResetIdentity identity =
+                localAuthService
+                        .verifyPasswordResetIdentity(
+                                request.loginId(),
+                                request.email()
+                        );
+
+
+        /*
+         * 같은 계정일 때만
+         * PASSWORD_RESET 인증번호 발급.
+         */
+        EmailVerificationDispatchService
+                .VerificationDispatchResult result =
+                emailVerificationDispatchService
+                        .sendPasswordResetVerificationCode(
+                                identity.email()
+                        );
+
+
+        EmailVerificationSendResponse response =
+                new EmailVerificationSendResponse(
+                        result.email(),
+                        result.expiresAt()
+                );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
+
+    /*
+     * =========================================================
+     * POST
+     * /api/v1/auth/password-reset/email-verifications/confirm
+     * =========================================================
+     *
+     * 이메일로 받은 6자리 인증번호를 확인하고
+     * 새 비밀번호 변경에 사용할
+     * passwordResetToken을 발급한다.
+     */
+    @PostMapping(
+            "/password-reset/email-verifications/confirm"
+    )
+    public ApiResponse<PasswordResetEmailVerificationConfirmResponse>
+    confirmPasswordResetEmailVerification(
+
+            @Valid
+            @RequestBody
+            PasswordResetEmailVerificationConfirmRequest request
+    ) {
+
+        /*
+         * 인증번호 확인 전에도
+         * 아이디 + 이메일 관계를 다시 확인한다.
+         */
+        LocalAuthService.PasswordResetIdentity identity =
+                localAuthService
+                        .verifyPasswordResetIdentity(
+                                request.loginId(),
+                                request.email()
+                        );
+
+
+        EmailVerificationService
+                .VerifiedEmailVerification verified =
+                emailVerificationService
+                        .verifyPasswordResetCode(
+                                identity.email(),
+                                request.code()
+                        );
+
+
+        /*
+         * 기존 verificationToken이라는 내부 구조를
+         * 이 API에서는 passwordResetToken이라는 의미로 사용한다.
+         */
+        PasswordResetEmailVerificationConfirmResponse response =
+                new PasswordResetEmailVerificationConfirmResponse(
+                        verified.verificationToken(),
+                        verified.verificationExpiresAt()
+                );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
+
+    /*
+     * =========================================================
+     * POST /api/v1/auth/password-reset
+     * =========================================================
+     *
+     * 비밀번호 재설정 마지막 단계.
+     *
+     * 성공하면:
+     *
+     * - 새 Argon2 Hash 저장
+     * - 모든 Refresh Token 폐기
+     * - 현재 브라우저 인증 쿠키 제거
+     */
+    @PostMapping(
+            "/password-reset"
+    )
+    public ApiResponse<PasswordResetResponse>
+    resetPassword(
+
+            @Valid
+            @RequestBody
+            PasswordResetRequest request,
+
+            HttpServletRequest httpRequest,
+
+            HttpServletResponse httpResponse
+    ) {
+
+        localAuthService
+                .resetPassword(
+                        request.loginId(),
+                        request.email(),
+                        request.passwordResetToken(),
+                        request.newPassword(),
+                        request.newPasswordConfirm()
+                );
+
+
+        /*
+         * =====================================================
+         * 현재 브라우저 인증 정보도 제거
+         * =====================================================
+         *
+         * 혹시 로그인된 브라우저에서
+         * 비밀번호 재설정을 실행했더라도
+         * 새 비밀번호로 다시 로그인하도록 만든다.
+         */
+        clearCurrentAuthState(
+                httpRequest,
+                httpResponse
+        );
+
+
+        return ApiResponse.of(
+                new PasswordResetResponse(
+                        true
+                )
+        );
+    }
+
+    /*
+     * =========================================================
      * POST /api/v1/auth/login
      * =========================================================
      *
@@ -550,23 +763,22 @@ public class AuthController {
             HttpServletResponse response
     ) {
         // 1. refreshToken이 있으면 DB에서 폐기 처리
-        refreshTokenService.revokeIfPresent(refreshToken);
+        /*
+         * DB에 있는 현재 Refresh Token 폐기
+         */
+        refreshTokenService
+                .revokeIfPresent(
+                        refreshToken
+                );
 
-        // 2. access / refresh 쿠키 삭제
-        authCookieService.clearAccessCookie(response);
-        authCookieService.clearRefreshCookie(response);
 
-        // 3. 현재 세션이 있으면 세션도 종료
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
-        }
-
-        // 4. 스프링 시큐리티에 저장된 인증 정보도 비우기
-        SecurityContextHolder.clearContext();
-
-        // 5. 세션 쿠키(JSESSIONID)도 삭제
-        authCookieService.clearSessionCookie(response);
+        /*
+         * 현재 브라우저의 Cookie / Session / SecurityContext 삭제
+         */
+        clearCurrentAuthState(
+                request,
+                response
+        );
 
         return ApiResponse.of(Map.of("ok", true));
     }
@@ -642,6 +854,63 @@ public class AuthController {
                 .setRefreshCookie(
                         response,
                         refreshToken
+                );
+    }
+
+    /*
+     * =========================================================
+     * 현재 브라우저 인증 상태 전체 삭제
+     * =========================================================
+     *
+     * 로그아웃과 비밀번호 재설정 성공 후
+     * 공통으로 사용한다.
+     */
+    private void clearCurrentAuthState(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+
+        /*
+         * Access / Refresh HttpOnly Cookie 삭제
+         */
+        authCookieService
+                .clearAccessCookie(
+                        response
+                );
+
+        authCookieService
+                .clearRefreshCookie(
+                        response
+                );
+
+
+        /*
+         * 현재 HTTP Session이 있다면 종료
+         */
+        HttpSession session =
+                request.getSession(
+                        false
+                );
+
+        if (session != null) {
+
+            session.invalidate();
+        }
+
+
+        /*
+         * Spring Security 인증 정보 제거
+         */
+        SecurityContextHolder
+                .clearContext();
+
+
+        /*
+         * JSESSIONID 쿠키 제거
+         */
+        authCookieService
+                .clearSessionCookie(
+                        response
                 );
     }
 }

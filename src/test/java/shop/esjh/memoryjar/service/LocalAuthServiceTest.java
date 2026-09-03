@@ -86,10 +86,16 @@ class LocalAuthServiceTest {
     private UserOAuthAccountRepository
             userOAuthAccountRepository;
 
+    /*
+     * 비밀번호 재설정 성공 후
+     * 모든 Refresh Token 폐기 기능 테스트용 Mock
+     */
+    @Mock
+    private RefreshTokenService
+            refreshTokenService;
+
     @InjectMocks
     private LocalAuthService localAuthService;
-
-
 
 
     @Test

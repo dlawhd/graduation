@@ -2,6 +2,7 @@ package shop.esjh.memoryjar.repository;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import shop.esjh.memoryjar.entity.RefreshToken;
@@ -45,4 +46,42 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             WHERE refreshToken.tokenHash = :tokenHash
             """)
     Optional<RefreshToken> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
+
+    /*
+     * =========================================================
+     * 특정 User의 모든 Refresh Token 폐기
+     * =========================================================
+     *
+     * 비밀번호 재설정 성공 후 사용한다.
+     *
+     * 사용자의 Token을 하나씩 Java에서 조회해서
+     * for문으로 revoke하는 대신:
+     *
+     * UPDATE refresh_tokens ...
+     *
+     * 한 번으로 처리한다.
+     *
+     * 따라서 Token이 여러 개여도
+     * DB 요청 1번으로 끝나서 더 효율적이다.
+     */
+    @Modifying
+    @Query(
+            value = """
+                UPDATE refresh_tokens
+                   SET revoked_at = :revokedAt,
+                       updated_at = :revokedAt
+                 WHERE user_id = :userId
+                   AND revoked_at IS NULL
+                   AND deleted_at IS NULL
+                """,
+            nativeQuery = true
+    )
+    int revokeAllActiveByUserId(
+
+            @Param("userId")
+            Long userId,
+
+            @Param("revokedAt")
+            LocalDateTime revokedAt
+    );
 }

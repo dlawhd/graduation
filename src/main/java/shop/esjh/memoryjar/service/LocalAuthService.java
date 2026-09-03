@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
+import shop.esjh.memoryjar.dto.auth.response.PasswordResetLoginIdCheckResponse;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserLocalCredential;
 import shop.esjh.memoryjar.entity.UserOAuthAccount;
@@ -99,23 +100,14 @@ public class LocalAuthService {
 
     /*
      * =========================================================
-     * Memory Jar 회원가입 비밀번호 규칙
+     * Memory Jar LOCAL 계정 공통 비밀번호 정책
      * =========================================================
      *
-     * 비밀번호는 아래 세 종류를
-     * 각각 최소 1자 이상 포함해야 한다.
-     *
-     * - 영문
-     * - 숫자
-     * - 특수문자
-     *
-     * Pattern을 static final로 한 번만 만들어 두는 이유:
-     *
-     * 회원가입 요청이 올 때마다 정규식을
-     * 새로 컴파일하지 않고 재사용할 수 있다.
+     * 회원가입과 비밀번호 재설정에서
+     * 정확히 같은 규칙을 사용한다.
      */
     private static final Pattern
-            SIGNUP_PASSWORD_PATTERN =
+            LOCAL_PASSWORD_PATTERN =
             Pattern.compile(
                     "^(?=.*[A-Za-z])" +
                             "(?=.*[0-9])" +
@@ -136,6 +128,14 @@ public class LocalAuthService {
             passwordEncoder;
 
     /*
+     * 비밀번호 재설정 성공 후
+     * 기존 로그인 기기의 Refresh Token을
+     * 전부 폐기하기 위해 사용한다.
+     */
+    private final RefreshTokenService
+            refreshTokenService;
+
+    /*
      * NAVER / GOOGLE / KAKAO처럼
      * User에게 연결된 OAuth 로그인 방법을 조회한다.
      */
@@ -153,7 +153,8 @@ public class LocalAuthService {
             UserRepository userRepository,
             EmailVerificationService emailVerificationService,
             PasswordEncoder passwordEncoder,
-            UserOAuthAccountRepository userOAuthAccountRepository
+            UserOAuthAccountRepository userOAuthAccountRepository,
+            RefreshTokenService refreshTokenService
     ) {
 
         this.userLocalCredentialRepository =
@@ -170,6 +171,13 @@ public class LocalAuthService {
 
         this.userOAuthAccountRepository =
                 userOAuthAccountRepository;
+
+        /*
+         * 비밀번호 재설정 후
+         * 전체 Refresh Token 폐기에 사용한다.
+         */
+        this.refreshTokenService =
+                refreshTokenService;
     }
 
 
@@ -226,6 +234,317 @@ public class LocalAuthService {
                 normalizedLoginId,
                 available
         );
+    }
+
+    /*
+     * =========================================================
+     * 비밀번호 찾기 - LOCAL 아이디 존재 확인
+     * =========================================================
+     *
+     * 회원가입의 아이디 중복 확인과 반대 역할이다.
+     *
+     *
+     * 회원가입:
+     *
+     * 존재하지 않아야 성공
+     *
+     *
+     * 비밀번호 찾기:
+     *
+     * 존재해야 다음 단계로 이동
+     */
+    public PasswordResetLoginIdCheckResponse
+    checkPasswordResetLoginId(
+            String loginId
+    ) {
+
+        /*
+         * 기존 LOCAL 로그인과 동일하게
+         * trim + 소문자 + 형식 검증
+         */
+        String normalizedLoginId =
+                normalizeLoginId(
+                        loginId
+                );
+
+
+        /*
+         * @SQLRestriction 때문에
+         * soft delete된 Credential은 자동으로 제외된다.
+         *
+         * 즉 현재 실제 사용 가능한 LOCAL 계정만 true.
+         */
+        boolean valid =
+                userLocalCredentialRepository
+                        .existsByLoginId(
+                                normalizedLoginId
+                        );
+
+
+        return new PasswordResetLoginIdCheckResponse(
+                normalizedLoginId,
+                valid
+        );
+    }
+
+    /*
+     * =========================================================
+     * 비밀번호 찾기 - 아이디 + 이메일 본인 계정 확인
+     * =========================================================
+     *
+     * 매우 중요:
+     *
+     * 이메일만 Memory Jar에 존재한다고
+     * 인증번호를 보내면 안 된다.
+     *
+     *
+     * 반드시:
+     *
+     * loginId
+     *      ↓
+     * User
+     *      ↓
+     * User.email
+     *
+     * 이 사용자가 입력한 이메일과 같아야 한다.
+     */
+    public PasswordResetIdentity
+    verifyPasswordResetIdentity(
+            String loginId,
+            String email
+    ) {
+
+        String normalizedLoginId =
+                normalizeLoginId(
+                        loginId
+                );
+
+
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+
+        /*
+         * 입력한 아이디의 LOCAL Credential을 찾는다.
+         */
+        UserLocalCredential credential =
+                userLocalCredentialRepository
+                        .findByLoginId(
+                                normalizedLoginId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.BAD_REQUEST,
+                                                "등록된 자체 로그인 아이디가 아니에요."
+                                        )
+                        );
+
+
+        User user =
+                credential.getUser();
+
+
+        /*
+         * 해당 아이디의 실제 이메일과
+         * 사용자가 입력한 이메일을 비교한다.
+         */
+        String userEmail =
+                normalizeEmail(
+                        user.getEmail()
+                );
+
+
+        if (
+                !normalizedEmail.equals(
+                        userEmail
+                )
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "입력한 이메일이 해당 아이디의 가입 이메일과 일치하지 않아요."
+            );
+        }
+
+
+        return new PasswordResetIdentity(
+                normalizedLoginId,
+                normalizedEmail,
+                user.getId()
+        );
+    }
+
+    /*
+     * =========================================================
+     * 최종 비밀번호 재설정
+     * =========================================================
+     *
+     * 처리 순서:
+     *
+     * 1. 아이디 + 이메일 재검증
+     * 2. 새 비밀번호 두 개 일치 확인
+     * 3. 비밀번호 정책 확인
+     * 4. Argon2 Hash 생성
+     * 5. passwordResetToken 검증 + 1회 사용
+     * 6. password_hash 변경
+     * 7. password_changed_at 갱신
+     * 8. 기존 Refresh Token 전체 폐기
+     *
+     *
+     * @Transactional:
+     *
+     * Token 소비 + 비밀번호 변경 + Refresh Token 폐기가
+     * 하나의 작업처럼 처리된다.
+     *
+     * 중간에 실패하면 전체 rollback된다.
+     */
+    @Transactional
+    public void resetPassword(
+            String loginId,
+            String email,
+            String passwordResetToken,
+            String newPassword,
+            String newPasswordConfirm
+    ) {
+
+        /*
+         * 서버에서 아이디 + 이메일을 다시 확인한다.
+         *
+         * 프론트가 이전 단계에서 확인했다고 해서
+         * 그 상태를 그대로 믿지 않는다.
+         */
+        PasswordResetIdentity identity =
+                verifyPasswordResetIdentity(
+                        loginId,
+                        email
+                );
+
+
+        /*
+         * 새 비밀번호와 확인 비밀번호가
+         * 정확히 같은지 확인한다.
+         */
+        if (
+                !Objects.equals(
+                        newPassword,
+                        newPasswordConfirm
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "새 비밀번호가 서로 일치하지 않아요."
+            );
+        }
+
+
+        /*
+         * 회원가입과 완전히 동일한
+         * LOCAL 비밀번호 정책을 먼저 검사한다.
+         *
+         * 형식이 잘못된 비밀번호라면
+         * 비싼 Argon2 연산까지 갈 필요가 없다.
+         */
+        validateLocalPassword(
+                newPassword
+        );
+
+
+        /*
+         * =========================================================
+         * PASSWORD_RESET Token 검증 + 1회 사용
+         * =========================================================
+         *
+         * 새 비밀번호를 실제로 Hash하기 전에
+         * 사용자가 이메일 인증을 정상적으로 완료했는지
+         * 먼저 확인한다.
+         *
+         *
+         * 이유:
+         *
+         * Argon2는 보안을 위해 일부러
+         * 계산 비용이 높은 Password Hash 알고리즘이다.
+         *
+         * 잘못된 passwordResetToken 요청까지
+         * Argon2 계산을 해줄 필요는 없다.
+         *
+         *
+         * 이 메서드 전체가 @Transactional이므로
+         * 뒤쪽 DB 저장에서 문제가 발생하면
+         * consume 처리도 함께 rollback된다.
+         */
+        emailVerificationService
+                .consumePasswordResetVerification(
+                        identity.email(),
+                        passwordResetToken
+                );
+
+
+        /*
+         * =========================================================
+         * 새 비밀번호 Argon2 Hash
+         * =========================================================
+         *
+         * 이메일 인증 Token까지 정상이라는 것이 확인된 뒤에만
+         * 비밀번호 Hash 연산을 수행한다.
+         *
+         * 비밀번호 원문은 DB에 절대로 저장하지 않는다.
+         */
+        String newPasswordHash =
+                passwordEncoder.encode(
+                        newPassword
+                );
+
+
+        /*
+         * 해당 LOCAL Credential을 다시 가져온다.
+         */
+        UserLocalCredential credential =
+                userLocalCredentialRepository
+                        .findByLoginId(
+                                identity.loginId()
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.BAD_REQUEST,
+                                                "등록된 자체 로그인 아이디가 아니에요."
+                                        )
+                        );
+
+
+        /*
+         * UserLocalCredential에는 이미
+         * changePassword()가 만들어져 있다.
+         *
+         * 이 메서드는:
+         *
+         * passwordHash
+         * +
+         * passwordChangedAt
+         *
+         * 을 같이 변경한다.
+         */
+        credential.changePassword(
+                newPasswordHash
+        );
+
+
+        userLocalCredentialRepository.save(
+                credential
+        );
+
+
+        /*
+         * 기존 모든 로그인 기기의
+         * Refresh Token을 폐기한다.
+         */
+        refreshTokenService
+                .revokeAllForUser(
+                        identity.userId()
+                );
     }
 
     /*
@@ -837,7 +1156,7 @@ public class LocalAuthService {
                         nickname
                 );
 
-        validateSignupPassword(
+        validateLocalPassword(
                 password
         );
 
@@ -1097,30 +1416,21 @@ public class LocalAuthService {
 
     /*
      * =========================================================
-     * 회원가입 비밀번호 검증
+     * LOCAL 계정 공통 비밀번호 검증
      * =========================================================
      *
-     * Controller의 DTO 검증을 통과했더라도
-     * Service 자체에서도 비밀번호 정책을 다시 확인한다.
+     * 회원가입과 비밀번호 재설정 모두
+     * 반드시 이 메서드를 사용한다.
      *
-     * 이렇게 두 번 확인하는 이유:
-     *
-     * Controller가 아닌 다른 내부 코드에서
-     * signup()을 직접 호출하더라도
-     * 잘못된 비밀번호로 계정이 생성되지 않게 하기 위해서다.
+     * 따라서 두 기능의 비밀번호 정책이
+     * 서로 달라지는 일을 막는다.
      */
-    private void validateSignupPassword(
+    private void validateLocalPassword(
             String password
     ) {
 
         /*
-         * =====================================================
-         * 1. 비밀번호 길이 검사
-         * =====================================================
-         *
-         * null이거나
-         * 8자보다 짧거나
-         * 100자보다 길면 회원가입을 진행하지 않는다.
+         * 1. 길이
          */
         if (
                 password == null
@@ -1133,20 +1443,15 @@ public class LocalAuthService {
             );
         }
 
+
         /*
-         * =====================================================
-         * 2. 문자 종류 검사
-         * =====================================================
-         *
-         * 반드시 아래 세 종류가 모두 들어 있어야 한다.
-         *
-         * 영문 ✅
-         * 숫자 ✅
-         * 특수문자 ✅
+         * 2. 영문 + 숫자 + 특수문자
          */
         if (
-                !SIGNUP_PASSWORD_PATTERN
-                        .matcher(password)
+                !LOCAL_PASSWORD_PATTERN
+                        .matcher(
+                                password
+                        )
                         .matches()
         ) {
 
@@ -1234,6 +1539,20 @@ public class LocalAuthService {
                             loginMethods
                     );
         }
+    }
+
+    /*
+     * 비밀번호 재설정 과정에서
+     * 서버가 확인한 계정 정보를 담는다.
+     */
+    public record PasswordResetIdentity(
+
+            String loginId,
+
+            String email,
+
+            Long userId
+    ) {
     }
 
 }

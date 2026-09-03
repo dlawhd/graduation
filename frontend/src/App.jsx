@@ -25,6 +25,11 @@ import SignupPage from "./pages/SignupPage";
 import FindLoginIdPage
   from "./pages/FindLoginIdPage";
 import NicknameEditor from "./components/profile/NicknameEditor";
+/*
+ * LOCAL 계정 비밀번호 찾기 / 재설정 페이지
+ */
+import FindPasswordPage
+  from "./pages/FindPasswordPage";
 import {
   AUTH_SESSION_EXPIRED_EVENT,
 } from "./api/authSessionUtils";
@@ -258,6 +263,7 @@ useEffect(() => {
           "/",
           "/signup",
           "/find-id",
+          "/find-password",
         ]);
 
 
@@ -1381,6 +1387,25 @@ useEffect(() => {
             path="/find-id"
             element={
               <FindLoginIdPage />
+            }
+          />
+          {/*
+           * =========================================================
+           * 비밀번호 찾기 / 재설정
+           * =========================================================
+           *
+           * LOCAL 계정의:
+           *
+           * 아이디 확인
+           * → 이메일 인증
+           * → 새 비밀번호 변경
+           *
+           * 을 처리하는 공개 페이지다.
+           */}
+          <Route
+            path="/find-password"
+            element={
+              <FindPasswordPage />
             }
           />
           <Route path="/login/success" element={<LoginSuccess />} />

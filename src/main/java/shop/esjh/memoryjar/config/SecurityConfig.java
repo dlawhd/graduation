@@ -154,6 +154,29 @@ public class SecurityConfig {
                                         "/api/v1/auth/login-id-recovery/confirm"
                                 ).permitAll()
                                 /*
+                                 * =========================================================
+                                 * 비밀번호 찾기 / 재설정
+                                 * =========================================================
+                                 *
+                                 * 비밀번호를 잊은 사용자는
+                                 * 로그인할 수 없는 상태이므로
+                                 * 아래 API는 로그인 없이 사용할 수 있어야 한다.
+                                 *
+                                 * 하지만 모두 POST 요청이므로
+                                 * CSRF 보호는 그대로 유지한다.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.POST,
+
+                                        "/api/v1/auth/password-reset/login-id/check",
+
+                                        "/api/v1/auth/password-reset/email-verifications",
+
+                                        "/api/v1/auth/password-reset/email-verifications/confirm",
+
+                                        "/api/v1/auth/password-reset"
+                                ).permitAll()
+                                /*
                                  * 최종 자체 회원가입
                                  *
                                  * 아직 계정이 없는 사용자가 호출하는 API이므로

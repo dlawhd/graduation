@@ -148,6 +148,52 @@ public class RefreshTokenService {
                 .ifPresent(refreshToken -> refreshToken.revoke(now));
     }
 
+    /*
+     * =========================================================
+     * 사용자의 모든 Refresh Token 폐기
+     * =========================================================
+     *
+     * 비밀번호가 재설정되면
+     * 이전 로그인 상태를 계속 유지시키지 않는다.
+     *
+     * 예:
+     *
+     * 휴대폰 Refresh Token
+     * PC Refresh Token
+     * 태블릿 Refresh Token
+     *
+     *          ↓
+     *
+     * 모두 revoked_at 기록
+     *
+     *
+     * 반환값:
+     *
+     * 실제로 폐기된 Token 개수
+     */
+    @Transactional
+    public int revokeAllForUser(
+            Long userId
+    ) {
+
+        if (userId == null) {
+
+            throw new IllegalArgumentException(
+                    "사용자 ID가 필요합니다."
+            );
+        }
+
+
+        LocalDateTime now =
+                nowKst();
+
+
+        return refreshTokenRepository
+                .revokeAllActiveByUserId(
+                        userId,
+                        now
+                );
+    }
 
     /*
      * refresh 토큰 원본이 비어 있는지 검사해.
