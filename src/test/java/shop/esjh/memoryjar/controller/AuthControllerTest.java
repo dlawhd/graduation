@@ -444,6 +444,51 @@ class AuthControllerTest {
         );
     }
 
+    /*
+     * loginId에 값은 들어왔지만
+     * 최소 길이 4자를 만족하지 못하면
+     * 빈 값 오류가 아니라 길이 오류를 반환해야 한다.
+     */
+    @Test
+    void 자체로그인_아이디가_3자이면_400이고_길이안내를_반환한다()
+            throws Exception {
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/auth/login"
+                        )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        """
+                                        {
+                                          "loginId": "abc",
+                                          "password": "Memory123!"
+                                        }
+                                        """
+                                )
+                )
+                .andExpect(
+                        status().isBadRequest()
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.error.message"
+                        ).value(
+                                "아이디는 4~20자로 입력해 주세요."
+                        )
+                );
+
+        /*
+         * DTO 검증에서 차단됐으므로
+         * 로그인 Service까지 호출되면 안 된다.
+         */
+        verifyNoInteractions(
+                localAuthService
+        );
+    }
+
     @Test
     void 자체로그인_비밀번호가_비어있으면_400이고_Service를_호출하지_않는다()
             throws Exception {
