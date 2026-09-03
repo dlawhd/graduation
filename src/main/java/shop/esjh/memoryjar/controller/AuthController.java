@@ -6,10 +6,7 @@ import shop.esjh.memoryjar.dto.auth.request.EmailVerificationConfirmRequest;
 import shop.esjh.memoryjar.dto.auth.request.EmailVerificationSendRequest;
 import shop.esjh.memoryjar.dto.auth.request.LocalLoginRequest;
 import shop.esjh.memoryjar.dto.auth.request.LocalSignupRequest;
-import shop.esjh.memoryjar.dto.auth.response.EmailVerificationConfirmResponse;
-import shop.esjh.memoryjar.dto.auth.response.EmailVerificationSendResponse;
-import shop.esjh.memoryjar.dto.auth.response.LocalAuthResponse;
-import shop.esjh.memoryjar.dto.auth.response.LoginIdAvailabilityResponse;
+import shop.esjh.memoryjar.dto.auth.response.*;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.*;
 import shop.esjh.memoryjar.entity.User;
@@ -230,6 +227,113 @@ public class AuthController {
                         result.verificationExpiresAt(),
                         accountInfo.existingAccount(),
                         accountInfo.loginMethods()
+                );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
+
+    /*
+     * =========================================================
+     * POST /api/v1/auth/login-id-recovery/email-verifications
+     * =========================================================
+     *
+     * 아이디 찾기를 위해
+     * 사용자가 입력한 이메일로 6자리 인증번호를 발송한다.
+     *
+     * 아직 이 단계에서는:
+     *
+     * - 계정 존재 여부
+     * - loginId
+     * - 소셜 로그인 방법
+     *
+     * 을 절대로 알려주지 않는다.
+     */
+    @PostMapping(
+            "/login-id-recovery/email-verifications"
+    )
+    public ApiResponse<EmailVerificationSendResponse>
+    sendLoginIdRecoveryEmailVerification(
+
+            @Valid
+            @RequestBody
+            EmailVerificationSendRequest request
+    ) {
+
+        EmailVerificationDispatchService
+                .VerificationDispatchResult result =
+                emailVerificationDispatchService
+                        .sendLoginIdRecoveryVerificationCode(
+                                request.email()
+                        );
+
+
+        EmailVerificationSendResponse response =
+                new EmailVerificationSendResponse(
+                        result.email(),
+                        result.expiresAt()
+                );
+
+
+        return ApiResponse.of(
+                response
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * POST /api/v1/auth/login-id-recovery/confirm
+     * =========================================================
+     *
+     * 이메일 인증번호까지 확인한 뒤
+     * 실제 Memory Jar 로그인 아이디를 찾는다.
+     */
+    @PostMapping(
+            "/login-id-recovery/confirm"
+    )
+    public ApiResponse<LoginIdRecoveryResponse>
+    confirmLoginIdRecovery(
+
+            @Valid
+            @RequestBody
+            EmailVerificationConfirmRequest request
+    ) {
+
+        /*
+         * 먼저 이메일 소유권을 확인한다.
+         *
+         * 이 단계가 성공하기 전에는
+         * 절대로 아이디를 조회해서 응답하면 안 된다.
+         */
+        EmailVerificationService
+                .VerifiedEmailVerification verified =
+                emailVerificationService
+                        .verifyLoginIdRecoveryCode(
+                                request.email(),
+                                request.code()
+                        );
+
+
+        /*
+         * 인증이 성공한 이메일로만
+         * LOCAL 아이디를 조회한다.
+         */
+        LocalAuthService.LoginIdRecoveryResult result =
+                localAuthService
+                        .findLoginIdByVerifiedEmail(
+                                verified.email()
+                        );
+
+
+        LoginIdRecoveryResponse response =
+                new LoginIdRecoveryResponse(
+                        result.email(),
+                        result.existingAccount(),
+                        result.loginId(),
+                        result.loginMethods()
                 );
 
 

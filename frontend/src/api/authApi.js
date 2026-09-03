@@ -395,6 +395,129 @@ export async function loginLocal({
   return extractData(response);
 }
 
+/*
+ * =========================================================
+ * 6. 아이디 찾기 이메일 인증번호 발송
+ * =========================================================
+ *
+ * POST
+ * /api/v1/auth/login-id-recovery/email-verifications
+ *
+ * 사용자가 아이디를 찾기 위해 입력한 이메일로
+ * 6자리 인증번호를 발송한다.
+ *
+ * 로그인 전 사용하는 공개 API이기 때문에
+ * 401이 발생하더라도 Refresh Token 재발급을
+ * 시도하지 않는다.
+ *
+ * POST 요청이므로 먼저 CSRF 토큰을 받아온다.
+ */
+export async function sendLoginIdRecoveryEmailVerification(
+  email
+) {
+  /*
+   * POST 요청에 필요한 CSRF 토큰 준비
+   */
+  await fetchCsrf();
+
+  const response =
+    await apiClient.post(
+      `${AUTH_API_PATH}/login-id-recovery/email-verifications`,
+
+      /*
+       * Request Body
+       *
+       * {
+       *   "email": "user@example.com"
+       * }
+       */
+      {
+        email,
+      },
+
+      /*
+       * 로그인 전 공개 API
+       */
+      publicAuthConfig()
+    );
+
+  /*
+   * 공통 응답:
+   *
+   * {
+   *   data: {
+   *     email,
+   *     expiresAt
+   *   }
+   * }
+   *
+   * 에서 data만 꺼낸다.
+   */
+  return extractData(
+    response
+  );
+}
+
+
+/*
+ * =========================================================
+ * 7. 아이디 찾기 인증번호 확인 + 아이디 조회
+ * =========================================================
+ *
+ * POST
+ * /api/v1/auth/login-id-recovery/confirm
+ *
+ * 이메일로 받은 인증번호가 맞으면
+ * 서버가 같은 요청 안에서:
+ *
+ * - 기존 계정 여부
+ * - LOCAL 아이디
+ * - 로그인 방법
+ *
+ * 을 확인해서 내려준다.
+ *
+ * 매우 중요:
+ *
+ * 이메일 주소만 입력해서 아이디를 알려주는 것이 아니라
+ * 이메일 인증번호 확인까지 성공해야 결과를 받는다.
+ */
+export async function confirmLoginIdRecovery({
+  email,
+  code,
+}) {
+  /*
+   * POST 요청에 필요한 CSRF 토큰 준비
+   */
+  await fetchCsrf();
+
+  const response =
+    await apiClient.post(
+      `${AUTH_API_PATH}/login-id-recovery/confirm`,
+
+      /*
+       * Request Body
+       *
+       * {
+       *   "email": "user@example.com",
+       *   "code": "123456"
+       * }
+       */
+      {
+        email,
+        code,
+      },
+
+      /*
+       * 로그인 전 공개 API
+       */
+      publicAuthConfig()
+    );
+
+  return extractData(
+    response
+  );
+}
+
 
 /*
  * =========================================================
@@ -460,6 +583,13 @@ const authApi = {
   confirmSignupEmailVerification,
   signupLocal,
   loginLocal,
+
+  /*
+   * 아이디 찾기
+   */
+  sendLoginIdRecoveryEmailVerification,
+  confirmLoginIdRecovery,
+
   getAuthErrorMessage,
 };
 

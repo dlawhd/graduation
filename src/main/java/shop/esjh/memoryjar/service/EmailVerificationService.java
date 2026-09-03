@@ -164,19 +164,33 @@ public class EmailVerificationService {
 
     /*
      * =========================================================
-     * 회원가입 인증번호 확인
+     * 아이디 찾기용 이메일 인증번호 발급
      * =========================================================
      *
-     * 사용자가 이메일로 받은 6자리 인증번호를 검증한다.
+     * 회원가입 인증과 저장 구조는 동일하지만
+     * purpose를 LOGIN_ID_RECOVERY로 따로 저장한다.
      *
-     * 성공하면 최종 회원가입에서 사용할
-     * verificationToken을 새로 발급한다.
+     * 이렇게 해야 회원가입 중 받은 인증번호를
+     * 아이디 찾기에서 재사용할 수 없다.
+     */
+    @Transactional
+    public IssuedVerificationCode issueLoginIdRecoveryCode(
+            String email
+    ) {
+
+        return issueCode(
+                email,
+                EmailVerificationPurpose.LOGIN_ID_RECOVERY
+        );
+    }
+
+    /*
+     * =========================================================
+     * 회원가입 이메일 인증번호 확인
+     * =========================================================
      *
-     * noRollbackFor가 있는 이유:
-     *
-     * 인증번호가 틀렸을 때 attemptCount를 증가시킨 뒤
-     * ResponseStatusException을 던져도
-     * 실패 횟수는 DB에 남아야 하기 때문이다.
+     * 실제 검증 로직은 아래 verifyCode()에 모아두고,
+     * 여기서는 SIGNUP 목적만 전달한다.
      */
     @Transactional(
             noRollbackFor =
@@ -187,29 +201,107 @@ public class EmailVerificationService {
             String rawCode
     ) {
 
+        return verifyCode(
+                email,
+                rawCode,
+                EmailVerificationPurpose.SIGNUP,
+                false
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 아이디 찾기 이메일 인증번호 확인
+     * =========================================================
+     *
+     * 이메일 인증에 성공하면
+     * 바로 아이디 조회에 사용하고 끝나는 인증이다.
+     *
+     * 회원가입처럼 다음 요청에서 verificationToken을
+     * 다시 사용할 필요가 없기 때문에
+     * consumeImmediately = true로 처리한다.
+     */
+    @Transactional(
+            noRollbackFor =
+                    ResponseStatusException.class
+    )
+    public VerifiedEmailVerification verifyLoginIdRecoveryCode(
+            String email,
+            String rawCode
+    ) {
+
+        return verifyCode(
+                email,
+                rawCode,
+                EmailVerificationPurpose.LOGIN_ID_RECOVERY,
+                true
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * 공통 이메일 인증번호 확인 로직
+     * =========================================================
+     *
+     * SIGNUP / LOGIN_ID_RECOVERY처럼
+     * 이메일 인증번호를 확인하는 공통 작업을 담당한다.
+     *
+     * purpose만 다르고:
+     *
+     * - 인증번호 형식 검사
+     * - 5분 만료 검사
+     * - 최대 5회 실패 제한
+     * - HMAC Hash 비교
+     *
+     * 는 모두 동일하므로 한 곳에서 처리한다.
+     */
+    private VerifiedEmailVerification verifyCode(
+            String email,
+            String rawCode,
+            EmailVerificationPurpose purpose,
+            boolean consumeImmediately
+    ) {
+
+        /*
+         * 이메일을:
+         *
+         * EunSeo@Naver.com
+         *      ↓
+         * eunseo@naver.com
+         *
+         * 형태로 통일한다.
+         */
         String normalizedEmail =
                 normalizeEmail(
                         email
                 );
 
+
+        /*
+         * 인증번호가 숫자 6자리인지 확인한다.
+         */
         validateVerificationCode(
                 rawCode
         );
+
 
         LocalDateTime now =
                 LocalDateTime.now(
                         KST
                 );
 
+
         /*
-         * 같은 인증 요청을 동시에 여러 번 확인하는 상황을 막기 위해
-         * 비관적 쓰기 잠금으로 조회한다.
+         * 같은 인증을 동시에 여러 번 확인하지 못하도록
+         * DB row에 쓰기 잠금을 건다.
          */
         EmailVerification verification =
                 emailVerificationRepository
                         .findByEmailAndPurposeForUpdate(
                                 normalizedEmail,
-                                EmailVerificationPurpose.SIGNUP
+                                purpose
                         )
                         .orElseThrow(
                                 () ->
@@ -221,8 +313,23 @@ public class EmailVerificationService {
 
 
         /*
-         * 이미 5번 이상 틀렸다면
-         * 더 이상 인증번호 확인을 허용하지 않는다.
+         * 이미 최종 사용이 끝난 인증이라면
+         * 같은 인증번호를 다시 사용할 수 없다.
+         */
+        if (
+                verification.isConsumed()
+        ) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "이미 사용된 이메일 인증이에요. 인증번호를 다시 받아 주세요."
+            );
+        }
+
+
+        /*
+         * 인증번호를 5번 이상 틀린 경우
+         * 새 인증번호를 받아야 한다.
          */
         if (
                 verification.getAttemptCount()
@@ -237,8 +344,7 @@ public class EmailVerificationService {
 
 
         /*
-         * 인증번호 자체가 이미 만료됐다면
-         * 확인할 수 없다.
+         * 5분이 지난 인증번호는 사용할 수 없다.
          */
         if (
                 verification.isCodeExpired(
@@ -254,14 +360,20 @@ public class EmailVerificationService {
 
 
         /*
-         * 사용자가 입력한 원본 번호를
-         * DB의 HMAC Hash와 비교한다.
+         * 사용자가 입력한 인증번호를 HMAC으로 비교한다.
+         *
+         * 중요한 점:
+         *
+         * SIGNUP이면 SIGNUP Hash,
+         * LOGIN_ID_RECOVERY이면 LOGIN_ID_RECOVERY Hash
+         *
+         * 를 각각 사용한다.
          */
         boolean matches =
                 emailVerificationCrypto
                         .matches(
                                 normalizedEmail,
-                                EmailVerificationPurpose.SIGNUP,
+                                purpose,
                                 rawCode,
                                 verification.getCodeHash()
                         );
@@ -270,7 +382,7 @@ public class EmailVerificationService {
         if (!matches) {
 
             /*
-             * 틀린 번호라면 실패 횟수를 증가시킨다.
+             * 틀린 횟수 +1
              */
             verification
                     .increaseAttemptCount();
@@ -280,10 +392,6 @@ public class EmailVerificationService {
             );
 
 
-            /*
-             * 이번 실패로 최대 횟수에 도달했다면
-             * 재발송하도록 안내한다.
-             */
             if (
                     verification.getAttemptCount()
                             >= MAX_VERIFICATION_ATTEMPTS
@@ -304,8 +412,8 @@ public class EmailVerificationService {
 
 
         /*
-         * 인증번호가 정확하면
-         * 최종 회원가입에서 사용할 랜덤 토큰을 만든다.
+         * 인증번호가 맞으면
+         * 인증 완료 상태를 증명할 랜덤 Token을 생성한다.
          */
         String rawVerificationToken =
                 emailVerificationCrypto
@@ -313,13 +421,13 @@ public class EmailVerificationService {
 
 
         /*
-         * DB에는 토큰 원본이 아니라 Hash만 저장한다.
+         * Token 역시 원문을 DB에 저장하지 않는다.
          */
         String verificationTokenHash =
                 emailVerificationCrypto
                         .hashVerificationToken(
                                 normalizedEmail,
-                                EmailVerificationPurpose.SIGNUP,
+                                purpose,
                                 rawVerificationToken
                         );
 
@@ -331,13 +439,30 @@ public class EmailVerificationService {
 
 
         /*
-         * 인증 완료 상태를 Entity에 기록한다.
+         * 이메일 인증 성공 기록
          */
         verification.markVerified(
                 verificationTokenHash,
                 now,
                 verificationExpiresAt
         );
+
+
+        /*
+         * 아이디 찾기는 인증 성공 직후
+         * 같은 요청에서 결과까지 조회한다.
+         *
+         * 따라서 회원가입처럼 Token을
+         * 다음 요청까지 보관할 이유가 없다.
+         *
+         * 즉시 사용 완료 처리해서 재사용을 막는다.
+         */
+        if (consumeImmediately) {
+
+            verification.consume(
+                    now
+            );
+        }
 
 
         emailVerificationRepository.save(

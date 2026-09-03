@@ -338,6 +338,148 @@ public class LocalAuthService {
                 );
     }
 
+    /*
+     * =========================================================
+     * 아이디 찾기
+     * =========================================================
+     *
+     * 반드시 이메일 인증번호 확인에 성공한 뒤에만
+     * Controller에서 호출해야 한다.
+     *
+     * 이메일 주소만 알고 있다고 해서
+     * 아무나 다른 사용자의 loginId를 조회할 수 있게 하면 안 된다.
+     *
+     *
+     * 반환 예:
+     *
+     * LOCAL 사용자
+     *
+     * existingAccount = true
+     * loginId = "eunseo01"
+     * loginMethods = ["LOCAL"]
+     *
+     *
+     * LOCAL + GOOGLE 사용자
+     *
+     * existingAccount = true
+     * loginId = "eunseo01"
+     * loginMethods = ["LOCAL", "GOOGLE"]
+     *
+     *
+     * GOOGLE 전용 사용자
+     *
+     * existingAccount = true
+     * loginId = null
+     * loginMethods = ["GOOGLE"]
+     *
+     *
+     * 가입하지 않은 이메일
+     *
+     * existingAccount = false
+     * loginId = null
+     * loginMethods = []
+     */
+    public LoginIdRecoveryResult
+    findLoginIdByVerifiedEmail(
+            String email
+    ) {
+
+        /*
+         * 기존 메서드와 똑같은 기준으로
+         * 이메일을 정규화한다.
+         */
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+
+        /*
+         * 기존 계정 여부와
+         * 사용 가능한 로그인 방법을 조회한다.
+         */
+        ExistingAccountLoginMethods accountInfo =
+                findExistingAccountLoginMethods(
+                        normalizedEmail
+                );
+
+
+        /*
+         * Memory Jar에서 한 번도 사용되지 않은 이메일이면
+         * LOCAL 아이디도 존재할 수 없다.
+         */
+        if (
+                !accountInfo.existingAccount()
+        ) {
+
+            return new LoginIdRecoveryResult(
+                    normalizedEmail,
+                    false,
+                    null,
+                    List.of()
+            );
+        }
+
+
+        /*
+         * 활성 User를 찾는다.
+         *
+         * 탈퇴 계정은 @SQLRestriction 때문에
+         * 여기서 조회되지 않는다.
+         */
+        Optional<User> userOptional =
+                userRepository
+                        .findByEmail(
+                                normalizedEmail
+                        );
+
+
+        /*
+         * 과거에는 사용된 이메일이지만
+         * 현재 활성 계정이 없는 경우다.
+         */
+        if (userOptional.isEmpty()) {
+
+            return new LoginIdRecoveryResult(
+                    normalizedEmail,
+                    true,
+                    null,
+                    accountInfo.loginMethods()
+            );
+        }
+
+
+        User user =
+                userOptional.get();
+
+
+        /*
+         * LOCAL 로그인 정보가 있으면
+         * 실제 로그인 아이디를 가져온다.
+         *
+         * LOCAL 계정이 없는 소셜 전용 사용자는
+         * null이 된다.
+         */
+        String loginId =
+                userLocalCredentialRepository
+                        .findByUser_Id(
+                                user.getId()
+                        )
+                        .map(
+                                UserLocalCredential::getLoginId
+                        )
+                        .orElse(
+                                null
+                        );
+
+
+        return new LoginIdRecoveryResult(
+                normalizedEmail,
+                true,
+                loginId,
+                accountInfo.loginMethods()
+        );
+    }
 
     /*
      * =========================================================
@@ -1051,5 +1193,47 @@ public class LocalAuthService {
     ) {
     }
 
+    /*
+     * 이메일 인증을 완료한 사용자의
+     * 아이디 찾기 결과를 담는다.
+     */
+    public record LoginIdRecoveryResult(
+
+            /*
+             * 서버가 소문자로 정규화한 이메일
+             */
+            String email,
+
+            /*
+             * Memory Jar에 사용된 이메일인지
+             */
+            boolean existingAccount,
+
+            /*
+             * LOCAL 로그인 아이디
+             *
+             * LOCAL 계정이 없으면 null
+             */
+            String loginId,
+
+            /*
+             * LOCAL / NAVER / GOOGLE / KAKAO
+             */
+            List<String> loginMethods
+    ) {
+
+        /*
+         * null List가 밖으로 나가지 않게 한다.
+         */
+        public LoginIdRecoveryResult {
+
+            loginMethods =
+                    loginMethods == null
+                            ? List.of()
+                            : List.copyOf(
+                            loginMethods
+                    );
+        }
+    }
 
 }

@@ -135,6 +135,25 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 /*
+                                 * =========================================================
+                                 * 아이디 찾기 이메일 인증
+                                 * =========================================================
+                                 *
+                                 * 아이디를 잊은 사용자는 아직 로그인할 수 없는 상태다.
+                                 *
+                                 * 따라서 인증번호 발송과 확인 API 모두
+                                 * 로그인 없이 접근 가능해야 한다.
+                                 *
+                                 * 단:
+                                 *
+                                 * POST 요청이므로 CSRF 보호는 그대로 유지한다.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/v1/auth/login-id-recovery/email-verifications",
+                                        "/api/v1/auth/login-id-recovery/confirm"
+                                ).permitAll()
+                                /*
                                  * 최종 자체 회원가입
                                  *
                                  * 아직 계정이 없는 사용자가 호출하는 API이므로

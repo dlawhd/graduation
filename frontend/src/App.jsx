@@ -19,6 +19,11 @@ import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
 import apiClient, { fetchCsrf } from "./api/apiClient";
 import SignupPage from "./pages/SignupPage";
+/*
+ * 자체 로그인 아이디 찾기 페이지
+ */
+import FindLoginIdPage
+  from "./pages/FindLoginIdPage";
 import NicknameEditor from "./components/profile/NicknameEditor";
 import {
   AUTH_SESSION_EXPIRED_EVENT,
@@ -237,7 +242,29 @@ useEffect(() => {
 
   async function loadMe() {
     try {
-      const shouldSkipAuthRefresh = location.pathname === "/";
+      /*
+       * =========================================================
+       * 로그인하지 않은 사용자가 사용하는 공개 인증 페이지
+       * =========================================================
+       *
+       * 이 화면에서는 /api/v1/me가 401이라고 해서
+       * Refresh Token 재발급까지 시도할 필요가 없다.
+       *
+       * 특히 아이디를 잊은 사용자는 애초에
+       * 로그인하지 못한 상태에서 /find-id로 들어오기 때문이다.
+       */
+      const publicAuthPaths =
+        new Set([
+          "/",
+          "/signup",
+          "/find-id",
+        ]);
+
+
+      const shouldSkipAuthRefresh =
+        publicAuthPaths.has(
+          location.pathname
+        );
 
       const res = await apiClient.get("/api/v1/me", {
         _skipAuthRefresh: shouldSkipAuthRefresh,
@@ -1341,6 +1368,21 @@ useEffect(() => {
             element={<SignupPage />}
           />
 
+          {/*
+           * =========================================================
+           * Memory Jar 아이디 찾기
+           * =========================================================
+           *
+           * 로그인하지 않은 사용자가
+           * 이메일 본인 인증을 통해
+           * 자신의 LOCAL loginId를 확인하는 공개 페이지다.
+           */}
+          <Route
+            path="/find-id"
+            element={
+              <FindLoginIdPage />
+            }
+          />
           <Route path="/login/success" element={<LoginSuccess />} />
           <Route path="/jars" element={<JarsPage />} />
           <Route path="/jars/new" element={<JarsNewPage />} />

@@ -144,6 +144,70 @@ public class EmailVerificationDispatchService {
         );
     }
 
+    /*
+     * =========================================================
+     * 아이디 찾기 인증번호 발송
+     * =========================================================
+     *
+     * 회원가입과 동일하게:
+     *
+     * DB Transaction
+     *      ↓ 종료
+     * AWS SES 호출
+     *
+     * 순서로 처리한다.
+     *
+     * SES 네트워크 요청 동안
+     * DB Connection을 계속 잡고 있지 않기 위해
+     * NOT_SUPPORTED를 사용한다.
+     */
+    @Transactional(
+            propagation = Propagation.NOT_SUPPORTED
+    )
+    public VerificationDispatchResult
+    sendLoginIdRecoveryVerificationCode(
+            String email
+    ) {
+
+        /*
+         * 1. 아이디 찾기 목적의 인증번호를
+         *    DB에 먼저 저장한다.
+         */
+        EmailVerificationService
+                .IssuedVerificationCode issuedCode =
+                emailVerificationService
+                        .issueLoginIdRecoveryCode(
+                                email
+                        );
+
+
+        /*
+         * 2. DB Transaction이 끝난 뒤
+         *    실제 AWS SES로 인증번호를 보낸다.
+         *
+         * 현재 회원가입 인증메일 템플릿이
+         * 인증번호 전달 자체를 담당하고 있으므로
+         * 우선 같은 안전한 SES 발송 흐름을 재사용한다.
+         *
+         * 아래 단계에서 메일 문구만
+         * "본인 확인" 공통 문구로 바꾼다.
+         */
+        emailSenderService
+                .sendSignupVerificationCode(
+                        issuedCode.email(),
+                        issuedCode.rawCode(),
+                        issuedCode.expiresAt()
+                );
+
+
+        /*
+         * 브라우저에는 인증번호 원문을 주지 않는다.
+         */
+        return new VerificationDispatchResult(
+                issuedCode.email(),
+                issuedCode.expiresAt()
+        );
+    }
 
     /*
      * 인증메일 발송 완료 후

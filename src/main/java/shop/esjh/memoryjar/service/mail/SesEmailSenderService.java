@@ -326,7 +326,7 @@ public class SesEmailSenderService
         return """
                 Memory Jar 이메일 인증
 
-                새로운 추억을 시작하기 위한 인증번호입니다.
+                Memory Jar 본인 확인을 위한 인증번호입니다.
 
                 인증번호: %s
 
@@ -390,7 +390,7 @@ public class SesEmailSenderService
                             color: #555555;
                             margin-bottom: 32px;
                         ">
-                            새로운 추억을 시작하기 위한 이메일 인증이에요.
+                            Memory Jar 본인 확인을 위한 이메일 인증이에요.
                         </div>
 
                         <div style="

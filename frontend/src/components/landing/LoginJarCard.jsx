@@ -298,15 +298,19 @@ export default function LoginJarCard({
   }
 
   /*
-   * 아이디 찾기 / 비밀번호 찾기 임시 처리
+   * =========================================================
+   * 비밀번호 찾기 임시 처리
+   * =========================================================
    *
-   * 회원가입 페이지는 이미 /signup으로 연결됐지만,
-   * 아이디 찾기와 비밀번호 찾기는 아직 별도 페이지를
-   * 만들지 않았기 때문에 안내 문구만 보여준다.
+   * 아이디 찾기는 이제 /find-id 실제 페이지로 연결됐다.
+   *
+   * 비밀번호 찾기는 다음 단계에서 구현할 예정이므로
+   * 현재는 안내 문구만 보여준다.
    */
-  function handleUtilityClick(actionName) {
+  function handlePasswordRecoveryClick() {
+
     setLocalGuideMessage(
-      `${actionName} 기능은 다음 단계에서 연결할게요.`
+      "비밀번호 찾기 기능은 다음 단계에서 연결할게요."
     );
   }
 
@@ -516,17 +520,20 @@ export default function LoginJarCard({
                    ================================================== */}
                 <div className="mt-2.5 flex items-center justify-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-slate-400">
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleUtilityClick(
-                        "아이디 찾기"
-                      )
-                    }
+                  {/*
+                   * =========================================================
+                   * 아이디 찾기
+                   * =========================================================
+                   *
+                   * 예전에는 준비 중 문구만 보여줬지만
+                   * 이제 실제 /find-id 페이지로 이동한다.
+                   */}
+                  <Link
+                    to="/find-id"
                     className="transition hover:text-emerald-600"
                   >
                     아이디 찾기
-                  </button>
+                  </Link>
 
                   <span className="text-slate-300">
                     |
@@ -534,11 +541,11 @@ export default function LoginJarCard({
 
                   <button
                     type="button"
-                    onClick={() =>
-                      handleUtilityClick(
-                        "비밀번호 찾기"
-                      )
+
+                    onClick={
+                      handlePasswordRecoveryClick
                     }
+
                     className="transition hover:text-emerald-600"
                   >
                     비밀번호 찾기
