@@ -2,6 +2,13 @@ spring:
   application:
     name: demo
 
+  servlet:
+    multipart:
+      # Draft 원본 PNG의 10MB 정책보다 큰 요청이 컨트롤러 전에 통과하지 않게 한다.
+      max-file-size: ${APP_MULTIPART_MAX_FILE_SIZE:10MB}
+      # multipart 경계 정보까지 고려해 파일 한 개의 10MB보다 조금 큰 요청만 허용한다.
+      max-request-size: ${APP_MULTIPART_MAX_REQUEST_SIZE:11MB}
+
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -183,3 +190,9 @@ app:
       - video/mp4
       - video/quicktime
       - video/webm
+
+  ai-draft:
+    # Canvas 원본 PNG 정책. 이 값은 일반 첨부파일 Content-Type 검증과 별개다.
+    max-original-image-size: ${APP_AI_DRAFT_MAX_ORIGINAL_IMAGE_SIZE:10485760}
+    expires-after-days: ${APP_AI_DRAFT_EXPIRES_AFTER_DAYS:7}
+    moderation-min-confidence: ${APP_AI_DRAFT_MODERATION_MIN_CONFIDENCE:80.0}

@@ -58,6 +58,8 @@ dependencies {
 	implementation(platform("software.amazon.awssdk:bom:2.31.67"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:sts")
+	// AI Draft 원본 이미지를 동기 심사할 때 AWS Rekognition을 사용한다.
+	implementation("software.amazon.awssdk:rekognition")
 
 	// ✅ Memory Jar 회원가입 인증메일을 AWS SES로 발송하기 위한 SDK
 	implementation("software.amazon.awssdk:sesv2")
