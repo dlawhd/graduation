@@ -19,7 +19,7 @@ import java.util.Map;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
- * Canvas에서 전송한 원본 PNG를 받아 새 AI 디자인 Draft를 생성하는 HTTP 진입점이다.
+ * Canvas 또는 외부에서 전송한 원본 이미지를 받아 새 AI 디자인 Draft를 생성하는 HTTP 진입점이다.
  */
 @RestController
 @RequestMapping("/api/v1/design-drafts")

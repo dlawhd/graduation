@@ -192,7 +192,24 @@ app:
       - video/webm
 
   ai-draft:
-    # Canvas 원본 PNG 정책. 이 값은 일반 첨부파일 Content-Type 검증과 별개다.
+    # Canvas 또는 외부 원본 이미지 정책. 이 값은 일반 첨부파일 Content-Type 검증과 별개다.
     max-original-image-size: ${APP_AI_DRAFT_MAX_ORIGINAL_IMAGE_SIZE:10485760}
+    # 압축은 작지만 비정상적으로 큰 이미지 디코딩을 막는 가로·세로 및 총 픽셀 상한이다.
+    max-original-image-dimension: ${APP_AI_DRAFT_MAX_ORIGINAL_IMAGE_DIMENSION:4096}
+    max-original-image-pixels: ${APP_AI_DRAFT_MAX_ORIGINAL_IMAGE_PIXELS:16777216}
     expires-after-days: ${APP_AI_DRAFT_EXPIRES_AFTER_DAYS:7}
     moderation-min-confidence: ${APP_AI_DRAFT_MODERATION_MIN_CONFIDENCE:80.0}
+
+  ai-generation:
+    # 일반 AI 후보는 Cloudflare에 1024×1024로 요청하고 같은 규격의 응답만 저장한다.
+    max-generated-image-size: ${APP_AI_GENERATION_MAX_IMAGE_SIZE:10485760}
+    required-generated-image-width: ${APP_AI_GENERATION_REQUIRED_IMAGE_WIDTH:1024}
+    required-generated-image-height: ${APP_AI_GENERATION_REQUIRED_IMAGE_HEIGHT:1024}
+
+  ai:
+    cloudflare:
+      # 실제 계정 ID와 API Token은 로컬/운영 환경 변수로만 주입한다.
+      account-id: ${APP_AI_CLOUDFLARE_ACCOUNT_ID:}
+      api-token: ${APP_AI_CLOUDFLARE_API_TOKEN:}
+      model: ${APP_AI_CLOUDFLARE_MODEL:@cf/black-forest-labs/flux-2-klein-4b}
+      timeout-seconds: ${APP_AI_CLOUDFLARE_TIMEOUT_SECONDS:60}

@@ -4,69 +4,165 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
-import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
-import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
-import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
-import shop.esjh.memoryjar.enums.ai.JarAiProvider;
+import shop.esjh.memoryjar.config.properties.AiDraftProperties;
+import shop.esjh.memoryjar.config.properties.S3Properties;
+import shop.esjh.memoryjar.enums.ai.JarAiGenerationErrorCode;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
-import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/**
- * AI 생성 시작 시 Draft 잠금 뒤 PROCESSING 중복을 막는지 검증한다.
- */
+/** AI 생성의 외부 I/O와 짧은 DB 상태 전이가 분리되는지 검증한다. */
 @ExtendWith(MockitoExtension.class)
 class JarAiGenerationServiceTest {
 
-    @Mock private JarDesignDraftService draftService;
-    @Mock private JarAiGenerationRepository generationRepository;
-    @InjectMocks private JarAiGenerationService generationService;
+    @Mock private JarAiGenerationPersistenceService persistenceService;
+    @Mock private AiPromptCatalog promptCatalog;
+    @Mock private CloudflareWorkersAiClient cloudflareClient;
+    @Mock private GeneratedAiImageValidator generatedImageValidator;
+    @Mock private PixelPostProcessor pixelPostProcessor;
+    @Mock private DraftOriginalImageModerationService moderationService;
+    @Mock private S3Client s3Client;
+    @Mock private ResponseInputStream<GetObjectResponse> originalInput;
 
     @Test
-    @DisplayName("같은 Draft에 PROCESSING 후보가 있으면 새 AI 생성을 거절한다")
-    void startGeneration_rejectsDuplicateProcessing() {
-        JarDesignDraft draft = mock(JarDesignDraft.class);
-        when(draftService.findOwnedActiveDraftForUpdate(1L, 10L)).thenReturn(draft);
-        when(draft.getDraftId()).thenReturn(10L);
-        when(generationRepository.existsByDraft_DraftIdAndStatus(10L, JarAiGenerationStatus.PROCESSING)).thenReturn(true);
+    @DisplayName("일반 스타일은 검증된 후보를 S3에 저장한 뒤에만 성공 처리한다")
+    void generate_savesNormalCandidateThenMarksSucceeded() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
+        when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
+        when(generatedImageValidator.validateAndNormalize("provider".getBytes(StandardCharsets.UTF_8)))
+                .thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
+        when(persistenceService.completeSucceeded(eq(10L), eq(100L), anyString())).thenReturn(true);
 
-        assertThatThrownBy(() -> startGeneration())
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(error -> ((ResponseStatusException) error).getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
+        Long generationId = service.generate(1L, 10L, JarAiStyle.CUTE_2D, 7L);
 
-        verify(generationRepository, never()).save(any());
+        ArgumentCaptor<CloudflareWorkersAiClient.CloudflareImageGenerationRequest> request =
+                ArgumentCaptor.forClass(CloudflareWorkersAiClient.CloudflareImageGenerationRequest.class);
+        ArgumentCaptor<PutObjectRequest> putRequest = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(cloudflareClient).generateImage(request.capture());
+        verify(s3Client).putObject(putRequest.capture(), any(RequestBody.class));
+        verify(moderationService).verifyAllowed("normalized".getBytes(StandardCharsets.UTF_8));
+        verify(persistenceService).completeSucceeded(eq(10L), eq(100L), eq(putRequest.getValue().key()));
+        verify(persistenceService, never()).completeFailed(anyLong(), anyLong(), any(), anyString());
+        assertThat(generationId).isEqualTo(100L);
+        assertThat(request.getValue().images()).hasSize(1);
+        assertThat(request.getValue().prompt()).isEqualTo("test prompt");
+        assertThat(putRequest.getValue().contentType()).isEqualTo("image/png");
+        assertThat(putRequest.getValue().ifNoneMatch()).isEqualTo("*");
     }
 
     @Test
-    @DisplayName("잠긴 Draft에서 PROCESSING이 없으면 새 PROCESSING 후보를 저장한다")
-    void startGeneration_savesProcessingCandidate() {
-        JarDesignDraft draft = mock(JarDesignDraft.class);
-        when(draftService.findOwnedActiveDraftForUpdate(1L, 10L)).thenReturn(draft);
-        when(draft.getDraftId()).thenReturn(10L);
-        when(generationRepository.existsByDraft_DraftIdAndStatus(10L, JarAiGenerationStatus.PROCESSING)).thenReturn(false);
-        when(generationRepository.save(any(JarAiGeneration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    @DisplayName("PIXEL은 Cloudflare 두 입력 뒤 Java 후처리 결과만 후보로 저장한다")
+    void generate_pixelUsesReferenceAndPostProcessor() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.PIXEL);
+        arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
+        when(promptCatalog.loadReferenceImage(any())).thenReturn("reference".getBytes(StandardCharsets.UTF_8));
+        when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
+        when(pixelPostProcessor.postProcess("normalized".getBytes(StandardCharsets.UTF_8)))
+                .thenReturn("pixel".getBytes(StandardCharsets.UTF_8));
+        when(persistenceService.completeSucceeded(eq(10L), eq(100L), anyString())).thenReturn(true);
 
-        JarAiGeneration result = startGeneration();
+        service.generate(1L, 10L, JarAiStyle.PIXEL, null);
 
-        ArgumentCaptor<JarAiGeneration> captor = ArgumentCaptor.forClass(JarAiGeneration.class);
-        verify(generationRepository).save(captor.capture());
-        assertThat(result.getStatus()).isEqualTo(JarAiGenerationStatus.PROCESSING);
-        assertThat(captor.getValue().getDraft()).isSameAs(draft);
+        ArgumentCaptor<CloudflareWorkersAiClient.CloudflareImageGenerationRequest> request =
+                ArgumentCaptor.forClass(CloudflareWorkersAiClient.CloudflareImageGenerationRequest.class);
+        verify(cloudflareClient).generateImage(request.capture());
+        verify(pixelPostProcessor).postProcess("normalized".getBytes(StandardCharsets.UTF_8));
+        verify(moderationService).verifyAllowed("pixel".getBytes(StandardCharsets.UTF_8));
+        assertThat(request.getValue().images()).hasSize(2);
+        assertThat(request.getValue().images().get(1).bytes()).isEqualTo("reference".getBytes(StandardCharsets.UTF_8));
     }
 
-    private JarAiGeneration startGeneration() {
-        return generationService.startGeneration(
-                1L, 10L, JarAiStyle.CUTE_2D, JarAiProvider.CLOUDFLARE,
-                "test-model", "BASE_V1+CUTE_2D_V1", 123L, null, null
-        );
+    @Test
+    @DisplayName("Cloudflare timeout은 후보 저장 없이 PROVIDER_TIMEOUT으로 종료한다")
+    void generate_recordsProviderTimeout() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
+        when(cloudflareClient.generateImage(any())).thenThrow(new CloudflareWorkersAiClient.CloudflareAiClientException(
+                CloudflareWorkersAiClient.FailureType.TIMEOUT, "timeout"));
+
+        service.generate(1L, 10L, JarAiStyle.CUTE_2D, null);
+
+        verify(persistenceService).completeFailed(10L, 100L,
+                JarAiGenerationErrorCode.PROVIDER_TIMEOUT, "AI 제공자 요청 또는 응답 검증에 실패했습니다.");
+        verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    @DisplayName("후보 업로드 뒤 stale 처리된 Generation은 S3 객체를 즉시 보상 삭제한다")
+    void generate_deletesCandidateWhenLateSuccessIsRejected() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
+        when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
+        when(persistenceService.completeSucceeded(eq(10L), eq(100L), anyString())).thenReturn(false);
+
+        service.generate(1L, 10L, JarAiStyle.CUTE_2D, null);
+
+        ArgumentCaptor<PutObjectRequest> putRequest = ArgumentCaptor.forClass(PutObjectRequest.class);
+        ArgumentCaptor<DeleteObjectRequest> deleteRequest = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        verify(s3Client).putObject(putRequest.capture(), any(RequestBody.class));
+        verify(s3Client).deleteObject(deleteRequest.capture());
+        assertThat(deleteRequest.getValue().key()).isEqualTo(putRequest.getValue().key());
+    }
+
+    @Test
+    @DisplayName("원본 S3 읽기 실패는 SOURCE_IMAGE_LOAD_FAILED로 기록한다")
+    void generate_recordsSourceImageLoadFailure() {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(SdkClientException.create("offline"));
+
+        service.generate(1L, 10L, JarAiStyle.CUTE_2D, null);
+
+        verify(persistenceService).completeFailed(10L, 100L,
+                JarAiGenerationErrorCode.SOURCE_IMAGE_LOAD_FAILED, "Draft 원본 이미지를 읽을 수 없습니다.");
+        verifyNoInteractions(cloudflareClient);
+    }
+
+    private JarAiGenerationService service() {
+        S3Properties s3Properties = new S3Properties();
+        s3Properties.setBucket("test-bucket");
+        AiDraftProperties draftProperties = new AiDraftProperties();
+        draftProperties.setMaxOriginalImageSize(10 * 1024 * 1024L);
+        return new JarAiGenerationService(persistenceService, promptCatalog, cloudflareClient,
+                generatedImageValidator, pixelPostProcessor, moderationService, s3Client, s3Properties, draftProperties);
+    }
+
+    private void arrangeStart(JarAiStyle style) {
+        AiPromptCatalog.AiPromptDefinition definition = style == JarAiStyle.PIXEL
+                ? new AiPromptCatalog.AiPromptDefinition("test prompt", "PIXEL_V5", "PIXEL_REF_V1",
+                PixelPostProcessor.POSTPROCESS_VERSION, "ai/references/pixel-reference-v1.png")
+                : new AiPromptCatalog.AiPromptDefinition("test prompt", "BASE_V1+CUTE_2D_V1", null, null, null);
+        when(promptCatalog.resolve(style)).thenReturn(definition);
+        when(persistenceService.start(eq(1L), eq(10L), eq(style), eq(definition), any()))
+                .thenReturn(new JarAiGenerationPersistenceService.GenerationStartTarget(100L, 10L, 1L, "original.png"));
+    }
+
+    private void arrangeOriginalRead(byte[] bytes) throws Exception {
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenReturn(originalInput);
+        when(originalInput.readNBytes(anyInt())).thenReturn(bytes);
     }
 }

@@ -1,0 +1,27 @@
+Render the subject as a delicate hand-painted watercolor illustration on white paper.
+
+Apply the watercolor treatment to the existing subject while following all preservation rules in the base prompt. If any stylistic choice conflicts with those rules, prioritize fidelity to the original image.
+
+Use translucent watercolor washes, gently layered pigment, subtle pigment pooling, and fine natural granulation within the subject's existing painted areas.
+
+Make the watercolor character clearly visible through gentle variations in pigment density and delicate brushwork, while keeping the result clean and readable.
+
+Keep the original outer silhouette stable and immediately recognizable. Use softly feathered paint edges only where they do not change the outline, merge separate parts, or obscure small details.
+
+Preserve the original internal lines, facial features, markings, and small accents in their original positions. Keep existing outlines recognizable, with a lightly hand-painted quality rather than replacing them with heavy new contours.
+
+Use only the source image's existing hues as the pigment palette. Create watercolor variation through dilution and layering of those hues. Keep the original color identity and placement, including small accent colors.
+
+For black-and-white or grayscale input, use only neutral black and gray washes. Keep uncolored interiors and intentional white spaces unpainted. Apply watercolor texture to existing strokes and shaded areas without adding new filled regions.
+
+Preserve all intentional gaps, holes, and negative spaces. Keep nearby parts visually separate wherever they are separate in the source.
+
+Keep the illustration predominantly flat. Any tonal variation should suggest watercolor pigment on paper, with minimal depth and no sculpted volume.
+
+Suggest a fine watercolor paper texture subtly within the painted areas. Keep the surrounding background plain white or very light, clean, and visually quiet.
+
+Keep all brushwork contained within the subject's existing forms. Do not add paint splashes, droplets, drips, loose brush marks, colored washes behind the subject, or decorative flourishes.
+
+Avoid thick opaque paint, heavy impasto, glossy surfaces, plastic or clay materials, photorealistic rendering, dramatic lighting, and cast shadows.
+
+The finished result should feel delicate, warm, handmade, and unmistakably watercolor, while remaining faithful to the original subject.

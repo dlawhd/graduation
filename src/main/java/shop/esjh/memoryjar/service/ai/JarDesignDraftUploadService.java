@@ -23,7 +23,7 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
- * Canvas 원본 PNG를 검증·동기 심사·Private S3 저장 후 Draft로 생성하는 전체 흐름을 조정한다.
+ * Canvas 또는 외부 원본을 PNG로 정규화·동기 심사·Private S3 저장 후 Draft로 생성하는 전체 흐름을 조정한다.
  */
 @Service
 public class JarDesignDraftUploadService {
@@ -60,12 +60,13 @@ public class JarDesignDraftUploadService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
         }
 
-        byte[] imageBytes = readImageBytes(image);
-        imageValidator.validate(imageBytes);
-        moderationService.verifyAllowed(imageBytes);
+        byte[] uploadedBytes = readImageBytes(image);
+        // 실제 바이트 검증과 480×480 PNG 정규화를 먼저 마쳐 심사·S3·AI 입력이 모두 같은 파일을 사용한다.
+        byte[] normalizedPngBytes = imageValidator.normalize(uploadedBytes);
+        moderationService.verifyAllowed(normalizedPngBytes);
 
         String originalS3Key = createImmutableOriginalS3Key();
-        putPrivateOriginal(originalS3Key, imageBytes);
+        putPrivateOriginal(originalS3Key, normalizedPngBytes);
 
         try {
             JarDesignDraft draft = persistenceService.createDraft(userId, originalS3Key);
@@ -79,12 +80,12 @@ public class JarDesignDraftUploadService {
 
     private byte[] readImageBytes(MultipartFile image) {
         if (image == null || image.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "원본 PNG 파일이 필요합니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "원본 이미지 파일이 필요합니다.");
         }
         try {
             return image.getBytes();
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "원본 PNG 파일을 읽을 수 없습니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "원본 이미지 파일을 읽을 수 없습니다.");
         }
     }
 
@@ -101,7 +102,7 @@ public class JarDesignDraftUploadService {
                     RequestBody.fromBytes(imageBytes)
             );
         } catch (S3Exception | SdkClientException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "원본 PNG를 안전하게 저장하지 못했습니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "정규화된 원본 이미지를 안전하게 저장하지 못했습니다.");
         }
     }
 

@@ -49,7 +49,7 @@
 | --- | --- |
 | Windows에서 FLUX.2 Klein 4B를 호출하고 이미지 결과 확인 | **PoC 진행·실험 기록 존재** |
 | PIXEL 전용 Reference와 PIXEL V5 프롬프트 실험 | **PoC 설계·결과 기록 존재** |
-| Python/Pillow의 48×48·16색·최근접 확대 | **PoC 처리 방향 확인** |
+| Python/Pillow의 64×64 축소·24색 제한·최근접 확대 | **PoC 처리 방향 확인** |
 | 동일 후처리를 운영 Java로 옮겨 원본과 픽셀 결과를 비교 | **미구현·검증 전** |
 | Cloudflare 입력 2장 지원·필드명 | **공식 문서 확인**. 실제 운영 토큰/계정/Java 요청 결과는 별도 검증 |
 | S3 임시·영구 객체 관리 및 Flyway 신규 테이블 | **설계 확정 범위와 미결정 항목 존재, 구현 전** |
@@ -126,10 +126,10 @@ PIXEL은 단순히 원본의 외곽선만 네모나게 만드는 필터가 아�
 | `reference_image_version` | `PIXEL_REF_V1` | `jar_ai_generations` |
 | Reference 파일 | `pixel-reference-v1.png` | Spring 리소스 예정 |
 | `postprocess_version` | `PIXEL_PP_V1` | `jar_ai_generations` |
-| 픽셀 내부 해상도 | 48×48 | Java 후처리 |
-| 목표 색상 수 | 최대 16색 | Java 후처리 |
+| 픽셀 내부 해상도 | 64×64 | Java 후처리 |
+| 목표 색상 수 | 최대 24색 | Java 후처리 |
 | 최종 후보 이미지 | 480×480 PNG | Private S3 |
-| 확대 방식 | Nearest Neighbor, 10배 | Java 후처리 |
+| 확대 방식 | Nearest Neighbor, 64→480 | Java 후처리 |
 
 **예정되는 실제 프로젝트 리소스 경로:**
 
@@ -145,7 +145,7 @@ src/main/resources/ai/
 
 - `JarAiStyle.PIXEL`은 **서비스 스타일 ID**이고, 파일명 `pixel-v5.txt`는 **리소스 이름**이다.
 - 운영 Java 코드에서 프롬프트 전문을 하드코딩하지 않고, 버전-리소스 매핑을 통해 로드한다.
-- `PIXEL_PP_V1`을 완전히 재현하려면 축소 보간법, 팔레트 산출 알고리즘, 투명도 및 색 공간 처리를 실제 구현에서 명시하고, PoC 결과와 비교 시험해야 한다. **48/16/480 숫자만 같다고 Python PoC와 픽셀별 동일한 출력이 보장되는 것은 아니다.** 이 세부 알고리즘 선택은 구현 시 검증한다.
+- `PIXEL_PP_V1`은 흰 배경 합성 → 64×64 bilinear 축소 → 결정론적 median-cut 최대 24색 팔레트 → nearest-neighbor 480×480 확대를 사용한다. Pillow의 ADAPTIVE 팔레트와 픽셀별 완전히 같은 결과를 보장하지는 않으므로, 운영 적용 전 PoC 결과와의 시각 비교는 별도로 수행한다.
 
 ---
 
@@ -210,11 +210,11 @@ Cloudflare Raw 이미지 응답
     ↓ 응답 형태·바이트·용량 확인
 이미지 디코딩
     ↓
-48 × 48로 축소
-    ↓
-최대 16색 팔레트로 양자화
-    ↓
-Nearest Neighbor로 10배 확대
+64 × 64로 bilinear 축소
+↓
+최대 24색 median-cut 팔레트로 양자화
+↓
+Nearest Neighbor로 480×480 확대
     ↓
 480 × 480 PNG 인코딩
     ↓ 최종 디코딩·크기·형식·용량 확인
@@ -224,34 +224,26 @@ Private S3 저장
 ### 구현 계약과 세부 검증
 
 1. 이미지 입력은 실제 바이트를 검사하고 디코딩 실패·비정상적인 치수·과도한 용량을 거절한다.
-2. 48×48 축소의 보간법을 지정하고 PoC 기준 이미지와 육안·픽셀 단위 비교를 수행한다.
-3. **16색은 단순히 RGB 채널을 16단계로 나누는 것과 다르다.** 결과 이미지에 사용되는 전체 팔레트 색상을 최대 16개로 만드는 양자화 알고리즘을 정해야 한다. 직접 구현 또는 검증한 Java 라이브러리 사용 여부는 구현 단계에서 결정한다.
-4. 투명도 보존·밝은 배경 처리와 팔레트에 투명 색을 포함할지 여부는 실제 결과 및 UI 조건을 보고 결정한다.
-5. 48×48의 각 픽셀을 최근접 방식으로 10×10 블록으로 확대해 480×480을 만든다. 확대 단계에서 흐림 보간을 사용하지 않는다.
+2. 64×64 축소에는 bilinear 보간을 사용한다. PoC 기준 이미지와의 시각 비교는 별도로 수행한다.
+3. **24색은 단순히 RGB 채널을 24단계로 나누는 것과 다르다.** 결과 이미지 전체 팔레트를 최대 24개로 제한하는 결정론적 median-cut 알고리즘을 사용한다.
+4. 투명·반투명 픽셀은 흰 배경에 합성하고, 팔레트에 투명 색을 포함하지 않는다.
+5. 64×64를 최근접 방식으로 480×480으로 확대한다. 64→480은 정수 배율이 아니므로 Graphics2D의 nearest-neighbor 좌표 규칙을 고정하고, 확대 단계에서 흐림 보간을 사용하지 않는다.
 6. 최종 이미지가 480×480 PNG인지 확인한 뒤 S3에 저장한다.
-7. Java 후처리를 완료하기 전에는 `PIXEL_PP_V1`이 운영에서 검증되었다고 표현하지 않는다.
+7. Java 구현의 단위 테스트는 완료했지만, 실제 Cloudflare 결과와 PoC 이미지의 시각 비교 및 운영 연동 검증은 아직 별도 수행해야 한다.
 
-### 개념 코드 — 구현 완료 코드 아님
+### 현재 Java 구현
 
 ```java
 /**
- * AI가 생성한 이미지를 PIXEL_PP_V1 규칙의 후보 이미지로 가공하는 개념 예시.
- * resizeTo48/quantizeTo16Colors/resizeNearestNeighbor는 설계상의 책임을
- * 나타내며, 실제 메서드나 구현 완료된 클래스가 아니다.
+ * AI가 생성한 이미지를 PIXEL_PP_V1 규칙의 후보 이미지로 가공한다.
  */
-public BufferedImage process(BufferedImage source) {
-    // 원본을 내부 스프라이트 해상도로 축소한다.
-    BufferedImage small = resizeTo48(source);
-
-    // 이미지 전체 팔레트를 최대 16색으로 제한한다.
-    BufferedImage quantized = quantizeTo16Colors(small);
-
-    // 픽셀 경계가 흐려지지 않도록 480x480으로 최근접 확대한다.
-    return resizeNearestNeighbor(quantized, 480, 480);
+public byte[] postProcess(byte[] normalizedImageBytes) {
+    // 1024×1024 입력을 검증하고, 흰 배경 합성 → 64×64 → 24색 → 480×480을 수행한다.
+    return pixelPostProcessor.postProcess(normalizedImageBytes);
 }
 ```
 
-`JarAiStyle`에 `requiresPostProcessing` 같은 플래그를 둘 수 있지만 **예시 설계**다. 실제 enum/전략 클래스는 마스터 구현 순서의 Enum 단계에서 최신 프로젝트 패키지를 확인해 결정한다. 현재 확정된 6개 스타일 ID는 `CUTE_2D`, `SOFT_25D`, `WATERCOLOR`, `HAND_DRAWN`, `WEIRDO`, `PIXEL`이며 PIXEL에만 후처리가 있다.
+실제 구현은 `src/main/java/shop/esjh/memoryjar/service/ai/PixelPostProcessor.java`에 있다. Generation Service는 아직 이 컴포넌트를 호출하지 않으므로, 현재 단계만으로 실제 후보가 생성·저장되는 것은 아니다.
 
 ---
 
@@ -432,7 +424,7 @@ PIXEL 문서가 별도 구현 순서 20단계를 제시하면, 전체 AI 계획�
 | 9~10. 원본 업로드/Draft Service | 실제 PNG·심사·Private S3·소유권 |
 | 11. Cloudflare Client | PIXEL 두 이미지·multipart·응답 계약 |
 | 12. AI Generation Service | PROCESSING, Cloudflare, 결과 검증, 후보 S3 |
-| **13. PIXEL Java 후처리** | 48×48·최대 16색·최근접 480×480 구현·PoC 비교 |
+| **14. PIXEL Java 후처리** | 64×64 bilinear·최대 24색 median-cut·최근접 480×480 구현·PoC 비교 |
 | 14~15. stale/cleanup·Finalize | Timeout·임시 객체 보호·최종 복사·JarDesign 생성 |
 | 16~17. API/DTO/Controller·Backend Test | Draft 기반 API, 실패·권한·경합·이미지 검사 |
 | 18~22. Canvas·후보·Slot·미리보기 | 기존 UI 보존, PIXEL 후보 UX |

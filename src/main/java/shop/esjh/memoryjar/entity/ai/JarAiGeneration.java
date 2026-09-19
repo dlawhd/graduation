@@ -117,4 +117,30 @@ public class JarAiGeneration {
                 && generatedS3Key != null && !generatedS3Key.isBlank()
                 && s3DeletedAt == null;
     }
+
+    /** 후보 파일 저장까지 끝난 PROCESSING 시도만 성공 상태로 전환한다. */
+    public void markSucceeded(String generatedS3Key, LocalDateTime completedAt) {
+        if (status != JarAiGenerationStatus.PROCESSING) {
+            throw new IllegalStateException("PROCESSING 상태의 AI 후보만 성공 처리할 수 있습니다.");
+        }
+        this.status = JarAiGenerationStatus.SUCCEEDED;
+        this.generatedS3Key = generatedS3Key;
+        this.s3DeletedAt = null;
+        this.errorCode = null;
+        this.errorMessage = null;
+        this.completedAt = completedAt;
+    }
+
+    /** 아직 진행 중인 시도만 실패로 종료해 늦은 응답이 종료 상태를 되돌리지 못하게 한다. */
+    public void markFailed(JarAiGenerationErrorCode errorCode, String errorMessage, LocalDateTime completedAt) {
+        if (status != JarAiGenerationStatus.PROCESSING) {
+            throw new IllegalStateException("PROCESSING 상태의 AI 후보만 실패 처리할 수 있습니다.");
+        }
+        this.status = JarAiGenerationStatus.FAILED;
+        this.generatedS3Key = null;
+        this.s3DeletedAt = null;
+        this.errorCode = errorCode;
+        this.errorMessage = errorMessage;
+        this.completedAt = completedAt;
+    }
 }

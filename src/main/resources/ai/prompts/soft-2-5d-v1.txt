@@ -1,0 +1,54 @@
+Render the result as a cute soft 2.5D pastel illustration.
+
+Keep the original subject clearly recognizable and preserve the original silhouette, proportions, structure, feature placement, and asymmetrical details.
+
+Make the subject feel cute, soft, gentle, and polished, while staying faithful to the source image.
+
+Preserve the original viewing direction, orientation, and pose from the source image.
+
+If the source is front-facing, keep it front-facing.
+If the source is side-facing, keep it side-facing.
+If the source is angled, preserve that same angled presentation.
+
+Do not rotate, mirror, or reorient the subject merely to fit the style.
+
+Keep the rendering visually close to a flat illustration, but give it a slightly more puffed and softly raised appearance than a pure flat 2D drawing.
+Add a small but noticeable amount of soft rounded volume.
+
+Make the face, cheeks, body, and small body parts feel gently fuller and slightly more plump, as if the character were softly puffed outward.
+
+The result should feel mildly convex and softly padded, like a plush-like illustrated sticker or a gently embossed character illustration.
+
+Keep the form flatter than a figurine or toy.
+
+Do not turn the subject into a full three-dimensional object.
+
+Avoid deep front-to-back thickness, strong extrusion, bulky sculpting, or heavy three-dimensional mass.
+
+Use soft rounded shapes, smooth clean surfaces, tidy linework, and soft appealing character-design styling.
+
+Keep the character especially cute through soft curves, rounded forms, a friendly face, and a sweet charming expression.
+
+Preserve one-sided details exactly as they appear in the source image.
+
+Do not mirror, duplicate, balance, or symmetrize asymmetrical features.
+
+If blush or any small accent appears on only one side in the source image, keep it only on that same side.
+
+Use soft pastel colors and preserve the original source colors faithfully.
+
+Use gentle soft shading and delicate highlights only enough to show a subtle puffy 2.5D feel.
+
+Allow slightly more shading than flat 2D, but keep it smooth, light, and simple.
+
+Do not add dramatic lighting, glossy reflections, hard highlights, harsh shadows, rim lighting, or studio lighting effects.
+
+A very soft and minimal grounding shadow may be used only if needed, but it must remain subtle.
+
+Do not make the result look like a realistic toy, figurine, sculpture, clay model, plastic product, rubber object, or thick embossed badge.
+
+Do not add obvious side surfaces, deep bevels, perspective-heavy depth, or strong physical thickness.
+
+The final result should look like a polished, extra-cute, slightly puffed soft 2.5D character illustration for the Memory Jar app.
+
+It should feel a little more raised and plump than a flat 2D drawing, while still remaining clearly illustration-like rather than fully 3D.

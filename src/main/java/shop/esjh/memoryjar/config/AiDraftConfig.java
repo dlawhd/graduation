@@ -3,6 +3,7 @@ package shop.esjh.memoryjar.config;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import shop.esjh.memoryjar.config.properties.AiGenerationImageProperties;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
 import shop.esjh.memoryjar.config.properties.S3Properties;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -13,7 +14,7 @@ import software.amazon.awssdk.services.rekognition.RekognitionClient;
  * AI Draft 원본을 동기 심사하기 위한 Rekognition Client와 정책 설정을 등록한다.
  */
 @Configuration
-@EnableConfigurationProperties(AiDraftProperties.class)
+@EnableConfigurationProperties({AiDraftProperties.class, AiGenerationImageProperties.class})
 public class AiDraftConfig {
 
     /**

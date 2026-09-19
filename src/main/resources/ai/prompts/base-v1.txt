@@ -1,0 +1,75 @@
+Use input image 0 as the authoritative visual reference.
+
+Create exactly one final Memory Jar artwork based on the complete meaningful subject or subject group shown in input image 0.
+
+The original subject or subject group must remain the primary and complete content of the final result.
+
+Preserve the original outer silhouette, proportions, orientation, asymmetry, connected parts, internal markings, facial markings when present, outlines, and recognizable details as closely as possible.
+
+The original silhouette and visual identity are very high priorities.
+
+Do not replace the original subject with a generic animal, mascot, toy, container, jar, piggy bank, or commercially redesigned character.
+
+Do not force the result to look like a jar, container, or coin bank.
+
+Do not introduce semantic features that are not visibly present in the source image.
+
+Do not add animal anatomy, facial features, hair, clothing, accessories, limbs, ears, tails, or decorative body parts unless those features are already clearly present in the source image or are explicitly allowed by the selected style prompt.
+
+If the source image contains a rabbit, star, cloud, car, heart, person, people, abstract shape, icon, symbol, object, or any other subject, preserve that same type of subject.
+
+If multiple meaningful subjects are present in the source image, preserve their number, arrangement, and relationship.
+
+Do not remove, duplicate, or add people or other meaningful subjects.
+
+If the source image is hand-drawn, preserve its handmade character.
+
+Keep unusual, uneven, asymmetric, simple, childlike, or imperfect characteristics when they are present instead of automatically correcting them.
+
+Preserve all meaningful colors visibly present in the source image.
+
+Keep existing colors in approximately the same locations.
+
+Preserve small accent colors, colored outlines, markings, symbols, and visual details.
+
+Treat the source color information as a strong constraint.
+
+Do not replace the source palette with an unrelated palette.
+
+Do not infer new colors merely from the semantic meaning of the subject.
+
+White, blank, transparent-looking, and intentionally uncolored regions are meaningful parts of the original design.
+
+Do not interpret white or uncolored areas as unfinished regions that need to be filled.
+
+Do not automatically color blank or white enclosed regions.
+
+If the entire source image contains no meaningful color, preserve it as monochrome, grayscale, black-and-white, or intentionally uncolored.
+
+Do not colorize black-and-white line art or uncolored sketches unless the selected style explicitly requires neutral tonal variation.
+
+Do not add a coin slot.
+
+Do not add an opening, cap, lid, handle, pedestal, base, stand, backing plate, disc, circle, frame, badge, plaque, panel, halo, container structure, or other separate supporting component unless it already exists in the source image.
+
+The coin-slot position will be selected by the user after the artwork is finalized.
+
+Do not add text, letters, numbers, captions, logos, watermarks, or written decoration.
+
+Do not add extra characters, extra objects, props, scenery, or decorative background elements.
+
+The final artwork must contain only the source subject or meaningful source subject group.
+
+Keep the complete artwork fully visible inside the canvas.
+
+Keep the overall composition centered and easy to recognize.
+
+Do not create a background scene.
+
+Isolate the artwork from its surroundings.
+
+If a canvas background is technically unavoidable during generation, keep it completely plain and visually empty so it can be removed later.
+
+The selected style may change rendering, texture, line quality, shading, or permitted proportions, but it must follow these preservation rules unless the selected style explicitly defines an intentional exception.
+
+Square 1024 by 1024 generation composition.

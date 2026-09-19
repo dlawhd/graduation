@@ -1,3 +1,48 @@
+먼저 바뀐 부분을 정확히 짚고, 그 아래에 **노션에 그대로 교체할 수 있는 최종본**으로 정리할게.
+
+## 먼저, 지금 방향과 다른 부분
+
+| 기존 문서 | 현재 최종 방향 |
+| --- | --- |
+| OWNER / ADMIN AI 생성 가능 | **OWNER만 가능** |
+| AI가 그림을 “저금통으로 변환” | ❌ 저금통 형태 강제 안 함 |
+| AI가 coin slot 생성 | ❌ AI는 Slot 생성 안 함 |
+| `narrow horizontal coin slot` 프롬프트 | ❌ 완전히 제거 |
+| JarTheme 색상을 AI Prompt에 적용 | ❌ Theme과 AI 디자인 분리 |
+| 필요 시 공통 Memory Jar Reference | ❌ 공통 Reference 없음. **PIXEL만 전용 Reference** |
+| `AI_JAR_SKETCH` + 기존 Presign 흐름 | 현재 기본 방향은 **Canvas Blob → Spring → 검증 → Private S3 → Draft 생성** |
+| AI 생성 시 이미 `jar_id` 존재 | ❌ AI 생성 시점에는 아직 Jar가 없음 |
+| `jar_ai_generations.jar_id` | ❌ `draft_id` |
+| `created_by` | ❌ 제거. `generation → draft → owner`로 확인 |
+| `source_upload_id` | ❌ 현재 Draft의 `original_s3_key` 사용 |
+| `generated_url` DB 저장 | ❌ URL 저장 안 함. `generated_s3_key`만 저장 |
+| `jars.active_ai_generation_id` | ❌ 완전히 제거 |
+| 생성(generate) / 적용(apply) API | ❌ apply 구조 폐기 |
+| Jar 생성 후 AI 디자인 적용/교체 | ❌ Jar 생성 후 디자인 변경 불가 |
+| 같은 Jar에서 PROCESSING 방지 | **같은 Draft에서 PROCESSING 1건만 허용** |
+| 60회/일 MVP 제한 후보 | ❌ 현재 사용자/서비스 횟수 제한 없음 |
+| AI 후보 영구 사용자 히스토리 | Jar 생성 전 후보 보관. 이후 DB 이력은 유지하되 임시 S3는 정리 가능 |
+| 기존 Jar도 새 AI DB 구조 적용 | ❌ 기존 Jar는 기존 코드 그대로 |
+| 직접 그리다 기본 Jar 선택 | Draft `FINALIZED`, JarDesign 없음 |
+
+그리고 PoC에서 발견했던 문제 중에서도:
+
+```
+coin slot 모양이 이상함
+→ Prompt 개선
+```
+
+은 이제 고칠 문제가 아니야.
+
+최종 설계에서는:
+
+> **AI에게 Slot 자체를 그리게 하지 않는다.**
+>
+
+로 문제를 구조적으로 제거했으니까.
+
+---
+
 # 🎨 Memory Jar AI — 기술 방향 및 PoC 결과 최종 정리 v1
 
 ## 1. 최종 기술 선택
@@ -534,9 +579,9 @@ Java PixelPostProcessor
 ```
 Cloudflare Raw 이미지
 ↓
-48 × 48
+64 × 64 bilinear 축소
 ↓
-16색 제한
+최대 24색 median-cut 팔레트
 ↓
 Nearest Neighbor
 ↓
@@ -1382,17 +1427,18 @@ MVP 60회/일 제한
 
 ---
 
-1. **AI 디자인 규칙/프롬프트 최종본 고정** ✅
-
-   BASE / CUTE_2D / SOFT_25D / WATERCOLOR / HAND_DRAWN / WEIRDO / PIXEL과 Pixel Reference, Pixel 후처리 V1을 코드 리소스로 정리한다. 공통 규칙에는 동전 투입구 생성, JarTheme 색상 강제, 공통 Reference를 넣지 않는다.
+1. **AI 디자인 규칙·프롬프트·Reference 리소스 실제 추가 및 Catalog 구현**
+    - 버전 고정 프롬프트 파일 8개와 `pixel-reference-v1.png` 추가
+    - 스타일별 조합과 `prompt_version`은 서버가 결정
+    - 클라이언트는 prompt/version을 제출하지 않음
 
    🎨 Memory Jar AI 디자인 규칙 & 프롬프트 v1 — 최종본
 
-   🟪 픽셀 스타일을 esjh.shop 백엔드·프론트에 넣는 방법 — 최종 v1
+   PIXEL 스타일 생성·Java 후처리·후보 저장·최종화 설계
 
 2. **UX·권한 정책 최종 확정** ✅
 
-   기본 Jar / 직접 그리기 / ORIGINAL / AI / 직접 그리다 DEFAULT 복귀까지 지금 확정한 4개 흐름을 기준으로 한다.
+   기본 Jar / 직접 그리기 / ORIGINAL / AI / DEFAULT 복귀 흐름 확정
 
    🎨 AI 기능 UX와 권한 정책 — 최종 v1
 
@@ -1402,11 +1448,11 @@ MVP 60회/일 제한
 
    AI_ERD 최종
 
-4. **전체 FK / CHECK / INDEX 최종 SQL 작성** ← **다음 작업**
+4. **전체 FK / CHECK / INDEX 최종 SQL 작성**  ✅
 
    지금 대화에서 정한 제약조건을 실제 SQL 수준에서 한 번 검증한다.
 
-5. **Flyway Migration 작성**
+5. **Flyway Migration 작성** ✅
 
    `jar_design_drafts` → `jar_ai_generations` → Draft의 Generation FK → `jar_designs` 순으로 만든다.
 
@@ -1414,70 +1460,70 @@ MVP 60회/일 제한
 
    정확한 `V32` 여부는 최신 migration 번호를 실제 코드에서 확인하고 결정한다.
 
-6. **Enum 구현**
+6. **Enum 구현** ✅
 
    `JarDraftStatus`, `JarDraftDesignType`, `JarAiStyle`, `JarAiGenerationStatus`, `JarAiProvider`, `JarAiGenerationErrorCode`, `JarDesignType` 등을 구현한다.
 
-7. **Entity 구현**
+7. **Entity 구현** ✅
 
-   세 테이블 Entity와 관계를 만든다.
+   Draft / Generation / Design Entity 및 관계 구현
 
-8. **Repository 구현**
+8. **Repository 구현** ✅
 
    Draft lock 조회, PROCESSING 조회, 만료 Draft 조회 등 실제 Service에서 필요한 Query를 만든다.
 
-9. **Draft 원본 이미지 업로드 + 검증 구현**
+9. **Draft 원본 이미지 업로드 + 검증 구현** ✅
+    - Canvas PNG 검증 → Private S3 → Draft 생성
+    - S3 성공·DB 실패 보상 삭제 포함
+10. 외부 이미지 업로드·PNG 정규화 구현
+11. **Draft Service 구현** ✅
 
-   Canvas `toBlob()` → Spring → 실제 PNG 검증 → Private S3 → Draft 생성. S3 성공/DB 실패 시 보상 삭제.
+    WNER/ACTIVE 검증, 후보 선택, 7일 만료, ORIGINAL/AI/DEFAULT/Slot 저장
 
-10. **Draft Service 구현**
+    Memory Jar AWS Rekognition · S3 · EC2 IAM 역할 설정 정리
 
-    OWNER 검증, ACTIVE 검증, 후보 선택, `expires_at +7일`, ORIGINAL/AI/DEFAULT 선택, Slot 저장 등을 담당한다.
+12. AI 결과 이미지 검증·PNG 정규화 구현 ✅
+    - 일반 AI 후보의 포맷·최대 바이트·최소/최대 해상도 확정
+    - 디코딩 실패·손상 이미지 거절
+    - Pixel의 최종 결과는 `480×480` 고정, 일반 스타일에는 강제하지 않음
+13. **Cloudflare Properties / Client 구현,** Cloudflare Client 보완 및 계약 테스트 ✅
+    - 환경변수 기반 Account ID, Token, Model, Timeout
+    - REST 요청·응답 파싱과 오류 매핑 구현
+    - 실제 API 호출 없는 단위 테스트 추가 필요
+    - `1024×1024` 요청·응답 검증 포함
+14. **PIXEL Java 후처리 구현** ✅
+    - `64×64 → 24색 → 480×480`로 변경
+    - `PIXEL_PP_V1` 고정
+15. **AI Generation Service 구현** ✅
+    - Draft lock → PROCESSING 중복 방지·생성·커밋
+    - 트랜잭션 밖에서 S3 원본 로드 → Cloudflare → Pixel 후처리 → 최종 PNG 검증·Rekognition 심사 → 후보 S3 업로드
+    - 재잠금 후 성공/실패 기록 및 늦은 응답 차단
+16. **stale 처리·실패 복구·S3 Cleanup 구현**
+    - 10분 초과 PROCESSING → `GENERATION_TIMEOUT`
+    - Draft 종료·업로드 실패·늦은 응답의 임시 S3 객체 정리
+17. **Finalize Service 구현**
+    - ORIGINAL / AI / DEFAULT 세 경로
+    - DEFAULT는 기존 Jar 생성 로직 재사용, `JarDesign` 미생성
+18. **API / DTO / Controller 구현**
+    - Draft 기반 API
+    - Jar 생성 뒤 `apply/revert` API는 만들지 않음
+19. **백엔드 테스트 완성**
+    - 단계별 단위 테스트 + 서비스 간 통합 시나리오
+    - 권한, 중복 생성, 타 Draft 후보, Cloudflare/S3 실패, stale, Pixel 실패, 중복 Finalize
+20. **React Canvas 구현**
+21. **Draft / AI API 계층 연결**
+22. **AI 후보 보관함 구현**
+23. **Slot Editor 구현**
+24. **최종 미리보기·Finalize UX 구현**
+25. **기존 Jar 화면에 Optional `JarDesign` 연결**
+    - `JarsPage`, `JarDetailPage`, `JarZoomModal`, `JarOpenCelebrationModal`
+    - 디자인 없음은 기존 Theme Jar 유지
+26. **배포 구성 검증**
+    - Docker, GitHub Actions, Vercel, 운영 환경변수 연결
+    - `APP_AI_CLOUDFLARE_*` 주입 경로 검증
+27. **전체 통합 테스트 → 배포 → Smoke Test → 문서화**
 
-11. **Cloudflare Properties / Client 구현**
-
-    Account ID, Token, Model, Timeout 등을 환경변수로 받고 REST 호출을 전담한다.
-
-12. **AI Generation Service 구현**
-
-    Draft lock → PROCESSING 중복 검사 → Generation 생성 → DB Tx 종료 → Cloudflare 호출 → 결과 검증 → S3 → 성공/실패 기록.
-
-13. **PIXEL Java 후처리 구현**
-
-    현재 PoC의 `48×48 → 16색 → nearest-neighbor → 480×480`을 Java로 옮기고 `PIXEL_PP_V1`로 고정한다.
-
-14. **Generation stale/실패 복구 및 S3 Cleanup 구현**
-
-    10분 이상 PROCESSING → `GENERATION_TIMEOUT`, Draft EXPIRED/ABANDONED/FINALIZED 후 임시 S3 정리를 처리한다.
-
-15. **Finalize Service 구현**
-
-    ORIGINAL / AI / DEFAULT 세 가지 Draft 최종화 경로를 구현한다.
-
-    DEFAULT는 **기존 Jar 생성 핵심 로직을 Backend 내부에서 재사용**하고 JarDesign은 만들지 않는다.
-
-16. **API / DTO / Controller 구현**
-
-    Draft 기반 API로 만든다. Jar 생성 후 `apply/revert` API는 만들지 않는다.
-
-17. **백엔드 테스트 구현**
-
-    `@MockitoBean` 기준으로 권한, 중복 생성, 다른 Draft Generation 선택, Cloudflare 실패, S3 실패, stale, ORIGINAL/AI/DEFAULT 최종화, 중복 Finalize 등을 검사한다.
-
-18. **React Canvas 구현**
-19. **Draft/AI API 계층 연결**
-20. **AI 후보 보관함 구현**
-21. **Slot Editor 구현**
-22. **최종 미리보기 + Finalize UX 구현**
-23. **기존 Jar 표시 지점에 Optional JarDesign 연결**
-
-    JarDesign 없음 → 기존 Theme Jar 그대로.
-
-    JarDesign 있음 → Custom 이미지 + Slot Overlay.
-
-    `JarsPage`, `JarDetailPage`, `JarZoomModal`, `JarOpenCelebrationModal` 등 실제 표시 지점을 모두 확인한다.
-
-24. **전체 통합 테스트 → 배포 → Smoke Test → 문서화**
+오후 6:06
 
 그래서 네가 적어둔 **두 번째 24단계가 뼈대는 맞고**, 위처럼 첫 번째 목록에서 아직 유효한 Cloudflare Client, 이미지 검증, S3 정책, React 표시 연결, 운영 Secret 등의 내용을 알맞은 단계 안으로 흡수시키면 돼.
 
@@ -2002,9 +2048,9 @@ Raw 이미지
 ↓
 Java PixelPostProcessor
 ↓
-48×48
+64×64 bilinear 축소
 ↓
-16색
+최대 24색 median-cut 팔레트
 ↓
 Nearest Neighbor
 ↓

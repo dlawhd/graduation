@@ -12,8 +12,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.ai-draft")
 public class AiDraftProperties {
 
-    // Canvas 원본 PNG는 서버에서도 최대 10MB까지만 허용한다.
+    // Canvas 또는 외부 원본은 서버에서도 최대 10MB까지만 허용한다.
     private long maxOriginalImageSize = 10L * 1024 * 1024;
+
+    // 압축된 파일 크기가 작아도 과도하게 큰 이미지를 디코딩하는 공격을 막는다.
+    private int maxOriginalImageDimension = 4096;
+
+    // 가로·세로 제한과 별도로 총 픽셀 수도 제한한다.
+    private long maxOriginalImagePixels = 16L * 1024 * 1024;
 
     // 새 Draft는 생성 시점부터 7일 동안만 수정과 AI 생성을 허용한다.
     private int expiresAfterDays = 7;

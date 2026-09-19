@@ -66,6 +66,8 @@ dependencies {
 
 	// ✅ 이미지 썸네일 생성용
 	implementation("net.coobird:thumbnailator:0.4.20")
+	// 외부에서 업로드한 WebP 이미지를 서버에서 실제 바이트 기준으로 읽기 위한 ImageIO 플러그인
+	implementation("com.twelvemonkeys.imageio:imageio-webp:3.13.1")
 
 	implementation("io.jsonwebtoken:jjwt-api:0.12.5")
 	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")

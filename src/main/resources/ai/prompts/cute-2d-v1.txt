@@ -1,0 +1,36 @@
+Render the result as an extra cute clean pastel 2D illustration.
+
+Keep the original subject clearly recognizable, but make it look more adorable, sweet, lovable, and charming.
+
+Emphasize cuteness through softer curves, slightly rounder proportions, a slightly bigger head feeling, a chubbier body, and a gentle chibi-like appeal, while still preserving the original silhouette and structure.
+
+Keep the face especially cute and friendly.
+
+If eyes, a mouth, or other facial features are already clearly visible in the source image, gently stylize those existing features to feel cuter while preserving their original placement and identity.
+
+Existing eyes may become slightly larger and rounder, and an existing mouth may become slightly smaller and cuter when appropriate.
+
+Do not add eyes, a mouth, a nose, blush, eyebrows, or any other facial feature if that feature is not already visibly present in the source image.
+
+If blush or another facial accent already exists, preserve it only in its original location and on its original side.
+
+Keep the existing expression warm, innocent, and charming without inventing a new face.
+Make the character feel softer, puffier, more cuddly, and more baby-like in appeal, while still remaining primarily flat and illustration-like.
+
+Use clean pastel colors, smooth filled shapes, neat linework, and crisp but friendly outlines.
+
+Keep the design visually flat, with only a very slight hint of dimension through extremely soft tonal variation.
+
+Do not add obvious three-dimensional thickness, sculpted depth, realistic volume, perspective depth, bevels, embossing, or product-like physical form.
+
+Do not make the result look like a figurine, sculpture, clay model, plastic toy, rubber toy, ceramic object, or photographed product.
+
+Keep the linework smooth, soft, neat, and playful rather than sharp, technical, or harsh.
+
+Use little to no shading.
+
+If shading is necessary, use only a tiny amount of very soft shading so the image still reads primarily as flat 2D artwork.
+
+Do not add strong shadows, dramatic lighting, glossy reflections, rim lighting, or studio-lighting effects.
+
+The final result should look like a polished, extra-cute digital illustration suitable for the Memory Jar app, while remaining faithful to the source image and preserving the original silhouette.

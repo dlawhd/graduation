@@ -1,0 +1,168 @@
+Use input image 0 only as a loose creative seed.
+
+Create exactly one wildly exaggerated, bizarre, hilarious cartoon character inspired by the input image.
+
+Do not faithfully redraw the original subject.
+
+Do not simply clean up the original drawing.
+
+Do not simply make the original subject cuter, prettier, or more polished.
+
+Instead, reinterpret the source image as one strange, funny, highly expressive fictional character.
+
+The input image is not a blueprint.
+
+It is only a source of visual hints.
+
+Use only a loose connection to the source image.
+
+The connection may come from:
+the dominant colors,
+a memorable outline fragment,
+a distinctive shape,
+an unusual marking,
+a simple symbol,
+a silhouette clue,
+or another recognizable visual detail.
+
+Preserve the dominant existing colors from the source image as much as reasonably possible.
+
+Treat the source colors as the visual DNA of the new character.
+
+Those colors may be redistributed across the new design in a funny and creative way.
+
+Do not introduce many unrelated new colors.
+
+If the source image is monochrome or mostly uncolored, keep the final result monochrome or minimally colored.
+
+Invent exactly one original character.
+
+The final result should feel like a surprising character invention born from the source image, not a faithful redraw of the same subject.
+
+Do not feel required to preserve the exact original species, object category, anatomy, or silhouette.
+
+If keeping the original type too closely would make the result predictable, push the design further into a surprising reinterpretation.
+
+The humor should come from the character design itself.
+
+Create a bold, weird, asymmetrical, highly readable silhouette.
+
+Use absurd proportions and comedic exaggeration.
+
+Possible directions include:
+an oversized head,
+a tiny body,
+a huge torso,
+ridiculously small limbs,
+unexpectedly long limbs,
+awkward posture,
+lopsided balance,
+extreme asymmetry,
+distorted body relationships,
+unexpected facial placement,
+or another visually funny structural choice.
+
+These are possibilities, not a checklist.
+
+Choose only the funniest combination for the input image.
+
+The character must feel intentionally designed, not randomly broken.
+
+Make the silhouette funny even before the viewer notices the face.
+
+Strong silhouette comedy is very important.
+
+Give the character an over-the-top, memorable facial expression.
+
+Possible expressions include:
+smug,
+mischievous,
+chaotic,
+confused,
+overconfident,
+blank but intense,
+ridiculously serious,
+wildly excited,
+or hilariously unhinged.
+
+The expression should amplify the humor.
+
+The character may have newly invented facial features and body parts if needed.
+
+New eyes, mouth, eyebrows, limbs, ears, horns, antennae, tail-like shapes, bumps, or other fictional features are allowed when they improve the comedic design.
+
+However, avoid making the result look like a generic mascot, a standard cartoon animal, or a commercially polished toy.
+
+Do not make it look ordinary.
+
+Do not make it merely cute.
+
+Do not make it safe in a boring way.
+
+Push the design toward weird, bold, unforgettable, and funny.
+
+Keep the humor playful and family-friendly.
+
+Do not create horror, gore, body horror, disturbing violence, or threatening imagery.
+
+The character should be strange and funny, not scary.
+
+Render the result as a clean flat 2D cartoon illustration.
+
+Use thick, confident outlines.
+
+Use simple, solid color fills.
+
+Keep the image graphic, bold, and easy to read.
+
+Keep shading minimal.
+
+Avoid realism.
+
+Avoid photorealism.
+
+Avoid painterly rendering.
+
+Avoid realistic textures.
+
+Avoid realistic fur, feathers, or skin.
+
+Avoid soft 3D rendering.
+
+Avoid glossy collectible toy rendering.
+
+Avoid plush toy or stuffed animal rendering.
+
+Avoid fuzzy fabric texture.
+
+Do not add extra characters.
+
+Do not duplicate the subject.
+
+Do not add scenery.
+
+Do not add decorative background elements.
+
+Do not add props unless absolutely necessary for the design, and even then keep them minimal.
+
+Do not add captions, speech bubbles, meme text, signs, logos, or watermarks.
+
+Keep exactly one clear character only.
+
+Keep the full character fully visible.
+
+Center the character clearly in the composition.
+
+Use a plain white or very light neutral background.
+
+The final result should look like a wildly funny, custom-designed cartoon creature invented from the user's drawing, with only a loose but noticeable visual connection to the original input.
+
+Priority order:
+1. surprising reinterpretation,
+2. funny silhouette,
+3. absurd proportions,
+4. strong facial expression,
+5. weird and memorable personality,
+6. source-based color connection,
+7. clean flat 2D cartoon style,
+8. one centered subject on a plain background.

@@ -43,6 +43,7 @@ class JarDesignDraftUploadServiceTest {
         JarDesignDraft draft = mock(JarDesignDraft.class);
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
+        when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
         when(persistenceService.createDraft(eq(1L), anyString())).thenReturn(draft);
         when(draft.getDraftId()).thenReturn(100L);
         when(draft.getExpiresAt()).thenReturn(LocalDateTime.of(2026, 9, 25, 12, 0));
@@ -53,8 +54,8 @@ class JarDesignDraftUploadServiceTest {
         verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
         assertThat(requestCaptor.getValue().key()).startsWith("jar-design-drafts/originals/").endsWith(".png");
         assertThat(requestCaptor.getValue().ifNoneMatch()).isEqualTo("*");
-        verify(imageValidator).validate(new byte[]{1, 2, 3});
-        verify(moderationService).verifyAllowed(new byte[]{1, 2, 3});
+        verify(imageValidator).normalize(new byte[]{1, 2, 3});
+        verify(moderationService).verifyAllowed(new byte[]{7, 8, 9});
         assertThat(response.draftId()).isEqualTo(100L);
     }
 
@@ -63,6 +64,7 @@ class JarDesignDraftUploadServiceTest {
         MockMultipartFile image = new MockMultipartFile("image", "canvas.png", "image/png", new byte[]{1, 2, 3});
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
+        when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
         when(persistenceService.createDraft(eq(1L), anyString())).thenThrow(new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT));
 
         assertThatThrownBy(() -> uploadService.uploadOriginalAndCreateDraft(1L, image))

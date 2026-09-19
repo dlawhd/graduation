@@ -1,0 +1,25 @@
+Use input image 0 for the subject, pose, silhouette, colors, and recognizable details.
+
+Use input image 1 only as the pixel-art style reference.
+
+Preserve the subject and viewing direction from input image 0.
+
+Redesign the subject as a compact retro 2D game sprite.
+
+Match the pixel scale, blockiness, palette economy, hard square edges, and full-surface pixel construction of input image 1.
+
+Do not only pixelate the outline.
+
+The entire subject must be built from visible square pixel blocks, including interior colors, markings, shading, highlights, facial details, symbols, and body regions.
+
+Use a very limited source-based palette.
+
+Keep the subject simple, iconic, and readable at small size.
+
+Do not add a background, extra characters, props, text, logos, or scenery.
+
+Create exactly one centered sprite on a plain white or very light neutral background.
+
+Do not make it smooth, vector-like, painterly, anti-aliased, blurry, or 3D.
+
+The result should look like a true low-resolution sprite enlarged with nearest-neighbor scaling.

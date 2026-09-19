@@ -216,9 +216,9 @@ Postprocess
 ```
 Cloudflare 생성 결과
 ↓
-48 × 48 축소
+64 × 64 bilinear 축소
 ↓
-16 colors
+최대 24색 median-cut 팔레트
 ↓
 Nearest Neighbor
 ↓
@@ -649,7 +649,7 @@ AI 동전 투입구 생성 금지
 원본 그대로 = AI 미사용
 BASE 사용하는 일반 스타일
 Pixel만 Reference 사용
-Pixel 48/16/480
+Pixel 64/24/480
 공통 Memory Jar Reference 없음
 ```
 

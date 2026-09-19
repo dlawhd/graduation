@@ -195,7 +195,7 @@ jar_designs.selected_generation_id
 
 - `s3_deleted_at`이 NULL이어도 S3 객체의 존재까지 보장하지 않는다. 존재와 접근 가능성은 실제 최종화 시 확인한다.
 
-- PIXEL만 사용자 스케치 + 버전 관리된 픽셀 스타일 참조의 **두 이미지 입력**을 사용하는 설계다. PoC에서의 `input_image_0` / `input_image_1` 표기를 실제 운영 API 필드명·지원 입력 수·이미지 전송 형식이 확인된 계약으로 간주하지 않는다. Spring의 Cloudflare 요청 구현 전에 현재 모델 API 문서와 실제 응답으로 확인한다. 다른 스타일의 Reference/후처리 버전은 NULL이다. PIXEL_PP_V1은 48×48, 16색, nearest-neighbor 480×480 처리다.
+- PIXEL만 사용자 스케치 + 버전 관리된 픽셀 스타일 참조의 **두 이미지 입력**을 사용하는 설계다. PoC에서의 `input_image_0` / `input_image_1` 표기를 실제 운영 API 필드명·지원 입력 수·이미지 전송 형식이 확인된 계약으로 간주하지 않는다. Spring의 Cloudflare 요청 구현 전에 현재 모델 API 문서와 실제 응답으로 확인한다. 다른 스타일의 Reference/후처리 버전은 NULL이다. PIXEL_PP_V1은 흰 배경 합성 후 64×64 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 480×480 처리다.
 - AI 응답 성공 여부와 **유효한 최종 이미지 생성 여부는 구분**한다. 응답의 실제 이미지 바이트를 디코딩하고 형식·해상도·용량을 검증한 뒤, PIXEL은 Java 후처리 결과를 검증해 Private S3에 저장해야 SUCCEEDED가 된다. 다른 스타일의 출력 해상도를 Canvas 원본과 같다고 임의로 가정하지 않는다. 세부 허용값은 구현 전 확정한다.
 
 - 재생성은 새로운 Generation이다. 과거 성공 결과와 실패 기록을 덮어쓰지 않는다. `created_by`, `jar_id`, `source_upload_id`, `generated_url` 컬럼은 만들지 않는다.
@@ -358,7 +358,7 @@ CHECK는 값의 모양만 검증한다. `FINALIZED → ACTIVE`, `FAILED → SUCC
 
 2. 같은 Draft에 PROCESSING Generation이 있으면 중복 생성 요청을 거절하고, 없으면 새 PROCESSING 행을 저장한 뒤 COMMIT한다.
 
-3. **DB 트랜잭션 밖에서** Private S3 원본 로드 → Cloudflare 요청 → 필요 시 PIXEL Java 후처리 → 결과 검증 → 임시 S3 업로드.
+3. **DB 트랜잭션 밖에서** Private S3 원본 로드 → Cloudflare 요청 → 필요 시 PIXEL Java 후처리 → 최종 PNG 검증·Rekognition 심사 → 임시 S3 업로드.
 
 4. 짧은 DB 트랜잭션에서 아직 PROCESSING이며 Draft가 유효할 때만 SUCCEEDED로 전환한다. 늦게 도착한 응답이나 이미 FAILED인 시도는 SUCCEEDED로 되돌리지 않고 생성 파일을 정리한다.
 

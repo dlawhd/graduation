@@ -1,0 +1,21 @@
+Restyle the existing image with a natural colored-pencil finish, using input image 0 as the fixed guide for shapes, lines, and color placement.
+
+Treat this as a surface-texture transformation of the original artwork. Preserve the subject's design and apply the pencil treatment directly to its existing visual regions.
+
+Keep every original color attached to the same part of the subject. Preserve each region's hue and boundaries, including small accents. White is an intentional source color and must remain white wherever it appears inside the subject.
+
+Create the hand-drawn appearance through fine directional pencil strokes, softly grainy pigment, subtle pressure variation, and tiny glimpses of paper within already colored areas.
+
+Use the original color of each region for its pencil strokes. Let pencil density vary gently while maintaining that region's overall color.
+
+Give existing outlines a natural pencil texture while preserving their paths, relative thickness, and original color.
+
+Retain the original proportions, asymmetry, facial expression, and internal markings. Keep existing details in place without adding or duplicating them.
+
+For monochrome or uncolored input, use only neutral graphite tones on existing lines and shaded regions. Leave uncolored spaces unfilled.
+
+Keep the result flat, clear, and recognizably handmade. Concentrate the texture within the subject and keep the background clean white or very light.
+
+No watercolor bleeding, added color patches, new highlights, decorative scribbles, drawing tools, paper borders, cast shadows, or three-dimensional rendering.
+
+Follow all preservation rules in the base prompt. The final image should retain the original artwork's identity and color layout, expressed with a soft, visible colored-pencil texture.
