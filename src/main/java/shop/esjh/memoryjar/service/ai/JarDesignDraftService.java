@@ -1,19 +1,21 @@
 package shop.esjh.memoryjar.service.ai;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
+import shop.esjh.memoryjar.dto.ai.response.JarDesignDraftDetailResponse;
 import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
+import shop.esjh.memoryjar.config.exception.ApiException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 /**
  * Draft OWNER가 유효한 후보와 Slot을 선택하도록 처리한다.
@@ -30,6 +32,21 @@ public class JarDesignDraftService {
     private final JarAiGenerationRepository generationRepository;
     private final AiDraftProperties properties;
 
+    /** Draft 조회에는 S3 Key를 노출하지 않고 선택·Slot·후보 상태만 반환한다. */
+    public JarDesignDraftDetailResponse getDraftSummary(Long userId, Long draftId) {
+        JarDesignDraft draft = draftRepository.findById(draftId)
+                .orElseThrow(() -> new ApiException(AiDraftErrorCode.DRAFT_NOT_FOUND));
+        if (!draft.isOwner(userId)) {
+            throw new ApiException(AiDraftErrorCode.DRAFT_NOT_OWNER);
+        }
+        List<JarDesignDraftDetailResponse.GenerationItem> generations = generationRepository.findByDraft_DraftIdOrderByGenerationIdDesc(draftId).stream()
+                .map(generation -> new JarDesignDraftDetailResponse.GenerationItem(generation.getGenerationId(), generation.getAiStyle(), generation.getStatus(),
+                        generation.getErrorCode(), generation.getCompletedAt()))
+                .toList();
+        return new JarDesignDraftDetailResponse(draft.getDraftId(), draft.getStatus(), draft.getSelectedDesignType(), draft.getSelectedGenerationId(),
+                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations);
+    }
+
     /**
      * 성공했고 아직 정리되지 않은 같은 Draft의 AI 후보만 최종 후보로 선택한다.
      */
@@ -39,11 +56,11 @@ public class JarDesignDraftService {
 
         JarAiGeneration generation = generationRepository
                 .findByGenerationIdAndDraft_DraftId(generationId, draft.getDraftId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI 후보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new ApiException(AiDraftErrorCode.AI_GENERATION_NOT_FOUND));
 
         // DB FK는 같은 Draft 소속만 보장한다. FAILED/처리 중/삭제된 S3 후보 차단은 서비스 책임이다.
         if (!generation.isSelectableSucceededCandidate()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "선택할 수 없는 AI 후보입니다.");
+            throw new ApiException(AiDraftErrorCode.AI_GENERATION_NOT_SELECTABLE);
         }
 
         draft.selectAiGeneration(generation.getGenerationId());
@@ -79,7 +96,7 @@ public class JarDesignDraftService {
                            BigDecimal centerX, BigDecimal centerY, BigDecimal sizeRatio) {
         JarDesignDraft draft = findOwnedActiveDraftForUpdate(userId, draftId);
         if (!draft.hasCustomDesignSelection()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "ORIGINAL 또는 AI 디자인을 먼저 선택해야 Slot을 저장할 수 있습니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
         }
         validateSlot(centerX, centerY, sizeRatio);
         draft.updateSlot(centerX, centerY, sizeRatio);
@@ -91,13 +108,13 @@ public class JarDesignDraftService {
      */
     JarDesignDraft findOwnedActiveDraftForUpdate(Long userId, Long draftId) {
         JarDesignDraft draft = draftRepository.findByDraftIdForUpdate(draftId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "디자인 초안을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ApiException(AiDraftErrorCode.DRAFT_NOT_FOUND));
 
         if (!draft.isOwner(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "이 디자인 초안의 OWNER만 작업할 수 있습니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_NOT_OWNER);
         }
         if (!draft.isActiveAndNotExpired(LocalDateTime.now(KST))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "활성 상태가 아니거나 만료된 디자인 초안입니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_NOT_ACTIVE);
         }
         return draft;
     }
@@ -117,8 +134,8 @@ public class JarDesignDraftService {
                 || value.scale() > 5
                 || value.compareTo(BigDecimal.ZERO) < 0
                 || value.compareTo(BigDecimal.ONE) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    fieldName + "은 0과 1 사이의 소수점 다섯째 자리 이하 값이어야 합니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_SLOT_INVALID);
         }
     }
+
 }

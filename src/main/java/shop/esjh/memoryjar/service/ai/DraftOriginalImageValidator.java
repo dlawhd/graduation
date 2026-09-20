@@ -4,6 +4,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -43,10 +45,10 @@ public class DraftOriginalImageValidator {
      */
     public byte[] normalize(byte[] imageBytes) {
         if (imageBytes == null || imageBytes.length == 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "원본 이미지 파일이 필요합니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_REQUIRED);
         }
         if (imageBytes.length > properties.getMaxOriginalImageSize()) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "원본 이미지는 10MB를 초과할 수 없습니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_TOO_LARGE);
         }
 
         try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(imageBytes))) {
@@ -81,8 +83,8 @@ public class DraftOriginalImageValidator {
                 reader.dispose();
             }
         } catch (IOException | RuntimeException exception) {
-            if (exception instanceof ResponseStatusException responseStatusException) {
-                throw responseStatusException;
+            if (exception instanceof ApiException apiException) {
+                throw apiException;
             }
             throw invalidImage();
         }
@@ -126,7 +128,7 @@ public class DraftOriginalImageValidator {
             }
             byte[] normalized = output.toByteArray();
             if (normalized.length > properties.getMaxOriginalImageSize()) {
-                throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "정규화된 원본 이미지가 10MB를 초과했습니다.");
+                throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_TOO_LARGE);
             }
             return normalized;
         }
@@ -254,8 +256,7 @@ public class DraftOriginalImageValidator {
                 : (first << 24) | (second << 16) | (third << 8) | fourth;
     }
 
-    private ResponseStatusException invalidImage() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "손상되었거나 지원하지 않는 이미지입니다. PNG, JPEG, WebP 단일 프레임 이미지만 업로드할 수 있습니다.");
+    private ApiException invalidImage() {
+        return new ApiException(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_INVALID);
     }
 }

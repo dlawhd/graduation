@@ -7,12 +7,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.config.properties.S3Properties;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.repository.UserRepository;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
@@ -65,13 +67,32 @@ class JarDesignDraftUploadServiceTest {
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
         when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
-        when(persistenceService.createDraft(eq(1L), anyString())).thenThrow(new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT));
+        when(persistenceService.createDraft(eq(1L), anyString())).thenThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_ACTIVE));
 
         assertThatThrownBy(() -> uploadService.uploadOriginalAndCreateDraft(1L, image))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_NOT_ACTIVE);
 
         ArgumentCaptor<DeleteObjectRequest> deleteCaptor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
         verify(s3Client).deleteObject(deleteCaptor.capture());
         assertThat(deleteCaptor.getValue().key()).startsWith("jar-design-drafts/originals/");
+    }
+
+    @Test
+    void uploadOriginalAndCreateDraft_returnsFeatureCodeWhenOriginalUploadFails() {
+        MockMultipartFile image = new MockMultipartFile("image", "canvas.png", "image/png", new byte[]{1, 2, 3});
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(s3Properties.getBucket()).thenReturn("private-bucket");
+        when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
+        doThrow(SdkClientException.create("S3 unavailable"))
+                .when(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+
+        assertThatThrownBy(() -> uploadService.uploadOriginalAndCreateDraft(1L, image))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_SOURCE_UPLOAD_FAILED);
+
+        verify(persistenceService, never()).createDraft(anyLong(), anyString());
     }
 }

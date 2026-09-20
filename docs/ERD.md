@@ -1,10 +1,10 @@
 # Memory Jar ERD — Markdown 문서판
 
-저장할 파일: `docs/ERD.md`기준: `graduation-main (36).zip` · Flyway V1~V31
+저장할 파일: `docs/ERD.md` 기준: 현재 로컬 프로젝트 · Flyway V1~V33
 
 이번에는 자동으로 그림이 표시되는 Mermaid 대신, 코드 블록 안에 텍스트 관계도를 넣었어. 아래 관계도와 테이블 구조는 일반 Markdown이므로 VS Code, 코덱스, 노션에서 내용을 직접 읽고 수정할 수 있어.
 
-실제 ZIP의 마이그레이션도 다시 확인했어. 현재 애플리케이션 테이블은 총 19개이며, 예전 `members`는 `users`로 이름이 변경된 것이므로 별도 테이블로 세지 않아.
+현재 로컬 프로젝트의 Flyway를 기준으로 정리했다. 애플리케이션 테이블은 총 22개이며, 기존 19개에 AI 디자인 Draft용 `jar_design_drafts`, `jar_ai_generations`, `jar_designs` 3개가 추가됐다. 예전 `members`는 `users`로 이름이 변경된 것이므로 별도 테이블로 세지 않아.
 
 ## 1. 전체 테이블 관계도
 
@@ -59,12 +59,21 @@ users (사용자)
 ├── file_uploads
 │   └── S3 파일 업로드 상태
 │
+├── jar_design_drafts
+│   ├── Draft 원본 이미지와 선택·Slot·만료 상태
+│   └── jar_ai_generations
+│       └── Draft별 AI 후보 생성 기록
+│
 └── notifications
     └── 사용자별 인앱 알림
 
 email_verifications
 └── 이메일 인증번호·인증 완료 토큰
     ※ 회원가입 전에도 사용하므로 users와 FK 없음
+
+jars
+└── jar_designs
+    └── ORIGINAL 또는 AI 최종 이미지와 Slot Snapshot; 기본 Jar에는 행이 없음
 ```
 
 위 트리는 이해하기 쉽게 주요 관계를 한 줄기로 그린 것이야. 실제로는 `notes.author_id`, `jar_members.user_id`, `notifications.user_id` 등 여러 테이블에서 `users.id`를 직접 참조해.
@@ -1242,7 +1251,7 @@ notifications.user_id → users.id
 notifications.jar_id → jars.jar_id
 ```
 
-# 11. 전체 19개 테이블 최종 요약
+# 11. 전체 22개 테이블 최종 요약
 
 | 번호 | 테이블 | 주요 역할 | PK |
 | --- | --- | --- | --- |
@@ -1265,10 +1274,13 @@ notifications.jar_id → jars.jar_id
 | 17 | chat_read_state | 채팅 읽음 위치 | chat_read_state_id |
 | 18 | jar_daily_draws | 오늘의 추억 | draw_id |
 | 19 | notifications | 인앱 알림 | notification_id |
+| 20 | jar_design_drafts | Jar 생성 전 원본·선택·Slot·만료 상태 | draft_id |
+| 21 | jar_ai_generations | Draft별 AI 후보·상태·오류·임시 S3 정리 이력 | generation_id |
+| 22 | jar_designs | 최종 커스텀 이미지와 Slot Snapshot | jar_design_id |
 
 # 12. 현재 구현되지 않은 테이블
 
-예전 ERD 설계에는 있었지만 현재 `(36)` 코드에는 없는 테이블이야.
+예전 ERD 설계에는 있었지만 현재 작업 폴더에는 없는 테이블이야.
 
 | 테이블 | 향후 용도 |
 | --- | --- |
@@ -1280,19 +1292,7 @@ notifications.jar_id → jars.jar_id
 | audit_logs | 운영 감사 로그 |
 | note_tags | 태그 별도 관리. 현재는 tags_json 사용 |
 
-AI 저금통 설계에서 논의했던 다음 테이블과 컬럼도 아직 구현되지 않았어.
-
-```
-[미구현: AI 저금통]
-
-새 테이블:
-jar_ai_generations
-
-jars에 추가할 컬럼:
-active_ai_generation_id
-```
-
-이 기능들은 현재 ERD에 실제 테이블처럼 포함하지 않고, 향후 설계 영역으로 구분해 두면 돼.
+AI 커스텀 디자인은 V32/V33으로 이미 반영됐다. `jars.active_ai_generation_id`는 추가하지 않았고, 디자인은 Jar 생성 전 Draft에서 선택한 뒤 커스텀 디자인일 때만 `jar_designs` 한 행으로 연결한다. 상세 컬럼·CHECK·FK·INDEX 계약은 [AI_ERD.md](ai/AI_ERD.md)를 기준으로 한다.
 
 # 13. 이후 코드 작업에서 주의할 사항
 
@@ -1343,14 +1343,12 @@ deleted_at = 삭제 시각
 
 ## 13-3. 기존 Flyway 파일은 수정하지 않는다
 
-현재 마이그레이션은 V31까지 존재해.
+현재 마이그레이션은 V33까지 존재해.
 
 ```
 V1  ~ V31 : 기존 구조와 변경 이력
-
-V32 이후 : 새로운 변경 사항을 추가할 때 사용
+V32 : AI Draft·Generation·최종 Design 테이블
+V33 : Draft 원본 S3 삭제 완료 시각 및 정리 인덱스
 ```
 
-다만 V32를 반드시 AI 기능에 사용한다고 미리 확정할 필요는 없어. 먼저 구현할 DB 변경이 있다면 그것이 다음 번호를 사용하게 돼.
-
-이미 운영 DB에 적용한 V1~V31을 수정하면 Flyway 체크섬이 달라질 수 있으므로 새로운 마이그레이션을 추가하는 방식으로 관리해야 해.
+이미 적용된 V1~V33을 수정하면 Flyway 체크섬이 달라질 수 있으므로 이후 변경은 새 Migration으로 추가해야 한다.

@@ -1,6 +1,8 @@
 package shop.esjh.memoryjar.config;
 
 import shop.esjh.memoryjar.config.exception.GlobalExceptionHandler;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.config.exception.ErrorCode;
 import shop.esjh.memoryjar.jwt.JwtAuthenticationFilter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -74,14 +76,23 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("매핑되지 않은 상태코드는 HTTP_상태코드와 기본 메시지로 응답한다")
+    @DisplayName("CONFLICT는 일관된 오류 코드와 기본 메시지로 응답한다")
     void handleResponseStatusExceptionWithDefaultBranch() throws Exception {
         mockMvc.perform(get("/test/conflict"))
                 .andExpect(status().isConflict())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.error.code").value("HTTP_409"))
-                .andExpect(jsonPath("$.error.message").value("요청 처리 중 오류가 발생했습니다."))
+                .andExpect(jsonPath("$.error.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.error.message").value("현재 상태에서는 요청을 처리할 수 없습니다."))
                 .andExpect(jsonPath("$.error.path").value("/test/conflict"));
+    }
+
+    @Test
+    @DisplayName("ApiException은 기능별 코드와 HTTP 상태를 그대로 반환한다")
+    void handleApiException() throws Exception {
+        mockMvc.perform(get("/test/domain-conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("DRAFT_PROCESSING_FINALIZE_BLOCKED"))
+                .andExpect(jsonPath("$.error.message").value("AI 생성이 끝난 뒤 다시 시도해 주세요."));
     }
 
     @Test
@@ -122,6 +133,18 @@ class GlobalExceptionHandlerTest {
         public String error() {
             throw new RuntimeException("예상하지 못한 오류");
         }
+
+        @GetMapping("/test/domain-conflict")
+        public String domainConflict() {
+            throw new ApiException(TestErrorCode.DRAFT_PROCESSING_FINALIZE_BLOCKED);
+        }
+    }
+
+    enum TestErrorCode implements ErrorCode {
+        DRAFT_PROCESSING_FINALIZE_BLOCKED;
+        public String code() { return name(); }
+        public HttpStatus status() { return HttpStatus.CONFLICT; }
+        public String message() { return "AI 생성이 끝난 뒤 다시 시도해 주세요."; }
     }
 
     @TestConfiguration

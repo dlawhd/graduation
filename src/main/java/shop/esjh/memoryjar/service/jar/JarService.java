@@ -81,6 +81,31 @@ public class JarService {
     @Transactional
     public JarCreateResponse createJar(Long currentUserId, JarCreateRequest request) {
 
+        Jar savedJar = createJarEntity(currentUserId, request);
+
+        return new JarCreateResponse(
+                savedJar.getJarId(),
+                savedJar.getName(),
+                toKstOffsetDateTime(savedJar.getOpenAt()),
+                savedJar.getOpenMode(),
+                savedJar.getLockLevel(),
+                JarRole.OWNER,
+                toKstOffsetDateTime(savedJar.getCreatedAt())
+        );
+    }
+
+    /**
+     * Draft 최종화가 기존 Jar 생성 규칙과 OWNER 멤버 생성을 그대로 재사용할 수 있게 한다.
+     * 호출한 외부 트랜잭션에 참여하므로 Jar·JarDesign·Draft 상태를 함께 확정할 수 있다.
+     */
+    @Transactional
+    public Jar createJarForDesignFinalize(Long currentUserId, JarCreateRequest request) {
+        return createJarEntity(currentUserId, request);
+    }
+
+    /** 기존 일반 생성과 Draft 최종화가 공통으로 사용하는 Jar 및 OWNER 멤버 저장 로직이다. */
+    private Jar createJarEntity(Long currentUserId, JarCreateRequest request) {
+
         // 1. 현재 로그인한 사용자 찾기
         User currentUser = getUserOrThrow(currentUserId);
 
@@ -106,16 +131,7 @@ public class JarService {
         JarMember ownerMember = JarMember.createOwner(savedJar, currentUser);
         jarMemberRepository.save(ownerMember);
 
-        // 6. 응답 만들기
-        return new JarCreateResponse(
-                savedJar.getJarId(),
-                savedJar.getName(),
-                toKstOffsetDateTime(savedJar.getOpenAt()),
-                savedJar.getOpenMode(),
-                savedJar.getLockLevel(),
-                JarRole.OWNER,
-                toKstOffsetDateTime(savedJar.getCreatedAt())
-        );
+        return savedJar;
     }
 
     // 내가 현재 참여 중인 저금통 목록을 가져옴

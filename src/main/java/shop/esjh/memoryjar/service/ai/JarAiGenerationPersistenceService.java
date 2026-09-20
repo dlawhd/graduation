@@ -11,6 +11,8 @@ import shop.esjh.memoryjar.enums.ai.JarAiGenerationErrorCode;
 import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
 import shop.esjh.memoryjar.enums.ai.JarAiProvider;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
+import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 
@@ -47,7 +49,7 @@ public class JarAiGenerationPersistenceService {
                                        AiPromptCatalog.AiPromptDefinition promptDefinition, Long seed) {
         JarDesignDraft draft = draftService.findOwnedActiveDraftForUpdate(userId, draftId);
         if (generationRepository.existsByDraft_DraftIdAndStatus(draft.getDraftId(), JarAiGenerationStatus.PROCESSING)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이 디자인 초안에는 이미 진행 중인 AI 생성이 있습니다.");
+            throw new ApiException(AiDraftErrorCode.AI_GENERATION_ALREADY_PROCESSING);
         }
 
         JarAiGeneration generation = JarAiGeneration.builder()

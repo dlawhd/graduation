@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Draft 선택 변경 시 이전 Slot과 후보 ID가 남지 않는지 확인한다.
@@ -44,5 +45,21 @@ class JarDesignDraftTest {
         assertThat(draft.getSelectedGenerationId()).isNull();
         assertThat(draft.getSlotCenterX()).isNull();
         assertThat(draft.hasCustomDesignSelection()).isTrue();
+    }
+
+    @Test
+    void terminalDraft_canRecordOriginalS3DeletionOnlyOnce() {
+        JarDesignDraft draft = JarDesignDraft.builder()
+                .originalS3Key("jar-design-drafts/originals/test.png")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+        LocalDateTime deletedAt = LocalDateTime.now();
+
+        draft.markExpired();
+        draft.markOriginalS3Deleted(deletedAt);
+
+        assertThat(draft.getOriginalS3DeletedAt()).isEqualTo(deletedAt);
+        assertThatThrownBy(() -> draft.markOriginalS3Deleted(deletedAt.plusSeconds(1)))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

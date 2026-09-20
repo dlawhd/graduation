@@ -3,16 +3,16 @@
 > **권장 저장 위치:** `docs/ai/AI_PIXEL_PIPELINE.md`
 >
 >
-> **문서 상태:** PIXEL 설계 방향 확정 · 실제 프로젝트 통합/운영 검증 전
+> **문서 상태:** PIXEL 파이프라인 코드 통합 완료 · 실제 운영 연동/배포 검증 전
 >
-> **정리일:** 2026-09-16
+> **정리일:** 2026-09-20
 >
-> **현행 코드 기준:** `graduation-main (36).zip`의 Spring Boot/React 구조
+> **현행 코드 기준:** 현재 로컬 프로젝트의 Spring Boot/React 구조
 >
 > **상세 연계 문서:** `docs/ai/AI_DESIGN_PLAN.md` · `docs/ai/AI_ERD.md` · `docs/ai/AI_DESIGN_RULES.md`
 >
 
-**목적:** Windows에서 진행한 PIXEL PoC의 검증 결과를, 아직 저금통을 생성하지 않은 **Draft 기반 AI 커스텀 디자인 기능**에 통합하기 위한 정확한 구현 계약으로 정리한다. 이 문서에 표시한 예정 파일·테이블·API가 현재 `(36)` 프로젝트에 이미 존재한다는 뜻은 아니다.
+**목적:** Windows에서 진행한 PIXEL PoC의 검증 결과를, 저금통 생성 전 **Draft 기반 AI 커스텀 디자인 기능**에 적용하기 위한 구현 계약으로 정리한다. 현재 프로젝트에는 V32/V33, 백엔드 생성 파이프라인과 Draft API, Canvas·후보 보관함이 반영되어 있다. Slot Editor·최종 미리보기 UX·기존 Jar 화면 연결·실배포 검증은 별도 작업으로 남아 있다.
 
 ---
 
@@ -20,8 +20,8 @@
 
 | 기존 문서에서 혼동할 수 있는 표현 | 이 문서의 수정·보완 |
 | --- | --- |
-| `React + Spring + MariaDB + S3 + Cloudflare`가 모두 이미 통합된 것처럼 서술 | **현재 구현**(React/Spring/MariaDB/S3)과 **AI 통합 예정**(Cloudflare/신규 테이블/Java PIXEL 후처리)을 분리 |
-| PoC의 `input_image_0`/`input_image_1`은 실제 REST 계약인지 불확실하다고만 설명 | Cloudflare의 **공식 FLUX.2 Klein 4B 문서에서 필드명·다중 입력 지원 확인**. 다만 실제 **우리 Java 연동·응답 처리 테스트는 미완료** |
+| `React + Spring + MariaDB + S3 + Cloudflare`가 모두 운영 검증된 것처럼 서술 | 현재 코드 통합과 실제 Cloudflare/S3 운영 연동·배포 검증을 분리 |
+| PoC의 `input_image_0`/`input_image_1`은 실제 REST 계약인지 불확실하다고만 설명 | Cloudflare 공식 계약에 맞춘 Java 요청·응답 파싱 단위 테스트는 구현. 실제 계정 호출은 별도 검증 |
 | 원본 480×480이면 PIXEL Reference 크기는 따로 언급하지 않음 | 공식 문서의 **각 입력 이미지 가로·세로 512px 미만** 조건에 맞춰 Reference도 확인 |
 | `seed = 랜덤값`으로 무조건 기록 | 시드는 **선택 값**. 실제 요청에 보낸 값만 저장하며 미전송 시 NULL, 동일 시드의 완전 동일 출력은 보장하지 않음 |
 | AI 성공 응답만으로 생성 성공 처리할 여지 | 모델 응답 파싱 → 유효한 이미지 디코딩 → Java 후처리 → PNG 검증 → Private S3 저장 → 유효한 상태 전이까지 성공해야 `SUCCEEDED` |
@@ -36,11 +36,11 @@
 
 ## 1. 현재 상태와 구현 범위
 
-### 1-1. `(36)`에 이미 존재하는 기반
+### 1-1. 현재 프로젝트에 구현된 기반
 
 - React 프론트엔드와 Spring Boot 백엔드, MariaDB, S3 기반의 기존 저금통/쪽지 기능.
 - 일반 파일 업로드를 위한 기존 S3 처리 구조와 기존 Jar 생성·권한·테마·오픈 기능.
-- PIXEL 전용 AI Draft/Generation/JarDesign은 아직 통합되지 않았다. `(36)` ZIP에 AI 전용 테이블, Cloudflare 클라이언트, PIXEL 운영 리소스, Java `PixelPostProcessor`가 있다고 가정하지 않는다.
+- AI Draft/Generation/JarDesign 테이블, Cloudflare Client, PIXEL 리소스, Java `PixelPostProcessor`가 통합돼 있다. 원본 업로드·결과 검증·후보 정리와 Draft API도 구현돼 있다.
 - 현재 소스의 백엔드 리소스 루트는 프로젝트 루트 아래 `src/main/resources/`이다. 아래 `backend/` 접두어는 개념도에서만 사용하며 실제 파일 경로를 임의로 만들지 않는다.
 
 ### 1-2. PoC에서 확인한 것과 앞으로 검증할 것
@@ -50,9 +50,9 @@
 | Windows에서 FLUX.2 Klein 4B를 호출하고 이미지 결과 확인 | **PoC 진행·실험 기록 존재** |
 | PIXEL 전용 Reference와 PIXEL V5 프롬프트 실험 | **PoC 설계·결과 기록 존재** |
 | Python/Pillow의 64×64 축소·24색 제한·최근접 확대 | **PoC 처리 방향 확인** |
-| 동일 후처리를 운영 Java로 옮겨 원본과 픽셀 결과를 비교 | **미구현·검증 전** |
+| 동일 후처리를 Java로 옮겨 64×64·24색·480×480 결과를 생성 | **구현·단위 테스트 완료** |
 | Cloudflare 입력 2장 지원·필드명 | **공식 문서 확인**. 실제 운영 토큰/계정/Java 요청 결과는 별도 검증 |
-| S3 임시·영구 객체 관리 및 Flyway 신규 테이블 | **설계 확정 범위와 미결정 항목 존재, 구현 전** |
+| S3 임시·영구 객체 관리 및 Flyway 신규 테이블 | **V32/V33·정리 Service·단위 테스트 구현**. 실제 운영 Bucket 정책은 별도 검증 |
 
 사용자에게 서비스가 이미 PIXEL 디자인을 지원하는 것처럼 표현하지 않는다.
 
@@ -321,7 +321,7 @@ COMMIT
 Cloudflare 요청 중에 Draft가 만료·종료되거나 Scheduler가 Generation을 Timeout 처리할 수 있다. **늦게 도착한 성공 응답이 FAILED를 SUCCEEDED로 되돌리면 안 된다.** 저장한 후보 객체가 사용 불가능해졌다면 해당 요청의 S3 객체를 안전하게 정리한다.
 
 - `PROCESSING`이 10분 이상 지속되면 `GENERATION_TIMEOUT`으로 FAILED 처리하는 것이 v1 설계다. Timeout·AI 완료·Draft 종료는 같은 Draft를 조정 지점으로 삼아 경쟁 상태를 검사한다.
-- **미결정:** PROCESSING 도중 사용자 취소/DEFAULT·ORIGINAL·AI 최종화를 즉시 허용할지 여부. AI_ERD의 제안을 이미 확정된 정책처럼 구현하지 않는다. 이 경합 정책을 확정한 뒤 테스트한다.
+- **확정:** PROCESSING Generation이 하나라도 있으면 사용자 취소와 DEFAULT·ORIGINAL·AI 최종화를 거절한다. 생성 완료 또는 `GENERATION_TIMEOUT` 처리 뒤에만 다시 시도할 수 있다. 이 규칙으로 원본을 읽는 AI 작업과 원본·후보 정리 작업의 경합을 막는다.
 - 사용자·서비스별 하루 고정 생성 횟수 제한은 현재 v1 정책에 없다. 공급자의 사용량 한도/429 대응·운영 모니터링과는 별개다.
 
 ---
@@ -331,8 +331,8 @@ Cloudflare 요청 중에 Draft가 만료·종료되거나 Scheduler가 Generatio
 ### 임시 S3 Key — **서버 생성 예시**
 
 ```
-jar-design-drafts/{ownerId}/{draftUuid}/original.png
-jar-design-drafts/{ownerId}/{draftUuid}/ai/{generationId}.png
+jar-design-drafts/{ownerId}/{draftId}/original.png
+jar-design-drafts/generations/{ownerId}/{draftId}/{generationId}.png
 ```
 
 ### 영구 S3 Key — **서버 생성 예시**
@@ -341,14 +341,14 @@ jar-design-drafts/{ownerId}/{draftUuid}/ai/{generationId}.png
 jar-designs/{ownerId}/{uuid}/final.png
 ```
 
-위 경로는 구조를 설명하는 예시다. 실제 키 생성 방식·중복 방지·버킷 설정은 구현 단계에서 정한다. 클라이언트가 임의의 S3 Key를 제출해 타인의 이미지를 선택하거나 덮어쓰게 해서는 안 된다.
+후보 Key는 Generation ID 기반의 결정적 서버 전용 경로다. 후보 S3 업로드 뒤 DB Key 기록 전에 서버가 종료되어도, stale 정리 작업이 같은 Key를 재구성해 삭제할 수 있다. 클라이언트가 임의의 S3 Key를 제출해 타인의 이미지를 선택하거나 덮어쓰게 해서는 안 된다.
 
 - `jar_ai_generations.generated_s3_key`에는 **후처리 완료된 PIXEL 후보**의 비공개 S3 Key만 저장한다. Presigned URL·Public URL은 DB에 저장하지 않는다.
 - v1은 Cloudflare Raw 결과를 별도 영구 S3 객체나 `raw_result_s3_key` 컬럼으로 저장하지 않는다. 장애 분석 로그에도 이미지 원문·민감정보가 무분별하게 남지 않도록 한다.
 - Draft OWNER가 후보 조회를 요청하면 권한을 확인한 뒤 짧은 수명의 Presigned GET URL을 발급한다. 이미 발급한 URL의 즉시 철회까지 보장하지 않는다.
-- `FINALIZED`·`ABANDONED`·`EXPIRED` Draft의 임시 원본·후보는 정리 대상이다. 생성 기록은 DB에 유지하며, 후보 삭제 성공 후 해당 Generation의 `s3_deleted_at`을 기록한다.
-- 원본에는 별도의 삭제 시각 컬럼이 없으므로 후보 `s3_deleted_at`을 원본 삭제 시각으로 오용하지 않는다.
-- **복사 중 객체와 정리 작업의 경합 해결 방식은 미결정**이다. 정리 직전 DB 참조를 재확인하되, 조회 직후 복사가 시작되는 상황까지 막을 보호 전략(유예 시간/작업 상태 조정 등)을 구현·시험한 뒤 삭제한다. 영구 객체는 단순 TTL로 지우지 않는다.
+- `FINALIZED`·`ABANDONED`·`EXPIRED` Draft의 임시 원본·후보는 10분 유예 뒤 정리 대상이다. 생성 기록은 DB에 유지하며, 후보 삭제 성공 후 해당 Generation의 `s3_deleted_at`을 기록한다.
+- V33의 Draft `original_s3_deleted_at`은 원본 삭제 성공 뒤에 기록한다. NULL이면 다음 스케줄 주기에 재시도하므로 후보 `s3_deleted_at`을 원본 삭제 이력으로 오용하지 않는다.
+- S3 삭제는 DB 트랜잭션 밖에서 수행하며, 삭제 후 Draft를 다시 잠근 뒤 상태와 Key를 재확인하고 삭제 시각을 기록한다. 영구 객체는 단순 TTL로 지우지 않는다.
 - 기존 일반 `file_uploads`·`note_attachments` 테이블의 URL 정책까지 이 AI 문서가 변경하는 것은 아니다.
 
 ---
@@ -356,6 +356,8 @@ jar-designs/{ownerId}/{uuid}/final.png
 ## 11. 후보 선택 → Slot → Finalize
 
 PIXEL 후보 생성에 성공해도 `JarDesign`을 즉시 만들지 않는다.
+
+현재 Draft API는 `POST /api/v1/design-drafts`, `GET /api/v1/design-drafts/{draftId}`, `POST /{draftId}/generations`, `GET /{draftId}/original/preview`, `GET /{draftId}/generations/{generationId}/preview`, `PATCH /{draftId}/selection`, `PATCH /{draftId}/slot`, `POST /{draftId}/finalize`로 연결된다. 조회 응답에는 S3 Object Key나 URL을 포함하지 않으며, 후보 보관함이 원본·후보 이미지를 렌더링할 때만 OWNER 검증 뒤 짧은 수명의 Presigned GET URL을 별도 endpoint에서 발급한다.
 
 ```
 ORIGINAL / 일반 AI / PIXEL 후보 목록
@@ -431,7 +433,7 @@ PIXEL 문서가 별도 구현 순서 20단계를 제시하면, 전체 AI 계획�
 | 23. 기존 Jar 표시 지점 연결 | Optional JarDesign, 이미지 누락 오류 분리 |
 | 24. 통합 테스트/배포/Smoke Test/문서화 | 운영 계정·S3·DB·Cloudflare 연동 확인 |
 
-**현재 위치는 3번 논리 설계 정리 완료, 다음 4번 최종 SQL 검토**다. 앞 단계를 완료했다고 적는 것은 *설계 결정*에 대한 표시이며, Java/React/Flyway 배포가 끝났다는 뜻이 아니다. 신규 Flyway 번호를 미리 `V32`로 고정하지 않고 실제 구현 시 최신 마이그레이션을 확인한다. 과거 마이그레이션은 수정하지 않는다.
+**현재 위치:** 프롬프트·Flyway V32/V33·백엔드 파이프라인·Draft API·Canvas·후보 보관함까지는 코드와 단위 테스트로 구현했다. 실제 Cloudflare/S3 운영 연동, Slot의 실제 크기 변환식 확정, 최종 UX와 기존 Jar 표시 연결, 배포 Smoke Test는 완료로 표시하지 않는다. 적용된 V32/V33은 수정하지 않고 다음 DB 변경은 새 Migration으로 추가한다.
 
 ---
 

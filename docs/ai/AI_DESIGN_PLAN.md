@@ -1475,10 +1475,12 @@ MVP 60회/일 제한
 9. **Draft 원본 이미지 업로드 + 검증 구현** ✅
     - Canvas PNG 검증 → Private S3 → Draft 생성
     - S3 성공·DB 실패 보상 삭제 포함
-10. 외부 이미지 업로드·PNG 정규화 구현
+10. **외부 이미지 업로드·PNG 정규화 구현** ✅
+    - PNG/JPEG/WebP 원본만 허용하고 애니메이션은 거절
+    - 서버가 실제 바이트를 검증한 뒤 `480×480` PNG로 정규화
 11. **Draft Service 구현** ✅
 
-    WNER/ACTIVE 검증, 후보 선택, 7일 만료, ORIGINAL/AI/DEFAULT/Slot 저장
+    OWNER/ACTIVE 검증, 후보 선택, 7일 만료, ORIGINAL/AI/DEFAULT/Slot 저장
 
     Memory Jar AWS Rekognition · S3 · EC2 IAM 역할 설정 정리
 
@@ -1489,7 +1491,7 @@ MVP 60회/일 제한
 13. **Cloudflare Properties / Client 구현,** Cloudflare Client 보완 및 계약 테스트 ✅
     - 환경변수 기반 Account ID, Token, Model, Timeout
     - REST 요청·응답 파싱과 오류 매핑 구현
-    - 실제 API 호출 없는 단위 테스트 추가 필요
+    - 실제 API 호출 없는 요청·응답 단위 테스트 완료
     - `1024×1024` 요청·응답 검증 포함
 14. **PIXEL Java 후처리 구현** ✅
     - `64×64 → 24색 → 480×480`로 변경
@@ -1498,21 +1500,31 @@ MVP 60회/일 제한
     - Draft lock → PROCESSING 중복 방지·생성·커밋
     - 트랜잭션 밖에서 S3 원본 로드 → Cloudflare → Pixel 후처리 → 최종 PNG 검증·Rekognition 심사 → 후보 S3 업로드
     - 재잠금 후 성공/실패 기록 및 늦은 응답 차단
-16. **stale 처리·실패 복구·S3 Cleanup 구현**
+16. **stale 처리·실패 복구·S3 Cleanup 구현** ✅
     - 10분 초과 PROCESSING → `GENERATION_TIMEOUT`
+    - PROCESSING 중 Finalize·취소 차단, 종료 Draft는 10분 유예 뒤 정리
+    - 후보는 Generation ID 기반 결정적 Key, 원본 삭제 완료는 V33 `original_s3_deleted_at`에 기록
     - Draft 종료·업로드 실패·늦은 응답의 임시 S3 객체 정리
-17. **Finalize Service 구현**
+17. **Finalize Service 구현** ✅
     - ORIGINAL / AI / DEFAULT 세 경로
     - DEFAULT는 기존 Jar 생성 로직 재사용, `JarDesign` 미생성
-18. **API / DTO / Controller 구현**
+    - PROCESSING 중 최종화 거절, 커스텀 이미지는 영구 S3 복사 뒤 선택 Snapshot 재검증
+18. **API / DTO / Controller 구현** ✅
+    - Draft 생성·조회, AI 생성, 선택·Slot 저장, Finalize HTTP API 연결
+    - 조회 응답은 비공개 S3 Key/URL 없이 상태·후보 메타데이터만 반환
     - Draft 기반 API
     - Jar 생성 뒤 `apply/revert` API는 만들지 않음
-19. **백엔드 테스트 완성**
+19. **백엔드 테스트 완성** ✅
     - 단계별 단위 테스트 + 서비스 간 통합 시나리오
     - 권한, 중복 생성, 타 Draft 후보, Cloudflare/S3 실패, stale, Pixel 실패, 중복 Finalize
-20. **React Canvas 구현**
-21. **Draft / AI API 계층 연결**
-22. **AI 후보 보관함 구현**
+20. **React Canvas 구현** ✅
+    - `/jars/design/new`의 별도 화면에서 480×480 Canvas PNG를 만든다.
+    - 기존 `/jars/new` 기본 Jar 생성 Form은 유지한다.
+21. **Draft / AI API 계층 연결** ✅
+    - Draft 생성·조회·Generation 요청·선택·Slot·Finalize API 모듈을 연결한다.
+22. **AI 후보 보관함 구현** ✅
+    - ORIGINAL과 성공한 AI 후보를 OWNER 전용 Presigned GET URL로만 미리보기한다.
+    - Draft 조회 응답에는 Private S3 Key나 URL을 포함하지 않는다.
 23. **Slot Editor 구현**
 24. **최종 미리보기·Finalize UX 구현**
 25. **기존 Jar 화면에 Optional `JarDesign` 연결**

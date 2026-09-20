@@ -143,4 +143,15 @@ public class JarAiGeneration {
         this.errorMessage = errorMessage;
         this.completedAt = completedAt;
     }
+
+    /** 종료된 Draft의 임시 후보 파일을 실제로 삭제한 뒤에만 삭제 완료 시각을 기록한다. */
+    public void markS3Deleted(LocalDateTime deletedAt) {
+        if (status != JarAiGenerationStatus.SUCCEEDED || generatedS3Key == null || generatedS3Key.isBlank()) {
+            throw new IllegalStateException("성공한 AI 후보만 S3 삭제 완료 처리할 수 있습니다.");
+        }
+        if (s3DeletedAt != null) {
+            throw new IllegalStateException("이미 S3 삭제 완료 처리된 AI 후보입니다.");
+        }
+        this.s3DeletedAt = deletedAt;
+    }
 }

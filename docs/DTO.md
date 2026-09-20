@@ -94,8 +94,12 @@ Request는 서버에 보내는 데이터, Response는 서버가 돌려주는 데
 | JarTheme | `SPRING`, `SUMMER`, `AUTUMN`, `WINTER`, `LAVENDER`, `DEW`, `SAND`, `MOONLIGHT` |
 | FilePurpose | `NOTE`, `PROFILE`, `JAR` |
 | ChatMessageType | `TEXT`, `SYSTEM` |
+| JarDraftStatus | `ACTIVE`, `FINALIZED`, `ABANDONED`, `EXPIRED` |
+| JarDraftDesignType | `ORIGINAL`, `AI`, `DEFAULT` |
+| JarAiStyle | `CUTE_2D`, `SOFT_25D`, `WATERCOLOR`, `HAND_DRAWN`, `WEIRDO`, `PIXEL` |
+| JarAiGenerationStatus | `PROCESSING`, `SUCCEEDED`, `FAILED` |
 
-특히 AI 저금통에 사용할 `AI_JAR_SKETCH`는 아직 구현되지 않았으므로 현재 Enum에 추가하지 않았어.
+AI Draft의 Prompt·Prompt Version·S3 Key는 클라이언트 DTO로 받지 않는다. 서버 Catalog와 Service가 결정하며, 조회 DTO에도 Private S3 Key는 포함하지 않는다.
 
 ### 0-5. 날짜와 시간
 
@@ -431,7 +435,7 @@ OWNER가 사용할 수 있는 API야.
 ) {}
 ```
 
-여기까지가 예전 초안의 A~M에 대응하는 저금통·멤버·초대 DTO야. 각 필드와 검증 조건은 `(36)`의 실제 DTO 선언을 기준으로 했어.
+여기까지가 예전 초안의 A~M에 대응하는 저금통·멤버·초대 DTO야. 각 필드와 검증 조건은 현재 작업 폴더의 실제 DTO 선언을 기준으로 했어.
 
 # 2. Notes API DTO
 
@@ -1710,9 +1714,25 @@ publicenumNoteRealtimeEventType {COMMENT_CREATED,COMMENT_REPLIED,COMMENT_UPDATED
 
 위 값들은 실제 코드에 존재하지만, 프론트엔드가 모든 API 요청에서 직접 보내는 값은 아니야.
 
-# 11. 최종 DTO 전수 대조 결과
+# 11. AI 디자인 Draft DTO
 
-실제 `(36)` 코드의 `dto` 디렉터리와 이번 명세를 대조한 결과야.
+AI 디자인은 Jar 생성 전에 Draft 단위로 다룬다. 다음 DTO는 모두 실제 코드에 존재하며, 이미 생성한 Jar에 디자인을 적용하는 요청 DTO는 만들지 않는다.
+
+| DTO | 방향 | 필드/검증 |
+| --- | --- | --- |
+| `JarAiGenerationCreateRequest` | Request | `style` 필수, `seed` 선택. Prompt·버전은 받지 않음 |
+| `JarDesignSelectionRequest` | Request | `designType` 필수, `AI`일 때 `generationId` 필요 |
+| `JarDesignSlotRequest` | Request | `centerX`, `centerY`, `sizeRatio` 모두 필수. 값 범위·선택 상태는 Service가 검증 |
+| `JarDesignDraftCreateResponse` | Response | `draftId`, `expiresAt` |
+| `JarDesignDraftDetailResponse` | Response | Draft 상태·선택·Slot·만료·최종 Jar·Generation 메타데이터. S3 Key/URL 제외 |
+| `JarAiGenerationPreviewResponse` | Response | OWNER 검증 뒤의 짧은 `previewUrl`, `expiresAt` |
+| `JarDesignFinalizeResponse` | Response | 생성된 `jarId`, 최종 `designType` |
+
+`JarDesignDraftDetailResponse.GenerationItem`은 `generationId`, `style`, `status`, `errorCode`, `completedAt`만 반환한다. 후보 이미지의 URL은 원본 또는 성공 후보 미리보기 API를 별도로 호출해 받는다.
+
+# 12. 최종 DTO 전수 대조 결과
+
+실제 작업 폴더의 `dto` 디렉터리와 이번 명세를 대조한 결과야.
 
 | 영역 | 활성 DTO |
 | --- | --- |
@@ -1725,11 +1745,12 @@ publicenumNoteRealtimeEventType {COMMENT_CREATED,COMMENT_REPLIED,COMMENT_UPDATED
 | Daily Draw | 6개 |
 | 알림 | 5개 |
 | 온보딩 | 3개 |
-| 합계 | 84개 |
+| AI 디자인 Draft | 7개 |
+| 합계 | 92개 |
 
-실제 Java 파일은 85개인데, 나머지 1개인 `RedisChatMessageEvent.java`는 파일 전체가 주석 처리된 비활성 초안이야. 활성 DTO에 포함하지 않았어.
+실제 Java 파일은 93개다. 이 중 `RedisChatMessageEvent.java`는 파일 전체가 주석 처리된 비활성 초안이므로 활성 DTO 92개에 포함하지 않았다.
 
-## 11-1. 전체 DTO 이름 대조표
+## 12-1. 전체 DTO 이름 대조표
 
 빠뜨린 DTO가 없는지 확인할 수 있도록 실제 클래스 이름도 모두 기록해 둘게.
 
@@ -1862,13 +1883,25 @@ OnboardingProgressItemResponse
 OnboardingProgressResponse
 OnboardingProgressUpdateRequest
 
-## 11-2. 현재 미구현 기능과 구분
+## AI 디자인 Draft DTO · 7개
+
+dto/ai
+
+JarAiGenerationCreateRequest
+JarDesignSelectionRequest
+JarDesignSlotRequest
+JarDesignDraftCreateResponse
+JarDesignDraftDetailResponse
+JarAiGenerationPreviewResponse
+JarDesignFinalizeResponse
+
+## 12-2. 현재 미구현 기능과 구분
 
 이번 DTO 명세에는 실제로 구현되지 않은 API를 현재 기능처럼 추가하지 않았어.
 
 | 기능 | 현재 상태 |
 | --- | --- |
-| AI 저금통 생성·적용 DTO | 미구현 |
+| 기존 Jar 화면용 Optional `JarDesign` 응답 DTO | 미구현 |
 | AI 이미지 URL을 포함한 Jar 응답 | 미구현 |
 | 쪽지 수정·삭제 API | 미구현 |
 | 쪽지 검색·태그 필터 API | 미구현 |
@@ -1877,4 +1910,4 @@ OnboardingProgressUpdateRequest
 | 회원 탈퇴 API | 미구현 |
 | 첨부파일 정렬 공개 API | DTO와 내부 Service만 존재 |
 
-최종 정리: 이전 A~Q 전체를 현재 코드에 맞게 수정했고, 초안에 없던 영역까지 포함해 활성 DTO 84개의 데이터 구조를 이 대화에 정리했어. 실제 Controller의 REST 55개와 STOMP 메시지 1개도 대응 관계를 확인했어.
+최종 정리: 활성 DTO는 92개이며, AI Draft DTO 7개를 포함한다. 실제 Controller의 REST 63개와 STOMP 메시지 1개에 대응한다. Slot Editor·최종 미리보기 UX·기존 Jar의 Optional `JarDesign` 조회/표시는 아직 완료로 표현하지 않는다.

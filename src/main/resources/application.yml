@@ -206,6 +206,15 @@ app:
     required-generated-image-width: ${APP_AI_GENERATION_REQUIRED_IMAGE_WIDTH:1024}
     required-generated-image-height: ${APP_AI_GENERATION_REQUIRED_IMAGE_HEIGHT:1024}
 
+  ai-cleanup:
+    # 10분 이상 끝나지 않은 요청은 서버 장애·응답 유실로 보고 timeout 실패 처리한다.
+    generation-timeout-seconds: ${APP_AI_CLEANUP_GENERATION_TIMEOUT_SECONDS:600}
+    # FINALIZED/ABANDONED/EXPIRED 직후 진행 중인 I/O와 겹치지 않도록 정리 전 유예 시간이다.
+    terminal-draft-grace-seconds: ${APP_AI_CLEANUP_TERMINAL_DRAFT_GRACE_SECONDS:600}
+    scheduler-fixed-delay-ms: ${APP_AI_CLEANUP_SCHEDULER_FIXED_DELAY_MS:300000}
+    scheduler-initial-delay-ms: ${APP_AI_CLEANUP_SCHEDULER_INITIAL_DELAY_MS:60000}
+    batch-size: ${APP_AI_CLEANUP_BATCH_SIZE:100}
+
   ai:
     cloudflare:
       # 실제 계정 ID와 API Token은 로컬/운영 환경 변수로만 주입한다.

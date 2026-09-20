@@ -3,6 +3,8 @@ package shop.esjh.memoryjar.service.ai;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -39,13 +41,11 @@ public class DraftOriginalImageModerationService {
             );
 
             if (!response.moderationLabels().isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "원본 이미지가 콘텐츠 정책을 통과하지 못했습니다.");
+                throw new ApiException(AiDraftErrorCode.DRAFT_CONTENT_POLICY_REJECTED);
             }
         } catch (RekognitionException | SdkClientException exception) {
             // API 오류·네트워크 오류·권한 오류는 모두 심사 미완료로 취급하여 fail-closed 한다.
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "원본 이미지 심사를 완료하지 못했습니다. 잠시 후 다시 시도해주세요.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_MODERATION_UNAVAILABLE);
         }
     }
 }

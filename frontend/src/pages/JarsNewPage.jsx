@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
+  Link,
   useLocation,
   useNavigate,
 } from "react-router-dom";
@@ -2077,6 +2078,11 @@ export default function JarsNewPage() {
             먼저 분위기에 맞는 저금통을 골라봐요. 고르는 순간 오른쪽 미리보기가 바로 바뀌고
             아래 설정을 조금만 다듬으면 바로 만들 수 있어요.
           </p>
+
+          <Link to="/jars/design/new"
+            className="mt-5 inline-flex rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-black text-violet-700 transition hover:bg-violet-100">
+            직접 그리거나 AI 디자인으로 만들기 →
+          </Link>
         </section>
 
         {/* 선택 카드 + 큰 미리보기 */}

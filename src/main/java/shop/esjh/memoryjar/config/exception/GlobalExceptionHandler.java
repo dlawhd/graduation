@@ -10,6 +10,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,6 +23,14 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /** 기능 Service가 정한 코드·HTTP 상태·기본 문구를 변경하지 않고 공통 JSON 봉투로 반환한다. */
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ErrorEnvelope> handleApiException(ApiException ex, HttpServletRequest request) {
+        ErrorCode errorCode = ex.getErrorCode();
+        return ResponseEntity.status(errorCode.status()).body(ErrorEnvelope.of(
+                ErrorResponse.of(errorCode.code(), errorCode.message(), request.getRequestURI())));
+    }
 
     // ✅ IllegalArgumentException(주로 잘못된 값이 들어왔을 때 많이 사용하는 예외) 처리
     // 이 예외가 발생하면 BAD_REQUEST(400) 형태의 에러 응답으로 바꿔서 내림.
@@ -169,6 +182,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ErrorEnvelope.of(error));
     }
 
+    /** URL 파라미터·경로 변수 검증과 숫자 형식 오류도 서버 오류가 아닌 400으로 통일한다. */
+    @ExceptionHandler({ConstraintViolationException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorEnvelope> handleParameterValidation(Exception ex, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "요청 값이 올바르지 않습니다.", request);
+    }
+
+    /** multipart 이미지가 빠졌거나 형식이 맞지 않는 요청을 명확한 4xx로 반환한다. */
+    @ExceptionHandler({MissingServletRequestPartException.class, HttpMediaTypeNotSupportedException.class})
+    public ResponseEntity<ErrorEnvelope> handleMultipartRequest(Exception ex, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "요청 파일 또는 형식이 올바르지 않습니다.", request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorEnvelope> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        return error(HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "업로드 파일 크기가 허용 범위를 초과했습니다.", request);
+    }
+
+    private ResponseEntity<ErrorEnvelope> error(HttpStatus status, String code, String message, HttpServletRequest request) {
+        return ResponseEntity.status(status).body(ErrorEnvelope.of(ErrorResponse.of(code, message, request.getRequestURI())));
+    }
+
     // ✅ 상태코드 숫자를 에러 코드 문자열로 바꾸는 메서드
     private String statusToCode(int status) {
         return switch (status) {
@@ -176,6 +210,12 @@ public class GlobalExceptionHandler {
             case 401 -> "UNAUTHORIZED";
             case 403 -> "FORBIDDEN";
             case 404 -> "NOT_FOUND";
+            case 409 -> "CONFLICT";
+            case 413 -> "PAYLOAD_TOO_LARGE";
+            case 415 -> "UNSUPPORTED_MEDIA_TYPE";
+            case 429 -> "TOO_MANY_REQUESTS";
+            case 502 -> "BAD_GATEWAY";
+            case 503 -> "SERVICE_UNAVAILABLE";
 
             // 나머지는 HTTP_상태코드 형태로 만들어 줌
             default -> "HTTP_" + status;
@@ -190,6 +230,12 @@ public class GlobalExceptionHandler {
             case 401 -> "인증이 필요합니다.";
             case 403 -> "접근 권한이 없습니다.";
             case 404 -> "대상을 찾을 수 없습니다.";
+            case 409 -> "현재 상태에서는 요청을 처리할 수 없습니다.";
+            case 413 -> "요청 크기가 허용 범위를 초과했습니다.";
+            case 415 -> "지원하지 않는 요청 형식입니다.";
+            case 429 -> "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+            case 502 -> "외부 서비스와 통신하지 못했습니다.";
+            case 503 -> "서비스 설정 또는 상태가 준비되지 않았습니다.";
             default -> "요청 처리 중 오류가 발생했습니다.";
         };
     }

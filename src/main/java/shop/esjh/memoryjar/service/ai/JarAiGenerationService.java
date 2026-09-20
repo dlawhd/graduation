@@ -18,8 +18,6 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +34,7 @@ public class JarAiGenerationService {
     private final GeneratedAiImageValidator generatedImageValidator;
     private final PixelPostProcessor pixelPostProcessor;
     private final DraftOriginalImageModerationService moderationService;
+    private final AiDraftS3KeyFactory s3KeyFactory;
     private final S3Client s3Client;
     private final S3Properties s3Properties;
     private final AiDraftProperties draftProperties;
@@ -46,6 +45,7 @@ public class JarAiGenerationService {
                                   GeneratedAiImageValidator generatedImageValidator,
                                   PixelPostProcessor pixelPostProcessor,
                                   DraftOriginalImageModerationService moderationService,
+                                  AiDraftS3KeyFactory s3KeyFactory,
                                   S3Client s3Client,
                                   S3Properties s3Properties,
                                   AiDraftProperties draftProperties) {
@@ -55,6 +55,7 @@ public class JarAiGenerationService {
         this.generatedImageValidator = generatedImageValidator;
         this.pixelPostProcessor = pixelPostProcessor;
         this.moderationService = moderationService;
+        this.s3KeyFactory = s3KeyFactory;
         this.s3Client = s3Client;
         this.s3Properties = s3Properties;
         this.draftProperties = draftProperties;
@@ -83,7 +84,7 @@ public class JarAiGenerationService {
             // 심사한 후보와 S3에 저장할 후보가 달라지지 않게 최종 PNG 바이트를 그대로 심사한다.
             moderationService.verifyAllowed(finalCandidate);
 
-            generatedS3Key = createCandidateS3Key(target);
+            generatedS3Key = s3KeyFactory.candidateKey(target.ownerId(), target.draftId(), target.generationId());
             putCandidate(generatedS3Key, finalCandidate);
             completed = persistenceService.completeSucceeded(target.draftId(), target.generationId(), generatedS3Key);
             return target.generationId();
@@ -146,16 +147,6 @@ public class JarAiGenerationService {
         } catch (IOException | S3Exception | SdkClientException exception) {
             throw new SourceImageLoadException(exception);
         }
-    }
-
-    private String createCandidateS3Key(JarAiGenerationPersistenceService.GenerationStartTarget target) {
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        return "jar-design-drafts/generations/"
-                + target.ownerId() + "/"
-                + target.draftId() + "/"
-                + now.getYear() + "/"
-                + String.format("%02d", now.getMonthValue()) + "/"
-                + target.generationId() + ".png";
     }
 
     private void putCandidate(String s3Key, byte[] candidateImage) {

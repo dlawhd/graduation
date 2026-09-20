@@ -1,8 +1,9 @@
 package shop.esjh.memoryjar.service.ai;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -50,13 +51,17 @@ class DraftOriginalImageValidatorTest {
     @Test
     void normalize_rejectsUnsupportedOrAnimatedFormat() throws Exception {
         assertThatThrownBy(() -> validator.normalize(imageBytes("gif", 480, 480)))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_INVALID);
     }
 
     @Test
     void normalize_rejectsExcessiveSourceDimensionBeforeFullDecode() throws Exception {
         assertThatThrownBy(() -> validator.normalize(imageBytes("png", 4097, 1)))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_INVALID);
     }
 
     @Test

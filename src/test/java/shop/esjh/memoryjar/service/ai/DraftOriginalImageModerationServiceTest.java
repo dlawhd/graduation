@@ -1,9 +1,9 @@
 package shop.esjh.memoryjar.service.ai;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import software.amazon.awssdk.services.rekognition.RekognitionClient;
 import software.amazon.awssdk.services.rekognition.model.DetectModerationLabelsRequest;
 import software.amazon.awssdk.services.rekognition.model.DetectModerationLabelsResponse;
@@ -44,9 +44,9 @@ class DraftOriginalImageModerationServiceTest {
                         .build());
 
         assertThatThrownBy(() -> moderationService.verifyAllowed(new byte[]{1, 2, 3}))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(error -> ((ResponseStatusException) error).getStatusCode())
-                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_CONTENT_POLICY_REJECTED);
     }
 
     @Test
@@ -55,9 +55,9 @@ class DraftOriginalImageModerationServiceTest {
                 RekognitionException.builder().message("service unavailable").build());
 
         assertThatThrownBy(() -> moderationService.verifyAllowed(new byte[]{1, 2, 3}))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(error -> ((ResponseStatusException) error).getStatusCode())
-                .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_MODERATION_UNAVAILABLE);
     }
 
     private AiDraftProperties properties() {

@@ -6,8 +6,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
 import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
@@ -46,9 +46,9 @@ class JarDesignDraftServiceTest {
 
         assertThatThrownBy(() -> draftService.selectAiGeneration(
                 1L, 10L, 20L))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(error -> ((ResponseStatusException) error).getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.AI_GENERATION_NOT_SELECTABLE);
 
         verify(draftRepository).findByDraftIdForUpdate(10L);
         verify(draft, never()).selectAiGeneration(anyLong());
@@ -63,11 +63,44 @@ class JarDesignDraftServiceTest {
 
         assertThatThrownBy(() -> draftService.selectAiGeneration(
                 2L, 10L, 20L))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(error -> ((ResponseStatusException) error).getStatusCode())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_NOT_OWNER);
 
         verify(generationRepository, never()).findByGenerationIdAndDraft_DraftId(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("타인의 Draft 조회는 후보 목록을 읽기 전에 OWNER 오류로 거절한다")
+    void getDraftSummary_rejectsNonOwner() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findById(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(2L)).thenReturn(false);
+
+        assertThatThrownBy(() -> draftService.getDraftSummary(2L, 10L))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_NOT_OWNER);
+
+        verify(generationRepository, never()).findByDraft_DraftIdOrderByGenerationIdDesc(anyLong());
+    }
+
+    @Test
+    @DisplayName("다른 Draft에 속한 AI 후보 ID는 선택할 수 없다")
+    void selectAiGeneration_rejectsCandidateFromAnotherDraft() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.getDraftId()).thenReturn(10L);
+        when(generationRepository.findByGenerationIdAndDraft_DraftId(20L, 10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> draftService.selectAiGeneration(1L, 10L, 20L))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.AI_GENERATION_NOT_FOUND);
+
+        verify(draft, never()).selectAiGeneration(anyLong());
     }
 
     @Test
@@ -96,9 +129,9 @@ class JarDesignDraftServiceTest {
 
         assertThatThrownBy(() -> draftService.updateSlot(
                 1L, 10L, new BigDecimal("0.5"), new BigDecimal("0.5"), new BigDecimal("0.3")))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(error -> ((ResponseStatusException) error).getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
 
         verify(draft, never()).updateSlot(any(), any(), any());
     }
@@ -118,5 +151,23 @@ class JarDesignDraftServiceTest {
 
         verify(draft).updateSlot(new BigDecimal("0.50000"), new BigDecimal("0.40000"), new BigDecimal("0.30000"));
         verify(draft).extendExpiration(any());
+    }
+
+    @Test
+    @DisplayName("범위를 벗어난 Slot 값은 기능별 입력 오류 코드로 거절한다")
+    void updateSlot_rejectsInvalidSlotValue() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.hasCustomDesignSelection()).thenReturn(true);
+
+        assertThatThrownBy(() -> draftService.updateSlot(
+                1L, 10L, new BigDecimal("1.00001"), new BigDecimal("0.5"), new BigDecimal("0.3")))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_SLOT_INVALID);
+
+        verify(draft, never()).updateSlot(any(), any(), any());
     }
 }

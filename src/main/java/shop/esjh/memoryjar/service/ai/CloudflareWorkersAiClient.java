@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.config.properties.AiGenerationImageProperties;
 import shop.esjh.memoryjar.config.properties.CloudflareAiProperties;
 
@@ -137,10 +139,7 @@ public class CloudflareWorkersAiClient {
                 || !isSupportedOutputDimension(generationImageProperties.getRequiredGeneratedImageWidth())
                 || !isSupportedOutputDimension(generationImageProperties.getRequiredGeneratedImageHeight())
                 || generationImageProperties.getMaxGeneratedImageSize() < 1) {
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "Cloudflare AI 실행 설정이 준비되지 않았습니다."
-            );
+            throw new ApiException(AiDraftErrorCode.AI_PROVIDER_CONFIGURATION_UNAVAILABLE);
         }
     }
 

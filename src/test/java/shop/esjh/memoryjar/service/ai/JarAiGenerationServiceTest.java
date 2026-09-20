@@ -38,6 +38,7 @@ class JarAiGenerationServiceTest {
     @Mock private GeneratedAiImageValidator generatedImageValidator;
     @Mock private PixelPostProcessor pixelPostProcessor;
     @Mock private DraftOriginalImageModerationService moderationService;
+    @Mock private AiDraftS3KeyFactory s3KeyFactory;
     @Mock private S3Client s3Client;
     @Mock private ResponseInputStream<GetObjectResponse> originalInput;
 
@@ -46,6 +47,7 @@ class JarAiGenerationServiceTest {
     void generate_savesNormalCandidateThenMarksSucceeded() throws Exception {
         JarAiGenerationService service = service();
         arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeCandidateKey();
         arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
         when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
         when(generatedImageValidator.validateAndNormalize("provider".getBytes(StandardCharsets.UTF_8)))
@@ -74,6 +76,7 @@ class JarAiGenerationServiceTest {
     void generate_pixelUsesReferenceAndPostProcessor() throws Exception {
         JarAiGenerationService service = service();
         arrangeStart(JarAiStyle.PIXEL);
+        arrangeCandidateKey();
         arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
         when(promptCatalog.loadReferenceImage(any())).thenReturn("reference".getBytes(StandardCharsets.UTF_8));
         when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
@@ -110,10 +113,44 @@ class JarAiGenerationServiceTest {
     }
 
     @Test
+    @DisplayName("Cloudflare 429는 후보 저장 없이 PROVIDER_RATE_LIMITED로 종료한다")
+    void generate_recordsProviderRateLimit() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
+        when(cloudflareClient.generateImage(any())).thenThrow(new CloudflareWorkersAiClient.CloudflareAiClientException(
+                CloudflareWorkersAiClient.FailureType.RATE_LIMITED, "rate limited"));
+
+        service.generate(1L, 10L, JarAiStyle.CUTE_2D, null);
+
+        verify(persistenceService).completeFailed(10L, 100L,
+                JarAiGenerationErrorCode.PROVIDER_RATE_LIMITED, "AI 제공자 요청 또는 응답 검증에 실패했습니다.");
+        verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    @DisplayName("규격이 잘못된 AI 이미지는 후보 저장 없이 PROVIDER_INVALID_RESPONSE로 종료한다")
+    void generate_recordsInvalidGeneratedImage() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
+        when(cloudflareClient.generateImage(any())).thenReturn("invalid".getBytes(StandardCharsets.UTF_8));
+        when(generatedImageValidator.validateAndNormalize(any())).thenThrow(
+                new GeneratedAiImageValidator.InvalidGeneratedAiImageException("invalid image"));
+
+        service.generate(1L, 10L, JarAiStyle.CUTE_2D, null);
+
+        verify(persistenceService).completeFailed(10L, 100L,
+                JarAiGenerationErrorCode.PROVIDER_INVALID_RESPONSE, "AI 결과 이미지가 후보 규격을 충족하지 않습니다.");
+        verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
     @DisplayName("후보 업로드 뒤 stale 처리된 Generation은 S3 객체를 즉시 보상 삭제한다")
     void generate_deletesCandidateWhenLateSuccessIsRejected() throws Exception {
         JarAiGenerationService service = service();
         arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeCandidateKey();
         arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
         when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
         when(generatedImageValidator.validateAndNormalize(any())).thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
@@ -142,13 +179,35 @@ class JarAiGenerationServiceTest {
         verifyNoInteractions(cloudflareClient);
     }
 
+    @Test
+    @DisplayName("후보 S3 업로드 실패는 성공 처리 없이 S3_UPLOAD_FAILED로 기록하고 같은 Key 삭제를 시도한다")
+    void generate_recordsCandidateUploadFailure() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeCandidateKey();
+        arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
+        when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
+        doThrow(SdkClientException.create("S3 unavailable"))
+                .when(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+
+        service.generate(1L, 10L, JarAiStyle.CUTE_2D, null);
+
+        verify(persistenceService).completeFailed(10L, 100L,
+                JarAiGenerationErrorCode.S3_UPLOAD_FAILED, "AI 후보 이미지를 저장하지 못했습니다.");
+        verify(persistenceService, never()).completeSucceeded(anyLong(), anyLong(), anyString());
+        // S3는 저장 성공 후 응답만 실패할 수 있으므로, 모호한 업로드 실패에도 이 요청의 결정적 Key를 보상 삭제한다.
+        verify(s3Client).deleteObject(argThat((DeleteObjectRequest request) -> request.key().equals("candidate.png")));
+    }
+
     private JarAiGenerationService service() {
         S3Properties s3Properties = new S3Properties();
         s3Properties.setBucket("test-bucket");
         AiDraftProperties draftProperties = new AiDraftProperties();
         draftProperties.setMaxOriginalImageSize(10 * 1024 * 1024L);
         return new JarAiGenerationService(persistenceService, promptCatalog, cloudflareClient,
-                generatedImageValidator, pixelPostProcessor, moderationService, s3Client, s3Properties, draftProperties);
+                generatedImageValidator, pixelPostProcessor, moderationService, s3KeyFactory, s3Client, s3Properties,
+                draftProperties);
     }
 
     private void arrangeStart(JarAiStyle style) {
@@ -159,6 +218,10 @@ class JarAiGenerationServiceTest {
         when(promptCatalog.resolve(style)).thenReturn(definition);
         when(persistenceService.start(eq(1L), eq(10L), eq(style), eq(definition), any()))
                 .thenReturn(new JarAiGenerationPersistenceService.GenerationStartTarget(100L, 10L, 1L, "original.png"));
+    }
+
+    private void arrangeCandidateKey() {
+        when(s3KeyFactory.candidateKey(1L, 10L, 100L)).thenReturn("candidate.png");
     }
 
     private void arrangeOriginalRead(byte[] bytes) throws Exception {

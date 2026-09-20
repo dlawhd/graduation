@@ -10,6 +10,8 @@ import shop.esjh.memoryjar.config.properties.S3Properties;
 import shop.esjh.memoryjar.dto.ai.response.JarDesignDraftCreateResponse;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.repository.UserRepository;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -80,7 +82,7 @@ public class JarDesignDraftUploadService {
 
     private byte[] readImageBytes(MultipartFile image) {
         if (image == null || image.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "원본 이미지 파일이 필요합니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_REQUIRED);
         }
         try {
             return image.getBytes();
@@ -102,7 +104,7 @@ public class JarDesignDraftUploadService {
                     RequestBody.fromBytes(imageBytes)
             );
         } catch (S3Exception | SdkClientException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "정규화된 원본 이미지를 안전하게 저장하지 못했습니다.");
+            throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_UPLOAD_FAILED);
         }
     }
 

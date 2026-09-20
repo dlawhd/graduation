@@ -1,8 +1,8 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
-> 문서 상태: **합의된 논리 설계 + 구현 전 검증/미결정 항목**. 이 문서는 실행이 검증된 Flyway SQL이 아니다. 기존 운영 스키마와 대조한 뒤 별도의 migration을 작성한다.
+> 문서 상태: **논리 계약 + 현재 구현 대조**. 이 문서의 테이블 계약은 Flyway V32와 V33으로 반영되어 있다. 다만 실제 운영 DB 적용, S3/Cloudflare 실연동, Slot의 실제 렌더링 공식과 화면 연결은 별도 검증·구현 항목이다.
 
-> 검토 이력: 2026-09-16 첨부본 재검토. 붙여넣기로 이스케이프된 Markdown을 정상화하고, S3 원본 객체의 실제 불변성, PIXEL 입력 API/출력 검증, 최종 이미지 누락 시 조회 동작을 보충했다. 신규 3개 테이블·39열과 기존 `jars` 무변경 설계는 유지한다.
+> 검토 이력: 2026-09-20 현재 작업 폴더 기준. 신규 3개 테이블·39열과 기존 `jars` 무변경 설계는 유지한다. V33은 `jar_design_drafts.original_s3_deleted_at`을 추가해 Draft 원본 S3 정리 성공을 재시도 가능하게 기록한다.
 
 > 적용 범위: Jar 생성 **전** 커스텀 디자인. `jars`의 기존 컬럼은 변경하지 않는다.
 
@@ -31,7 +31,7 @@
 - 원본·후보·영구 이미지의 S3 Key는 서버가 정해 허용된 경로로 생성한다. 프론트가 임의의 Key나 다른 사용자의 Key를 전달해 원본·후보·최종 이미지로 채택하지 못하도록 한다.
 - **원본의 불변성은 DB Key를 변경하지 않는 것만으로 보장되지 않는다.** 승인된 원본이 들어 있는 S3 객체도 다른 요청이나 정리 작업에 의해 덮어써지지 않도록 고유 Key·쓰기 권한·덮어쓰기 방지 방식을 검증한다. 콘텐츠 검사와 저장/AI 입력에 사용하는 이미지가 동일한 바이트의 객체인지 확인한다. 구체적인 S3 쓰기 방식은 구현 단계에서 결정한다.
 
-- Canvas 원본의 **실제 PNG 형식·디코딩 가능 여부·480×480 해상도**를 서버에서 검증한다. 최대 바이트 수 및 콘텐츠 검사 도구/장애 정책은 구현 전에 정하며 MIME 헤더만으로 통과시키지 않는다.
+- 원본은 실제 PNG/JPEG/WebP 단일 프레임인지와 디코딩 가능 여부를 서버에서 검증하고, 최대 10MB 입력을 흰 배경의 `480×480` PNG로 정규화한다. MIME 헤더만으로 통과시키지 않으며 Rekognition 심사는 fail-closed로 동기 처리한다.
 
 ## 2. 텍스트 ERD [확정]
 
@@ -77,7 +77,7 @@ jar_designs.selected_generation_id
 
 - **OWNER 정합성:** Draft의 `owner_id`, 새로 생성한 Jar의 실제 OWNER, 로그인 요청자가 동일한지도 Service에서 확인한다. 기존 Jar 생성의 OWNER 멤버십·설정 검증을 빠뜨리지 않는다. 이 관계는 위 신규 FK만으로 증명되지 않는다.
 
-## 3. 신규 테이블 A: `jar_design_drafts` [13열 확정]
+## 3. 신규 테이블 A: `jar_design_drafts` [14열; V33 반영]
 
 | 컬럼 | 논리 타입 | NULL | 제약/의미 |
 
@@ -88,6 +88,8 @@ jar_designs.selected_generation_id
 | `owner_id` | BIGINT | NO | 기존 users의 **실제 PK**를 참조 |
 
 | `original_s3_key` | VARCHAR(512) | NO | 고정된 원본 PNG의 Private S3 Key; 터미널 상태에서 정리된 뒤에도 과거 Key 기록으로 남을 수 있음 |
+
+| `original_s3_deleted_at` | DATETIME(6) | YES | V33. 터미널 Draft의 원본 S3 삭제가 실제로 성공한 뒤에만 기록하며, NULL이면 다음 정리 주기에 재시도 대상 |
 
 | `selected_design_type` | VARCHAR(20) | YES | NULL(미선택), ORIGINAL, AI, DEFAULT |
 
@@ -195,8 +197,8 @@ jar_designs.selected_generation_id
 
 - `s3_deleted_at`이 NULL이어도 S3 객체의 존재까지 보장하지 않는다. 존재와 접근 가능성은 실제 최종화 시 확인한다.
 
-- PIXEL만 사용자 스케치 + 버전 관리된 픽셀 스타일 참조의 **두 이미지 입력**을 사용하는 설계다. PoC에서의 `input_image_0` / `input_image_1` 표기를 실제 운영 API 필드명·지원 입력 수·이미지 전송 형식이 확인된 계약으로 간주하지 않는다. Spring의 Cloudflare 요청 구현 전에 현재 모델 API 문서와 실제 응답으로 확인한다. 다른 스타일의 Reference/후처리 버전은 NULL이다. PIXEL_PP_V1은 흰 배경 합성 후 64×64 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 480×480 처리다.
-- AI 응답 성공 여부와 **유효한 최종 이미지 생성 여부는 구분**한다. 응답의 실제 이미지 바이트를 디코딩하고 형식·해상도·용량을 검증한 뒤, PIXEL은 Java 후처리 결과를 검증해 Private S3에 저장해야 SUCCEEDED가 된다. 다른 스타일의 출력 해상도를 Canvas 원본과 같다고 임의로 가정하지 않는다. 세부 허용값은 구현 전 확정한다.
+- PIXEL만 사용자 스케치 + 버전 관리된 픽셀 스타일 참조의 두 이미지 입력을 사용한다. Java Client는 `input_image_0`과 `input_image_1` multipart 요청·응답 파싱을 단위 테스트로 검증했다. 실제 Cloudflare 계정 호출은 운영 검증으로 남는다. 다른 스타일의 Reference/후처리 버전은 NULL이다. PIXEL_PP_V1은 흰 배경 합성 후 64×64 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 480×480 처리다.
+- AI 응답 성공 여부와 **유효한 최종 이미지 생성 여부는 구분**한다. 응답은 실제 이미지 바이트를 디코딩하고 `1024×1024` 정사각형·PNG 변환을 검증한 뒤, PIXEL은 Java 후처리 결과를 검증해 Private S3에 저장해야 SUCCEEDED가 된다. 다른 스타일에도 480×480을 강제하지 않는다.
 
 - 재생성은 새로운 Generation이다. 과거 성공 결과와 실패 기록을 덮어쓰지 않는다. `created_by`, `jar_id`, `source_upload_id`, `generated_url` 컬럼은 만들지 않는다.
 
@@ -378,13 +380,13 @@ CHECK는 값의 모양만 검증한다. `FINALIZED → ACTIVE`, `FAILED → SUCC
 
 5. 재요청에서 이미 FINALIZED면 새 Jar를 만들지 않는다. `finalized_jar_id`로 기존 결과를 안내할 수 있지만, **현재 스키마에 요청 본문 해시/멱등키가 없으므로 재요청의 완전한 동등성을 DB만으로 증명할 수는 없다.** 서로 다른 요청은 변경/중복 생성으로 처리하지 않고 충돌로 거절하는 등 API 규칙을 정한다. 기존 Jar의 접근 권한과 soft-delete 상태도 확인한 뒤 안내하며, 과거에 발급한 URL을 무조건 재사용하지 않는다.
 
-### 취소/만료/PROCESSING 경합 — 미결정 사항
+### 취소/만료/PROCESSING 경합 — 확정 정책
 
 - 합의된 불변식: 종료된 Draft에 새 SUCCEEDED 후보가 노출되지 않아야 하며, 시간 초과 FAILED 결과가 늦게 SUCCEEDED로 바뀌면 안 된다.
 
-- **아직 확정되지 않음:** PROCESSING 중 DEFAULT/ORIGINAL/AI 최종화·사용자 취소를 즉시 허용할지, 작업 종료까지 막을지. Generation에 CANCELLED 상태를 새로 만들기로 합의하지도 않았다.
+- v1에서는 PROCESSING 중 DEFAULT/ORIGINAL/AI 최종화와 사용자 취소를 거절하고, 생성 완료 또는 `GENERATION_TIMEOUT` 뒤 재시도하도록 한다. Generation에 CANCELLED 상태는 추가하지 않는다.
 
-- 구현 단순성을 위한 제안: v1에서는 PROCESSING 중 최종화·취소를 거절하고 완료 후 재시도하도록 안내한다. 만료 Scheduler는 처리 중인 Generation을 먼저 Timeout 등으로 종결시킨 뒤 Draft를 종료한다. **사용자 승인 또는 실제 구현 검토 전에는 확정 정책으로 간주하지 말 것.**
+- 만료 Scheduler는 처리 중인 Generation을 먼저 Timeout 등으로 종결시킨 뒤 Draft를 종료한다. Finalize Service도 Draft 잠금 아래 PROCESSING 존재 여부를 다시 확인한다.
 
 ### S3/DB 불일치 복구
 
@@ -398,7 +400,7 @@ CHECK는 값의 모양만 검증한다. `FINALIZED → ACTIVE`, `FAILED → SUCC
 
 - **정리 대상 판단은 삭제 직전 다시 검증한다.** 삭제 후보 Key가 최종 `jar_designs.final_s3_key` 등 다른 유효한 참조와 공유되지 않는지도 확인한다. 다른 요청이 원본을 읽거나 선택한 후보를 영구 영역으로 복사 중일 수 있으므로, S3 목록 조회 시점의 DB 상태만으로 즉시 삭제하지 않는다. 단, 삭제 직전의 상태 조회만으로는 조회 직후 시작하는 복사와 삭제의 경합까지 막을 수 없다. 복사 중인 객체를 정리하지 않도록 잠금/작업 상태 조정, 안전한 유예 기간 등 **실제 보호 방식은 구현 전에 결정·시험한다**. S3 호출을 기다리며 DB 행 잠금을 장시간 유지하는 방식은 사용하지 않는다. `generated_s3_key`를 남겨둔 채 후보를 지웠으면 삭제 성공 확인 뒤 해당 Generation의 `s3_deleted_at`을 기록한다.
 
-- `original_s3_key`에는 원본 삭제 시각 컬럼이 없으므로 원본 정리 추적은 Generation의 `s3_deleted_at`으로 대체할 수 없다. 이력을 더 남길 필요가 생기면 별도 결정한다.
+- 원본 정리는 V33의 `original_s3_deleted_at`으로 추적한다. S3 삭제는 DB 트랜잭션 밖에서 실행하고, 성공 뒤 Draft를 다시 잠근 뒤에만 이 시각을 기록한다.
 
 - **S3 Lifecycle/자동 정리 규칙:** 임시 경로에만 설정한 만료 규칙이 최종 영구 이미지 경로까지 포함하지 않는지 실제 Bucket 설정을 확인한다. 정리 대상을 식별할 때는 서버가 부여한 Key 접두어를 신뢰하되, 접두어만으로 사용자 소유권 또는 DB 참조 여부를 대체하지 않는다.
 

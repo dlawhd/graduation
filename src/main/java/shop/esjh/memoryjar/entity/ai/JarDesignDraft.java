@@ -50,6 +50,9 @@ public class JarDesignDraft {
     @Column(name = "original_s3_key", nullable = false, length = 512)
     private String originalS3Key;
 
+    @Column(name = "original_s3_deleted_at")
+    private LocalDateTime originalS3DeletedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "selected_design_type", length = 20)
     private JarDraftDesignType selectedDesignType;
@@ -149,5 +152,39 @@ public class JarDesignDraft {
     public boolean hasCustomDesignSelection() {
         return selectedDesignType == JarDraftDesignType.ORIGINAL
                 || selectedDesignType == JarDraftDesignType.AI;
+    }
+
+    /** 만료 시각이 지난 ACTIVE Draft를 종료한다. PROCESSING 존재 여부 검사는 Service가 먼저 한다. */
+    public void markExpired() {
+        if (status != JarDraftStatus.ACTIVE) {
+            throw new IllegalStateException("ACTIVE 상태의 Draft만 만료 처리할 수 있습니다.");
+        }
+        this.status = JarDraftStatus.EXPIRED;
+    }
+
+    /** 종료 Draft 원본을 실제로 삭제한 뒤에만 DB에 삭제 시각을 남긴다. */
+    public void markOriginalS3Deleted(LocalDateTime deletedAt) {
+        if (!isTerminal()) {
+            throw new IllegalStateException("종료된 Draft 원본만 S3 삭제 완료 처리할 수 있습니다.");
+        }
+        if (originalS3DeletedAt != null) {
+            throw new IllegalStateException("이미 원본 S3 삭제 완료 처리된 Draft입니다.");
+        }
+        this.originalS3DeletedAt = deletedAt;
+    }
+
+    /** Jar와 필요한 JarDesign을 같은 트랜잭션으로 만든 뒤 Draft를 더 이상 수정하지 못하게 종료한다. */
+    public void markFinalized(Jar jar) {
+        if (status != JarDraftStatus.ACTIVE || selectedDesignType == null || jar == null) {
+            throw new IllegalStateException("활성 상태이며 최종 디자인이 선택된 Draft만 최종화할 수 있습니다.");
+        }
+        this.status = JarDraftStatus.FINALIZED;
+        this.finalizedJar = jar;
+    }
+
+    public boolean isTerminal() {
+        return status == JarDraftStatus.FINALIZED
+                || status == JarDraftStatus.ABANDONED
+                || status == JarDraftStatus.EXPIRED;
     }
 }

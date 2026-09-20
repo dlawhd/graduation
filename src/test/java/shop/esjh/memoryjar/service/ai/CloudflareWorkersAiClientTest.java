@@ -8,8 +8,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.config.properties.AiGenerationImageProperties;
 import shop.esjh.memoryjar.config.properties.CloudflareAiProperties;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
@@ -134,6 +136,21 @@ class CloudflareWorkersAiClientTest {
                 .isInstanceOf(CloudflareWorkersAiClient.CloudflareAiClientException.class)
                 .extracting(error -> ((CloudflareWorkersAiClient.CloudflareAiClientException) error).getFailureType())
                 .isEqualTo(CloudflareWorkersAiClient.FailureType.INVALID_RESPONSE);
+    }
+
+    @Test
+    void generateImage_rejectsMissingProviderConfigurationWithFeatureCode() {
+        CloudflareAiProperties invalidProperties = new CloudflareAiProperties();
+        invalidProperties.setAccountId("account_123");
+        invalidProperties.setModel("@cf/black-forest-labs/flux-2-klein-4b");
+        invalidProperties.setTimeoutSeconds(60);
+        CloudflareWorkersAiClient invalidClient = new CloudflareWorkersAiClient(
+                httpClient, new ObjectMapper(), invalidProperties, generationImageProperties);
+
+        assertThatThrownBy(() -> invalidClient.generateImage(request(null)))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.AI_PROVIDER_CONFIGURATION_UNAVAILABLE);
     }
 
     private CloudflareWorkersAiClient.CloudflareImageGenerationRequest request(Long seed) {

@@ -4,13 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.config.properties.CloudflareAiProperties;
 import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 
@@ -39,15 +39,30 @@ class JarAiGenerationPersistenceServiceTest {
         when(generationRepository.existsByDraft_DraftIdAndStatus(10L, JarAiGenerationStatus.PROCESSING)).thenReturn(true);
 
         assertThatThrownBy(() -> service.start(1L, 10L, JarAiStyle.CUTE_2D, definition(), null))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(error -> ((ResponseStatusException) error).getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.AI_GENERATION_ALREADY_PROCESSING);
 
         verify(generationRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void completeSucceeded_doesNotReviveAlreadyFinishedGeneration() {
+    void start_preservesDraftOwnerErrorAndDoesNotCreateGeneration() {
+        JarAiGenerationPersistenceService service = service();
+        doThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_OWNER))
+                .when(draftService).findOwnedActiveDraftForUpdate(2L, 10L);
+
+        assertThatThrownBy(() -> service.start(2L, 10L, JarAiStyle.CUTE_2D, definition(), null))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_NOT_OWNER);
+
+        verify(generationRepository, never()).existsByDraft_DraftIdAndStatus(anyLong(), any());
+        verify(generationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void completeSucceeded_doesNotReviveGenerationAfterStaleTimeout() {
         JarAiGenerationPersistenceService service = service();
         JarDesignDraft draft = mock(JarDesignDraft.class);
         JarAiGeneration generation = mock(JarAiGeneration.class);

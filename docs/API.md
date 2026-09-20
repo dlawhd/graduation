@@ -4,9 +4,9 @@
 
 2026.09.16
 
-검토 기준: `graduation-main (36).zip`
+검토 기준: 현재 로컬 프로젝트
 
-실제 Controller, DTO, Security 설정, 주요 Service, WebSocket 설정을 대조했어. 현재 공개된 API는 REST 55개와 STOMP 메시지 전송 1개야. 소셜 로그인은 Spring Security가 처리하므로 별도로 정리할게.
+실제 Controller, DTO, Security 설정, 주요 Service, WebSocket 설정을 대조했어. 현재 공개된 API는 REST 63개와 STOMP 메시지 전송 1개야. 소셜 로그인은 Spring Security가 처리하므로 별도로 정리할게.
 
 # 0. API 공통 규칙
 
@@ -2211,7 +2211,26 @@ DAILY_DRAW_REVEALED
 
 WebSocket 이벤트는 DB 상태를 변경하는 REST API를 대체하는 것이 아니라, 변경된 사실을 실시간으로 전달하는 역할도 담당해.
 
-# 12. 현재 미구현 API 및 향후 개발 항목
+# 12. AI 디자인 Draft API
+
+AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라, Jar 생성 전에 사용하는 Draft 흐름이다. 모든 경로는 인증과 CSRF 보호가 필요하며 Draft OWNER만 호출할 수 있다. Draft 상세 응답에는 Private S3 Object Key나 고정 URL을 포함하지 않는다.
+
+| HTTP | 경로 | 현재 동작 |
+| --- | --- | --- |
+| `POST` | `/api/v1/design-drafts` | multipart `image` 원본을 검증·정규화해 Draft 생성 |
+| `GET` | `/api/v1/design-drafts/{draftId}` | Draft 상태·선택·Slot·Generation 메타데이터 조회 |
+| `POST` | `/api/v1/design-drafts/{draftId}/generations` | 서버 Catalog 스타일의 AI 후보 생성 시작 |
+| `GET` | `/api/v1/design-drafts/{draftId}/original/preview` | 정규화 원본의 짧은 Presigned GET URL 발급 |
+| `GET` | `/api/v1/design-drafts/{draftId}/generations/{generationId}/preview` | 성공 후보의 짧은 Presigned GET URL 발급 |
+| `PATCH` | `/api/v1/design-drafts/{draftId}/selection` | `ORIGINAL`·`AI`·`DEFAULT` 선택 저장 |
+| `PATCH` | `/api/v1/design-drafts/{draftId}/slot` | 커스텀 이미지 Slot의 정규화 위치·크기 저장 |
+| `POST` | `/api/v1/design-drafts/{draftId}/finalize` | Draft 선택을 실제 Jar로 한 번만 확정 |
+
+원본은 PNG/JPEG/WebP만 허용하며 서버가 실제 바이트를 검사해 `480×480` PNG로 정규화한다. AI 결과는 `1024×1024` 정사각형을 검증하고, PIXEL은 `64×64 → 24색 → 480×480` 후처리를 거친다. `PROCESSING` Generation이 있으면 Finalize를 `409`로 거절한다.
+
+AI Draft 영역의 기능별 오류는 공통 오류 봉투의 `error.code`로 구분한다. 예를 들어 `DRAFT_NOT_OWNER`는 `403`, `AI_GENERATION_ALREADY_PROCESSING`과 `DRAFT_PROCESSING_FINALIZE_BLOCKED`는 `409`다. 화면은 문구가 아니라 이 코드를 기준으로 동작을 분기해야 한다.
+
+# 13. 현재 미구현 API 및 향후 개발 항목
 
 기존 초안에 있었지만 아직 구현되지 않은 기능과, AI 저금통 개발 과정에서 새로 필요해질 기능을 구분했어.
 
@@ -2227,13 +2246,11 @@ WebSocket 이벤트는 DB 상태를 변경하는 REST API를 대체하는 것이
 | Daily Draw 개인별 조회 기록 API | 미구현 |
 | 저금통 오픈 히스토리 조회 API | 미구현 |
 | 신고·차단·관리자 신고 처리 | 미구현 |
-| AI 저금통 생성·미리보기·적용·복구 | 미구현 |
+| AI 디자인의 기존 Jar 화면 표시 API | 미구현; Optional `JarDesign` 조회·표시 연결은 별도 작업 |
 
-AI 저금통은 우리가 별도로 정리했던 설계에 따라 개발할 예정이지만, 현재 `(36)` 소스에는 `jar_ai_generations`, AI 전용 API, Cloudflare Client, AI Canvas 등이 없어.
+AI Draft 생성·후보 생성·원본/후보 미리보기·선택·Slot 저장·Finalize API는 구현되어 있다. 다만 Slot Editor와 최종 미리보기 화면, 기존 Jar 목록·상세·확대·오픈 연출의 Optional `JarDesign` 표시는 아직 완료되지 않았다.
 
-따라서 AI 기능을 현재 구현된 API와 섞어서 명세하지 않았어.
-
-# 13. 최종 API 전수 대조
+# 14. 최종 API 전수 대조
 
 현재 Controller에 선언된 API를 기능별로 다시 집계했어.
 
@@ -2241,7 +2258,7 @@ AI 저금통은 우리가 별도로 정리했던 설계에 따라 개발할 예�
 
 REST API
 
-# 55개
+# 63개
 
 STOMP 전송 API
 
@@ -2256,7 +2273,8 @@ STOMP 전송 API
 | Files | 2개 |
 | Notifications | 4개 |
 | Onboarding | 2개 |
-| REST 합계 | 55개 |
+| AI 디자인 Draft | 8개 |
+| REST 합계 | 63개 |
 
 OAuth2 인증 시작·콜백 경로는 Spring Security가 처리하므로 REST Controller 집계에서 제외했어.
 

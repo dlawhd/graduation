@@ -15,6 +15,7 @@ import Home from "./pages/Home";
 import LoginSuccess from "./pages/LoginSuccess";
 import JarsPage from "./pages/JarsPage";
 import JarsNewPage from "./pages/JarsNewPage";
+import JarDesignNewPage from "./pages/JarDesignNewPage";
 import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
 import apiClient, { fetchCsrf } from "./api/apiClient";
@@ -1411,6 +1412,7 @@ useEffect(() => {
           <Route path="/login/success" element={<LoginSuccess />} />
           <Route path="/jars" element={<JarsPage />} />
           <Route path="/jars/new" element={<JarsNewPage />} />
+          <Route path="/jars/design/new" element={<JarDesignNewPage />} />
           <Route path="/jars/:jarId" element={<JarDetailPage />} />
           {/*
            * 초대 페이지에 App이 이미 확인한 로그인 사용자 정보를 전달한다.
