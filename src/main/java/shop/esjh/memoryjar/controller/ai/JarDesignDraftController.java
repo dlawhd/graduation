@@ -108,7 +108,8 @@ public class JarDesignDraftController {
     @PatchMapping("/{draftId}/slot")
     public ResponseEntity<Void> updateSlot(Authentication authentication, @PathVariable Long draftId,
                                            @Valid @RequestBody JarDesignSlotRequest request) {
-        draftService.updateSlot(extractCurrentUserId(authentication), draftId, request.centerX(), request.centerY(), request.sizeRatio());
+        draftService.updateSlot(extractCurrentUserId(authentication), draftId, request.centerX(), request.centerY(), request.sizeRatio(),
+                request.expectedDesignType(), request.expectedGenerationId());
         return ResponseEntity.noContent().build();
     }
 

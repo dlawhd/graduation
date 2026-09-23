@@ -104,7 +104,7 @@ export default function JarDesignNewPage() {
         )}
 
         {error && <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
-        {draftId && <AiCandidateGallery draftId={draftId} />}
+        {draftId && <AiCandidateGallery key={draftId} draftId={draftId} />}
       </main>
     </div>
   );

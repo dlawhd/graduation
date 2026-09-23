@@ -1525,8 +1525,15 @@ MVP 60회/일 제한
 22. **AI 후보 보관함 구현** ✅
     - ORIGINAL과 성공한 AI 후보를 OWNER 전용 Presigned GET URL로만 미리보기한다.
     - Draft 조회 응답에는 Private S3 Key나 URL을 포함하지 않는다.
-23. **Slot Editor 구현**
-24. **최종 미리보기·Finalize UX 구현**
+23. **Slot Editor 구현** ✅
+    - ORIGINAL/AI 선택 이미지 위 Pointer 드래그·방향키·위치/크기 Slider·저장·복원
+    - 너비 = 이미지 너비 × `(0.12 + 0.16 × ratio)`, 높이 = 너비 / 3.5
+    - React의 경계 보정과 서버 저장·Finalize 경계 검증, 선택 후보 변경 충돌 처리
+    - PNG에 합성하지 않고 공용 Overlay로 표시; 실서비스 S3를 통한 브라우저 검증은 별도
+24. **최종 미리보기·Finalize UX 구현** ✅
+    - ORIGINAL/AI는 Presigned 미리보기 이미지와 저장된 Slot Overlay를 최종 확인하고, DEFAULT는 기존 Theme Jar 경로를 안내한다.
+    - JarCreateRequest의 이름·설명·Theme·인원·오픈·공개 설정을 입력한 뒤 Draft Finalize API를 한 번만 호출한다.
+    - 미저장 Slot, PROCESSING, 이미지 미리보기 실패, 중복 Finalize를 화면에서도 구체적인 사유로 막고 서버 오류 코드를 다시 안내한다.
 25. **기존 Jar 화면에 Optional `JarDesign` 연결**
     - `JarsPage`, `JarDetailPage`, `JarZoomModal`, `JarOpenCelebrationModal`
     - 디자인 없음은 기존 Theme Jar 유지

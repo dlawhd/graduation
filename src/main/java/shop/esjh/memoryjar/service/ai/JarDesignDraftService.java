@@ -16,6 +16,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
+import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 
 /**
  * Draft OWNER가 유효한 후보와 Slot을 선택하도록 처리한다.
@@ -94,11 +96,25 @@ public class JarDesignDraftService {
     @Transactional
     public void updateSlot(Long userId, Long draftId,
                            BigDecimal centerX, BigDecimal centerY, BigDecimal sizeRatio) {
+        updateSlot(userId, draftId, centerX, centerY, sizeRatio, null, null);
+    }
+
+    /** 편집 화면의 선택 정보도 잠금 안에서 비교해 다른 탭에서 바뀐 후보에 좌표를 저장하지 않는다. */
+    @Transactional
+    public void updateSlot(Long userId, Long draftId,
+                           BigDecimal centerX, BigDecimal centerY, BigDecimal sizeRatio,
+                           JarDraftDesignType expectedDesignType, Long expectedGenerationId) {
         JarDesignDraft draft = findOwnedActiveDraftForUpdate(userId, draftId);
+        // 기존 세 필드 요청은 호환 유지. 새 Editor는 선택 종류와 후보 ID를 항상 함께 보낸다.
+        if ((expectedDesignType != null || expectedGenerationId != null)
+                && (expectedDesignType != draft.getSelectedDesignType()
+                || !Objects.equals(expectedGenerationId, draft.getSelectedGenerationId()))) {
+            throw new ApiException(AiDraftErrorCode.DRAFT_SLOT_TARGET_CHANGED);
+        }
         if (!draft.hasCustomDesignSelection()) {
             throw new ApiException(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
         }
-        validateSlot(centerX, centerY, sizeRatio);
+        JarSlotGeometry.validate(centerX, centerY, sizeRatio);
         draft.updateSlot(centerX, centerY, sizeRatio);
         extendExpiration(draft);
     }
@@ -121,21 +137,6 @@ public class JarDesignDraftService {
 
     private void extendExpiration(JarDesignDraft draft) {
         draft.extendExpiration(LocalDateTime.now(KST).plusDays(properties.getExpiresAfterDays()));
-    }
-
-    private void validateSlot(BigDecimal centerX, BigDecimal centerY, BigDecimal sizeRatio) {
-        validateSlotValue(centerX, "slotCenterX");
-        validateSlotValue(centerY, "slotCenterY");
-        validateSlotValue(sizeRatio, "slotSizeRatio");
-    }
-
-    private void validateSlotValue(BigDecimal value, String fieldName) {
-        if (value == null
-                || value.scale() > 5
-                || value.compareTo(BigDecimal.ZERO) < 0
-                || value.compareTo(BigDecimal.ONE) > 0) {
-            throw new ApiException(AiDraftErrorCode.DRAFT_SLOT_INVALID);
-        }
     }
 
 }

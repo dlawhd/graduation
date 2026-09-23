@@ -1722,7 +1722,7 @@ AI 디자인은 Jar 생성 전에 Draft 단위로 다룬다. 다음 DTO는 모�
 | --- | --- | --- |
 | `JarAiGenerationCreateRequest` | Request | `style` 필수, `seed` 선택. Prompt·버전은 받지 않음 |
 | `JarDesignSelectionRequest` | Request | `designType` 필수, `AI`일 때 `generationId` 필요 |
-| `JarDesignSlotRequest` | Request | `centerX`, `centerY`, `sizeRatio` 모두 필수. 값 범위·선택 상태는 Service가 검증 |
+| `JarDesignSlotRequest` | Request | `centerX`, `centerY`, `sizeRatio` 필수. `expectedDesignType`, `expectedGenerationId` 선택(새 Editor는 항상 전송). Service가 소수 5자리·0~1·슬롯 전체 경계·현재 선택 일치를 검증 |
 | `JarDesignDraftCreateResponse` | Response | `draftId`, `expiresAt` |
 | `JarDesignDraftDetailResponse` | Response | Draft 상태·선택·Slot·만료·최종 Jar·Generation 메타데이터. S3 Key/URL 제외 |
 | `JarAiGenerationPreviewResponse` | Response | OWNER 검증 뒤의 짧은 `previewUrl`, `expiresAt` |
@@ -1910,4 +1910,4 @@ JarDesignFinalizeResponse
 | 회원 탈퇴 API | 미구현 |
 | 첨부파일 정렬 공개 API | DTO와 내부 Service만 존재 |
 
-최종 정리: 활성 DTO는 92개이며, AI Draft DTO 7개를 포함한다. 실제 Controller의 REST 63개와 STOMP 메시지 1개에 대응한다. Slot Editor·최종 미리보기 UX·기존 Jar의 Optional `JarDesign` 조회/표시는 아직 완료로 표현하지 않는다.
+최종 미리보기 UX는 위 Finalize 응답 DTO를 사용해 생성된 `jarId`의 상세 화면으로 이동한다. 기존 Jar의 Optional `JarDesign` 조회/표시는 아직 완료로 표현하지 않는다. Slot Editor는 위 Slot 요청 DTO에 연결돼 있다. DTO 개수 등 이전 단계의 집계는 이번 슬롯 구현 작업에서 전수 재검증하지 않았다.

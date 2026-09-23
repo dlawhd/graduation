@@ -103,7 +103,13 @@ public class JarDesignDraftUploadService {
                             .build(),
                     RequestBody.fromBytes(imageBytes)
             );
-        } catch (S3Exception | SdkClientException exception) {
+        } catch (S3Exception exception) {
+            // 사용자 응답에는 S3 내부 상세를 주지 않되, 서버 로그에는 AWS가 준 상태·오류 코드만 남긴다.
+            log.warn("Draft 원본 S3 저장이 실패했습니다. status={} awsErrorCode={} awsRequestId={}",
+                    exception.statusCode(), awsErrorCode(exception), exception.requestId());
+            throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_UPLOAD_FAILED);
+        } catch (SdkClientException exception) {
+            log.warn("Draft 원본 S3 저장 클라이언트 오류입니다. rootCauseType={}", rootCauseType(exception));
             throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_UPLOAD_FAILED);
         }
     }
@@ -127,5 +133,19 @@ public class JarDesignDraftUploadService {
             // 원래 DB 오류를 보존한다. 남은 객체는 이후 cleanup 단계의 점검 대상으로 남는다.
             log.warn("Draft 원본 보상 삭제에 실패했습니다. key={}", s3Key, cleanupException);
         }
+    }
+
+    private String awsErrorCode(S3Exception exception) {
+        return exception.awsErrorDetails() == null || exception.awsErrorDetails().errorCode() == null
+                ? "unknown" : exception.awsErrorDetails().errorCode();
+    }
+
+    /** SDK 예외 메시지에는 로컬 프로필 경로 등이 포함될 수 있으므로 원문 없이 최종 원인 타입만 기록한다. */
+    private String rootCauseType(Throwable exception) {
+        Throwable root = exception;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName();
     }
 }

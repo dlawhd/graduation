@@ -132,6 +132,18 @@ class JarDesignFinalizePersistenceServiceTest {
         verify(draft).markFinalized(jar);
     }
 
+    @Test
+    void prepare_rejectsPreviouslyStoredSlotOutsideImageBeforeJarCreation() {
+        JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);
+        when(draft.getSlotCenterX()).thenReturn(BigDecimal.ZERO);
+        when(draft.getSlotCenterY()).thenReturn(new BigDecimal("0.5"));
+        when(draft.getSlotSizeRatio()).thenReturn(BigDecimal.ONE);
+        assertThatThrownBy(() -> service().prepare(1L, 10L))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode()).isEqualTo(AiDraftErrorCode.DRAFT_SLOT_OUT_OF_BOUNDS);
+        verifyNoInteractions(jarService, designRepository);
+    }
+
     private JarDesignFinalizePersistenceService service() {
         return new JarDesignFinalizePersistenceService(draftRepository, generationRepository, designRepository, jarService);
     }

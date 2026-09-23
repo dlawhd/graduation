@@ -12,7 +12,7 @@
 > **상세 연계 문서:** `docs/ai/AI_DESIGN_PLAN.md` · `docs/ai/AI_ERD.md` · `docs/ai/AI_DESIGN_RULES.md`
 >
 
-**목적:** Windows에서 진행한 PIXEL PoC의 검증 결과를, 저금통 생성 전 **Draft 기반 AI 커스텀 디자인 기능**에 적용하기 위한 구현 계약으로 정리한다. 현재 프로젝트에는 V32/V33, 백엔드 생성 파이프라인과 Draft API, Canvas·후보 보관함이 반영되어 있다. Slot Editor·최종 미리보기 UX·기존 Jar 화면 연결·실배포 검증은 별도 작업으로 남아 있다.
+**목적:** Windows에서 진행한 PIXEL PoC의 검증 결과를, 저금통 생성 전 **Draft 기반 AI 커스텀 디자인 기능**에 적용하기 위한 구현 계약으로 정리한다. 현재 프로젝트에는 V32/V33, 백엔드 생성 파이프라인과 Draft API, Canvas·후보 보관함·Slot Editor가 반영되어 있다. 최종 미리보기 UX·기존 Jar 화면 연결·실배포 검증은 별도 작업으로 남아 있다.
 
 ---
 
@@ -433,7 +433,7 @@ PIXEL 문서가 별도 구현 순서 20단계를 제시하면, 전체 AI 계획�
 | 23. 기존 Jar 표시 지점 연결 | Optional JarDesign, 이미지 누락 오류 분리 |
 | 24. 통합 테스트/배포/Smoke Test/문서화 | 운영 계정·S3·DB·Cloudflare 연동 확인 |
 
-**현재 위치:** 프롬프트·Flyway V32/V33·백엔드 파이프라인·Draft API·Canvas·후보 보관함까지는 코드와 단위 테스트로 구현했다. 실제 Cloudflare/S3 운영 연동, Slot의 실제 크기 변환식 확정, 최종 UX와 기존 Jar 표시 연결, 배포 Smoke Test는 완료로 표시하지 않는다. 적용된 V32/V33은 수정하지 않고 다음 DB 변경은 새 Migration으로 추가한다.
+**현재 위치:** 프롬프트·Flyway V32/V33·백엔드 파이프라인·Draft API·Canvas·후보 보관함·Slot Editor를 구현했다. Slot 너비 12~28%·가로:세로 3.5:1 계약은 원본/일반 AI/PIXEL에 공통 적용한다. 실제 Cloudflare/S3 운영 연동, 최종 UX와 기존 Jar 표시 연결, 배포 Smoke Test는 완료로 표시하지 않는다. 적용된 V32/V33은 수정하지 않고 다음 DB 변경은 새 Migration으로 추가한다.
 
 ---
 

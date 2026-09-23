@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import SlotEditor from "./SlotEditor";
+import JarDesignFinalizePanel from "./JarDesignFinalizePanel";
 import {
   createJarDesignGeneration,
   getJarDesignDraft,
@@ -29,6 +31,17 @@ export default function AiCandidateGallery({ draftId }) {
   const [previewUrls, setPreviewUrls] = useState({});
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState("");
   const [error, setError] = useState("");
+  const [slotSaving, setSlotSaving] = useState(false);
+  const [slotDirty, setSlotDirty] = useState(false);
+  // 슬롯 저장은 이미지 자체를 바꾸지 않으므로 같은 후보들의 URL을 반복 발급하지 않는다.
+  const previewCandidateIds = JSON.stringify((draft?.generations || [])
+    .filter((generation) => generation.status === "SUCCEEDED")
+    .map((generation) => generation.generationId));
+  const draftStatus = draft?.status;
+
+  function confirmDiscardSlot() {
+    return !slotDirty || window.confirm("아직 저장하지 않은 투입구 편집이 있어요. 편집 내용을 버리고 계속할까요?");
+  }
 
   async function loadDraft() {
     setLoading(true);
@@ -49,26 +62,24 @@ export default function AiCandidateGallery({ draftId }) {
 
   useEffect(() => {
     let cancelled = false;
-    if (!draft) {
+    if (draftStatus !== "ACTIVE") {
       setOriginalPreviewUrl("");
       setPreviewUrls({});
       return () => {
         cancelled = true;
       };
     }
-    const succeededCandidates = (draft?.generations || []).filter(
-      (generation) => generation.status === "SUCCEEDED"
-    );
+    const succeededCandidateIds = JSON.parse(previewCandidateIds);
     Promise.all([
       getJarDesignOriginalPreview(draftId)
         .then((preview) => ["original", preview.previewUrl])
         .catch(() => ["original", null]),
-      ...succeededCandidates.map(async (generation) => {
+      ...succeededCandidateIds.map(async (generationId) => {
         try {
-          const preview = await getJarDesignGenerationPreview(draftId, generation.generationId);
-          return [generation.generationId, preview.previewUrl];
+          const preview = await getJarDesignGenerationPreview(draftId, generationId);
+          return [generationId, preview.previewUrl];
         } catch {
-          return [generation.generationId, null];
+          return [generationId, null];
         }
       }),
     ]).then((entries) => {
@@ -82,11 +93,11 @@ export default function AiCandidateGallery({ draftId }) {
     return () => {
       cancelled = true;
     };
-  }, [draft, draftId]);
+  }, [draftStatus, previewCandidateIds, draftId]);
 
   /** 같은 Draft의 PROCESSING 중복 규칙은 서버가 보장하며, 화면도 요청 중 버튼을 잠근다. */
   async function handleGenerate(style) {
-    if (generatingStyle) return;
+    if (generatingStyle || slotSaving || !confirmDiscardSlot()) return;
     setGeneratingStyle(style);
     setError("");
     try {
@@ -101,7 +112,7 @@ export default function AiCandidateGallery({ draftId }) {
 
   /** 성공·미정리 후보만 선택 API로 전달하며, 성공 뒤 서버 상태를 다시 읽는다. */
   async function handleSelect(generationId) {
-    if (selectingGenerationId !== null) return;
+    if (selectingGenerationId !== null || slotSaving || !confirmDiscardSlot()) return;
     setSelectingGenerationId(generationId);
     setError("");
     try {
@@ -116,11 +127,26 @@ export default function AiCandidateGallery({ draftId }) {
 
   /** 정규화 원본도 AI 후보와 같은 Draft 선택 계약으로 저장한다. */
   async function handleSelectOriginal() {
-    if (selectingGenerationId !== null) return;
+    if (selectingGenerationId !== null || slotSaving || !confirmDiscardSlot()) return;
     setSelectingGenerationId("original");
     setError("");
     try {
       await selectJarDesign(draftId, "ORIGINAL");
+      await loadDraft();
+    } catch (requestError) {
+      setError(getJarDesignDraftError(requestError).message);
+    } finally {
+      setSelectingGenerationId(null);
+    }
+  }
+
+  /** 직접 디자인을 쓰지 않기로 한 경우에도 Draft Finalize API 안에서 기존 Jar 생성 로직을 재사용한다. */
+  async function handleSelectDefault() {
+    if (selectingGenerationId !== null || slotSaving || !confirmDiscardSlot()) return;
+    setSelectingGenerationId("default");
+    setError("");
+    try {
+      await selectJarDesign(draftId, "DEFAULT");
       await loadDraft();
     } catch (requestError) {
       setError(getJarDesignDraftError(requestError).message);
@@ -137,7 +163,7 @@ export default function AiCandidateGallery({ draftId }) {
           <h2 className="mt-3 text-2xl font-black text-slate-800">원본을 어떤 분위기로 바꿔볼까요?</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">후보는 이 Draft 안에만 보관됩니다. 마음에 드는 결과를 하나 고르면 다음 Slot 편집 단계에서 이어서 사용할 수 있어요.</p>
         </div>
-        <button type="button" onClick={() => void loadDraft()} disabled={loading || Boolean(generatingStyle)}
+        <button type="button" onClick={() => { if (confirmDiscardSlot()) void loadDraft(); }} disabled={loading || Boolean(generatingStyle) || slotSaving || selectingGenerationId !== null}
           className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
           새로고침
         </button>
@@ -146,7 +172,7 @@ export default function AiCandidateGallery({ draftId }) {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {AI_STYLES.map(([style, title, description]) => (
           <button key={style} type="button" onClick={() => void handleGenerate(style)}
-            disabled={Boolean(generatingStyle) || loading}
+            disabled={Boolean(generatingStyle) || loading || slotSaving || selectingGenerationId !== null}
             className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-violet-300 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50">
             <p className="text-sm font-black text-slate-800">{generatingStyle === style ? "생성 중..." : title}</p>
             <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
@@ -177,11 +203,23 @@ export default function AiCandidateGallery({ draftId }) {
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">서버에서 480×480 PNG로 정규화한 원본이에요.</p>
               <button type="button" onClick={() => void handleSelectOriginal()}
-                disabled={selectingGenerationId !== null}
+                disabled={selectingGenerationId !== null || slotSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "ORIGINAL"}
                 className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
                 {draft?.selectedDesignType === "ORIGINAL" ? "선택됨" : selectingGenerationId === "original" ? "선택 저장 중..." : "원본 그대로 선택"}
               </button>
             </div>
+          </article>
+          <article className={`flex flex-col rounded-[22px] border p-4 ${draft?.selectedDesignType === "DEFAULT" ? "border-violet-500 bg-violet-50 ring-2 ring-violet-100" : "border-slate-200 bg-slate-50"}`}>
+            <div className="flex min-h-40 flex-1 flex-col items-center justify-center rounded-2xl bg-white p-5 text-center">
+              <span className="text-4xl" aria-hidden="true">🫙</span>
+              <p className="mt-3 font-black text-slate-800">기본 저금통으로 만들기</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">커스텀 이미지 없이 기존 테마 저금통을 사용할 수 있어요.</p>
+            </div>
+            <button type="button" onClick={() => void handleSelectDefault()}
+              disabled={selectingGenerationId !== null || slotSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "DEFAULT"}
+              className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
+              {draft?.selectedDesignType === "DEFAULT" ? "선택됨" : selectingGenerationId === "default" ? "선택 저장 중..." : "기본 저금통 선택"}
+            </button>
           </article>
           {(draft?.generations || []).map((generation) => {
             const isSucceeded = generation.status === "SUCCEEDED";
@@ -208,7 +246,7 @@ export default function AiCandidateGallery({ draftId }) {
                   </div>
                   {generation.errorCode && <p className="mt-2 text-xs font-semibold text-rose-600">{generation.errorCode}</p>}
                   <button type="button" onClick={() => void handleSelect(generation.generationId)}
-                    disabled={!isSucceeded || selectingGenerationId !== null}
+                    disabled={!isSucceeded || selectingGenerationId !== null || slotSaving || Boolean(generatingStyle) || isSelected}
                     className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
                     {isSelected ? "선택됨" : selectingGenerationId === generation.generationId ? "선택 저장 중..." : "이 후보 선택"}
                   </button>
@@ -217,6 +255,28 @@ export default function AiCandidateGallery({ draftId }) {
             );
           })}
         </div>
+      )}
+      {!loading && draft?.status === "ACTIVE" && ["ORIGINAL", "AI"].includes(draft.selectedDesignType) && (
+        <SlotEditor
+          key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${draft.slotCenterX}:${draft.slotCenterY}:${draft.slotSizeRatio}`}
+          draft={draft}
+          previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
+          disabled={Boolean(generatingStyle) || selectingGenerationId !== null}
+          onBusyChange={setSlotSaving}
+          onDirtyChange={setSlotDirty}
+          onSaved={(slot) => setDraft((current) => ({ ...current,
+            slotCenterX: slot.centerX, slotCenterY: slot.centerY, slotSizeRatio: slot.sizeRatio }))}
+        />
+      )}
+      {!loading && draft && (draft.status === "FINALIZED" || (draft.status === "ACTIVE" && ["ORIGINAL", "AI", "DEFAULT"].includes(draft.selectedDesignType))) && (
+        <JarDesignFinalizePanel
+          draft={draft}
+          previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
+          slotDirty={slotDirty}
+          slotSaving={slotSaving}
+          disabled={Boolean(generatingStyle) || selectingGenerationId !== null}
+          onRefresh={() => void loadDraft()}
+        />
       )}
     </section>
   );

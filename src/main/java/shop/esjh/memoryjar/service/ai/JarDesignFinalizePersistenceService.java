@@ -146,6 +146,8 @@ public class JarDesignFinalizePersistenceService {
         if (draft.getSlotCenterX() == null || draft.getSlotCenterY() == null || draft.getSlotSizeRatio() == null) {
             throw new ApiException(AiDraftErrorCode.DRAFT_SLOT_REQUIRED);
         }
+        // 과거에 저장된 중심값만 유효한 슬롯도 이미지 밖으로 나가면 최종화 전에 다시 편집한다.
+        JarSlotGeometry.validate(draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio());
     }
 
     private void requireSameTarget(FinalizeTarget expected, FinalizeTarget actual) {

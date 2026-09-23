@@ -13,6 +13,8 @@ public enum AiDraftErrorCode implements ErrorCode {
     DRAFT_SELECTION_REQUIRED(HttpStatus.CONFLICT, "최종 디자인을 먼저 선택해야 합니다."),
     DRAFT_CUSTOM_SELECTION_REQUIRED(HttpStatus.CONFLICT, "ORIGINAL 또는 AI 디자인을 먼저 선택해야 Slot을 저장할 수 있습니다."),
     DRAFT_SLOT_REQUIRED(HttpStatus.CONFLICT, "커스텀 디자인의 Slot 위치와 크기를 먼저 저장해야 합니다."),
+    DRAFT_SLOT_OUT_OF_BOUNDS(HttpStatus.BAD_REQUEST, "투입구 전체가 이미지 안에 들어오도록 위치와 크기를 조절해 주세요."),
+    DRAFT_SLOT_TARGET_CHANGED(HttpStatus.CONFLICT, "편집 중 선택한 디자인이 변경되었습니다. 현재 디자인을 다시 불러와 주세요."),
     DRAFT_SLOT_INVALID(HttpStatus.BAD_REQUEST, "Slot 값은 0과 1 사이의 소수점 다섯째 자리 이하 값이어야 합니다."),
     AI_GENERATION_ALREADY_PROCESSING(HttpStatus.CONFLICT, "이 디자인 초안에는 이미 진행 중인 AI 생성이 있습니다."),
     AI_GENERATION_NOT_FOUND(HttpStatus.NOT_FOUND, "AI 후보를 찾을 수 없습니다."),

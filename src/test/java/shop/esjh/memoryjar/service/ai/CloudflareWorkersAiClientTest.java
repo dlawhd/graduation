@@ -17,12 +17,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
@@ -84,6 +86,8 @@ class CloudflareWorkersAiClientTest {
         assertThat(body).contains("name=\"prompt\"", "draw a cat");
         assertThat(body).contains("name=\"width\"", "1024", "name=\"height\"");
         assertThat(body).contains("name=\"seed\"", "123", "name=\"input_image_0\"");
+        assertThat(body).contains("filename=\"original.png\"");
+        assertThat(body).doesNotContain("filename*=");
     }
 
     @Test
@@ -97,6 +101,47 @@ class CloudflareWorkersAiClientTest {
                 .isInstanceOf(CloudflareWorkersAiClient.CloudflareAiClientException.class)
                 .extracting(error -> ((CloudflareWorkersAiClient.CloudflareAiClientException) error).getFailureType())
                 .isEqualTo(CloudflareWorkersAiClient.FailureType.RATE_LIMITED);
+    }
+
+    @Test
+    void generateImage_retainsOnlySafeHttpStatusAndCloudflareErrorCodesForRejectedRequest() throws Exception {
+        when(response.statusCode()).thenReturn(403);
+        when(response.headers()).thenReturn(HttpHeaders.of(Map.of("cf-ray", List.of("9f13c10a0b0c1234-ICN")),
+                (name, value) -> true));
+        when(response.body()).thenReturn(new ByteArrayInputStream("""
+                {"success":false,"errors":[{"code":10000,"message":"sensitive provider detail"}]}
+                """.getBytes(StandardCharsets.UTF_8)));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+
+        assertThatThrownBy(() -> client.generateImage(request(null)))
+                .isInstanceOf(CloudflareWorkersAiClient.CloudflareAiClientException.class)
+                .satisfies(error -> {
+                    var cloudflareError = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+                    assertThat(cloudflareError.getFailureType())
+                            .isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
+                    assertThat(cloudflareError.getHttpStatus()).isEqualTo(403);
+                    assertThat(cloudflareError.getCfRay()).isEqualTo("9f13c10a0b0c1234-ICN");
+                    assertThat(cloudflareError.getCloudflareErrorCodes()).containsExactly("10000");
+                });
+    }
+
+    @Test
+    void generateImage_retainsErrorCodesWhenCloudflareReturnsSuccessFalseWithHttp200() throws Exception {
+        when(response.statusCode()).thenReturn(200);
+        when(response.body()).thenReturn(new ByteArrayInputStream("""
+                {"success":false,"errors":[{"code":3041,"message":"sensitive provider detail"}]}
+                """.getBytes(StandardCharsets.UTF_8)));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+
+        assertThatThrownBy(() -> client.generateImage(request(null)))
+                .isInstanceOf(CloudflareWorkersAiClient.CloudflareAiClientException.class)
+                .satisfies(error -> {
+                    var cloudflareError = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+                    assertThat(cloudflareError.getHttpStatus()).isEqualTo(200);
+                    assertThat(cloudflareError.getCloudflareErrorCodes()).containsExactly("3041");
+                });
     }
 
     @Test

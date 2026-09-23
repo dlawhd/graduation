@@ -2230,6 +2230,20 @@ AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라,
 
 AI Draft 영역의 기능별 오류는 공통 오류 봉투의 `error.code`로 구분한다. 예를 들어 `DRAFT_NOT_OWNER`는 `403`, `AI_GENERATION_ALREADY_PROCESSING`과 `DRAFT_PROCESSING_FINALIZE_BLOCKED`는 `409`다. 화면은 문구가 아니라 이 코드를 기준으로 동작을 분기해야 한다.
 
+### Slot 저장 계약
+
+`PATCH /api/v1/design-drafts/{draftId}/slot` 성공은 `204`이며 본문이 없다.
+
+```json
+{"centerX":0.5,"centerY":0.4,"sizeRatio":0.5,"expectedDesignType":"AI","expectedGenerationId":100}
+```
+
+ORIGINAL 편집은 `expectedDesignType: "ORIGINAL"`, `expectedGenerationId: null`을 전송한다.
+기존 좌표 3개만 보내는 요청도 지원하지만 새 Editor는 대상 정보를 보내 다른 탭의 후보 변경을 감지한다.
+선택 변경 충돌은 `409 DRAFT_SLOT_TARGET_CHANGED`, 이미지 경계 초과는 `400 DRAFT_SLOT_OUT_OF_BOUNDS`,
+소수 5자리·0~1 위반은 `400 DRAFT_SLOT_INVALID`다. 너비는 이미지의 `12% + 16% × sizeRatio`, 높이는 너비의 `1/3.5`다.
+기존 저장값도 Finalize 전에 경계를 다시 검증하므로 밖으로 나가는 Slot은 재편집해야 한다.
+
 # 13. 현재 미구현 API 및 향후 개발 항목
 
 기존 초안에 있었지만 아직 구현되지 않은 기능과, AI 저금통 개발 과정에서 새로 필요해질 기능을 구분했어.
@@ -2248,7 +2262,7 @@ AI Draft 영역의 기능별 오류는 공통 오류 봉투의 `error.code`로 �
 | 신고·차단·관리자 신고 처리 | 미구현 |
 | AI 디자인의 기존 Jar 화면 표시 API | 미구현; Optional `JarDesign` 조회·표시 연결은 별도 작업 |
 
-AI Draft 생성·후보 생성·원본/후보 미리보기·선택·Slot 저장·Finalize API는 구현되어 있다. 다만 Slot Editor와 최종 미리보기 화면, 기존 Jar 목록·상세·확대·오픈 연출의 Optional `JarDesign` 표시는 아직 완료되지 않았다.
+AI Draft 생성·후보 생성·원본/후보 미리보기·선택·Slot 저장·Finalize API와 최종 미리보기 화면은 구현되어 있다. 화면은 ORIGINAL/AI의 저장된 Slot Overlay 또는 DEFAULT 기본 Jar 경로를 확인하고, `JarCreateRequest` 입력 뒤 Finalize API를 한 번만 호출한다. 기존 Jar 목록·상세·확대·오픈 연출의 Optional `JarDesign` 표시는 다음 단계다.
 
 # 14. 최종 API 전수 대조
 

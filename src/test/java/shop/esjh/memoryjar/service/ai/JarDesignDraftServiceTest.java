@@ -16,6 +16,7 @@ import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -150,6 +151,39 @@ class JarDesignDraftServiceTest {
                 new BigDecimal("0.50000"), new BigDecimal("0.40000"), new BigDecimal("0.30000"));
 
         verify(draft).updateSlot(new BigDecimal("0.50000"), new BigDecimal("0.40000"), new BigDecimal("0.30000"));
+        verify(draft).extendExpiration(any());
+    }
+
+    @Test
+    void updateSlot_rejectsChangedCandidateWithoutWritingOrExtendingExpiration() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.getSelectedDesignType()).thenReturn(JarDraftDesignType.AI);
+        when(draft.getSelectedGenerationId()).thenReturn(22L);
+
+        assertThatThrownBy(() -> draftService.updateSlot(1L, 10L,
+                new BigDecimal("0.5"), new BigDecimal("0.5"), new BigDecimal("0.5"), JarDraftDesignType.AI, 21L))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode()).isEqualTo(AiDraftErrorCode.DRAFT_SLOT_TARGET_CHANGED);
+        verify(draft, never()).updateSlot(any(), any(), any());
+        verify(draft, never()).extendExpiration(any());
+    }
+
+    @Test
+    void updateSlot_acceptsMatchingOriginalSnapshot() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.getSelectedDesignType()).thenReturn(JarDraftDesignType.ORIGINAL);
+        when(draft.getSelectedGenerationId()).thenReturn(null);
+        when(draft.hasCustomDesignSelection()).thenReturn(true);
+        when(properties.getExpiresAfterDays()).thenReturn(7);
+        draftService.updateSlot(1L, 10L, new BigDecimal("0.5"), new BigDecimal("0.5"), BigDecimal.ZERO,
+                JarDraftDesignType.ORIGINAL, null);
+        verify(draft).updateSlot(new BigDecimal("0.5"), new BigDecimal("0.5"), BigDecimal.ZERO);
         verify(draft).extendExpiration(any());
     }
 
