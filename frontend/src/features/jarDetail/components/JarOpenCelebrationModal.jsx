@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { formatDate } from "../utils/jarDetailDateUtils";
 import { getThemeIcon } from "../theme/jarDetailTheme";
+import JarCustomDesignVisual from "./JarCustomDesignVisual";
 
 /*
  * JarOpenCelebrationModal 역할
@@ -23,6 +24,7 @@ export default function JarOpenCelebrationModal({
   event,
   onClose,
   onViewNotes,
+  onReloadDesignImage = null,
 }) {
   // open이 false면 화면에 아무것도 만들지 않는다.
   if (!open) return null;
@@ -255,29 +257,41 @@ export default function JarOpenCelebrationModal({
 
           {/* 저금통 */}
           <div className="relative z-20 mt-16 h-[250px] w-[210px]">
-            {/* 뚜껑 */}
-            <div
-              className={`jar-open-lid absolute left-1/2 top-0 z-30 h-12 w-44 -translate-x-1/2 rounded-full ${palette.lid} shadow-[0_18px_34px_rgba(15,23,42,0.22)]`}
-            />
-            <div className="jar-open-lid absolute left-1/2 top-[16px] z-40 h-2.5 w-20 -translate-x-1/2 rounded-full bg-slate-700/80" />
-
-            {/* 몸통 */}
-            <div
-              className={`jar-open-body absolute bottom-0 left-1/2 h-[220px] w-[190px] -translate-x-1/2 rounded-[42%_42%_28%_28%] border-[5px] ${palette.jarBody} shadow-[0_28px_70px_rgba(15,23,42,0.22)]`}
-            >
-              <div className="absolute left-7 top-8 h-28 w-9 rounded-full bg-white/60 blur-sm" />
-              <div className="absolute right-8 top-12 h-20 w-5 rounded-full bg-white/40 blur-sm" />
-
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <div className="flex h-[90px] w-[90px] items-center justify-center">
-                  {themeIcon}
-                </div>
-
-                <div className="rounded-full bg-white/85 px-4 py-2 text-sm font-black text-emerald-700 shadow">
-                  OPEN
-                </div>
+            {jar?.design ? (
+              <div className="jar-open-body absolute bottom-0 left-1/2 h-[220px] w-[220px] -translate-x-1/2">
+                <JarCustomDesignVisual
+                  design={jar.design}
+                  alt={`${jar?.name || "저금통"} 오픈 디자인`}
+                  className="h-full w-full"
+                  onReload={onReloadDesignImage}
+                />
               </div>
-            </div>
+            ) : (
+              <>
+                {/* 디자인이 없는 기존 Jar는 원래의 뚜껑 오픈 애니메이션을 유지한다. */}
+                <div
+                  className={`jar-open-lid absolute left-1/2 top-0 z-30 h-12 w-44 -translate-x-1/2 rounded-full ${palette.lid} shadow-[0_18px_34px_rgba(15,23,42,0.22)]`}
+                />
+                <div className="jar-open-lid absolute left-1/2 top-[16px] z-40 h-2.5 w-20 -translate-x-1/2 rounded-full bg-slate-700/80" />
+
+                <div
+                  className={`jar-open-body absolute bottom-0 left-1/2 h-[220px] w-[190px] -translate-x-1/2 rounded-[42%_42%_28%_28%] border-[5px] ${palette.jarBody} shadow-[0_28px_70px_rgba(15,23,42,0.22)]`}
+                >
+                  <div className="absolute left-7 top-8 h-28 w-9 rounded-full bg-white/60 blur-sm" />
+                  <div className="absolute right-8 top-12 h-20 w-5 rounded-full bg-white/40 blur-sm" />
+
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <div className="flex h-[90px] w-[90px] items-center justify-center">
+                      {themeIcon}
+                    </div>
+
+                    <div className="rounded-full bg-white/85 px-4 py-2 text-sm font-black text-emerald-700 shadow">
+                      OPEN
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

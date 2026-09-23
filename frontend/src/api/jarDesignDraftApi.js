@@ -81,6 +81,16 @@ export async function updateJarDesignSlot(draftId, { centerX, centerY, sizeRatio
   });
 }
 
+/** 선택 이미지의 배경을 지울 닫힌 외곽선만 저장한다. 최종 PNG 변환은 서버 Finalize 단계에서 수행한다. */
+export async function updateJarDesignCutout(draftId, { regions, points, expectedDesignType, expectedGenerationId }) {
+  await fetchCsrf();
+  await apiClient.patch(`${DRAFT_BASE_URL}/${draftId}/cutout`, {
+    ...(regions === undefined ? { points: points || [] } : { regions }),
+    expectedDesignType,
+    expectedGenerationId,
+  });
+}
+
 /** Draft의 선택을 실제 Jar로 확정하고 생성된 Jar 식별자를 반환한다. */
 export async function finalizeJarDesignDraft(draftId, jarPayload) {
   await fetchCsrf();

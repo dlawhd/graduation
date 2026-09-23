@@ -121,12 +121,12 @@ public class JarDesignFinalizePersistenceService {
             throw new ApiException(AiDraftErrorCode.DRAFT_SELECTION_REQUIRED);
         }
         if (selectedType == JarDraftDesignType.DEFAULT) {
-            return new FinalizeTarget(JarDraftDesignType.DEFAULT, null, null, null, null, null);
+            return new FinalizeTarget(JarDraftDesignType.DEFAULT, null, null, null, null, null, null);
         }
         requireSlot(draft);
         if (selectedType == JarDraftDesignType.ORIGINAL) {
             return new FinalizeTarget(JarDraftDesignType.ORIGINAL, draft.getOriginalS3Key(), null,
-                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio());
+                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson());
         }
 
         Long generationId = draft.getSelectedGenerationId();
@@ -139,7 +139,7 @@ public class JarDesignFinalizePersistenceService {
             throw new ApiException(AiDraftErrorCode.AI_GENERATION_FINALIZE_NOT_SELECTABLE);
         }
         return new FinalizeTarget(JarDraftDesignType.AI, generation.getGeneratedS3Key(), generation.getGenerationId(),
-                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio());
+                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson());
     }
 
     private void requireSlot(JarDesignDraft draft) {
@@ -164,9 +164,15 @@ public class JarDesignFinalizePersistenceService {
         };
     }
 
-    /** S3 복사 전후에 비교하는 선택 종류·원본 Key·Generation·Slot의 불변 Snapshot이다. */
+    /** S3 처리 전후에 비교하는 선택 종류·원본 Key·Generation·Slot·외곽선의 불변 Snapshot이다. */
     public record FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
-                                 BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio) {
+                                 BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
+                                 String cutoutPathJson) {
+        /** 기존 Finalize 단위 테스트와 호출부가 외곽선 없는 Snapshot을 계속 만들 수 있게 한다. */
+        public FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
+                              BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio) {
+            this(designType, sourceS3Key, generationId, slotCenterX, slotCenterY, slotSizeRatio, null);
+        }
     }
 
     /** API 단계에서 기존 Jar 생성 응답과 연결할 최종 Jar 식별자와 디자인 종류다. */

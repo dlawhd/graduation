@@ -30,6 +30,7 @@ import {
   isSessionExpiredError,
 } from "../api/authSessionUtils";
 import SessionExpiredPage from "../components/auth/SessionExpiredPage";
+import JarCustomDesignVisual from "../features/jarDetail/components/JarCustomDesignVisual";
 
 /*
   JarsPage 역할
@@ -354,6 +355,19 @@ function JarListVisual({ jar }) {
 
   // 목록 카드 안에 보여줄 대표 SVG 아이콘
   const themeIcon = getThemeIcon(jar?.theme, 58);
+
+  if (jar?.design) {
+    return (
+      <div className="relative mx-auto flex h-[196px] w-36 items-center justify-center">
+        <div className={`absolute inset-4 rounded-full blur-3xl ${palette.glow}`} />
+        <JarCustomDesignVisual
+          design={jar.design}
+          alt={`${jar?.name || "저금통"} 최종 디자인`}
+          className="relative z-10 h-36 w-36"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative mx-auto flex h-[196px] w-36 items-center justify-center">

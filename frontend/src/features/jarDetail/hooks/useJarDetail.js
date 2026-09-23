@@ -44,7 +44,11 @@ export function useJarDetail(jarId) {
    * WebSocket 이벤트처럼 조용히 최신 상태만 맞출 때 사용한다.
    */
   const loadJarDetail = useCallback(
-    async ({ silent = false } = {}) => {
+    async ({
+      silent = false,
+      keepCurrentOnError = false,
+      suppressError = false,
+    } = {}) => {
       if (!jarId) return;
 
       if (!silent) {
@@ -61,6 +65,7 @@ export function useJarDetail(jarId) {
         const data = res.data?.data;
 
         setJar(data || null);
+        return true;
       } catch (e) {
         /*
          * Refresh Token까지 만료된 오류라면
@@ -73,7 +78,7 @@ export function useJarDetail(jarId) {
           setError("");
           setJar(null);
 
-          return;
+          return false;
         }
 
         const serverMessage =
@@ -82,8 +87,20 @@ export function useJarDetail(jarId) {
           e?.message ||
           "저금통 정보를 불러오지 못했어요.";
 
-        setError(serverMessage);
-        setJar(null);
+        /*
+         * Presigned URL을 다시 받는 요청은 기존 상세 화면을 유지해야 한다.
+         * 이미지 재시도 자체가 실패했다고 전체 Jar 정보를 지우면 사용자가
+         * 원래 보던 화면까지 잃어버리기 때문이다.
+         */
+        if (!suppressError) {
+          setError(serverMessage);
+        }
+
+        if (!keepCurrentOnError) {
+          setJar(null);
+        }
+
+        return false;
       } finally {
         if (!silent) {
           setLoading(false);

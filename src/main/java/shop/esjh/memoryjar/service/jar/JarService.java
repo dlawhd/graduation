@@ -55,6 +55,7 @@ public class JarService {
     private final NotificationService notificationService;
     private final JarMemberRealtimeService jarMemberRealtimeService;
     private final ChatSystemMessageService chatSystemMessageService;
+    private final JarDesignViewService jarDesignViewService;
 
     public JarService(
             JarRepository jarRepository,
@@ -64,7 +65,8 @@ public class JarService {
             JarOpenService jarOpenService,
             NotificationService notificationService,
             JarMemberRealtimeService jarMemberRealtimeService,
-            ChatSystemMessageService chatSystemMessageService
+            ChatSystemMessageService chatSystemMessageService,
+            JarDesignViewService jarDesignViewService
     ) {
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
@@ -74,6 +76,7 @@ public class JarService {
         this.notificationService = notificationService;
         this.jarMemberRealtimeService = jarMemberRealtimeService;
         this.chatSystemMessageService = chatSystemMessageService;
+        this.jarDesignViewService = jarDesignViewService;
     }
 
     // 저금통을 새로 만드는 메서드야.
@@ -190,6 +193,11 @@ public class JarService {
         // 저금통 개수만큼 ensureOpenedIfDue()가 실행될 수 있다.
         Set<Long> openedJarIds = resolveOpenedJarIdsForList(jars, jarIds);
 
+        // Optional JarDesign도 한 번에 조회해 목록 카드마다 추가 DB 조회가 발생하지 않게 한다.
+        Map<Long, JarDesignResponse> designMap = Optional
+                .ofNullable(jarDesignViewService.findByJarIds(jarIds))
+                .orElseGet(Map::of);
+
         // 각 저금통을 목록용 DTO로 변환한다.
         List<JarListItem> items = jars.stream()
                 .map(jar -> {
@@ -222,7 +230,8 @@ public class JarService {
                             jar.getLockLevel(),
                             openedJarIds.contains(jarId),
                             myRole,
-                            toKstOffsetDateTime(jar.getUpdatedAt())
+                            toKstOffsetDateTime(jar.getUpdatedAt()),
+                            designMap.get(jarId)
                     );
                 })
                 .toList();
@@ -267,7 +276,8 @@ public class JarService {
                 isOpen(jar),
                 myMember.getRole(),
                 toKstOffsetDateTime(jar.getCreatedAt()),
-                toKstOffsetDateTime(jar.getUpdatedAt())
+                toKstOffsetDateTime(jar.getUpdatedAt()),
+                jarDesignViewService.findByJarId(jarId)
         );
     }
 

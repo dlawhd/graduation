@@ -6,6 +6,7 @@ import {
   getThemeIcon,
   getThemePalette,
 } from "../theme/jarDetailTheme";
+import JarCustomDesignVisual from "./JarCustomDesignVisual";
 
 /*
  * JarVisual 역할
@@ -39,8 +40,10 @@ export default function JarVisual({
    * true이면 버튼 주변에 밝은 ring을 보여준다.
    */
   tutorialHighlighted = false,
+  onReloadDesignImage = null,
 }) {
   const palette = getThemePalette(jar?.theme);
+  const hasCustomDesign = Boolean(jar?.design);
 
   // 현재 테마에 맞는 파티클 정보
   // 지금은 createJarSnowballParticles가 실제 파티클을 만들어주기 때문에
@@ -201,55 +204,62 @@ export default function JarVisual({
           className={`absolute inset-6 rounded-full blur-3xl ${palette.floating}`}
         />
 
-        {/* 뚜껑 */}
-        <div
-          className={`absolute top-[48px] z-20 h-10 w-36 rounded-full ${palette.lid} shadow-lg`}
-        />
-        <div className="absolute top-[60px] z-30 h-2 w-14 rounded-full bg-slate-700/80" />
+        {hasCustomDesign ? (
+          <JarCustomDesignVisual
+            design={jar.design}
+            alt={`${jar?.name || "저금통"} 최종 디자인`}
+            className="relative z-10 h-[230px] w-[230px]"
+            onReload={onReloadDesignImage}
+          />
+        ) : (
+          <>
+            {/* 디자인이 없는 기존 Jar는 Theme 기반 CSS 저금통을 그대로 유지한다. */}
+            <div
+              className={`absolute top-[48px] z-20 h-10 w-36 rounded-full ${palette.lid} shadow-lg`}
+            />
+            <div className="absolute top-[60px] z-30 h-2 w-14 rounded-full bg-slate-700/80" />
 
-        {/* 저금통 몸통 */}
-        <div
-          className={`relative z-10 mt-8 h-[210px] w-[180px] overflow-hidden rounded-[42%_42%_28%_28%] border-4 ${palette.jarBody} shadow-[0_20px_50px_rgba(15,23,42,0.12)]`}
-        >
-          {/* 유리 느낌 하이라이트 */}
-          <div className="absolute left-6 top-6 z-30 h-24 w-8 rounded-full bg-white/60 blur-sm" />
-          <div className="absolute right-8 top-10 z-30 h-16 w-4 rounded-full bg-white/40 blur-sm" />
-
-          {/* 자동 스노우볼 파티클 */}
-          {particles.map((particle) => (
-            <span
-              key={particle.id}
-              className="jar-snowball-particle absolute z-20 select-none"
-              style={{
-                left: `${particle.left}%`,
-                top: `${particle.top}%`,
-                fontSize: `${particle.size}px`,
-                "--fall-x": `${particle.fallX}px`,
-                "--fall-y": `${particle.fallY}px`,
-                "--fall-rotate": `${particle.rotate}deg`,
-                "--fall-duration": `${particle.duration}s`,
-                "--fall-delay": `${particle.delay}s`,
-              }}
+            <div
+              className={`relative z-10 mt-8 h-[210px] w-[180px] overflow-hidden rounded-[42%_42%_28%_28%] border-4 ${palette.jarBody} shadow-[0_20px_50px_rgba(15,23,42,0.12)]`}
             >
-              {typeof particle.icon === "string"
-                ? particle.icon
-                : particle.icon.type === "emoji"
-                  ? particle.icon.value
-                  : particle.icon.render(particle.size)}
-            </span>
-          ))}
+              <div className="absolute left-6 top-6 z-30 h-24 w-8 rounded-full bg-white/60 blur-sm" />
+              <div className="absolute right-8 top-10 z-30 h-16 w-4 rounded-full bg-white/40 blur-sm" />
 
-          {/* 안쪽 아이콘 */}
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3">
-            <div className="flex h-[76px] w-[76px] items-center justify-center">
-              {getThemeIcon(jar?.theme, 72)}
-            </div>
+              {particles.map((particle) => (
+                <span
+                  key={particle.id}
+                  className="jar-snowball-particle absolute z-20 select-none"
+                  style={{
+                    left: `${particle.left}%`,
+                    top: `${particle.top}%`,
+                    fontSize: `${particle.size}px`,
+                    "--fall-x": `${particle.fallX}px`,
+                    "--fall-y": `${particle.fallY}px`,
+                    "--fall-rotate": `${particle.rotate}deg`,
+                    "--fall-duration": `${particle.duration}s`,
+                    "--fall-delay": `${particle.delay}s`,
+                  }}
+                >
+                  {typeof particle.icon === "string"
+                    ? particle.icon
+                    : particle.icon.type === "emoji"
+                      ? particle.icon.value
+                      : particle.icon.render(particle.size)}
+                </span>
+              ))}
 
-            <div className="text-center text-xs text-slate-500">
-              {ROLE_LABEL[jar?.myRole] || jar?.myRole}
+              <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3">
+                <div className="flex h-[76px] w-[76px] items-center justify-center">
+                  {getThemeIcon(jar?.theme, 72)}
+                </div>
+
+                <div className="text-center text-xs text-slate-500">
+                  {ROLE_LABEL[jar?.myRole] || jar?.myRole}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* 기존 확대 모달 열기 버튼 */}

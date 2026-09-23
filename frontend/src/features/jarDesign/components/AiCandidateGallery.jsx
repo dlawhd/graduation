@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import SlotEditor from "./SlotEditor";
+import CutoutEditor from "./CutoutEditor";
 import JarDesignFinalizePanel from "./JarDesignFinalizePanel";
 import {
   createJarDesignGeneration,
@@ -33,14 +34,17 @@ export default function AiCandidateGallery({ draftId }) {
   const [error, setError] = useState("");
   const [slotSaving, setSlotSaving] = useState(false);
   const [slotDirty, setSlotDirty] = useState(false);
+  const [cutoutSaving, setCutoutSaving] = useState(false);
+  const [cutoutDirty, setCutoutDirty] = useState(false);
   // 슬롯 저장은 이미지 자체를 바꾸지 않으므로 같은 후보들의 URL을 반복 발급하지 않는다.
   const previewCandidateIds = JSON.stringify((draft?.generations || [])
     .filter((generation) => generation.status === "SUCCEEDED")
     .map((generation) => generation.generationId));
   const draftStatus = draft?.status;
 
-  function confirmDiscardSlot() {
-    return !slotDirty || window.confirm("아직 저장하지 않은 투입구 편집이 있어요. 편집 내용을 버리고 계속할까요?");
+  function confirmDiscardEdits() {
+    if (!slotDirty && !cutoutDirty) return true;
+    return window.confirm("아직 저장하지 않은 투입구 또는 배경 지우기 편집이 있어요. 편집 내용을 버리고 계속할까요?");
   }
 
   async function loadDraft() {
@@ -97,7 +101,7 @@ export default function AiCandidateGallery({ draftId }) {
 
   /** 같은 Draft의 PROCESSING 중복 규칙은 서버가 보장하며, 화면도 요청 중 버튼을 잠근다. */
   async function handleGenerate(style) {
-    if (generatingStyle || slotSaving || !confirmDiscardSlot()) return;
+    if (generatingStyle || slotSaving || cutoutSaving || !confirmDiscardEdits()) return;
     setGeneratingStyle(style);
     setError("");
     try {
@@ -112,7 +116,7 @@ export default function AiCandidateGallery({ draftId }) {
 
   /** 성공·미정리 후보만 선택 API로 전달하며, 성공 뒤 서버 상태를 다시 읽는다. */
   async function handleSelect(generationId) {
-    if (selectingGenerationId !== null || slotSaving || !confirmDiscardSlot()) return;
+    if (selectingGenerationId !== null || slotSaving || cutoutSaving || !confirmDiscardEdits()) return;
     setSelectingGenerationId(generationId);
     setError("");
     try {
@@ -127,7 +131,7 @@ export default function AiCandidateGallery({ draftId }) {
 
   /** 정규화 원본도 AI 후보와 같은 Draft 선택 계약으로 저장한다. */
   async function handleSelectOriginal() {
-    if (selectingGenerationId !== null || slotSaving || !confirmDiscardSlot()) return;
+    if (selectingGenerationId !== null || slotSaving || cutoutSaving || !confirmDiscardEdits()) return;
     setSelectingGenerationId("original");
     setError("");
     try {
@@ -142,7 +146,7 @@ export default function AiCandidateGallery({ draftId }) {
 
   /** 직접 디자인을 쓰지 않기로 한 경우에도 Draft Finalize API 안에서 기존 Jar 생성 로직을 재사용한다. */
   async function handleSelectDefault() {
-    if (selectingGenerationId !== null || slotSaving || !confirmDiscardSlot()) return;
+    if (selectingGenerationId !== null || slotSaving || cutoutSaving || !confirmDiscardEdits()) return;
     setSelectingGenerationId("default");
     setError("");
     try {
@@ -163,7 +167,7 @@ export default function AiCandidateGallery({ draftId }) {
           <h2 className="mt-3 text-2xl font-black text-slate-800">원본을 어떤 분위기로 바꿔볼까요?</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">후보는 이 Draft 안에만 보관됩니다. 마음에 드는 결과를 하나 고르면 다음 Slot 편집 단계에서 이어서 사용할 수 있어요.</p>
         </div>
-        <button type="button" onClick={() => { if (confirmDiscardSlot()) void loadDraft(); }} disabled={loading || Boolean(generatingStyle) || slotSaving || selectingGenerationId !== null}
+        <button type="button" onClick={() => { if (confirmDiscardEdits()) void loadDraft(); }} disabled={loading || Boolean(generatingStyle) || slotSaving || cutoutSaving || selectingGenerationId !== null}
           className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
           새로고침
         </button>
@@ -172,7 +176,7 @@ export default function AiCandidateGallery({ draftId }) {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {AI_STYLES.map(([style, title, description]) => (
           <button key={style} type="button" onClick={() => void handleGenerate(style)}
-            disabled={Boolean(generatingStyle) || loading || slotSaving || selectingGenerationId !== null}
+            disabled={Boolean(generatingStyle) || loading || slotSaving || cutoutSaving || selectingGenerationId !== null}
             className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-violet-300 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50">
             <p className="text-sm font-black text-slate-800">{generatingStyle === style ? "생성 중..." : title}</p>
             <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
@@ -203,7 +207,7 @@ export default function AiCandidateGallery({ draftId }) {
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">서버에서 480×480 PNG로 정규화한 원본이에요.</p>
               <button type="button" onClick={() => void handleSelectOriginal()}
-                disabled={selectingGenerationId !== null || slotSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "ORIGINAL"}
+                disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "ORIGINAL"}
                 className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
                 {draft?.selectedDesignType === "ORIGINAL" ? "선택됨" : selectingGenerationId === "original" ? "선택 저장 중..." : "원본 그대로 선택"}
               </button>
@@ -216,7 +220,7 @@ export default function AiCandidateGallery({ draftId }) {
               <p className="mt-2 text-xs leading-5 text-slate-500">커스텀 이미지 없이 기존 테마 저금통을 사용할 수 있어요.</p>
             </div>
             <button type="button" onClick={() => void handleSelectDefault()}
-              disabled={selectingGenerationId !== null || slotSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "DEFAULT"}
+              disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "DEFAULT"}
               className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
               {draft?.selectedDesignType === "DEFAULT" ? "선택됨" : selectingGenerationId === "default" ? "선택 저장 중..." : "기본 저금통 선택"}
             </button>
@@ -246,7 +250,7 @@ export default function AiCandidateGallery({ draftId }) {
                   </div>
                   {generation.errorCode && <p className="mt-2 text-xs font-semibold text-rose-600">{generation.errorCode}</p>}
                   <button type="button" onClick={() => void handleSelect(generation.generationId)}
-                    disabled={!isSucceeded || selectingGenerationId !== null || slotSaving || Boolean(generatingStyle) || isSelected}
+                    disabled={!isSucceeded || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || isSelected}
                     className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
                     {isSelected ? "선택됨" : selectingGenerationId === generation.generationId ? "선택 저장 중..." : "이 후보 선택"}
                   </button>
@@ -261,11 +265,24 @@ export default function AiCandidateGallery({ draftId }) {
           key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${draft.slotCenterX}:${draft.slotCenterY}:${draft.slotSizeRatio}`}
           draft={draft}
           previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
-          disabled={Boolean(generatingStyle) || selectingGenerationId !== null}
+          cutoutRegions={draft.cutoutRegions?.length ? draft.cutoutRegions : draft.cutoutPoints}
+          disabled={Boolean(generatingStyle) || selectingGenerationId !== null || cutoutSaving || cutoutDirty}
           onBusyChange={setSlotSaving}
           onDirtyChange={setSlotDirty}
           onSaved={(slot) => setDraft((current) => ({ ...current,
             slotCenterX: slot.centerX, slotCenterY: slot.centerY, slotSizeRatio: slot.sizeRatio }))}
+        />
+      )}
+      {!loading && draft?.status === "ACTIVE" && ["ORIGINAL", "AI"].includes(draft.selectedDesignType) && (
+        <CutoutEditor
+          key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${JSON.stringify(draft.cutoutRegions || draft.cutoutPoints || [])}`}
+          draft={draft}
+          previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
+          disabled={Boolean(generatingStyle) || selectingGenerationId !== null || slotSaving}
+          onBusyChange={setCutoutSaving}
+          onDirtyChange={setCutoutDirty}
+          onSaved={(regions) => setDraft((current) => ({ ...current,
+            cutoutRegions: regions, cutoutPoints: regions[0] || [] }))}
         />
       )}
       {!loading && draft && (draft.status === "FINALIZED" || (draft.status === "ACTIVE" && ["ORIGINAL", "AI", "DEFAULT"].includes(draft.selectedDesignType))) && (
@@ -274,6 +291,8 @@ export default function AiCandidateGallery({ draftId }) {
           previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
           slotDirty={slotDirty}
           slotSaving={slotSaving}
+          cutoutDirty={cutoutDirty}
+          cutoutSaving={cutoutSaving}
           disabled={Boolean(generatingStyle) || selectingGenerationId !== null}
           onRefresh={() => void loadDraft()}
         />

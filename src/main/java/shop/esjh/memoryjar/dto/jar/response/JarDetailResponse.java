@@ -22,6 +22,7 @@ public record JarDetailResponse(
         boolean isOpen,
         JarRole myRole,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        JarDesignResponse design
 ) {
 }

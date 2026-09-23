@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
 import shop.esjh.memoryjar.dto.ai.response.JarDesignDraftDetailResponse;
+import shop.esjh.memoryjar.dto.ai.JarDesignCutoutPoint;
 import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
@@ -33,6 +34,7 @@ public class JarDesignDraftService {
     private final JarDesignDraftRepository draftRepository;
     private final JarAiGenerationRepository generationRepository;
     private final AiDraftProperties properties;
+    private final JarDesignCutoutPathCodec cutoutPathCodec;
 
     /** Draft 조회에는 S3 Key를 노출하지 않고 선택·Slot·후보 상태만 반환한다. */
     public JarDesignDraftDetailResponse getDraftSummary(Long userId, Long draftId) {
@@ -45,8 +47,11 @@ public class JarDesignDraftService {
                 .map(generation -> new JarDesignDraftDetailResponse.GenerationItem(generation.getGenerationId(), generation.getAiStyle(), generation.getStatus(),
                         generation.getErrorCode(), generation.getCompletedAt()))
                 .toList();
+        List<List<JarDesignCutoutPoint>> cutoutRegions = cutoutPathCodec.decodeRegions(draft.getCutoutPathJson());
+        List<JarDesignCutoutPoint> legacyCutoutPoints = cutoutRegions.isEmpty() ? List.of() : cutoutRegions.get(0);
         return new JarDesignDraftDetailResponse(draft.getDraftId(), draft.getStatus(), draft.getSelectedDesignType(), draft.getSelectedGenerationId(),
-                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations);
+                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), legacyCutoutPoints, cutoutRegions,
+                draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations);
     }
 
     /**
@@ -116,6 +121,40 @@ public class JarDesignDraftService {
         }
         JarSlotGeometry.validate(centerX, centerY, sizeRatio);
         draft.updateSlot(centerX, centerY, sizeRatio);
+        extendExpiration(draft);
+    }
+
+    /**
+     * 현재 선택 이미지에만 외곽선을 저장한다. 빈 점 목록은 이미 저장한 외곽선을 지우는 명시적인 요청이다.
+     * 선택 스냅샷을 함께 비교해 다른 탭에서 바뀐 후보의 외곽선을 덮어쓰지 않는다.
+     */
+    @Transactional
+    public void updateCutout(Long userId, Long draftId, List<JarDesignCutoutPoint> points,
+                             JarDraftDesignType expectedDesignType, Long expectedGenerationId) {
+        updateCutoutRegions(userId, draftId,
+                points == null || points.isEmpty() ? List.of() : List.of(points),
+                expectedDesignType, expectedGenerationId);
+    }
+
+    /** 현재 선택 이미지에 여러 개의 분리된 선택 영역을 저장한다. */
+    @Transactional
+    public void updateCutoutRegions(Long userId, Long draftId, List<List<JarDesignCutoutPoint>> regions,
+                                    JarDraftDesignType expectedDesignType, Long expectedGenerationId) {
+        JarDesignDraft draft = findOwnedActiveDraftForUpdate(userId, draftId);
+        if (expectedDesignType != draft.getSelectedDesignType()
+                || !Objects.equals(expectedGenerationId, draft.getSelectedGenerationId())) {
+            throw new ApiException(AiDraftErrorCode.DRAFT_CUTOUT_TARGET_CHANGED);
+        }
+        if (!draft.hasCustomDesignSelection()) {
+            throw new ApiException(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
+        }
+
+        if (regions == null || regions.isEmpty()) {
+            draft.updateCutoutPathJson(null);
+        } else {
+            JarDesignCutoutGeometry.validateRegions(regions);
+            draft.updateCutoutPathJson(cutoutPathCodec.encodeRegions(regions));
+        }
         extendExpiration(draft);
     }
 

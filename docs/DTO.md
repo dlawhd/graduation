@@ -172,7 +172,7 @@ AI Draft의 Prompt·Prompt Version·S3 Key는 클라이언트 DTO로 받지 않�
 
 ```
 /*** 저금통 목록 화면에서 저금통 하나를 표현한다.
- */publicrecordJarListItem(LongjarId,// 저금통 IDStringname,// 이름JarThemetheme,// 테마Stringdescription,// 설명intmemberCount,// 현재 참여 인원intmaxMembers,// 최대 인원OffsetDateTimeopenAt,// 오픈 예정 시간JarOpenModeopenMode,// 오픈 방식JarLockLevellockLevel,// 잠금 수준booleanisOpen,// 실제로 열렸는지 여부JarRolemyRole,// 내 역할OffsetDateTimeupdatedAt// 마지막 수정 시간
+ */publicrecordJarListItem(LongjarId,// 저금통 IDStringname,// 이름JarThemetheme,// 테마Stringdescription,// 설명intmemberCount,// 현재 참여 인원intmaxMembers,// 최대 인원OffsetDateTimeopenAt,// 오픈 예정 시간JarOpenModeopenMode,// 오픈 방식JarLockLevellockLevel,// 잠금 수준booleanisOpen,// 실제로 열렸는지 여부JarRolemyRole,// 내 역할OffsetDateTimeupdatedAt,// 마지막 수정 시간JarDesignResponsedesign// 없으면 기존 Theme Jar
 ) {}
 ```
 
@@ -195,9 +195,28 @@ AI Draft의 Prompt·Prompt Version·S3 Key는 클라이언트 DTO로 받지 않�
 
 ```
 /*** 저금통 상세 화면에 필요한 정보를 반환한다.
- */publicrecordJarDetailResponse(LongjarId,Stringname,Stringdescription,JarThemetheme,LongownerId,// 저금통 소유자 IDintmemberCount,intmaxMembers,OffsetDateTimeopenAt,JarOpenModeopenMode,JarLockLevellockLevel,booleanisOpen,JarRolemyRole,OffsetDateTimecreatedAt,OffsetDateTimeupdatedAt
+ */publicrecordJarDetailResponse(LongjarId,Stringname,Stringdescription,JarThemetheme,LongownerId,// 저금통 소유자 IDintmemberCount,intmaxMembers,OffsetDateTimeopenAt,JarOpenModeopenMode,JarLockLevellockLevel,booleanisOpen,JarRolemyRole,OffsetDateTimecreatedAt,OffsetDateTimeupdatedAt,JarDesignResponsedesign// 없으면 기존 Theme Jar
 ) {}
 ```
+
+### Response — JarDesignResponse
+
+```
+/**
+ * 최종 커스텀 디자인의 브라우저 표시 정보.
+ * Private S3 Key와 AI 생성 ID는 노출하지 않는다.
+ */
+public record JarDesignResponse(
+    JarDesignType designType,
+    String imageUrl,
+    OffsetDateTime imageExpiresAt,
+    BigDecimal slotCenterX,
+    BigDecimal slotCenterY,
+    BigDecimal slotSizeRatio
+) {}
+```
+
+기존 기본 Jar는 `design`이 `null`이고, ORIGINAL/AI Jar만 위 DTO를 포함해. `imageUrl`은 짧게 만료되는 Presigned GET URL이며 URL 발급 실패 시에도 Jar 상세 자체는 유지되도록 URL 두 필드만 `null`이 될 수 있어.
 
 현재 코드에는 `customJarImageUrl`이나 `activeAiGenerationId`가 없어. AI 기능을 실제로 개발할 때 추가할 필드야.
 
@@ -1724,11 +1743,13 @@ AI 디자인은 Jar 생성 전에 Draft 단위로 다룬다. 다음 DTO는 모�
 | `JarDesignSelectionRequest` | Request | `designType` 필수, `AI`일 때 `generationId` 필요 |
 | `JarDesignSlotRequest` | Request | `centerX`, `centerY`, `sizeRatio` 필수. `expectedDesignType`, `expectedGenerationId` 선택(새 Editor는 항상 전송). Service가 소수 5자리·0~1·슬롯 전체 경계·현재 선택 일치를 검증 |
 | `JarDesignDraftCreateResponse` | Response | `draftId`, `expiresAt` |
-| `JarDesignDraftDetailResponse` | Response | Draft 상태·선택·Slot·만료·최종 Jar·Generation 메타데이터. S3 Key/URL 제외 |
+| `JarDesignDraftDetailResponse` | Response | Draft 상태·선택·Slot·`cutoutRegions`·호환용 `cutoutPoints`·만료·최종 Jar·Generation 메타데이터. S3 Key/URL 제외 |
 | `JarAiGenerationPreviewResponse` | Response | OWNER 검증 뒤의 짧은 `previewUrl`, `expiresAt` |
 | `JarDesignFinalizeResponse` | Response | 생성된 `jarId`, 최종 `designType` |
 
-`JarDesignDraftDetailResponse.GenerationItem`은 `generationId`, `style`, `status`, `errorCode`, `completedAt`만 반환한다. 후보 이미지의 URL은 원본 또는 성공 후보 미리보기 API를 별도로 호출해 받는다.
+`JarDesignDraftDetailResponse.GenerationItem`은 `generationId`, `style`, `status`, `errorCode`, `completedAt`만 반환한다. `cutoutRegions`는 여러 개의 닫힌 영역이며 각 점은 `{ x, y }` 정규화 좌표다. `cutoutPoints`는 기존 클라이언트용 첫 영역이다. 둘 다 비어 있으면 배경 제거를 적용하지 않은 상태다. 후보 이미지 URL은 원본 또는 성공 후보 미리보기 API를 별도로 호출해 받는다.
+
+`JarDesignCutoutRequest`는 새 `regions` 또는 호환용 `points`, `expectedDesignType`, `expectedGenerationId`를 받는다. `regions`는 최대 12개, 영역당 3~240점, 전체 720점이며 빈 배열은 선택 영역 제거를 의미한다.
 
 # 12. 최종 DTO 전수 대조 결과
 
@@ -1910,4 +1931,4 @@ JarDesignFinalizeResponse
 | 회원 탈퇴 API | 미구현 |
 | 첨부파일 정렬 공개 API | DTO와 내부 Service만 존재 |
 
-최종 미리보기 UX는 위 Finalize 응답 DTO를 사용해 생성된 `jarId`의 상세 화면으로 이동한다. 기존 Jar의 Optional `JarDesign` 조회/표시는 아직 완료로 표현하지 않는다. Slot Editor는 위 Slot 요청 DTO에 연결돼 있다. DTO 개수 등 이전 단계의 집계는 이번 슬롯 구현 작업에서 전수 재검증하지 않았다.
+최종 미리보기 UX는 위 Finalize 응답 DTO를 사용해 생성된 `jarId`의 상세 화면으로 이동한다. 기존 Jar 목록·상세 응답은 Optional `JarDesignResponse`를 포함하고, 프론트는 같은 Slot Overlay 규칙으로 목록·상세·확대·오픈 연출을 표시한다. Slot Editor는 위 Slot 요청 DTO에 연결돼 있다. DTO 개수 등 이전 단계의 집계는 이번 표시 연결 작업에서 전수 재검증하지 않았다.

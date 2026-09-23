@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   finalizeJarDesignDraft,
@@ -7,7 +7,12 @@ import {
   getJarDesignOriginalPreview,
 } from "../../../api/jarDesignDraftApi";
 import { storedSlot } from "../slotGeometry.mjs";
+import {
+  createPreviewImageKey,
+  resolvePreviewImageState,
+} from "../previewImageState.mjs";
 import JarSlotOverlay from "./JarSlotOverlay";
+import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 
 const INITIAL_JAR_FORM = {
   name: "",
@@ -39,6 +44,8 @@ export default function JarDesignFinalizePanel({
   previewUrl,
   slotDirty,
   slotSaving,
+  cutoutDirty,
+  cutoutSaving,
   disabled,
   onRefresh,
 }) {
@@ -46,24 +53,40 @@ export default function JarDesignFinalizePanel({
   const [form, setForm] = useState(INITIAL_JAR_FORM);
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState("");
-  const [retryUrl, setRetryUrl] = useState("");
-  const [previewState, setPreviewState] = useState(previewUrl ? "loading" : "missing");
+  const [retryPreviewResult, setRetryPreviewResult] = useState({
+    selectionKey: "",
+    url: "",
+    attempt: 0,
+  });
+  const [loadedImageKey, setLoadedImageKey] = useState("");
+  const [failedImageKey, setFailedImageKey] = useState("");
   const [retryingPreview, setRetryingPreview] = useState(false);
   const isCustom = draft.selectedDesignType === "ORIGINAL" || draft.selectedDesignType === "AI";
   const slot = storedSlot(draft);
+  const cutoutMaskStyle = toCutoutMaskStyle(draft.cutoutRegions?.length ? draft.cutoutRegions : draft.cutoutPoints);
   const hasProcessing = (draft.generations || []).some((generation) => generation.status === "PROCESSING");
+  const selectionKey = `${draft.selectedDesignType}:${draft.selectedGenerationId ?? ""}`;
+  // 이전 선택에서 직접 재발급한 URL은 새 후보를 선택했을 때 사용하지 않는다.
+  const retryUrl = retryPreviewResult.selectionKey === selectionKey
+    ? retryPreviewResult.url
+    : "";
   const imageUrl = retryUrl || previewUrl || "";
+  // 재발급 API가 같은 URL을 돌려줘도 attempt가 달라져 img를 다시 마운트할 수 있다.
+  const imageAttempt = retryPreviewResult.selectionKey === selectionKey
+    ? retryPreviewResult.attempt
+    : 0;
+  const imageKey = createPreviewImageKey(selectionKey, imageUrl, imageAttempt);
+  const previewState = resolvePreviewImageState({
+    isCustom,
+    imageUrl,
+    imageKey,
+    loadedImageKey,
+    failedImageKey,
+  });
   const previewReady = !isCustom || (Boolean(imageUrl) && previewState === "ready");
-  const blockedReason = getBlockedReason({ isCustom, slot, slotDirty, slotSaving, hasProcessing, previewReady });
+  const blockedReason = getBlockedReason({ isCustom, slot, slotDirty, slotSaving, cutoutDirty, cutoutSaving, hasProcessing, previewReady });
   const formLocked = Boolean(disabled || finalizing);
   const submitLocked = Boolean(disabled || finalizing || blockedReason);
-
-  // 일반 Effect는 이미지가 캐시에서 먼저 로드된 뒤 실행될 수 있다.
-  // 레이아웃 반영 직후에 상태를 초기화해, onLoad가 ready 상태를 다시 덮어쓰지 않게 한다.
-  useLayoutEffect(() => {
-    setRetryUrl("");
-    setPreviewState(isCustom && previewUrl ? "loading" : isCustom ? "missing" : "ready");
-  }, [draft.selectedDesignType, draft.selectedGenerationId, previewUrl, isCustom]);
 
   /** Presigned URL이 만료됐을 때만 OWNER 전용 미리보기 URL을 새로 발급한다. */
   async function retryPreview() {
@@ -74,10 +97,12 @@ export default function JarDesignFinalizePanel({
       const preview = draft.selectedDesignType === "ORIGINAL"
         ? await getJarDesignOriginalPreview(draft.draftId)
         : await getJarDesignGenerationPreview(draft.draftId, draft.selectedGenerationId);
-      setPreviewState("loading");
-      setRetryUrl(preview.previewUrl);
+      setRetryPreviewResult((current) => ({
+        selectionKey,
+        url: preview.previewUrl,
+        attempt: current.selectionKey === selectionKey ? current.attempt + 1 : 1,
+      }));
     } catch (requestError) {
-      setPreviewState("failed");
       setError(getJarDesignDraftError(requestError).message);
     } finally {
       setRetryingPreview(false);
@@ -150,9 +175,17 @@ export default function JarDesignFinalizePanel({
           <p className="text-sm font-black text-slate-700">최종 디자인</p>
           <div className="relative mt-3 aspect-square overflow-hidden rounded-2xl bg-white">
             {isCustom && imageUrl && (
-              <img src={imageUrl} alt="최종 저금통 디자인 미리보기" className="h-full w-full object-contain"
-                onLoad={(event) => setPreviewState(event.currentTarget.naturalWidth === event.currentTarget.naturalHeight ? "ready" : "failed")}
-                onError={() => setPreviewState("failed")} />
+              <img key={imageKey} src={imageUrl} alt="최종 저금통 디자인 미리보기" className="h-full w-full object-contain"
+                style={cutoutMaskStyle}
+                onLoad={(event) => {
+                  if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) {
+                    setLoadedImageKey(imageKey);
+                    setFailedImageKey("");
+                  } else {
+                    setFailedImageKey(imageKey);
+                  }
+                }}
+                onError={() => setFailedImageKey(imageKey)} />
             )}
             {isCustom && previewState === "ready" && slot && <JarSlotOverlay slot={slot} />}
             {isCustom && previewState !== "ready" && (
@@ -230,8 +263,10 @@ export default function JarDesignFinalizePanel({
 }
 
 /** Finalize를 막는 이유를 API 호출 전에 구체적으로 안내한다. 서버도 같은 규칙을 최종 검증한다. */
-function getBlockedReason({ isCustom, slot, slotDirty, slotSaving, hasProcessing, previewReady }) {
+function getBlockedReason({ isCustom, slot, slotDirty, slotSaving, cutoutDirty, cutoutSaving, hasProcessing, previewReady }) {
   if (hasProcessing) return "AI 후보를 만드는 중에는 최종화할 수 없어요. 생성이 끝난 뒤 다시 시도해 주세요.";
+  if (cutoutSaving) return "배경 제거 외곽선을 저장하는 중이에요. 저장이 끝난 뒤 최종화할 수 있어요.";
+  if (cutoutDirty) return "배경 제거 외곽선 편집 내용을 먼저 저장해 주세요.";
   if (slotSaving) return "투입구 위치를 저장하는 중이에요. 저장이 끝난 뒤 최종화할 수 있어요.";
   if (slotDirty) return "투입구 편집 내용을 먼저 저장해 주세요.";
   if (isCustom && !slot) return "커스텀 디자인은 투입구 위치와 크기를 먼저 저장해야 해요.";

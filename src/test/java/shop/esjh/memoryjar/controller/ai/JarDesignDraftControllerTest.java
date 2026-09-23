@@ -48,6 +48,28 @@ class JarDesignDraftControllerTest {
           .andExpect(status().isBadRequest());
   verifyNoInteractions(draftService);
  }
+ @Test void cutout_passesAuthenticatedUserAndSelectedCandidate() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/cutout").principal(auth()).contentType("application/json").content("""
+          {"points":[{"x":0.1,"y":0.2},{"x":0.8,"y":0.2},{"x":0.5,"y":0.9}],"expectedDesignType":"AI","expectedGenerationId":100}
+          """))
+          .andExpect(status().isNoContent());
+  verify(draftService).updateCutoutRegions(eq(1L), eq(10L), anyList(), eq(JarDraftDesignType.AI), eq(100L));
+ }
+ @Test void cutout_acceptsMultipleRegions() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/cutout").principal(auth()).contentType("application/json").content("""
+          {"regions":[[{"x":0.1,"y":0.1},{"x":0.3,"y":0.1},{"x":0.2,"y":0.3}],
+                      [{"x":0.7,"y":0.7},{"x":0.9,"y":0.7},{"x":0.8,"y":0.9}]],
+           "expectedDesignType":"AI","expectedGenerationId":100}
+          """))
+          .andExpect(status().isNoContent());
+  verify(draftService).updateCutoutRegions(eq(1L), eq(10L), argThat(regions -> regions.size() == 2),
+          eq(JarDraftDesignType.AI), eq(100L));
+ }
+ @Test void cutout_withoutPointsIsRejectedBeforeService() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/cutout").principal(auth()).contentType("application/json").content("{}"))
+          .andExpect(status().isBadRequest());
+  verifyNoInteractions(draftService);
+ }
  @Test void slot_changedCandidateReturnsConflictAndFeatureCode() throws Exception {
   doThrow(new ApiException(AiDraftErrorCode.DRAFT_SLOT_TARGET_CHANGED)).when(draftService)
           .updateSlot(eq(1L),eq(10L),any(),any(),any(),eq(JarDraftDesignType.ORIGINAL),isNull());

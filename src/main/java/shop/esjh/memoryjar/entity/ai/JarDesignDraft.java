@@ -61,6 +61,10 @@ public class JarDesignDraft {
     @Column(name = "selected_generation_id")
     private Long selectedGenerationId;
 
+    /** 선택 이미지 위에서 사용자가 그린 배경 제거 외곽선의 JSON이다. */
+    @Column(name = "cutout_path_json", columnDefinition = "MEDIUMTEXT")
+    private String cutoutPathJson;
+
     @Column(name = "slot_center_x", precision = 6, scale = 5)
     private BigDecimal slotCenterX;
 
@@ -104,6 +108,7 @@ public class JarDesignDraft {
         this.selectedDesignType = JarDraftDesignType.AI;
         this.selectedGenerationId = generationId;
         clearSlot();
+        clearCutout();
     }
 
     /** 원본 이미지를 현재 선택으로 기록하고, 기존 Slot을 비운다. */
@@ -111,6 +116,7 @@ public class JarDesignDraft {
         this.selectedDesignType = JarDraftDesignType.ORIGINAL;
         this.selectedGenerationId = null;
         clearSlot();
+        clearCutout();
     }
 
     /**
@@ -121,6 +127,7 @@ public class JarDesignDraft {
         this.selectedDesignType = JarDraftDesignType.DEFAULT;
         this.selectedGenerationId = null;
         clearSlot();
+        clearCutout();
     }
 
     /** ORIGINAL 또는 AI 이미지 위에 표시할 Slot의 정규화된 위치와 크기를 저장한다. */
@@ -128,6 +135,11 @@ public class JarDesignDraft {
         this.slotCenterX = centerX;
         this.slotCenterY = centerY;
         this.slotSizeRatio = sizeRatio;
+    }
+
+    /** 현재 선택 이미지에 적용할 배경 제거 외곽선을 저장하거나 비운다. */
+    public void updateCutoutPathJson(String cutoutPathJson) {
+        this.cutoutPathJson = cutoutPathJson;
     }
 
     /** 의미 있는 사용자 편집이 끝났을 때만 Draft의 유효 기간을 새로 계산한다. */
@@ -139,6 +151,10 @@ public class JarDesignDraft {
         this.slotCenterX = null;
         this.slotCenterY = null;
         this.slotSizeRatio = null;
+    }
+
+    private void clearCutout() {
+        this.cutoutPathJson = null;
     }
 
     public boolean isOwner(Long userId) {

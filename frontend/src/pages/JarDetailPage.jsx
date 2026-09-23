@@ -478,6 +478,20 @@ const {
 const currentUserId = me?.userId ?? me?.id ?? null;
 
 /*
+ * 최종 디자인 이미지는 짧은 Presigned URL을 사용한다.
+ * URL이 만료됐을 때만 기존 Jar 화면을 유지한 채 상세를 다시 조회해
+ * 새 URL을 받아오도록 한다.
+ */
+const reloadJarDesignImage = useCallback(
+  () => loadJarDetail({
+    silent: true,
+    keepCurrentOnError: true,
+    suppressError: true,
+  }),
+  [loadJarDetail]
+);
+
+/*
  * 채팅 unread 개수를 서버 기준으로 다시 맞추는 함수
  *
  * 평소에는 WebSocket 이벤트로 숫자를 올리고,
@@ -3956,6 +3970,7 @@ async function handleViewOpenedJarNotes() {
                 <JarVisual
                   jar={jar}
                   jarRef={jarVisualRef}
+                  onReloadDesignImage={reloadJarDesignImage}
 
                   /*
                    * JAR_DETAIL 두 번째 안내가
@@ -4257,6 +4272,7 @@ async function handleViewOpenedJarNotes() {
           onOpenNoteDetail={handleOpenJarZoomNoteDetail}
           onReactNote={handleReactInJarZoomDetail}
           reactingNoteId={jarZoomReactingNoteId}
+          onReloadDesignImage={reloadJarDesignImage}
         />
 
         <JarChatModal
@@ -4292,6 +4308,7 @@ async function handleViewOpenedJarNotes() {
           event={jarOpenCelebrationEvent}
           onClose={handleCloseJarOpenCelebration}
           onViewNotes={handleViewOpenedJarNotes}
+          onReloadDesignImage={reloadJarDesignImage}
         />
         <JarMenuModal
           open={jarInfoOpen}

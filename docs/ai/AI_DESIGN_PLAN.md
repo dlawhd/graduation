@@ -151,11 +151,14 @@ jars.active_ai_generation_id 변경
      ↓
  여러 후보 누적
      ↓
- 최종 후보 선택
+   최종 후보 선택
      ↓
- Slot 위치/크기 설정
+   Slot 위치/크기 설정
      ↓
- 최종 미리보기
+   남길 본체 선택
+   (점 선택/자유 그리기, 여러 영역)
+     ↓
+   최종 미리보기
      ↓
  Jar 생성
      ↓
@@ -824,6 +827,8 @@ Generate
 ↓
 최종 후보 선택
 ↓
+사용자 외곽선 배경 제거
+↓
 Slot 설정
 ↓
 Jar Finalize
@@ -1423,7 +1428,7 @@ MVP 60회/일 제한
 
 ---
 
-이렇게 고치면 이 문서도 지금 우리가 확정한 **`Draft → Generation → 후보 → Slot → Finalize → Optional JarDesign` 구조와 완전히 맞아.** 특히 예전 PoC의 실험 결과는 살리면서, **그 실험에서 시작했던 낡은 “AI가 저금통과 동전 투입구까지 다 그린다”는 설계만 걷어내는 것**이 핵심이야.
+이렇게 고치면 이 문서도 지금 우리가 확정한 **`Draft → Generation → 후보 → 사용자 외곽선 배경 제거 → Slot → Finalize → Optional JarDesign` 구조와 완전히 맞아.** 외곽선 좌표만 Draft에 저장하고 Finalize 때 최종 PNG 바깥을 투명하게 처리하므로 원본·AI 후보는 보존한다. 특히 예전 PoC의 실험 결과는 살리면서, **그 실험에서 시작했던 낡은 “AI가 저금통과 동전 투입구까지 다 그린다”는 설계만 걷어내는 것**이 핵심이야.
 
 ---
 
@@ -1534,9 +1539,11 @@ MVP 60회/일 제한
     - ORIGINAL/AI는 Presigned 미리보기 이미지와 저장된 Slot Overlay를 최종 확인하고, DEFAULT는 기존 Theme Jar 경로를 안내한다.
     - JarCreateRequest의 이름·설명·Theme·인원·오픈·공개 설정을 입력한 뒤 Draft Finalize API를 한 번만 호출한다.
     - 미저장 Slot, PROCESSING, 이미지 미리보기 실패, 중복 Finalize를 화면에서도 구체적인 사유로 막고 서버 오류 코드를 다시 안내한다.
-25. **기존 Jar 화면에 Optional `JarDesign` 연결**
+25. **기존 Jar 화면에 Optional `JarDesign` 연결** ✅
     - `JarsPage`, `JarDetailPage`, `JarZoomModal`, `JarOpenCelebrationModal`
     - 디자인 없음은 기존 Theme Jar 유지
+    - 활성 멤버에게만 기존 Jar API 응답으로 짧은 Presigned GET URL과 Slot 좌표를 전달하고 Private S3 Key는 숨김
+    - 목록의 `JarDesign`은 한 번의 batch 조회로 가져와 N+1 쿼리를 방지
 26. **배포 구성 검증**
     - Docker, GitHub Actions, Vercel, 운영 환경변수 연결
     - `APP_AI_CLOUDFLARE_*` 주입 경로 검증

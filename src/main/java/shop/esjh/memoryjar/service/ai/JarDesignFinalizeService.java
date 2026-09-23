@@ -8,12 +8,20 @@ import shop.esjh.memoryjar.dto.jar.request.JarCreateRequest;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.dto.ai.JarDesignCutoutPoint;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Draft의 선택 이미지를 영구 S3 영역으로 복사한 뒤 Jar 최종화를 조정한다.
@@ -26,15 +34,21 @@ public class JarDesignFinalizeService {
     private final JarDesignFinalS3KeyFactory finalS3KeyFactory;
     private final S3Client s3Client;
     private final S3Properties s3Properties;
+    private final JarDesignCutoutPathCodec cutoutPathCodec;
+    private final JarDesignCutoutImageProcessor cutoutImageProcessor;
 
     public JarDesignFinalizeService(JarDesignFinalizePersistenceService persistenceService,
                                     JarDesignFinalS3KeyFactory finalS3KeyFactory,
                                     S3Client s3Client,
-                                    S3Properties s3Properties) {
+                                    S3Properties s3Properties,
+                                    JarDesignCutoutPathCodec cutoutPathCodec,
+                                    JarDesignCutoutImageProcessor cutoutImageProcessor) {
         this.persistenceService = persistenceService;
         this.finalS3KeyFactory = finalS3KeyFactory;
         this.s3Client = s3Client;
         this.s3Properties = s3Properties;
+        this.cutoutPathCodec = cutoutPathCodec;
+        this.cutoutImageProcessor = cutoutImageProcessor;
     }
 
     /** ORIGINAL·AI·DEFAULT 선택을 최종 Jar로 한 번만 확정한다. API는 다음 단계에서 이 메서드를 호출한다. */
@@ -46,7 +60,7 @@ public class JarDesignFinalizeService {
         }
 
         String finalS3Key = finalS3KeyFactory.createKey(userId, draftId);
-        copyToPermanentS3(target.sourceS3Key(), finalS3Key);
+        writeToPermanentS3(target.sourceS3Key(), finalS3Key, cutoutPathCodec.decodeRegions(target.cutoutPathJson()));
         try {
             return persistenceService.finalizeCustom(userId, draftId, request, target, finalS3Key);
         } catch (RuntimeException exception) {
@@ -56,19 +70,37 @@ public class JarDesignFinalizeService {
         }
     }
 
-    private void copyToPermanentS3(String sourceS3Key, String finalS3Key) {
+    /** 외곽선이 없으면 비용이 적은 S3 복사를, 있으면 투명 PNG 생성 후 업로드를 사용한다. */
+    private void writeToPermanentS3(String sourceS3Key, String finalS3Key,
+                                    List<List<JarDesignCutoutPoint>> cutoutRegions) {
         try {
             // DB의 서버 생성 Key를 다시 확인해 누락된 임시 파일을 DEFAULT 결과로 오인하지 않는다.
             s3Client.headObject(HeadObjectRequest.builder()
                     .bucket(s3Properties.getBucket())
                     .key(sourceS3Key)
                     .build());
-            s3Client.copyObject(CopyObjectRequest.builder()
-                    .copySource(s3Properties.getBucket() + "/" + sourceS3Key)
+            if (cutoutRegions == null || cutoutRegions.isEmpty()) {
+                s3Client.copyObject(CopyObjectRequest.builder()
+                        .copySource(s3Properties.getBucket() + "/" + sourceS3Key)
+                        .bucket(s3Properties.getBucket())
+                        .key(finalS3Key)
+                        .build());
+                return;
+            }
+
+            ResponseBytes<?> source = s3Client.getObjectAsBytes(GetObjectRequest.builder()
                     .bucket(s3Properties.getBucket())
-                    .key(finalS3Key)
+                    .key(sourceS3Key)
                     .build());
-        } catch (S3Exception | SdkClientException exception) {
+            byte[] transparentPng = cutoutImageProcessor.applyTransparentCutoutRegions(
+                    source.asByteArray(), cutoutRegions);
+            s3Client.putObject(PutObjectRequest.builder()
+                            .bucket(s3Properties.getBucket())
+                            .key(finalS3Key)
+                            .contentType("image/png")
+                            .build(),
+                    RequestBody.fromBytes(transparentPng));
+        } catch (S3Exception | SdkClientException | IOException exception) {
             throw new ApiException(AiDraftErrorCode.FINAL_IMAGE_COPY_FAILED);
         }
     }

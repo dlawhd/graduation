@@ -2,6 +2,7 @@ package shop.esjh.memoryjar.controller.jar;
 
 import shop.esjh.memoryjar.dto.jar.request.*;
 import shop.esjh.memoryjar.dto.jar.response.*;
+import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.jar.JarOpenMode;
 import shop.esjh.memoryjar.enums.jar.JarRole;
@@ -18,6 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -146,7 +148,15 @@ class JarControllerTest {
                 false,
                 JarRole.OWNER,
                 OffsetDateTime.of(2026, 3, 23, 10, 0, 0, 0, ZoneOffset.ofHours(9)),
-                OffsetDateTime.of(2026, 3, 23, 10, 0, 0, 0, ZoneOffset.ofHours(9))
+                OffsetDateTime.of(2026, 3, 23, 10, 0, 0, 0, ZoneOffset.ofHours(9)),
+                new JarDesignResponse(
+                        JarDesignType.AI,
+                        "https://signed.example.test/final",
+                        OffsetDateTime.of(2026, 3, 23, 10, 5, 0, 0, ZoneOffset.UTC),
+                        new BigDecimal("0.50000"),
+                        new BigDecimal("0.30000"),
+                        new BigDecimal("0.60000")
+                )
         );
 
         given(jarService.getJarDetail(1L, 10L)).willReturn(response);
@@ -163,7 +173,12 @@ class JarControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.jarId").value(10))
                 .andExpect(jsonPath("$.data.name").value("우리 저금통"))
-                .andExpect(jsonPath("$.data.ownerId").value(1));
+                .andExpect(jsonPath("$.data.ownerId").value(1))
+                .andExpect(jsonPath("$.data.design.designType").value("AI"))
+                .andExpect(jsonPath("$.data.design.imageUrl").value("https://signed.example.test/final"))
+                .andExpect(jsonPath("$.data.design.slotCenterX").value(0.5))
+                .andExpect(jsonPath("$.data.design.slotCenterY").value(0.3))
+                .andExpect(jsonPath("$.data.design.slotSizeRatio").value(0.6));
     }
 
     @Test

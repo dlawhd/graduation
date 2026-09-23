@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import ReactionBar from "./ReactionBar";
 import { getThemeIcon } from "../theme/jarDetailTheme";
 import { normalizeJarZoomTags } from "../utils/jarDetailUtils";
+import JarCustomDesignVisual from "./JarCustomDesignVisual";
 
 /*
  * JarZoomModal 역할
@@ -29,6 +30,7 @@ export default function JarZoomModal({
   onOpenNoteDetail,
   onReactNote,
   reactingNoteId,
+  onReloadDesignImage = null,
 }) {
   const NOTES_PER_PAGE = 3;
 
@@ -322,16 +324,29 @@ export default function JarZoomModal({
                   className={`absolute inset-8 rounded-full blur-3xl ${palette.floating}`}
                 />
 
-                {/* 큰 뚜껑 */}
-                <div
-                  className={`absolute top-[86px] z-20 h-14 w-52 rounded-full ${palette.lid} shadow-lg`}
-                />
-                <div className="absolute top-[103px] z-30 h-3 w-20 rounded-full bg-slate-700/80" />
+                {jar?.design ? (
+                  <div className="relative z-10 flex flex-col items-center gap-4">
+                    <JarCustomDesignVisual
+                      design={jar.design}
+                      alt={`${jar?.name || "저금통"} 확대 디자인`}
+                      className="h-[360px] w-[360px] max-w-full"
+                      onReload={onReloadDesignImage}
+                    />
+                    <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow">
+                      {isJarOpen ? `쪽지 ${safeNotes.length}개` : "오픈 전까지 비밀이에요!"}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    {/* 디자인이 없는 기존 Jar만 Theme 기반 뚜껑과 몸통을 표시한다. */}
+                    <div
+                      className={`absolute top-[86px] z-20 h-14 w-52 rounded-full ${palette.lid} shadow-lg`}
+                    />
+                    <div className="absolute top-[103px] z-30 h-3 w-20 rounded-full bg-slate-700/80" />
 
-                {/* 큰 저금통 몸통 */}
-                <div
-                  className={`relative z-10 mt-14 h-[360px] w-[280px] overflow-hidden rounded-[42%_42%_28%_28%] border-[5px] ${palette.jarBody} shadow-[0_24px_60px_rgba(15,23,42,0.16)]`}
-                >
+                    <div
+                      className={`relative z-10 mt-14 h-[360px] w-[280px] overflow-hidden rounded-[42%_42%_28%_28%] border-[5px] ${palette.jarBody} shadow-[0_24px_60px_rgba(15,23,42,0.16)]`}
+                    >
                   <div className="absolute left-8 top-10 h-40 w-10 rounded-full bg-white/55 blur-sm" />
                   <div className="absolute right-10 top-16 h-24 w-5 rounded-full bg-white/38 blur-sm" />
 
@@ -410,7 +425,9 @@ export default function JarZoomModal({
                       </button>
                     </div>
                   )}
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* 저금통 안내 문구 */}

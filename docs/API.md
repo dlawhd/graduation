@@ -673,7 +673,8 @@ Response 구조:
         "lockLevel":"META_ONLY",
         "isOpen":false,
         "myRole":"OWNER",
-        "updatedAt":"2026-09-16T15:00:00+09:00"
+        "updatedAt":"2026-09-16T15:00:00+09:00",
+        "design":null
       }
     ],
     "page":0,
@@ -685,6 +686,8 @@ Response 구조:
 ```
 
 현재 참여 중인 저금통을 조회하며, `page`의 기본값은 0, `size`의 기본값은 20이야.
+
+`design`은 Optional 값이야. 기존 Theme Jar는 `null`이고, ORIGINAL/AI Jar는 `designType`, 짧은 `imageUrl`, `imageExpiresAt`, `slotCenterX`, `slotCenterY`, `slotSizeRatio`를 반환해. 목록의 디자인은 batch 조회하므로 Jar마다 별도 DB 조회를 반복하지 않아.
 
 ### 저금통 상세
 
@@ -711,9 +714,10 @@ isOpen
 myRole
 createdAt
 updatedAt
+design
 ```
 
-현재 저금통 상세 응답에는 AI 이미지 URL이나 AI 생성 ID가 없어.
+`design`은 활성 멤버에게만 전달되는 Optional 최종 디자인이야. Private S3 Key나 AI 생성 ID는 노출하지 않고 짧은 Presigned GET URL과 Slot 좌표만 반환해. URL 발급에 실패하면 Jar 기본 정보와 디자인 메타데이터는 유지하고 `imageUrl`, `imageExpiresAt`만 `null`이 될 수 있어.
 
 ### 저금통 수정
 
@@ -2223,6 +2227,7 @@ AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라,
 | `GET` | `/api/v1/design-drafts/{draftId}/original/preview` | 정규화 원본의 짧은 Presigned GET URL 발급 |
 | `GET` | `/api/v1/design-drafts/{draftId}/generations/{generationId}/preview` | 성공 후보의 짧은 Presigned GET URL 발급 |
 | `PATCH` | `/api/v1/design-drafts/{draftId}/selection` | `ORIGINAL`·`AI`·`DEFAULT` 선택 저장 |
+| `PATCH` | `/api/v1/design-drafts/{draftId}/cutout` | 선택 이미지의 배경 제거 외곽선 저장 또는 제거 |
 | `PATCH` | `/api/v1/design-drafts/{draftId}/slot` | 커스텀 이미지 Slot의 정규화 위치·크기 저장 |
 | `POST` | `/api/v1/design-drafts/{draftId}/finalize` | Draft 선택을 실제 Jar로 한 번만 확정 |
 
@@ -2244,6 +2249,18 @@ ORIGINAL 편집은 `expectedDesignType: "ORIGINAL"`, `expectedGenerationId: null
 소수 5자리·0~1 위반은 `400 DRAFT_SLOT_INVALID`다. 너비는 이미지의 `12% + 16% × sizeRatio`, 높이는 너비의 `1/3.5`다.
 기존 저장값도 Finalize 전에 경계를 다시 검증하므로 밖으로 나가는 Slot은 재편집해야 한다.
 
+### 배경 제거 외곽선 계약
+
+`PATCH /api/v1/design-drafts/{draftId}/cutout` 성공은 `204`이며 본문이 없다. 새 화면은 `regions`에 하나 이상의 닫힌 영역을 보내며, 각 점은 이미지 너비·높이에 대한 0~1 정규화 좌표다. Finalize PNG에는 모든 영역의 합집합만 남는다. 영역은 최대 12개, 영역당 3~240점, 전체 720점까지 허용한다.
+
+```json
+{"regions":[[{"x":0.12,"y":0.08},{"x":0.45,"y":0.12},{"x":0.3,"y":0.5}],[{"x":0.58,"y":0.12},{"x":0.84,"y":0.15},{"x":0.72,"y":0.52}]],"expectedDesignType":"AI","expectedGenerationId":100}
+```
+
+빈 `regions` 배열은 기존 선택 영역을 제거하고 배경을 그대로 사용한다. 기존 클라이언트의 단일 `points` 배열도 계속 지원한다. 후보 선택이 바뀌면 이전 영역은 자동으로 비워진다. Draft 조회는 새 `cutoutRegions`와 호환용 첫 영역 `cutoutPoints`를 반환하며 S3 Key나 이미지 URL은 포함하지 않는다.
+
+Finalize는 선택 영역이 없을 때 기존처럼 임시 이미지를 영구 영역으로 복사하고, 영역이 있으면 원본·AI 후보를 보존한 채 새 투명 PNG를 생성해 영구 영역에 저장한다. 선택 충돌은 `409 DRAFT_CUTOUT_TARGET_CHANGED`, 영역·점 개수·좌표 범위·소수점 다섯 자리 위반은 `400 DRAFT_CUTOUT_INVALID`다.
+
 # 13. 현재 미구현 API 및 향후 개발 항목
 
 기존 초안에 있었지만 아직 구현되지 않은 기능과, AI 저금통 개발 과정에서 새로 필요해질 기능을 구분했어.
@@ -2260,9 +2277,9 @@ ORIGINAL 편집은 `expectedDesignType: "ORIGINAL"`, `expectedGenerationId: null
 | Daily Draw 개인별 조회 기록 API | 미구현 |
 | 저금통 오픈 히스토리 조회 API | 미구현 |
 | 신고·차단·관리자 신고 처리 | 미구현 |
-| AI 디자인의 기존 Jar 화면 표시 API | 미구현; Optional `JarDesign` 조회·표시 연결은 별도 작업 |
+| AI 디자인의 기존 Jar 화면 표시 API | 구현; 목록·상세 응답의 Optional `design`으로 최종 이미지와 Slot 표시 |
 
-AI Draft 생성·후보 생성·원본/후보 미리보기·선택·Slot 저장·Finalize API와 최종 미리보기 화면은 구현되어 있다. 화면은 ORIGINAL/AI의 저장된 Slot Overlay 또는 DEFAULT 기본 Jar 경로를 확인하고, `JarCreateRequest` 입력 뒤 Finalize API를 한 번만 호출한다. 기존 Jar 목록·상세·확대·오픈 연출의 Optional `JarDesign` 표시는 다음 단계다.
+AI Draft 생성·후보 생성·원본/후보 미리보기·선택·Slot 저장·Finalize API와 최종 미리보기 화면은 구현되어 있다. 화면은 ORIGINAL/AI의 저장된 Slot Overlay 또는 DEFAULT 기본 Jar 경로를 확인하고, `JarCreateRequest` 입력 뒤 Finalize API를 한 번만 호출한다. Finalize 뒤에는 기존 Jar 목록·상세·확대·오픈 연출에서도 Optional `JarDesign`을 표시하며, 디자인이 없는 Jar는 기존 Theme Jar를 유지한다.
 
 # 14. 최종 API 전수 대조
 

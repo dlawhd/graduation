@@ -16,6 +16,8 @@ import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.List;
+import shop.esjh.memoryjar.dto.ai.JarDesignCutoutPoint;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +33,7 @@ class JarDesignDraftServiceTest {
     @Mock private JarDesignDraftRepository draftRepository;
     @Mock private JarAiGenerationRepository generationRepository;
     @Mock private AiDraftProperties properties;
+    @Mock private JarDesignCutoutPathCodec cutoutPathCodec;
     @InjectMocks private JarDesignDraftService draftService;
 
     @Test
@@ -203,5 +206,44 @@ class JarDesignDraftServiceTest {
                 .isEqualTo(AiDraftErrorCode.DRAFT_SLOT_INVALID);
 
         verify(draft, never()).updateSlot(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("외곽선은 현재 선택 Snapshot과 함께 저장하고 Draft 만료를 연장한다")
+    void updateCutout_savesMatchingSelection() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        List<JarDesignCutoutPoint> points = List.of(
+                new JarDesignCutoutPoint(new BigDecimal("0.1"), new BigDecimal("0.1")),
+                new JarDesignCutoutPoint(new BigDecimal("0.9"), new BigDecimal("0.1")),
+                new JarDesignCutoutPoint(new BigDecimal("0.5"), new BigDecimal("0.9")));
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.getSelectedDesignType()).thenReturn(JarDraftDesignType.AI);
+        when(draft.getSelectedGenerationId()).thenReturn(20L);
+        when(draft.hasCustomDesignSelection()).thenReturn(true);
+        when(properties.getExpiresAfterDays()).thenReturn(7);
+        when(cutoutPathCodec.encodeRegions(List.of(points))).thenReturn("[[{}]]");
+
+        draftService.updateCutout(1L, 10L, points, JarDraftDesignType.AI, 20L);
+
+        verify(draft).updateCutoutPathJson("[[{}]]");
+        verify(draft).extendExpiration(any());
+    }
+
+    @Test
+    @DisplayName("현재 후보가 바뀌었으면 외곽선을 저장하지 않는다")
+    void updateCutout_rejectsChangedSelection() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.getSelectedDesignType()).thenReturn(JarDraftDesignType.ORIGINAL);
+
+        assertThatThrownBy(() -> draftService.updateCutout(1L, 10L, List.of(), JarDraftDesignType.AI, 20L))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_CUTOUT_TARGET_CHANGED);
+        verify(draft, never()).updateCutoutPathJson(any());
     }
 }

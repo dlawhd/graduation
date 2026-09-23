@@ -21,6 +21,7 @@ import shop.esjh.memoryjar.dto.ai.response.JarAiGenerationPreviewResponse;
 import shop.esjh.memoryjar.dto.ai.request.JarAiGenerationCreateRequest;
 import shop.esjh.memoryjar.dto.ai.request.JarDesignSelectionRequest;
 import shop.esjh.memoryjar.dto.ai.request.JarDesignSlotRequest;
+import shop.esjh.memoryjar.dto.ai.request.JarDesignCutoutRequest;
 import shop.esjh.memoryjar.dto.jar.request.JarCreateRequest;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.ai.JarAiGenerationService;
@@ -109,6 +110,15 @@ public class JarDesignDraftController {
     public ResponseEntity<Void> updateSlot(Authentication authentication, @PathVariable Long draftId,
                                            @Valid @RequestBody JarDesignSlotRequest request) {
         draftService.updateSlot(extractCurrentUserId(authentication), draftId, request.centerX(), request.centerY(), request.sizeRatio(),
+                request.expectedDesignType(), request.expectedGenerationId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 선택 이미지에서 사용자가 지정한 하나 이상의 영역만 최종 PNG에 남기도록 저장한다. */
+    @PatchMapping("/{draftId}/cutout")
+    public ResponseEntity<Void> updateCutout(Authentication authentication, @PathVariable Long draftId,
+                                             @Valid @RequestBody JarDesignCutoutRequest request) {
+        draftService.updateCutoutRegions(extractCurrentUserId(authentication), draftId, request.effectiveRegions(),
                 request.expectedDesignType(), request.expectedGenerationId());
         return ResponseEntity.noContent().build();
     }

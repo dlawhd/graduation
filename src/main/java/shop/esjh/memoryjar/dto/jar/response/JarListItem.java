@@ -20,6 +20,7 @@ public record JarListItem(
         JarLockLevel lockLevel,
         boolean isOpen,
         JarRole myRole,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        JarDesignResponse design
 ) {
 }

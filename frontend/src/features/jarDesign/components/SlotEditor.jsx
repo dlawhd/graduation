@@ -3,9 +3,10 @@ import { getJarDesignDraftError, getJarDesignOriginalPreview, getJarDesignGenera
   updateJarDesignSlot } from "../../../api/jarDesignDraftApi";
 import { DEFAULT_SLOT, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
 import JarSlotOverlay from "./JarSlotOverlay";
+import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 
 /** 선택한 원본/AI 이미지 위에 투입구를 배치하고 Draft에 위치·크기만 저장하는 편집기다. */
-export default function SlotEditor({ draft, previewUrl, disabled, onSaved, onBusyChange, onDirtyChange }) {
+export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled, onSaved, onBusyChange, onDirtyChange }) {
   const [savedSlot, setSavedSlot] = useState(() => storedSlot(draft));
   const [slot, setSlot] = useState(() => normalizeSlot(storedSlot(draft) || DEFAULT_SLOT));
   const [saving, setSaving] = useState(false);
@@ -20,6 +21,7 @@ export default function SlotEditor({ draft, previewUrl, disabled, onSaved, onBus
   const url = retryUrl || previewUrl || "";
   const imageReady = Boolean(url && loadedUrl === url && failedUrl !== url);
   const dirty = !sameSlot(slot, savedSlot);
+  const cutoutMaskStyle = toCutoutMaskStyle(cutoutRegions);
   const locked = disabled || saving || blocked || !imageReady;
 
   useEffect(() => {
@@ -111,6 +113,7 @@ export default function SlotEditor({ draft, previewUrl, disabled, onSaved, onBus
             onLostPointerCapture={() => { pointerId.current = null; }}>
             {url && <img key={`${url}-${retrying}`} src={url} alt="투입구를 배치할 선택 디자인" draggable={false}
               className="h-full w-full select-none object-contain"
+              style={cutoutMaskStyle}
               onLoad={(event) => {
                 // 잘못된 이미지 비율 위에서 좌표를 저장하지 않는다. 서버 결과는 모두 정사각형이다.
                 if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) setLoadedUrl(url);

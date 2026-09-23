@@ -12,6 +12,7 @@ import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.entity.jar.JarInvite;
 import shop.esjh.memoryjar.entity.jar.JarMember;
+import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.jar.JarOpenMode;
 import shop.esjh.memoryjar.enums.jar.JarRole;
@@ -31,7 +32,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -70,6 +74,9 @@ class JarServiceTest {
     @Mock
     private ChatSystemMessageService chatSystemMessageService;
 
+    @Mock
+    private JarDesignViewService jarDesignViewService;
+
     @BeforeEach
     void setUp() {
         jarService = new JarService(
@@ -80,7 +87,8 @@ class JarServiceTest {
                 jarOpenService,
                 notificationService,
                 jarMemberRealtimeService,
-                chatSystemMessageService
+                chatSystemMessageService,
+                jarDesignViewService
         );
     }
 
@@ -140,6 +148,82 @@ class JarServiceTest {
         assertThat(response.jarId()).isEqualTo(100L);
         assertThat(response.name()).isEqualTo("우리 저금통");
         assertThat(response.myRole()).isEqualTo(JarRole.OWNER);
+    }
+
+    @Test
+    @DisplayName("Jar 상세는 활성 멤버에게 Optional 최종 디자인을 함께 반환한다")
+    void getJarDetail_returnsOptionalDesignToActiveMember() {
+        User owner = User.builder()
+                .id(1L)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-1")
+                .build();
+        Jar jar = Jar.builder()
+                .owner(owner)
+                .name("커스텀 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(2)
+                .openAt(LocalDateTime.now().plusDays(1))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(jar, "jarId", 10L);
+        ReflectionTestUtils.setField(jar, "createdAt", LocalDateTime.of(2026, 9, 23, 10, 0));
+        ReflectionTestUtils.setField(jar, "updatedAt", LocalDateTime.of(2026, 9, 23, 10, 0));
+        JarMember member = JarMember.createOwner(jar, owner);
+        JarDesignResponse design = new JarDesignResponse(
+                JarDesignType.AI,
+                "https://signed.example.test/final",
+                OffsetDateTime.of(2026, 9, 23, 1, 5, 0, 0, ZoneOffset.UTC),
+                new BigDecimal("0.50000"),
+                new BigDecimal("0.30000"),
+                new BigDecimal("0.60000")
+        );
+
+        when(jarRepository.findDetailByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(member));
+        when(jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(10L)).thenReturn(1L);
+        when(jarOpenService.ensureOpenedIfDue(10L)).thenReturn(false);
+        when(jarDesignViewService.findByJarId(10L)).thenReturn(design);
+
+        JarDetailResponse response = jarService.getJarDetail(1L, 10L);
+
+        assertThat(response.design()).isEqualTo(design);
+        verify(jarDesignViewService).findByJarId(10L);
+    }
+
+    @Test
+    @DisplayName("Jar 상세는 비멤버에게 디자인 URL을 발급하지 않는다")
+    void getJarDetail_doesNotReadDesignForNonMember() {
+        User owner = User.builder()
+                .id(1L)
+                .name("은서")
+                .provider("NAVER")
+                .providerId("naver-1")
+                .build();
+        Jar jar = Jar.builder()
+                .owner(owner)
+                .name("커스텀 저금통")
+                .description("설명")
+                .theme(JarTheme.SPRING)
+                .maxMembers(2)
+                .openAt(LocalDateTime.now().plusDays(1))
+                .openMode(JarOpenMode.ALL_AT_ONCE)
+                .lockLevel(JarLockLevel.HIDDEN)
+                .build();
+        ReflectionTestUtils.setField(jar, "jarId", 10L);
+
+        when(jarRepository.findDetailByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 2L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> jarService.getJarDetail(2L, 10L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("현재 저금통 멤버가 아니야.");
+        verifyNoInteractions(jarDesignViewService);
     }
 
     @Test
