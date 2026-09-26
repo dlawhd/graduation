@@ -14,7 +14,7 @@ import java.util.List;
  */
 public record JarDesignCutoutRequest(
         @Size(max = 240) List<@Valid JarDesignCutoutPoint> points,
-        @Size(max = 12) List<@Size(min = 3, max = 240) List<@Valid JarDesignCutoutPoint>> regions,
+        @Size(max = 30) List<@Size(min = 3, max = 240) List<@Valid JarDesignCutoutPoint>> regions,
         JarDraftDesignType expectedDesignType,
         Long expectedGenerationId
 ) {

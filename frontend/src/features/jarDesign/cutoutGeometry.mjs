@@ -1,6 +1,6 @@
-export const CUTOUT_MAX_REGIONS = 12;
+export const CUTOUT_MAX_REGIONS = 30;
 export const CUTOUT_MAX_POINTS_PER_REGION = 240;
-const CUTOUT_MAX_TOTAL_POINTS = 720;
+const CUTOUT_MAX_TOTAL_POINTS = 1200;
 const PRECISION = 100000;
 
 /** 서버와 같은 0~1 정규화 좌표로 한 영역의 점을 안전하게 정리한다. */

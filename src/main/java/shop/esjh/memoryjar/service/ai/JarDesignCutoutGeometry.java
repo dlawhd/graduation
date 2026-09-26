@@ -15,8 +15,8 @@ final class JarDesignCutoutGeometry {
 
     private static final int MIN_POINTS = 3;
     private static final int MAX_POINTS_PER_REGION = 240;
-    private static final int MAX_REGIONS = 12;
-    private static final int MAX_TOTAL_POINTS = 720;
+    private static final int MAX_REGIONS = 30;
+    private static final int MAX_TOTAL_POINTS = 1200;
     private static final int MAX_SCALE = 5;
 
     private JarDesignCutoutGeometry() {

@@ -32,6 +32,15 @@ class JarDesignCutoutPathCodecTest {
         assertThat(codec.decodeRegions(codec.encodeRegions(expected))).isEqualTo(expected);
     }
 
+    @Test
+    void encodeAndDecodeRegions_allowsThirtyRegions() {
+        List<List<JarDesignCutoutPoint>> expected = java.util.stream.IntStream.range(0, 30)
+                .mapToObj(index -> triangle("0.1"))
+                .toList();
+
+        assertThat(codec.decodeRegions(codec.encodeRegions(expected))).hasSize(30);
+    }
+
     private List<JarDesignCutoutPoint> triangle(String offset) {
         BigDecimal x = new BigDecimal(offset);
         return List.of(
