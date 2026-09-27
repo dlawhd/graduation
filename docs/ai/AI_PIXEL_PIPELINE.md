@@ -1,5 +1,15 @@
 # Memory Jar AI PIXEL 파이프라인 — 설계·구현 가이드
 
+## 2026-09-27 후처리 V2 변경
+
+현재 신규 생성은 `PIXEL_V5 + PIXEL_REF_V1 + PIXEL_PP_V2`를 사용한다.
+V2는 흰 배경처럼 마지막 색이 과반을 차지할 때 median-cut 분할 위치가 1로 돌아가던 문제를 수정하고,
+60×60 bilinear 축소 → 최대 24색 → nearest-neighbor 8배 확대(480×480)를 적용한다.
+기존 생성 이력의 V1 버전과 저장된 이미지는 변경하지 않는다. 아래 64×64/V1 설명은 이전 구현 기록이다.
+후보·슬롯·누끼·최종 미리보기와 Jar 목록·상세·확대·오픈 화면은 PIXEL에만 `image-rendering: pixelated`를 적용한다.
+Jar 디자인 응답의 nullable `aiStyle`로 구분하며 선택 Generation은 함께 조회해 N+1을 방지한다.
+이 설정은 브라우저의 부드러운 보간을 막지만 임의 화면 크기에서 모든 화면 픽셀의 정수 배율까지 보장하지는 않는다.
+
 > **권장 저장 위치:** `docs/ai/AI_PIXEL_PIPELINE.md`
 >
 >

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { draftImageRendering } from "../imageRendering.mjs";
 import { Link, useNavigate } from "react-router-dom";
 import {
   finalizeJarDesignDraft,
@@ -176,7 +177,7 @@ export default function JarDesignFinalizePanel({
           <div className="relative mt-3 aspect-square overflow-hidden rounded-2xl bg-white">
             {isCustom && imageUrl && (
               <img key={imageKey} src={imageUrl} alt="최종 저금통 디자인 미리보기" className="h-full w-full object-contain"
-                style={cutoutMaskStyle}
+                style={{ ...cutoutMaskStyle, imageRendering: draftImageRendering(draft) }}
                 onLoad={(event) => {
                   if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) {
                     setLoadedImageKey(imageKey);

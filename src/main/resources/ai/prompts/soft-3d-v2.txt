@@ -1,0 +1,13 @@
+Render the existing artwork as a clearly three-dimensional stylized render with soft matte materials, rounded surface volume and coherent diffuse lighting.
+
+Give the existing forms visible depth through surface curvature, gentle highlights and self-shading. The result should read as a volumetric 3D rendering, rather than a flat illustration or a slightly embossed sticker.
+
+Use input image 0 as the fixed guide for the projected silhouette, proportions, pose, camera direction, arrangement and color placement. Build depth within those visible forms without rotating the subject or revealing invented hidden parts. Source fidelity takes priority over stronger depth.
+
+Only give volume to a head, body, face or limb when that specific feature is clearly present. Preserve existing facial details and expression as markings on the same visible surfaces. Do not invent anatomy, change species, enlarge heads or make bodies chubbier.
+
+For ambiguous or abstract drawings, render the actual strokes and shapes as softly rounded three-dimensional strokes or forms. Preserve open paths, gaps and separate components; do not connect them or fill the spaces between them with a new body or backing surface.
+
+Retain all original hues and their locations. Use shading and highlights to reveal volume without adding unrelated colors. Keep monochrome input monochrome and preserve intentional white or uncolored regions.
+
+Use a plain white background. No pedestal, display stand, backing plate, frame, scenery, cast shadow or coin slot. Keep every original subject fully visible. Follow all base preservation priorities.

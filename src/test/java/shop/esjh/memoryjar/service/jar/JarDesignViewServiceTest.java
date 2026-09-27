@@ -12,6 +12,8 @@ import shop.esjh.memoryjar.config.properties.S3Properties;
 import shop.esjh.memoryjar.dto.jar.response.JarDesignResponse;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.ai.JarDesign;
+import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
+import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
@@ -58,6 +60,8 @@ class JarDesignViewServiceTest {
     @DisplayName("JarDesign이 있으면 짧은 이미지 URL과 저장된 Slot을 반환한다")
     void findByJarId_returnsPresignedImageAndSlot() throws Exception {
         JarDesign design = design(10L, "jar-designs/1/final.png");
+        ReflectionTestUtils.setField(design, "selectedGeneration",
+                JarAiGeneration.builder().aiStyle(JarAiStyle.PIXEL).build());
         when(jarDesignRepository.findByJar_JarId(10L)).thenReturn(Optional.of(design));
         when(presignedGetObjectRequest.url()).thenReturn(new URL("https://signed.example.test/final"));
         when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
@@ -66,6 +70,7 @@ class JarDesignViewServiceTest {
         JarDesignResponse response = service.findByJarId(10L);
 
         assertThat(response.designType()).isEqualTo(JarDesignType.AI);
+        assertThat(response.aiStyle()).isEqualTo(JarAiStyle.PIXEL);
         assertThat(response.imageUrl()).isEqualTo("https://signed.example.test/final");
         assertThat(response.imageExpiresAt()).isNotNull();
         assertThat(response.slotCenterX()).isEqualByComparingTo("0.50000");
@@ -118,6 +123,7 @@ class JarDesignViewServiceTest {
 
         assertThat(response.designType()).isEqualTo(JarDesignType.AI);
         assertThat(response.imageUrl()).isNull();
+        assertThat(response.aiStyle()).isNull();
         assertThat(response.imageExpiresAt()).isNull();
     }
 

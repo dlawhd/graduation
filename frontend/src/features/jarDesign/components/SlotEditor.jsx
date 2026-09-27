@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { draftImageRendering } from "../imageRendering.mjs";
 import { getJarDesignDraftError, getJarDesignOriginalPreview, getJarDesignGenerationPreview,
   updateJarDesignSlot } from "../../../api/jarDesignDraftApi";
 import { DEFAULT_SLOT, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
@@ -113,7 +114,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
             onLostPointerCapture={() => { pointerId.current = null; }}>
             {url && <img key={`${url}-${retrying}`} src={url} alt="투입구를 배치할 선택 디자인" draggable={false}
               className="h-full w-full select-none object-contain"
-              style={cutoutMaskStyle}
+              style={{ ...cutoutMaskStyle, imageRendering: draftImageRendering(draft) }}
               onLoad={(event) => {
                 // 잘못된 이미지 비율 위에서 좌표를 저장하지 않는다. 서버 결과는 모두 정사각형이다.
                 if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) setLoadedUrl(url);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { draftImageRendering } from "../imageRendering.mjs";
 import {
   CUTOUT_MAX_POINTS_PER_REGION,
   CUTOUT_MAX_REGIONS,
@@ -202,11 +203,12 @@ export default function CutoutEditor({ draft, previewUrl, disabled, onSaved, onB
           >
             {url && <img key={`${url}-${retrying}`} src={url} alt="배경을 지울 선택 디자인" draggable={false}
               className={`pointer-events-none absolute inset-0 h-full w-full select-none object-contain transition-opacity ${regions.length ? "opacity-25" : ""}`}
+              style={{ imageRendering: draftImageRendering(draft) }}
               onLoad={() => { setFailedUrl(""); setLoadedUrl(url); }}
               onError={() => setFailedUrl(url)} />}
             {imageReady && maskStyle && <img src={url} alt="선택한 본체 미리보기" draggable={false}
               className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
-              style={maskStyle} />}
+              style={{ ...maskStyle, imageRendering: draftImageRendering(draft) }} />}
             <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
               {regions.map((region, index) => <polygon key={`region-${index}`}
                 points={region.map((point) => `${point.x},${point.y}`).join(" ")}

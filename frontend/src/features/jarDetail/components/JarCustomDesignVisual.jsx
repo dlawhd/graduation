@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { designImageRendering } from "../../jarDesign/imageRendering.mjs";
 import JarSlotOverlay from "../../jarDesign/components/JarSlotOverlay";
 import { storedSlot } from "../../jarDesign/slotGeometry.mjs";
 
@@ -88,6 +89,7 @@ export default function JarCustomDesignVisual({
         src={design.imageUrl}
         alt={alt}
         className={imageClassName}
+        style={{ imageRendering: designImageRendering(design.aiStyle) }}
         onError={() => setImageFailed(true)}
       />
       {slot && <JarSlotOverlay slot={slot} />}

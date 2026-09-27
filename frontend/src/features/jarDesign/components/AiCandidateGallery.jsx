@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { designImageRendering } from "../imageRendering.mjs";
 import SlotEditor from "./SlotEditor";
 import CutoutEditor from "./CutoutEditor";
 import JarDesignFinalizePanel from "./JarDesignFinalizePanel";
@@ -13,7 +14,7 @@ import {
 
 const AI_STYLES = [
   ["CUTE_2D", "귀여운 2D", "말랑하고 사랑스러운 일러스트"],
-  ["SOFT_25D", "부드러운 2.5D", "은은한 입체감과 따뜻한 질감"],
+  ["SOFT_25D", "부드러운 3D", "원본 형태를 살린 입체적인 볼륨과 부드러운 질감"],
   ["WATERCOLOR", "수채화", "번지는 색감의 손그림 분위기"],
   ["HAND_DRAWN", "손그림", "연필과 펜으로 그린 듯한 느낌"],
   ["WEIRDO", "괴짜", "개성 있고 엉뚱한 표현"],
@@ -234,7 +235,8 @@ export default function AiCandidateGallery({ draftId }) {
                 className={`overflow-hidden rounded-[22px] border bg-white ${isSelected ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}>
                 <div className="aspect-square bg-slate-100">
                   {isSucceeded && previewUrl ? (
-                    <img src={previewUrl} alt={`${styleLabel(generation.style)} AI 후보`} className="h-full w-full object-cover" />
+                    <img src={previewUrl} alt={`${styleLabel(generation.style)} AI 후보`} className="h-full w-full object-cover"
+                      style={{ imageRendering: designImageRendering(generation.style) }} />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold leading-6 text-slate-500">
                       {isSucceeded ? "미리보기를 준비하는 중이에요." : generation.status === "PROCESSING" ? "AI가 디자인을 만드는 중이에요." : "후보 생성에 실패했어요."}

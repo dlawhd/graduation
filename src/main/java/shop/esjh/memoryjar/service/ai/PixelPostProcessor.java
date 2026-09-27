@@ -17,18 +17,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 검증된 Cloudflare PIXEL 후보를 PIXEL_PP_V1 규칙의 480×480 PNG로 변환한다.
+ * 검증된 Cloudflare PIXEL 후보를 PIXEL_PP_V2 규칙의 480×480 PNG로 변환한다.
  *
  * <p>원본 AI 응답의 형식·크기 검사는 {@link GeneratedAiImageValidator}가 먼저 담당한다.
- * 이 클래스는 그 다음 단계에서만 쓰이며, 흰 배경 합성, 64×64 bilinear 축소,
+ * 이 클래스는 그 다음 단계에서만 쓰이며, 흰 배경 합성, 60×60 bilinear 축소,
  * 최대 24색 median-cut 팔레트, nearest-neighbor 확대를 한 버전으로 고정한다.</p>
  */
 @Component
 public class PixelPostProcessor {
 
-    public static final String POSTPROCESS_VERSION = "PIXEL_PP_V1";
+    public static final String POSTPROCESS_VERSION = "PIXEL_PP_V2";
     private static final int SOURCE_SIZE = 1024;
-    private static final int SPRITE_SIZE = 64;
+    private static final int SPRITE_SIZE = 60;
     private static final int PALETTE_SIZE = 24;
     private static final int OUTPUT_SIZE = 480;
 
@@ -169,7 +169,7 @@ public class PixelPostProcessor {
         BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = resized.createGraphics();
         try {
-            // 64에서 480은 정수 배율이 아니므로, Graphics2D의 nearest-neighbor 좌표 규칙을 고정한다.
+            // 60에서 480으로 정확히 8배 확대해 모든 원본 픽셀을 같은 8×8 블록으로 유지한다.
             graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                     RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             graphics.drawImage(source, 0, 0, width, height, null);
@@ -277,7 +277,9 @@ public class PixelPostProcessor {
 
             int halfPopulation = (population + 1) / 2;
             int accumulated = 0;
-            int splitIndex = 1;
+            // 마지막 색이 과반인 경우에도 앞의 색들을 한 묶음으로 분리한다.
+            // 1로 돌아가면 흰 배경과 유색 영역이 계속 섞여 작은 강조색이 팔레트에서 사라진다.
+            int splitIndex = sorted.size() - 1;
             for (int index = 0; index < sorted.size() - 1; index++) {
                 accumulated += sorted.get(index).count();
                 if (accumulated >= halfPopulation) {

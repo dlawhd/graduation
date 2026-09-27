@@ -19,23 +19,24 @@ import java.util.Optional;
 @Component
 public class AiPromptCatalog {
 
-    private static final String BASE_V1 = "ai/prompts/base-v1.txt";
+    private static final String BASE_V2 = "ai/prompts/base-v2.txt";
     private static final String PIXEL_REFERENCE_V1 = "ai/references/pixel-reference-v1.png";
 
     private final Map<JarAiStyle, AiPromptDefinition> definitions;
 
     public AiPromptCatalog() {
-        String base = readPrompt(BASE_V1);
+        String base = readPrompt(BASE_V2);
 
         EnumMap<JarAiStyle, AiPromptDefinition> catalog = new EnumMap<>(JarAiStyle.class);
         catalog.put(JarAiStyle.CUTE_2D, definition(
-                base, "ai/prompts/cute-2d-v1.txt", "BASE_V1+CUTE_2D_V1", null, null, null));
+                base, "ai/prompts/cute-2d-v2.txt", "BASE_V2+CUTE_2D_V2", null, null, null));
+        // 기존 API·DB 스타일 ID는 유지하고 실제 생성 방식은 버전으로 구분한다.
         catalog.put(JarAiStyle.SOFT_25D, definition(
-                base, "ai/prompts/soft-2-5d-v1.txt", "BASE_V1+SOFT_2_5D_V1", null, null, null));
+                base, "ai/prompts/soft-3d-v2.txt", "BASE_V2+SOFT_3D_V2", null, null, null));
         catalog.put(JarAiStyle.WATERCOLOR, definition(
-                base, "ai/prompts/watercolor-v1.txt", "BASE_V1+WATERCOLOR_V1", null, null, null));
+                base, "ai/prompts/watercolor-v1.txt", "BASE_V2+WATERCOLOR_V1", null, null, null));
         catalog.put(JarAiStyle.HAND_DRAWN, definition(
-                base, "ai/prompts/hand-drawn-v1.txt", "BASE_V1+HAND_DRAWN_V1", null, null, null));
+                base, "ai/prompts/hand-drawn-v1.txt", "BASE_V2+HAND_DRAWN_V1", null, null, null));
         catalog.put(JarAiStyle.WEIRDO, definition(
                 readPrompt("ai/prompts/funny-universal-v1.txt"),
                 "ai/prompts/funny-crazy-boost-v1.txt", "FUNNY_UNIVERSAL_V1+FUNNY_CRAZY_BOOST_V1", null, null, null));

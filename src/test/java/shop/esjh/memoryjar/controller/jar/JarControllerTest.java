@@ -155,7 +155,7 @@ class JarControllerTest {
                         OffsetDateTime.of(2026, 3, 23, 10, 5, 0, 0, ZoneOffset.UTC),
                         new BigDecimal("0.50000"),
                         new BigDecimal("0.30000"),
-                        new BigDecimal("0.60000")
+                        new BigDecimal("0.60000"), null
                 )
         );
 

@@ -1,0 +1,11 @@
+Render the existing artwork as a cute, clean, flat 2D illustration.
+
+Express cuteness through gentle line quality, tidy contours and smooth source-colored regions, not through new anatomy or redesigned proportions. Preserve the original outer silhouette, relative sizes and internal structure.
+
+If a face is clearly present, gently soften the rendering of its existing features while preserving their number, placement, size, expression and one-sided details. If a head or body is clearly present, refine its linework without enlarging or reshaping it. If these features are absent or ambiguous, leave them absent or ambiguous.
+
+Keep abstract marks and open line drawings abstract and open. Do not convert them into a cute creature or complete them into a character.
+
+Use the source palette. Do not replace saturated colors with pastels or color unfilled regions. Use little to no shading and retain a clearly flat illustrated appearance.
+
+No sculpted volume, realistic materials, glossy reflections or three-dimensional rendering. Follow the base preservation priorities whenever a cuter treatment would change the original design.

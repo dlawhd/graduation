@@ -179,7 +179,7 @@ class JarServiceTest {
                 OffsetDateTime.of(2026, 9, 23, 1, 5, 0, 0, ZoneOffset.UTC),
                 new BigDecimal("0.50000"),
                 new BigDecimal("0.30000"),
-                new BigDecimal("0.60000")
+                new BigDecimal("0.60000"), null
         );
 
         when(jarRepository.findDetailByJarId(10L)).thenReturn(Optional.of(jar));

@@ -32,8 +32,10 @@ class AiPromptCatalogTest {
     @Test
     @DisplayName("일반 스타일은 BASE와 스타일별 프롬프트를 함께 사용하고 WEIRDO와 PIXEL은 BASE를 사용하지 않는다")
     void resolve_usesExpectedPromptCombinations() {
-        assertThat(catalog.resolve(JarAiStyle.CUTE_2D).promptVersion()).isEqualTo("BASE_V1+CUTE_2D_V1");
-        assertThat(catalog.resolve(JarAiStyle.SOFT_25D).promptVersion()).isEqualTo("BASE_V1+SOFT_2_5D_V1");
+        assertThat(catalog.resolve(JarAiStyle.CUTE_2D).promptVersion()).isEqualTo("BASE_V2+CUTE_2D_V2");
+        assertThat(catalog.resolve(JarAiStyle.SOFT_25D).promptVersion()).isEqualTo("BASE_V2+SOFT_3D_V2");
+        assertThat(catalog.resolve(JarAiStyle.WATERCOLOR).promptVersion()).isEqualTo("BASE_V2+WATERCOLOR_V1");
+        assertThat(catalog.resolve(JarAiStyle.HAND_DRAWN).promptVersion()).isEqualTo("BASE_V2+HAND_DRAWN_V1");
         assertThat(catalog.resolve(JarAiStyle.WEIRDO).promptVersion())
                 .isEqualTo("FUNNY_UNIVERSAL_V1+FUNNY_CRAZY_BOOST_V1");
         assertThat(catalog.resolve(JarAiStyle.WEIRDO).prompt()).doesNotContain("authoritative visual reference");
@@ -48,7 +50,7 @@ class AiPromptCatalogTest {
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(catalog.loadReferenceImage(definition)));
 
         assertThat(definition.referenceImageVersion()).isEqualTo("PIXEL_REF_V1");
-        assertThat(definition.postprocessVersion()).isEqualTo("PIXEL_PP_V1");
+        assertThat(definition.postprocessVersion()).isEqualTo("PIXEL_PP_V2");
         assertThat(definition.referenceImageResourcePathOptional()).contains("ai/references/pixel-reference-v1.png");
         assertThat(image).isNotNull();
         assertThat(image.getWidth()).isEqualTo(480);

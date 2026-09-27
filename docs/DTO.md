@@ -212,7 +212,8 @@ public record JarDesignResponse(
     OffsetDateTime imageExpiresAt,
     BigDecimal slotCenterX,
     BigDecimal slotCenterY,
-    BigDecimal slotSizeRatio
+    BigDecimal slotSizeRatio,
+    JarAiStyle aiStyle // AI 후보 스타일, ORIGINAL 또는 정보 없음은 null
 ) {}
 ```
 

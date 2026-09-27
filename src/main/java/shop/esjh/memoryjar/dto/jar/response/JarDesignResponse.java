@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.dto.jar.response;
 
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
+import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -15,6 +16,7 @@ public record JarDesignResponse(
         OffsetDateTime imageExpiresAt,
         BigDecimal slotCenterX,
         BigDecimal slotCenterY,
-        BigDecimal slotSizeRatio
+        BigDecimal slotSizeRatio,
+        JarAiStyle aiStyle
 ) {
 }

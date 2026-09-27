@@ -92,7 +92,8 @@ public class JarDesignViewService {
                 imageExpiresAt,
                 design.getSlotCenterX(),
                 design.getSlotCenterY(),
-                design.getSlotSizeRatio()
+                design.getSlotSizeRatio(),
+                design.getSelectedGeneration() == null ? null : design.getSelectedGeneration().getAiStyle()
         );
     }
 

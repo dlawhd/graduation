@@ -13,7 +13,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** PIXEL_PP_V1의 규격, 팔레트 제한, 확대 보간 규칙을 검증한다. */
+/** PIXEL_PP_V2의 규격, 강조색 보존, 팔레트 제한, 정수 확대 규칙을 검증한다. */
 class PixelPostProcessorTest {
 
     private final PixelPostProcessor postProcessor = new PixelPostProcessor();
@@ -59,6 +59,44 @@ class PixelPostProcessorTest {
     void postProcess_rejectsCorruptedBytes() {
         assertThatThrownBy(() -> postProcessor.postProcess(new byte[]{1, 2, 3}))
                 .isInstanceOf(PixelPostProcessor.InvalidPixelPostprocessException.class);
+    }
+
+    @Test
+    void postProcess_preservesSmallRedRegionOnDominantWhiteBackground() throws Exception {
+        BufferedImage source = new BufferedImage(1024, 1024, BufferedImage.TYPE_INT_RGB);
+        var graphics = source.createGraphics();
+        graphics.setColor(Color.WHITE);
+        graphics.fillRect(0, 0, 1024, 1024);
+        // 검정의 미세한 변형이 24색보다 많고 흰색이 과반인 분포를 만든다.
+        for (int i = 0; i < 40; i++) {
+            graphics.setColor(new Color(i, i, i));
+            graphics.fillRect(i * 20, 700, 20, 100);
+        }
+        graphics.setColor(new Color(200, 50, 50));
+        graphics.fillRect(450, 450, 120, 120);
+        graphics.dispose();
+
+        BufferedImage result = decode(postProcessor.postProcess(writePng(source)));
+        Color center = new Color(result.getRGB(239, 239));
+        assertThat(center.getRed()).isGreaterThan(150);
+        assertThat(center.getGreen()).isLessThan(90);
+        assertThat(center.getBlue()).isLessThan(90);
+        assertThat(result.getRGB(0, 0) & 0xFFFFFF).isEqualTo(0xFFFFFF);
+    }
+
+    @Test
+    void postProcess_enlargesEveryPixelToUniformEightByEightBlock() throws Exception {
+        BufferedImage result = decode(postProcessor.postProcess(writePng(colorfulImage())));
+        for (int y = 0; y < 480; y += 8) {
+            for (int x = 0; x < 480; x += 8) {
+                int expected = result.getRGB(x, y);
+                for (int dy = 0; dy < 8; dy++) {
+                    for (int dx = 0; dx < 8; dx++) {
+                        assertThat(result.getRGB(x + dx, y + dy)).isEqualTo(expected);
+                    }
+                }
+            }
+        }
     }
 
     private BufferedImage colorfulImage() {

@@ -1,0 +1,21 @@
+Use input image 0 as the authoritative visual reference. Restyle the artwork that is actually visible in this image.
+
+Priority order: source identity and subject count; silhouette, structure and arrangement; color placement and markings; requested rendering style. If style conflicts with preservation, preserve the source.
+
+Preserve the same subject or meaningful subject group, number of subjects, relative sizes, positions, relationships, pose, viewing direction, asymmetry, connected parts, separate parts, gaps and holes. Keep the full composition visible in one square 1024 by 1024 output image.
+
+When the drawing is ambiguous, abstract, incomplete or hard to identify, preserve its visible lines and shapes as abstract artwork. Do not guess a species, object category or hidden meaning. Do not complete unfinished strokes into recognizable anatomy or a new character.
+
+Only restyle facial features, heads, bodies or limbs when those individual features are clearly present in the source. Preserve their count, placement and expression. Do not turn an ordinary mark into a face or turn a long stroke into an anatomical part. Do not add missing anatomy, accessories or decorative parts.
+
+Keep irregular, childlike and asymmetric details instead of correcting them into a familiar mascot. Do not replace the subject with a generic character or force it into a container or coin bank.
+
+Preserve the source hues and their locations, including small accents and colored outlines. White and uncolored regions are intentional: do not invent colored fills. For monochrome input, remain monochrome. Style shading may vary the lightness of existing regions without changing their color identity.
+
+Preserve the source silhouette and internal layout even when adding texture or depth. Keep open strokes open and separate elements separate. Do not add a backing plate, frame, pedestal, supporting shape or filled surface behind the drawing.
+
+Do not add a coin slot, opening, lid, text, logo, watermark, extra subjects, props or scenery. The user places the coin slot separately later.
+
+Keep the artwork centered on a plain white background, without decorative background elements or cast shadows. Preserve the whole source composition without cropping or duplicating it.
+
+The following style instructions change rendering only. They never override source identity, subject count, silhouette or layout.
