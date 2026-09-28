@@ -31,10 +31,16 @@ export async function fetchCsrf() {
 }
 
 // CSRF 토큰이 없으면 새로 받아오는 함수
-async function ensureCsrf() {
+export async function ensureCsrf() {
   if (!csrfToken) {
     await fetchCsrf();
   }
+  return csrfToken;
+}
+
+/** 로그아웃 뒤 다음 사용자가 이전 세션의 CSRF 토큰을 재사용하지 않도록 메모리 값을 비운다. */
+export function clearCsrf() {
+  csrfToken = "";
 }
 
 // POST/PUT/PATCH/DELETE 요청에는 CSRF 헤더 자동 첨부

@@ -26,6 +26,7 @@ import shop.esjh.memoryjar.config.properties.AppProperties;
  * - 쪽지 작성과 상태 변경
  * - 댓글과 리액션
  * - 오늘의 추억 한 장
+ * - AI 디자인 후보 생성 완료·실패 알림
  *
  * 모든 기능은 같은 /ws 연결과 /topic 구독 구조를 사용한다.
  */

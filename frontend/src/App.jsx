@@ -18,7 +18,7 @@ import JarsNewPage from "./pages/JarsNewPage";
 import JarDesignNewPage from "./pages/JarDesignNewPage";
 import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
-import apiClient, { fetchCsrf } from "./api/apiClient";
+import apiClient, { clearCsrf, fetchCsrf } from "./api/apiClient";
 import SignupPage from "./pages/SignupPage";
 /*
  * 자체 로그인 아이디 찾기 페이지
@@ -785,6 +785,7 @@ useEffect(() => {
 
       await fetchCsrf();
       await apiClient.post("/api/v1/auth/logout");
+      clearCsrf();
 
         /*
          * 로그아웃 성공 후

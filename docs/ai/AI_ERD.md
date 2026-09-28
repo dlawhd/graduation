@@ -165,7 +165,7 @@ jar_designs.selected_generation_id
 
 | `reference_image_version` | VARCHAR(50) | YES | PIXEL에만 필수, 현재 PIXEL_REF_V1 |
 
-| `postprocess_version` | VARCHAR(50) | YES | PIXEL에만 필수, 현재 PIXEL_PP_V1 |
+| `postprocess_version` | VARCHAR(50) | YES | PIXEL에만 필수, 현재 PIXEL_PP_V2 |
 
 | `generated_s3_key` | VARCHAR(512) | YES | SUCCEEDED 시 **최종 후보** Private S3 Key, Raw 이미지 아님 |
 
@@ -193,11 +193,11 @@ jar_designs.selected_generation_id
 
 | FAILED | NULL | NULL | 필수 | NULL 또는 정제된 설명 | 필수 |
 
-- 실패 코드: `SOURCE_IMAGE_LOAD_FAILED`, `PROVIDER_REQUEST_FAILED`, `PROVIDER_TIMEOUT`, `PROVIDER_RATE_LIMITED`, `PROVIDER_INVALID_RESPONSE`, `PIXEL_POSTPROCESS_FAILED`, `S3_UPLOAD_FAILED`, `GENERATION_TIMEOUT`, `INTERNAL_ERROR`.
+- 실패 코드: `SOURCE_IMAGE_LOAD_FAILED`, `PROVIDER_REQUEST_FAILED`, `PROVIDER_TIMEOUT`, `PROVIDER_RATE_LIMITED`, `PROVIDER_INVALID_RESPONSE`, `PIXEL_POSTPROCESS_FAILED`, `S3_UPLOAD_FAILED`, `GENERATION_QUEUE_FULL`, `GENERATION_TIMEOUT`, `INTERNAL_ERROR`.
 
 - `s3_deleted_at`이 NULL이어도 S3 객체의 존재까지 보장하지 않는다. 존재와 접근 가능성은 실제 최종화 시 확인한다.
 
-- PIXEL만 사용자 스케치 + 버전 관리된 픽셀 스타일 참조의 두 이미지 입력을 사용한다. Java Client는 `input_image_0`과 `input_image_1` multipart 요청·응답 파싱을 단위 테스트로 검증했다. 실제 Cloudflare 계정 호출은 운영 검증으로 남는다. 다른 스타일의 Reference/후처리 버전은 NULL이다. PIXEL_PP_V1은 흰 배경 합성 후 64×64 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 480×480 처리다.
+- PIXEL만 사용자 스케치 + 버전 관리된 픽셀 스타일 참조의 두 이미지 입력을 사용한다. Java Client는 `input_image_0`과 `input_image_1` multipart 요청·응답 파싱을 단위 테스트로 검증했다. 다른 스타일의 Reference/후처리 버전은 NULL이다. 현재 `PIXEL_PP_V2`는 흰 배경 합성 후 60×60 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 8배 확대 480×480 처리다. 과거 `PIXEL_PP_V1` 기록은 소급 변경하지 않는다.
 - AI 응답 성공 여부와 **유효한 최종 이미지 생성 여부는 구분**한다. 응답은 실제 이미지 바이트를 디코딩하고 `1024×1024` 정사각형·PNG 변환을 검증한 뒤, PIXEL은 Java 후처리 결과를 검증해 Private S3에 저장해야 SUCCEEDED가 된다. 다른 스타일에도 480×480을 강제하지 않는다.
 
 - 재생성은 새로운 Generation이다. 과거 성공 결과와 실패 기록을 덮어쓰지 않는다. `created_by`, `jar_id`, `source_upload_id`, `generated_url` 컬럼은 만들지 않는다.

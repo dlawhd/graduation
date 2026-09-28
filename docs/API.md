@@ -2223,7 +2223,7 @@ AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라,
 | --- | --- | --- |
 | `POST` | `/api/v1/design-drafts` | multipart `image` 원본을 검증·정규화해 Draft 생성 |
 | `GET` | `/api/v1/design-drafts/{draftId}` | Draft 상태·선택·Slot·Generation 메타데이터 조회 |
-| `POST` | `/api/v1/design-drafts/{draftId}/generations` | 서버 Catalog 스타일의 AI 후보 생성 시작 |
+| `POST` | `/api/v1/design-drafts/{draftId}/generations` | AI 후보를 접수하고 즉시 `202 Accepted`와 `generationId` 반환 |
 | `GET` | `/api/v1/design-drafts/{draftId}/original/preview` | 정규화 원본의 짧은 Presigned GET URL 발급 |
 | `GET` | `/api/v1/design-drafts/{draftId}/generations/{generationId}/preview` | 성공 후보의 짧은 Presigned GET URL 발급 |
 | `PATCH` | `/api/v1/design-drafts/{draftId}/selection` | `ORIGINAL`·`AI`·`DEFAULT` 선택 저장 |
@@ -2231,9 +2231,21 @@ AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라,
 | `PATCH` | `/api/v1/design-drafts/{draftId}/slot` | 커스텀 이미지 Slot의 정규화 위치·크기 저장 |
 | `POST` | `/api/v1/design-drafts/{draftId}/finalize` | Draft 선택을 실제 Jar로 한 번만 확정 |
 
-원본은 PNG/JPEG/WebP만 허용하며 서버가 실제 바이트를 검사해 `480×480` PNG로 정규화한다. AI 결과는 `1024×1024` 정사각형을 검증하고, PIXEL은 `64×64 → 24색 → 480×480` 후처리를 거친다. `PROCESSING` Generation이 있으면 Finalize를 `409`로 거절한다.
+원본은 PNG/JPEG/WebP만 허용하며 서버가 실제 바이트를 검사해 `480×480` PNG로 정규화한다. AI 결과는 `1024×1024` 정사각형을 검증하고, PIXEL은 `60×60 → 24색 → 480×480` 후처리를 거친다. `PROCESSING` Generation이 있으면 Finalize를 `409`로 거절한다.
 
-AI Draft 영역의 기능별 오류는 공통 오류 봉투의 `error.code`로 구분한다. 예를 들어 `DRAFT_NOT_OWNER`는 `403`, `AI_GENERATION_ALREADY_PROCESSING`과 `DRAFT_PROCESSING_FINALIZE_BLOCKED`는 `409`다. 화면은 문구가 아니라 이 코드를 기준으로 동작을 분기해야 한다.
+AI 생성 POST는 Cloudflare·S3·Rekognition 처리를 기다리지 않는다. 짧은 DB 트랜잭션에서 `PROCESSING` Generation을 만든 뒤 제한된 백그라운드 실행기에 넣고 다음 응답을 즉시 반환한다.
+
+```http
+HTTP/1.1 202 Accepted
+```
+
+```json
+{"data":{"generationId":100}}
+```
+
+완료 또는 실패 상태는 OWNER만 구독할 수 있는 `/topic/design-drafts/{draftId}/generations`로 전달한다. 이벤트는 갱신 신호이며 프론트는 이벤트 수신 뒤 `GET /api/v1/design-drafts/{draftId}`를 다시 호출해 실제 상태를 확인한다. WebSocket 재연결 중 놓친 이벤트는 재연결 직후 조회와 저빈도 REST 안전 조회로 복구한다.
+
+AI Draft 영역의 기능별 오류는 공통 오류 봉투의 `error.code`로 구분한다. 예를 들어 `DRAFT_NOT_OWNER`는 `403`, `AI_GENERATION_ALREADY_PROCESSING`과 `DRAFT_PROCESSING_FINALIZE_BLOCKED`는 `409`, 실행기 대기열 포화의 `AI_GENERATION_QUEUE_FULL`은 `503`이다. 화면은 문구가 아니라 이 코드를 기준으로 동작을 분기해야 한다.
 
 ### Slot 저장 계약
 
@@ -2251,7 +2263,7 @@ ORIGINAL 편집은 `expectedDesignType: "ORIGINAL"`, `expectedGenerationId: null
 
 ### 배경 제거 외곽선 계약
 
-`PATCH /api/v1/design-drafts/{draftId}/cutout` 성공은 `204`이며 본문이 없다. 새 화면은 `regions`에 하나 이상의 닫힌 영역을 보내며, 각 점은 이미지 너비·높이에 대한 0~1 정규화 좌표다. Finalize PNG에는 모든 영역의 합집합만 남는다. 영역은 최대 12개, 영역당 3~240점, 전체 720점까지 허용한다.
+`PATCH /api/v1/design-drafts/{draftId}/cutout` 성공은 `204`이며 본문이 없다. 새 화면은 `regions`에 하나 이상의 닫힌 영역을 보내며, 각 점은 이미지 너비·높이에 대한 0~1 정규화 좌표다. Finalize PNG에는 모든 영역의 합집합만 남는다. 영역은 최대 30개, 영역당 3~240점, 전체 1200점까지 허용한다.
 
 ```json
 {"regions":[[{"x":0.12,"y":0.08},{"x":0.45,"y":0.12},{"x":0.3,"y":0.5}],[{"x":0.58,"y":0.12},{"x":0.84,"y":0.15},{"x":0.72,"y":0.52}]],"expectedDesignType":"AI","expectedGenerationId":100}

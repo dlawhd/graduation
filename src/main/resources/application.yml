@@ -215,6 +215,11 @@ app:
     scheduler-initial-delay-ms: ${APP_AI_CLEANUP_SCHEDULER_INITIAL_DELAY_MS:60000}
     batch-size: ${APP_AI_CLEANUP_BATCH_SIZE:100}
 
+  ai-generation-execution:
+    # 같은 Draft는 DB 규칙상 한 건만 처리하고, 서로 다른 Draft도 제한된 수만 동시에 실행한다.
+    pool-size: ${APP_AI_GENERATION_POOL_SIZE:2}
+    queue-capacity: ${APP_AI_GENERATION_QUEUE_CAPACITY:20}
+
   ai:
     cloudflare:
       # 실제 계정 ID와 API Token은 로컬/운영 환경 변수로만 주입한다.

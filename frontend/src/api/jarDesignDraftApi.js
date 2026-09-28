@@ -1,4 +1,4 @@
-import apiClient, { fetchCsrf } from "./apiClient";
+import apiClient, { ensureCsrf } from "./apiClient";
 
 /**
  * Jar 생성 전 디자인 Draft API만 담당한다.
@@ -23,7 +23,7 @@ export async function createJarDesignDraft(imageFile) {
     imageFile.name || "jar-design-original.png"
   );
 
-  await fetchCsrf();
+  await ensureCsrf();
   const response = await apiClient.post(DRAFT_BASE_URL, formData);
   return unwrap(response);
 }
@@ -36,7 +36,7 @@ export async function getJarDesignDraft(draftId) {
 
 /** 서버 Catalog에 등록된 스타일로 AI 후보 생성을 요청한다. */
 export async function createJarDesignGeneration(draftId, style, seed) {
-  await fetchCsrf();
+  await ensureCsrf();
   const response = await apiClient.post(`${DRAFT_BASE_URL}/${draftId}/generations`, {
     style,
     ...(seed === undefined || seed === null ? {} : { seed }),
@@ -60,7 +60,7 @@ export async function getJarDesignOriginalPreview(draftId) {
 
 /** ORIGINAL·AI·DEFAULT 중 Draft의 최종 디자인 선택을 저장한다. */
 export async function selectJarDesign(draftId, designType, generationId) {
-  await fetchCsrf();
+  await ensureCsrf();
   await apiClient.patch(`${DRAFT_BASE_URL}/${draftId}/selection`, {
     designType,
     ...(generationId === undefined || generationId === null
@@ -71,7 +71,7 @@ export async function selectJarDesign(draftId, designType, generationId) {
 
 /** 커스텀 이미지 위 동전 투입구 Slot의 정규화된 위치와 크기를 저장한다. */
 export async function updateJarDesignSlot(draftId, { centerX, centerY, sizeRatio, expectedDesignType, expectedGenerationId }) {
-  await fetchCsrf();
+  await ensureCsrf();
   await apiClient.patch(`${DRAFT_BASE_URL}/${draftId}/slot`, {
     centerX,
     centerY,
@@ -83,7 +83,7 @@ export async function updateJarDesignSlot(draftId, { centerX, centerY, sizeRatio
 
 /** 선택 이미지의 배경을 지울 닫힌 외곽선만 저장한다. 최종 PNG 변환은 서버 Finalize 단계에서 수행한다. */
 export async function updateJarDesignCutout(draftId, { regions, points, expectedDesignType, expectedGenerationId }) {
-  await fetchCsrf();
+  await ensureCsrf();
   await apiClient.patch(`${DRAFT_BASE_URL}/${draftId}/cutout`, {
     ...(regions === undefined ? { points: points || [] } : { regions }),
     expectedDesignType,
@@ -93,7 +93,7 @@ export async function updateJarDesignCutout(draftId, { regions, points, expected
 
 /** Draft의 선택을 실제 Jar로 확정하고 생성된 Jar 식별자를 반환한다. */
 export async function finalizeJarDesignDraft(draftId, jarPayload) {
-  await fetchCsrf();
+  await ensureCsrf();
   const response = await apiClient.post(`${DRAFT_BASE_URL}/${draftId}/finalize`, jarPayload);
   return unwrap(response);
 }

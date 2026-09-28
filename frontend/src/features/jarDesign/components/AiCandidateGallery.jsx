@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { designImageRendering } from "../imageRendering.mjs";
+import { useStompClient } from "../../../realtime/StompClientProvider";
+import { subscribeJarDesignGenerationSocket } from "../../../api/jarDesignGenerationSocketApi";
 import SlotEditor from "./SlotEditor";
 import CutoutEditor from "./CutoutEditor";
 import JarDesignFinalizePanel from "./JarDesignFinalizePanel";
@@ -21,11 +23,15 @@ const AI_STYLES = [
   ["PIXEL", "픽셀", "24색 픽셀 후처리를 거친 레트로 스타일"],
 ];
 
+const CONNECTED_SAFETY_REFRESH_MS = 30_000;
+const DISCONNECTED_FALLBACK_REFRESH_MS = 3_000;
+
 /**
  * 하나의 Draft에 쌓인 AI 후보를 조회·생성·선택하는 보관함이다.
  * 이미지 URL은 DB 응답에 저장하지 않고, 성공 후보를 렌더링할 때만 별도 Presigned URL을 요청한다.
  */
 export default function AiCandidateGallery({ draftId }) {
+  const { connected, subscribe } = useStompClient();
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generatingStyle, setGeneratingStyle] = useState("");
@@ -37,6 +43,11 @@ export default function AiCandidateGallery({ draftId }) {
   const [slotDirty, setSlotDirty] = useState(false);
   const [cutoutSaving, setCutoutSaving] = useState(false);
   const [cutoutDirty, setCutoutDirty] = useState(false);
+  const [previewRefreshVersion, setPreviewRefreshVersion] = useState(0);
+  const previewUrlsRef = useRef({});
+  const originalPreviewUrlRef = useRef("");
+  const wasDisconnectedRef = useRef(false);
+  const retriedPreviewUrlsRef = useRef(new Set());
   // 슬롯 저장은 이미지 자체를 바꾸지 않으므로 같은 후보들의 URL을 반복 발급하지 않는다.
   const previewCandidateIds = JSON.stringify((draft?.generations || [])
     .filter((generation) => generation.status === "SUCCEEDED")
@@ -48,26 +59,84 @@ export default function AiCandidateGallery({ draftId }) {
     return window.confirm("아직 저장하지 않은 투입구 또는 배경 지우기 편집이 있어요. 편집 내용을 버리고 계속할까요?");
   }
 
-  async function loadDraft() {
-    setLoading(true);
-    setError("");
+  const loadDraft = useCallback(async ({ showLoading = true } = {}) => {
+    if (showLoading) setLoading(true);
     try {
       const nextDraft = await getJarDesignDraft(draftId);
       setDraft(nextDraft);
     } catch (requestError) {
       setError(getJarDesignDraftError(requestError).message);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    void loadDraft();
   }, [draftId]);
 
   useEffect(() => {
+    setDraft(null);
+    previewUrlsRef.current = {};
+    originalPreviewUrlRef.current = "";
+    retriedPreviewUrlsRef.current.clear();
+    setPreviewUrls({});
+    setOriginalPreviewUrl("");
+    void loadDraft();
+  }, [loadDraft]);
+
+  /** 완료 이벤트는 갱신 신호로만 사용하고 실제 상태는 권한 검사가 적용된 REST 응답으로 다시 맞춘다. */
+  useEffect(() => subscribeJarDesignGenerationSocket({
+    subscribe,
+    draftId,
+    onGenerationChanged: (event) => {
+      if (Number(event?.draftId) === Number(draftId)) {
+        void loadDraft({ showLoading: false });
+      }
+    },
+  }), [draftId, loadDraft, subscribe]);
+
+  /** 연결 중 놓친 이벤트가 있을 수 있으므로 재연결 직후 한 번 서버 상태와 동기화한다. */
+  useEffect(() => {
+    if (!connected) {
+      wasDisconnectedRef.current = true;
+      return;
+    }
+    if (wasDisconnectedRef.current) {
+      wasDisconnectedRef.current = false;
+      void loadDraft({ showLoading: false });
+    }
+  }, [connected, loadDraft]);
+
+  const processingGeneration = (draft?.generations || [])
+    .find((generation) => generation.status === "PROCESSING");
+  const hasProcessingGeneration = Boolean(processingGeneration);
+
+  /** WebSocket이 끊기면 짧게, 연결 중이면 이벤트 유실 대비용으로만 낮은 빈도로 REST를 재확인한다. */
+  useEffect(() => {
+    if (!hasProcessingGeneration) return undefined;
+
     let cancelled = false;
-    if (draftStatus !== "ACTIVE") {
+    let timerId;
+    const delay = connected
+      ? CONNECTED_SAFETY_REFRESH_MS
+      : DISCONNECTED_FALLBACK_REFRESH_MS;
+
+    async function refreshUntilFinished() {
+      await loadDraft({ showLoading: false });
+      if (!cancelled) {
+        timerId = window.setTimeout(refreshUntilFinished, delay);
+      }
+    }
+
+    timerId = window.setTimeout(refreshUntilFinished, delay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+    };
+  }, [connected, hasProcessingGeneration, loadDraft]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (Number(draft?.draftId) !== Number(draftId) || draftStatus !== "ACTIVE") {
+      originalPreviewUrlRef.current = "";
+      previewUrlsRef.current = {};
       setOriginalPreviewUrl("");
       setPreviewUrls({});
       return () => {
@@ -75,11 +144,15 @@ export default function AiCandidateGallery({ draftId }) {
       };
     }
     const succeededCandidateIds = JSON.parse(previewCandidateIds);
-    Promise.all([
-      getJarDesignOriginalPreview(draftId)
-        .then((preview) => ["original", preview.previewUrl])
-        .catch(() => ["original", null]),
-      ...succeededCandidateIds.map(async (generationId) => {
+    const missingCandidateIds = succeededCandidateIds
+      .filter((generationId) => !previewUrlsRef.current[generationId]);
+    const previewRequests = [
+      ...(originalPreviewUrlRef.current ? [] : [
+        getJarDesignOriginalPreview(draftId)
+          .then((preview) => ["original", preview.previewUrl])
+          .catch(() => ["original", null]),
+      ]),
+      ...missingCandidateIds.map(async (generationId) => {
         try {
           const preview = await getJarDesignGenerationPreview(draftId, generationId);
           return [generationId, preview.previewUrl];
@@ -87,18 +160,73 @@ export default function AiCandidateGallery({ draftId }) {
           return [generationId, null];
         }
       }),
-    ]).then((entries) => {
+    ];
+
+    if (previewRequests.length === 0) return undefined;
+
+    Promise.all(previewRequests).then((entries) => {
       if (!cancelled) {
-        const [originalEntry, ...candidateEntries] = entries;
-        setOriginalPreviewUrl(originalEntry[1] || "");
-        setPreviewUrls(Object.fromEntries(candidateEntries.filter(([, url]) => Boolean(url))));
+        const originalEntry = entries.find(([key]) => key === "original");
+        if (originalEntry?.[1]) {
+          originalPreviewUrlRef.current = originalEntry[1];
+          setOriginalPreviewUrl(originalEntry[1]);
+        }
+
+        const candidateEntries = entries.filter(([key, url]) => key !== "original" && Boolean(url));
+        if (candidateEntries.length > 0) {
+          const nextUrls = Object.fromEntries(candidateEntries);
+          previewUrlsRef.current = { ...previewUrlsRef.current, ...nextUrls };
+          setPreviewUrls((current) => ({ ...current, ...nextUrls }));
+        }
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [draftStatus, previewCandidateIds, draftId]);
+  }, [draft?.draftId, draftStatus, previewCandidateIds, previewRefreshVersion, draftId]);
+
+  /** 만료되거나 일시 실패한 원본 URL 하나만 다시 발급한다. */
+  const refreshOriginalPreview = useCallback(async () => {
+    try {
+      const preview = await getJarDesignOriginalPreview(draftId);
+      originalPreviewUrlRef.current = preview.previewUrl;
+      setOriginalPreviewUrl(preview.previewUrl);
+    } catch {
+      originalPreviewUrlRef.current = "";
+      setOriginalPreviewUrl("");
+    }
+  }, [draftId]);
+
+  /** 새로 성공했거나 만료된 후보 하나만 다시 발급해 기존 후보 이미지의 재다운로드를 막는다. */
+  const refreshCandidatePreview = useCallback(async (generationId) => {
+    try {
+      const preview = await getJarDesignGenerationPreview(draftId, generationId);
+      previewUrlsRef.current = { ...previewUrlsRef.current, [generationId]: preview.previewUrl };
+      setPreviewUrls((current) => ({ ...current, [generationId]: preview.previewUrl }));
+    } catch {
+      const nextUrls = { ...previewUrlsRef.current };
+      delete nextUrls[generationId];
+      previewUrlsRef.current = nextUrls;
+      setPreviewUrls(nextUrls);
+    }
+  }, [draftId]);
+
+  /** 같은 만료 URL에서 연속 error 이벤트가 발생해 Presign API가 반복 호출되는 것을 막는다. */
+  function handlePreviewError(failedUrl, refreshPreview) {
+    if (!failedUrl || retriedPreviewUrlsRef.current.has(failedUrl)) return;
+    retriedPreviewUrlsRef.current.add(failedUrl);
+    void refreshPreview();
+  }
+
+  /** 사용자가 누른 새로고침은 Draft와 현재 실패한 미리보기만 다시 요청한다. */
+  async function handleManualRefresh() {
+    if (!confirmDiscardEdits()) return;
+    setError("");
+    retriedPreviewUrlsRef.current.clear();
+    setPreviewRefreshVersion((current) => current + 1);
+    await loadDraft();
+  }
 
   /** 같은 Draft의 PROCESSING 중복 규칙은 서버가 보장하며, 화면도 요청 중 버튼을 잠근다. */
   async function handleGenerate(style) {
@@ -107,7 +235,7 @@ export default function AiCandidateGallery({ draftId }) {
     setError("");
     try {
       await createJarDesignGeneration(draftId, style);
-      await loadDraft();
+      await loadDraft({ showLoading: false });
     } catch (requestError) {
       setError(getJarDesignDraftError(requestError).message);
     } finally {
@@ -168,7 +296,7 @@ export default function AiCandidateGallery({ draftId }) {
           <h2 className="mt-3 text-2xl font-black text-slate-800">원본을 어떤 분위기로 바꿔볼까요?</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">후보는 이 Draft 안에만 보관됩니다. 마음에 드는 결과를 하나 고르면 다음 Slot 편집 단계에서 이어서 사용할 수 있어요.</p>
         </div>
-        <button type="button" onClick={() => { if (confirmDiscardEdits()) void loadDraft(); }} disabled={loading || Boolean(generatingStyle) || slotSaving || cutoutSaving || selectingGenerationId !== null}
+        <button type="button" onClick={() => void handleManualRefresh()} disabled={loading || Boolean(generatingStyle) || slotSaving || cutoutSaving || selectingGenerationId !== null}
           className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
           새로고침
         </button>
@@ -177,13 +305,21 @@ export default function AiCandidateGallery({ draftId }) {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {AI_STYLES.map(([style, title, description]) => (
           <button key={style} type="button" onClick={() => void handleGenerate(style)}
-            disabled={Boolean(generatingStyle) || loading || slotSaving || cutoutSaving || selectingGenerationId !== null}
+            disabled={Boolean(generatingStyle) || hasProcessingGeneration || loading || slotSaving || cutoutSaving || selectingGenerationId !== null}
             className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-violet-300 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50">
-            <p className="text-sm font-black text-slate-800">{generatingStyle === style ? "생성 중..." : title}</p>
+            <p className="text-sm font-black text-slate-800">{generatingStyle === style || processingGeneration?.style === style ? "생성 중..." : title}</p>
             <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
           </button>
         ))}
       </div>
+
+      {hasProcessingGeneration && (
+        <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+          {connected
+            ? "AI가 백그라운드에서 디자인을 만들고 있어요. 완료되면 이 화면이 자동으로 갱신됩니다."
+            : "AI 디자인은 계속 생성 중이에요. 실시간 연결을 복구하는 동안 상태를 자동으로 확인합니다."}
+        </p>
+      )}
 
       {error && <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
 
@@ -194,7 +330,8 @@ export default function AiCandidateGallery({ draftId }) {
           <article className={`overflow-hidden rounded-[22px] border bg-white ${draft?.selectedDesignType === "ORIGINAL" ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}>
             <div className="aspect-square bg-slate-100">
               {originalPreviewUrl ? (
-                <img src={originalPreviewUrl} alt="정규화한 원본 디자인" className="h-full w-full object-cover" />
+                <img src={originalPreviewUrl} alt="정규화한 원본 디자인" className="h-full w-full object-cover"
+                  onError={() => handlePreviewError(originalPreviewUrl, refreshOriginalPreview)} />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold leading-6 text-slate-500">
                   원본 미리보기를 준비하는 중이에요.
@@ -236,7 +373,11 @@ export default function AiCandidateGallery({ draftId }) {
                 <div className="aspect-square bg-slate-100">
                   {isSucceeded && previewUrl ? (
                     <img src={previewUrl} alt={`${styleLabel(generation.style)} AI 후보`} className="h-full w-full object-cover"
-                      style={{ imageRendering: designImageRendering(generation.style) }} />
+                      style={{ imageRendering: designImageRendering(generation.style) }}
+                      onError={() => handlePreviewError(
+                        previewUrl,
+                        () => refreshCandidatePreview(generation.generationId),
+                      )} />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold leading-6 text-slate-500">
                       {isSucceeded ? "미리보기를 준비하는 중이에요." : generation.status === "PROCESSING" ? "AI가 디자인을 만드는 중이에요." : "후보 생성에 실패했어요."}

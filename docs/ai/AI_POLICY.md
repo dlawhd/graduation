@@ -14,5 +14,5 @@
 - Cloudflare 요청: width=1024, height=1024
 - 일반 후보: 실제 디코딩 결과가 **정확히 1024×1024**여야 성공
 - 결과 형식: PNG/JPEG/WebP 응답은 허용하되 서버가 PNG로 재인코딩하여 Private S3에 저장
-- Pixel 후보: 1024×1024 응답 검증 후 64×64 축소 → 24색 → nearest-neighbor 480×480 PNG로 저장
+- Pixel 후보: 1024×1024 응답 검증 후 60×60 축소 → 24색 → nearest-neighbor 8배 확대 480×480 PNG로 저장 (`PIXEL_PP_V2`)
 - 원본과 AI 결과 모두 정규화된 PNG를 Rekognition에 심사하여, “심사한 파일”과 “실제로 AI에 넣고 저장한 파일”이 달라지지 않게 처리

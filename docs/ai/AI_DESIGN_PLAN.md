@@ -577,18 +577,18 @@ Java PixelPostProcessor
 
 로 옮긴다.
 
-`PIXEL_PP_V1`:
+현재 신규 생성의 `PIXEL_PP_V2`:
 
 ```
 Cloudflare Raw 이미지
 ↓
-64 × 64 bilinear 축소
+60 × 60 bilinear 축소
 ↓
 최대 24색 median-cut 팔레트
 ↓
 Nearest Neighbor
 ↓
-480 × 480
+8배 확대, 480 × 480
 ```
 
 ---
@@ -1498,13 +1498,17 @@ MVP 60회/일 제한
     - REST 요청·응답 파싱과 오류 매핑 구현
     - 실제 API 호출 없는 요청·응답 단위 테스트 완료
     - `1024×1024` 요청·응답 검증 포함
+    - 동일 원본·동일 seed로 6개 스타일을 512/1024 한 번씩 비교한 결과 평균 생성 시간은 각각 7.89초/8.25초였고, 1024가 질감·외곽선·누끼 편집 여유가 좋아 기본값을 유지
 14. **PIXEL Java 후처리 구현** ✅
-    - `64×64 → 24색 → 480×480`로 변경
-    - `PIXEL_PP_V1` 고정
+    - `60×60 → 24색 → 480×480`로 변경
+    - `PIXEL_PP_V2` 고정
 15. **AI Generation Service 구현** ✅
     - Draft lock → PROCESSING 중복 방지·생성·커밋
     - 트랜잭션 밖에서 S3 원본 로드 → Cloudflare → Pixel 후처리 → 최종 PNG 검증·Rekognition 심사 → 후보 S3 업로드
     - 재잠금 후 성공/실패 기록 및 늦은 응답 차단
+    - HTTP는 `202 + generationId`를 즉시 반환하고 제한된 전용 실행기에서 생성
+    - S3 GET·Cloudflare·PNG 정규화·PIXEL 후처리·Rekognition·S3 PUT·DB 완료·전체 시간을 민감정보 없이 단계별 기록
+    - 완료/실패는 Draft OWNER 전용 WebSocket topic으로 알리고, REST 재조회와 저빈도 안전 조회로 이벤트 유실 복구
 16. **stale 처리·실패 복구·S3 Cleanup 구현** ✅
     - 10분 초과 PROCESSING → `GENERATION_TIMEOUT`
     - PROCESSING 중 Finalize·취소 차단, 종료 Draft는 10분 유예 뒤 정리
@@ -2074,13 +2078,13 @@ Raw 이미지
 ↓
 Java PixelPostProcessor
 ↓
-64×64 bilinear 축소
+60×60 bilinear 축소
 ↓
 최대 24색 median-cut 팔레트
 ↓
 Nearest Neighbor
 ↓
-480×480
+8배 확대, 480×480
 ↓
 S3
 ↓

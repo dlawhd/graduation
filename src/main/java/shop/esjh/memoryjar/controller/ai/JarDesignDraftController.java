@@ -24,7 +24,7 @@ import shop.esjh.memoryjar.dto.ai.request.JarDesignSlotRequest;
 import shop.esjh.memoryjar.dto.ai.request.JarDesignCutoutRequest;
 import shop.esjh.memoryjar.dto.jar.request.JarCreateRequest;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
-import shop.esjh.memoryjar.service.ai.JarAiGenerationService;
+import shop.esjh.memoryjar.service.ai.JarAiGenerationRequestService;
 import shop.esjh.memoryjar.service.ai.JarDesignDraftService;
 import shop.esjh.memoryjar.service.ai.JarDesignFinalizeService;
 import shop.esjh.memoryjar.service.ai.JarDesignDraftUploadService;
@@ -44,16 +44,16 @@ public class JarDesignDraftController {
 
     private final JarDesignDraftUploadService uploadService;
     private final JarDesignDraftService draftService;
-    private final JarAiGenerationService generationService;
+    private final JarAiGenerationRequestService generationRequestService;
     private final JarDesignFinalizeService finalizeService;
     private final JarAiGenerationPreviewService generationPreviewService;
 
     public JarDesignDraftController(JarDesignDraftUploadService uploadService, JarDesignDraftService draftService,
-                                    JarAiGenerationService generationService, JarDesignFinalizeService finalizeService,
+                                    JarAiGenerationRequestService generationRequestService, JarDesignFinalizeService finalizeService,
                                     JarAiGenerationPreviewService generationPreviewService) {
         this.uploadService = uploadService;
         this.draftService = draftService;
-        this.generationService = generationService;
+        this.generationRequestService = generationRequestService;
         this.finalizeService = finalizeService;
         this.generationPreviewService = generationPreviewService;
     }
@@ -64,12 +64,13 @@ public class JarDesignDraftController {
         return ApiResponse.of(draftService.getDraftSummary(extractCurrentUserId(authentication), draftId));
     }
 
-    /** 서버 Catalog 스타일로 AI 후보 생성을 시작한다. */
+    /** 서버 Catalog 스타일로 AI 후보 생성을 접수하고 백그라운드 작업 ID를 즉시 반환한다. */
     @PostMapping("/{draftId}/generations")
     public ResponseEntity<ApiResponse<Map<String, Long>>> createGeneration(Authentication authentication, @PathVariable Long draftId,
             @Valid @RequestBody JarAiGenerationCreateRequest request) {
-        Long generationId = generationService.generate(extractCurrentUserId(authentication), draftId, request.style(), request.seed());
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(Map.of("generationId", generationId)));
+        Long generationId = generationRequestService.request(
+                extractCurrentUserId(authentication), draftId, request.style(), request.seed());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.of(Map.of("generationId", generationId)));
     }
 
     /** 성공 후보를 렌더링할 때만 OWNER 전용의 짧은 수명 Presigned GET URL을 발급한다. */

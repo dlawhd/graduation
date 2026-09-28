@@ -1746,11 +1746,14 @@ AI 디자인은 Jar 생성 전에 Draft 단위로 다룬다. 다음 DTO는 모�
 | `JarDesignDraftCreateResponse` | Response | `draftId`, `expiresAt` |
 | `JarDesignDraftDetailResponse` | Response | Draft 상태·선택·Slot·`cutoutRegions`·호환용 `cutoutPoints`·만료·최종 Jar·Generation 메타데이터. S3 Key/URL 제외 |
 | `JarAiGenerationPreviewResponse` | Response | OWNER 검증 뒤의 짧은 `previewUrl`, `expiresAt` |
+| `JarAiGenerationRealtimeEventResponse` | WebSocket Response | `draftId`, `generationId`, `style`, `status`, 실패 시 `errorCode` |
 | `JarDesignFinalizeResponse` | Response | 생성된 `jarId`, 최종 `designType` |
 
 `JarDesignDraftDetailResponse.GenerationItem`은 `generationId`, `style`, `status`, `errorCode`, `completedAt`만 반환한다. `cutoutRegions`는 여러 개의 닫힌 영역이며 각 점은 `{ x, y }` 정규화 좌표다. `cutoutPoints`는 기존 클라이언트용 첫 영역이다. 둘 다 비어 있으면 배경 제거를 적용하지 않은 상태다. 후보 이미지 URL은 원본 또는 성공 후보 미리보기 API를 별도로 호출해 받는다.
 
-`JarDesignCutoutRequest`는 새 `regions` 또는 호환용 `points`, `expectedDesignType`, `expectedGenerationId`를 받는다. `regions`는 최대 12개, 영역당 3~240점, 전체 720점이며 빈 배열은 선택 영역 제거를 의미한다.
+AI 생성 접수 성공은 `202 Accepted`와 `{"data":{"generationId":100}}` 형태로 반환한다. WebSocket 완료 이벤트는 상태 변경 신호이므로 클라이언트가 이 DTO만으로 화면 상태를 확정하지 않고 Draft 상세 REST 응답을 다시 조회한다.
+
+`JarDesignCutoutRequest`는 새 `regions` 또는 호환용 `points`, `expectedDesignType`, `expectedGenerationId`를 받는다. `regions`는 최대 30개, 영역당 3~240점, 전체 1200점이며 빈 배열은 선택 영역 제거를 의미한다.
 
 # 12. 최종 DTO 전수 대조 결과
 
@@ -1767,7 +1770,7 @@ AI 디자인은 Jar 생성 전에 Draft 단위로 다룬다. 다음 DTO는 모�
 | Daily Draw | 6개 |
 | 알림 | 5개 |
 | 온보딩 | 3개 |
-| AI 디자인 Draft | 7개 |
+| AI 디자인 Draft | 8개 |
 | 합계 | 92개 |
 
 실제 Java 파일은 93개다. 이 중 `RedisChatMessageEvent.java`는 파일 전체가 주석 처리된 비활성 초안이므로 활성 DTO 92개에 포함하지 않았다.

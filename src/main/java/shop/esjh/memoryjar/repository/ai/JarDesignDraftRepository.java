@@ -17,6 +17,9 @@ import java.time.LocalDateTime;
  */
 public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, Long> {
 
+    /** Draft 실시간 topic은 OWNER만 구독할 수 있도록 민감한 데이터 없이 소유 여부만 확인한다. */
+    boolean existsByDraftIdAndOwner_Id(Long draftId, Long ownerId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT draft

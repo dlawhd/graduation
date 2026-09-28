@@ -32,7 +32,7 @@ import java.time.OffsetDateTime;
 class JarDesignDraftControllerTest {
  @Autowired MockMvc mockMvc; @Autowired ObjectMapper objectMapper;
  @MockitoBean JarDesignDraftUploadService uploadService; @MockitoBean JarDesignDraftService draftService;
- @MockitoBean JarAiGenerationService generationService; @MockitoBean JarDesignFinalizeService finalizeService;
+ @MockitoBean JarAiGenerationRequestService generationRequestService; @MockitoBean JarDesignFinalizeService finalizeService;
  @MockitoBean JarAiGenerationPreviewService generationPreviewService;
  @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter; @MockitoBean JwtTokenProvider jwtTokenProvider;
  private TestingAuthenticationToken auth(){return new TestingAuthenticationToken(Map.of("userId",1L),null,"ROLE_USER");}
@@ -88,11 +88,20 @@ class JarDesignDraftControllerTest {
           .andExpect(jsonPath("$.error.code").value("DRAFT_NOT_OWNER"));
  }
  @Test void duplicateGeneration_returnsFeatureCode() throws Exception {
-  when(generationService.generate(1L,10L,shop.esjh.memoryjar.enums.ai.JarAiStyle.CUTE_2D,null))
+  when(generationRequestService.request(1L,10L,shop.esjh.memoryjar.enums.ai.JarAiStyle.CUTE_2D,null))
           .thenThrow(new ApiException(AiDraftErrorCode.AI_GENERATION_ALREADY_PROCESSING));
   mockMvc.perform(post("/api/v1/design-drafts/10/generations").principal(auth()).contentType("application/json").content("{\"style\":\"CUTE_2D\"}"))
           .andExpect(status().isConflict())
           .andExpect(jsonPath("$.error.code").value("AI_GENERATION_ALREADY_PROCESSING"));
+ }
+ @Test void generation_returnsAcceptedGenerationIdWithoutWaitingForProvider() throws Exception {
+  when(generationRequestService.request(1L,10L,shop.esjh.memoryjar.enums.ai.JarAiStyle.CUTE_2D,7L))
+          .thenReturn(100L);
+  mockMvc.perform(post("/api/v1/design-drafts/10/generations").principal(auth()).contentType("application/json")
+          .content("{\"style\":\"CUTE_2D\",\"seed\":7}"))
+          .andExpect(status().isAccepted())
+          .andExpect(jsonPath("$.data.generationId").value(100));
+  verify(generationRequestService).request(1L,10L,shop.esjh.memoryjar.enums.ai.JarAiStyle.CUTE_2D,7L);
  }
  @Test void processingFinalize_returnsFeatureCode() throws Exception {
   when(finalizeService.finalizeDraft(anyLong(),anyLong(),any())).thenThrow(new ApiException(AiDraftErrorCode.DRAFT_PROCESSING_FINALIZE_BLOCKED));

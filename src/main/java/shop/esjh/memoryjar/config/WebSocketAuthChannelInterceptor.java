@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.config;
 
 import shop.esjh.memoryjar.repository.jar.JarMemberRepository;
+import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
  *
  * 쉽게 말하면:
  * - /topic/users/{userId}/notifications 는 본인만 구독 가능
+ * - /topic/design-drafts/{draftId}/generations 는 해당 Draft OWNER만 구독 가능
  * - /topic/jars/{jarId}/... 는 해당 저금통 멤버만 구독 가능
  * - /app/jars/{jarId}/chat.send 는 해당 저금통 멤버만 전송 가능
  *
@@ -37,6 +39,10 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
     private static final Pattern USER_NOTIFICATION_TOPIC_PATTERN =
             Pattern.compile("^/topic/users/(\\d+)/notifications$");
 
+    // /topic/design-drafts/10/generations 같은 AI 생성 완료 구독 주소를 검사하기 위한 패턴
+    private static final Pattern DESIGN_DRAFT_GENERATION_TOPIC_PATTERN =
+            Pattern.compile("^/topic/design-drafts/(\\d+)/generations$");
+
     // /topic/jars/10/chat, /topic/jars/10/members, /topic/jars/10/open 같은 저금통 구독 주소를 검사하기 위한 패턴
     private static final Pattern JAR_TOPIC_PATTERN =
             Pattern.compile("^/topic/jars/(\\d+)(/.*)?$");
@@ -47,9 +53,12 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
     // 저금통 멤버인지 확인하기 위한 Repository
     private final JarMemberRepository jarMemberRepository;
+    private final JarDesignDraftRepository jarDesignDraftRepository;
 
-    public WebSocketAuthChannelInterceptor(JarMemberRepository jarMemberRepository) {
+    public WebSocketAuthChannelInterceptor(JarMemberRepository jarMemberRepository,
+                                           JarDesignDraftRepository jarDesignDraftRepository) {
         this.jarMemberRepository = jarMemberRepository;
+        this.jarDesignDraftRepository = jarDesignDraftRepository;
     }
 
     /**
@@ -123,7 +132,18 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
             return;
         }
 
-        // 2. 저금통 topic 구독 검사
+        // 2. AI 디자인 Draft 생성 결과 topic 구독 검사
+        Matcher designDraftMatcher = DESIGN_DRAFT_GENERATION_TOPIC_PATTERN.matcher(destination);
+
+        if (designDraftMatcher.matches()) {
+            Long draftId = Long.parseLong(designDraftMatcher.group(1));
+            if (!jarDesignDraftRepository.existsByDraftIdAndOwner_Id(draftId, currentUserId)) {
+                throw new AccessDeniedException("디자인 초안의 OWNER만 생성 상태를 구독할 수 있습니다.");
+            }
+            return;
+        }
+
+        // 3. 저금통 topic 구독 검사
         // 예: /topic/jars/10/chat
         // 예: /topic/jars/10/members
         // 예: /topic/jars/10/open
