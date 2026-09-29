@@ -124,7 +124,18 @@ public class RefreshTokenService {
 
         refreshTokenRepository.save(nextToken);
 
-        return new Rotation(user, newRaw);
+        /*
+         * Controller가 트랜잭션 종료 후 LAZY User 프록시에 접근하지 않도록
+         * JWT 생성에 필요한 값은 트랜잭션 안에서 미리 읽어 불변 결과로 반환해.
+         * RefreshToken 행 잠금과 회전 규칙은 그대로 유지돼.
+         */
+        return new Rotation(
+                user.getId(),
+                user.getEmail(),
+                user.getName(),
+                user.getBirthyear(),
+                newRaw
+        );
     }
 
     /*
@@ -219,11 +230,17 @@ public class RefreshTokenService {
     }
 
     /*
-     * rotate()가 사용자와 새 refresh 토큰 원본을
+     * rotate()가 JWT 생성에 필요한 사용자 값과 새 refresh 토큰 원본을
      * 함께 반환하기 위한 작은 결과 객체야.
+     *
+     * User 엔티티를 Controller로 넘기면 트랜잭션 종료 후 LAZY 프록시 접근으로
+     * LazyInitializationException이 발생할 수 있어서 값만 복사해 반환해.
      */
     public record Rotation(
-            User user,
+            Long userId,
+            String email,
+            String name,
+            String birthyear,
             String newRefreshRaw
     ) {
     }

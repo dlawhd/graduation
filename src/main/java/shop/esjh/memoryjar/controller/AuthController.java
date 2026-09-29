@@ -716,25 +716,21 @@ public class AuthController {
             throw new ResponseStatusException(UNAUTHORIZED, e.getMessage());
         }
 
-        // ✅ 이 refreshToken의 주인이 누구인지 꺼내기
-        // refreshToken이 유효하면 이 토큰은 어떤 회원 것인지 알 수 있음.
-        User user = rotation.user();
-
         // ✅ subject는 userId (너 필터가 subject를 userId로 읽고 있음)
-        String subject = String.valueOf(user.getId());
+        String subject = String.valueOf(rotation.userId());
 
         // ✅ accessToken 안에 넣을 사용자 정보(claims)
         Map<String, Object> claims = new HashMap<>();
         // email은 사용자 정보로 넣는다.
-        claims.put("email", user.getEmail());
+        claims.put("email", rotation.email());
 
         // name은 사용자 정보로 넣는다.
-        claims.put("name", user.getName());
+        claims.put("name", rotation.name());
 
         // birthyear는 선택값이므로 값이 있을 때만 JWT claims에 넣는다.
         // String.valueOf(null)을 쓰면 "null" 문자열이 들어갈 수 있어서 사용하지 않는다.
-        if (StringUtils.hasText(user.getBirthyear())) {
-            claims.put("birthyear", user.getBirthyear());
+        if (StringUtils.hasText(rotation.birthyear())) {
+            claims.put("birthyear", rotation.birthyear());
         }
 
         // ✅ 새 accessToken 발급

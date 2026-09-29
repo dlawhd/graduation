@@ -20,6 +20,7 @@ import shop.esjh.memoryjar.dto.auth.response.EmailVerificationSendResponse;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
@@ -599,17 +600,14 @@ class AuthControllerTest {
 
     @Test
     void refresh성공시_ok_true와_쿠키_재발급() throws Exception {
-        User user = User.builder()
-                .id(1L)
-                .email("test@test.com")
-                .name("은서")
-                .birthyear("2000")
-                .provider("NAVER")
-                .providerId("naver-123")
-                .build();
-
         given(refreshTokenService.rotate("old-refresh"))
-                .willReturn(new RefreshTokenService.Rotation(user, "new-refresh"));
+                .willReturn(new RefreshTokenService.Rotation(
+                        1L,
+                        "test@test.com",
+                        "은서",
+                        "2000",
+                        "new-refresh"
+                ));
 
         given(jwtTokenProvider.createAccessToken(eq("1"), anyMap()))
                 .willReturn("new-access");
@@ -625,6 +623,16 @@ class AuthControllerTest {
 
         // 컨트롤러가 새 refresh 쿠키를 심었는지 확인
         verify(authCookieService).setRefreshCookie(any(), eq("new-refresh"));
+
+        // Service가 트랜잭션 안에서 복사한 사용자 값으로 access token claims를 만든다.
+        verify(jwtTokenProvider).createAccessToken(
+                eq("1"),
+                argThat((Map<String, Object> claims) ->
+                        "test@test.com".equals(claims.get("email"))
+                                && "은서".equals(claims.get("name"))
+                                && "2000".equals(claims.get("birthyear"))
+                )
+        );
     }
 
     @Test

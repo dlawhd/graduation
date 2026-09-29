@@ -103,7 +103,10 @@ class RefreshTokenServiceTest {
         RefreshToken newToken = captor.getValue();
 
         assertThat(oldToken.getRevokedAt()).isNotNull();
-        assertThat(result.user()).isEqualTo(user);
+        assertThat(result.userId()).isEqualTo(user.getId());
+        assertThat(result.email()).isEqualTo(user.getEmail());
+        assertThat(result.name()).isEqualTo(user.getName());
+        assertThat(result.birthyear()).isEqualTo(user.getBirthyear());
         assertThat(result.newRefreshRaw()).isNotBlank();
         assertThat(newToken.getTokenHash())
                 .isEqualTo(
