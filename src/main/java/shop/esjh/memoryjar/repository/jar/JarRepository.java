@@ -74,6 +74,12 @@ public interface JarRepository extends JpaRepository<Jar, Long> {
             """)
     List<Jar> findDueJarsWithoutOpenEvent(@Param("now") LocalDateTime now);
 
+    /*
+     * 조회 시점 보정 오픈 전에 해당 저금통의 오픈 시간이 지났는지만 가볍게 확인한다.
+     * 아직 미래인 저금통까지 비관적 잠금과 REQUIRES_NEW 트랜잭션에 진입하지 않도록 하는 빠른 검사다.
+     */
+    boolean existsByJarIdAndOpenAtLessThanEqual(Long jarId, LocalDateTime now);
+
     // OWNER 체크할 때 간단하게 쓸 수 있는 메서드
     //  예: 저금통 삭제, owner 전용 기능
     boolean existsByJarIdAndOwner_Id(Long jarId, Long ownerId);

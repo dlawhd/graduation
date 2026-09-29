@@ -66,11 +66,59 @@ class JarOpenServiceTest {
     }
 
     @Test
-    @DisplayName("조회 보정 오픈 - Processor에 ACCESS_TRIGGERED 처리를 요청한다")
-    void ensureOpenedIfDue_delegatesToProcessor() {
+    @DisplayName("조회 보정 오픈 - 이미 열린 저금통은 Processor를 호출하지 않는다")
+    void ensureOpenedIfDue_alreadyOpened_skipsProcessor() {
         // given
         Long jarId = 10L;
 
+        when(jarOpenEventRepository.existsByJar_JarId(jarId))
+                .thenReturn(true);
+
+        // when
+        boolean result = jarOpenService.ensureOpenedIfDue(jarId);
+
+        // then
+        assertThat(result).isTrue();
+
+        verifyNoInteractions(jarOpenProcessor);
+        verify(jarRepository, never())
+                .existsByJarIdAndOpenAtLessThanEqual(anyLong(), any(LocalDateTime.class));
+    }
+
+    @Test
+    @DisplayName("조회 보정 오픈 - 아직 미래인 저금통은 Processor를 호출하지 않는다")
+    void ensureOpenedIfDue_notDue_skipsProcessor() {
+        // given
+        Long jarId = 10L;
+
+        when(jarOpenEventRepository.existsByJar_JarId(jarId))
+                .thenReturn(false);
+        when(jarRepository.existsByJarIdAndOpenAtLessThanEqual(
+                eq(jarId),
+                any(LocalDateTime.class)
+        )).thenReturn(false);
+
+        // when
+        boolean result = jarOpenService.ensureOpenedIfDue(jarId);
+
+        // then
+        assertThat(result).isFalse();
+
+        verifyNoInteractions(jarOpenProcessor);
+    }
+
+    @Test
+    @DisplayName("조회 보정 오픈 - 오픈 시간이 지난 미처리 저금통만 Processor에 요청한다")
+    void ensureOpenedIfDue_dueAndNotOpened_delegatesToProcessor() {
+        // given
+        Long jarId = 10L;
+
+        when(jarOpenEventRepository.existsByJar_JarId(jarId))
+                .thenReturn(false);
+        when(jarRepository.existsByJarIdAndOpenAtLessThanEqual(
+                eq(jarId),
+                any(LocalDateTime.class)
+        )).thenReturn(true);
         when(jarOpenProcessor.openIfDue(
                 jarId,
                 JarOpenReason.ACCESS_TRIGGERED

@@ -63,10 +63,28 @@ public class JarOpenService {
      * 사용자가 저금통을 조회했을 때
      * 오픈 시간이 지났다면 보정 오픈한다.
      *
-     * 별도 Spring Bean인 JarOpenProcessor를 호출해야
-     * REQUIRES_NEW 트랜잭션이 정상적으로 적용된다.
+     * 일반 조회 서비스는 이미 readOnly 트랜잭션 안에서 이 메서드를 호출할 수 있다.
+     * 그런 요청마다 바로 REQUIRES_NEW로 들어가면 바깥 트랜잭션과 새 트랜잭션이
+     * 각각 DB 커넥션을 필요로 해서, 동시 조회가 많을 때 Hikari 풀이 고갈될 수 있다.
+     *
+     * 따라서 이미 열린 저금통과 아직 오픈 시간이 오지 않은 저금통은
+     * 가벼운 조회만으로 반환하고, 실제 보정 오픈이 필요한 순간에만
+     * 별도 Spring Bean인 JarOpenProcessor의 REQUIRES_NEW 트랜잭션을 호출한다.
      */
     public boolean ensureOpenedIfDue(Long jarId) {
+        // 이미 열린 저금통은 쓰기 잠금과 새 트랜잭션 없이 바로 응답한다.
+        if (jarOpenEventRepository.existsByJar_JarId(jarId)) {
+            return true;
+        }
+
+        LocalDateTime now = LocalDateTime.now(KST);
+
+        // 아직 오픈 시간이 미래라면 실제 오픈 작업이 필요하지 않다.
+        if (!jarRepository.existsByJarIdAndOpenAtLessThanEqual(jarId, now)) {
+            return false;
+        }
+
+        // 오픈 시간이 지났지만 이벤트가 없는 경우에만 잠금 기반 보정 오픈을 수행한다.
         return jarOpenProcessor.openIfDue(
                 jarId,
                 JarOpenReason.ACCESS_TRIGGERED
