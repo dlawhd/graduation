@@ -1317,6 +1317,39 @@ function JarPreview({ template, form }) {
 }
 
 export default function JarsNewPage() {
+  const location = useLocation();
+  // 기본 생성기를 선택한 뒤에만 마운트해 선택 화면 위로 온보딩이 뜨지 않게 한다.
+  const replay = location.state?.[ONBOARDING_REPLAY_STATE_KEY] === ONBOARDING_TUTORIAL_KEY.JAR_CREATE;
+  if (new URLSearchParams(location.search).get("mode") === "default" || replay) {
+    return <DefaultJarCreatePage />;
+  }
+  return (
+    <main className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-5 py-12 sm:py-20">
+      <div className="mx-auto max-w-4xl">
+        <p className="text-xs font-black tracking-[0.25em] text-emerald-600">MAKE A MEMORY JAR</p>
+        <h1 className="mt-4 text-3xl font-black text-slate-900 sm:text-4xl">어떤 저금통을 만들어볼까요?</h1>
+        <p className="mt-4 text-sm leading-7 text-slate-500">나만의 그림으로 특별하게, 준비된 테마로 간편하게.</p>
+        <div className="mt-10 grid gap-5 sm:grid-cols-2">
+          <Link to="/jars/design/new" className="group rounded-[28px] border border-violet-200 bg-gradient-to-br from-white via-violet-50 to-pink-100 p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-violet-600">
+            <span aria-hidden="true" className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white text-5xl shadow-sm">🎨</span>
+            <h2 className="mt-8 text-2xl font-black text-slate-900">직접 만들기</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600">직접 그리거나 이미지를 불러와요.<br />AI 스타일로 나만의 개성을 더할 수도 있어요.</p>
+            <span className="mt-8 inline-flex font-black text-violet-700">디자인 시작하기 <span aria-hidden="true" className="ml-2">→</span></span>
+          </Link>
+          <Link to="/jars/new?mode=default" className="group rounded-[28px] border border-emerald-200 bg-gradient-to-br from-white via-emerald-50 to-amber-50 p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-emerald-600">
+            <span aria-hidden="true" className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white shadow-sm"><SpringIcon size={72} /></span>
+            <h2 className="mt-8 text-2xl font-black text-slate-900">기본 저금통 이용하기</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600">준비된 8가지 테마 중 마음에 드는 것을 골라요.<br />이름과 날짜를 정하면 완성이에요.</p>
+            <span className="mt-8 inline-flex font-black text-emerald-700">테마 고르기 <span aria-hidden="true" className="ml-2">→</span></span>
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+/** 기존 테마·생성 폼과 온보딩을 그대로 담당하는 기본 저금통 화면이다. */
+function DefaultJarCreatePage() {
   const navigate =
     useNavigate();
 
@@ -1799,7 +1832,7 @@ export default function JarsNewPage() {
         ];
 
         navigate(
-          location.pathname,
+          `${location.pathname}?mode=default`,
           {
             replace: true,
 
@@ -2066,6 +2099,7 @@ export default function JarsNewPage() {
 
       <div className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-6 py-10">
       <div className="mx-auto max-w-6xl">
+        <Link to="/jars/new" className="mb-5 inline-block text-sm font-bold text-violet-700 hover:text-violet-900">← 만들기 방식 다시 선택</Link>
         {/* 상단 소개 */}
         <section className="mb-8 rounded-[24px] bg-[#fffafb] p-8 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
           <div className="mb-4 inline-flex rounded-full bg-[#ffe9ef] px-4 py-2 text-xs font-extrabold text-[#ff537e]">

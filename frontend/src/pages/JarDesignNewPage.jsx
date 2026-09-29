@@ -70,23 +70,24 @@ export default function JarDesignNewPage() {
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-5 py-10 sm:px-6">
       <main className="mx-auto max-w-6xl">
-        <Link to="/jars/new" className="text-sm font-bold text-violet-700 hover:text-violet-900">← 기본 저금통 만들기로 돌아가기</Link>
+        <Link to="/jars/new" className="text-sm font-bold text-violet-700 hover:text-violet-900">← 만들기 방식 다시 선택</Link>
         <section className="mt-4 rounded-[28px] bg-gradient-to-br from-violet-100 via-white to-pink-100 p-7 shadow-[0_12px_36px_rgba(76,29,149,0.12)] sm:p-10">
           <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black text-violet-700">Memory Jar 디자인 스튜디오</span>
           <h1 className="mt-4 text-3xl font-black text-slate-800 sm:text-4xl">나만의 저금통을 먼저 디자인해 보세요</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">원본을 저장하고 AI 후보를 비교한 뒤, 다음 단계에서 동전 투입구 위치와 최종 저금통 정보를 정합니다. 아직 Jar는 만들어지지 않아요.</p>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">상상한 모양을 자유롭게 그리거나 이미지를 불러오세요. 원본 그대로도, AI로 새롭게 꾸며도 좋아요. 디자인을 고른 다음 투입구와 저금통 정보를 정해요.</p>
         </section>
 
         {!draftId && (
           <section className="mt-8 rounded-[28px] border border-white bg-white/80 p-6 shadow-sm sm:p-8">
             <div className="flex flex-wrap gap-2" role="tablist" aria-label="디자인 원본 입력 방식">
-              <button type="button" role="tab" aria-selected={inputMode === "DRAW"} onClick={() => setInputMode("DRAW")}
+              <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "DRAW"} onClick={() => setInputMode("DRAW")}
                 className={`rounded-xl px-4 py-2.5 text-sm font-black ${inputMode === "DRAW" ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600"}`}>직접 그리기</button>
-              <button type="button" role="tab" aria-selected={inputMode === "UPLOAD"} onClick={() => setInputMode("UPLOAD")}
+              <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "UPLOAD"} onClick={() => setInputMode("UPLOAD")}
                 className={`rounded-xl px-4 py-2.5 text-sm font-black ${inputMode === "UPLOAD" ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600"}`}>이미지 불러오기</button>
             </div>
             <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
-              {inputMode === "DRAW" ? <JarDesignCanvas disabled={saving} onConfirm={setDesignSource} /> : (
+              <div hidden={inputMode !== "DRAW"}><JarDesignCanvas disabled={saving || inputMode !== "DRAW"} onConfirm={setDesignSource} /></div>
+              {inputMode === "UPLOAD" && (
                 <label className="flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-violet-200 bg-violet-50/40 p-6 text-center hover:border-violet-400">
                   <span className="text-4xl">🖼️</span><span className="mt-3 font-black text-slate-800">외부 이미지 선택</span>
                   <span className="mt-2 text-xs leading-5 text-slate-500">PNG, JPEG, WebP · 최대 10MB<br />애니메이션 이미지는 사용할 수 없어요.</span>
@@ -95,6 +96,7 @@ export default function JarDesignNewPage() {
               )}
               <aside className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
                 <h2 className="text-sm font-black text-slate-800">선택한 원본</h2>
+                <p className="mt-2 text-xs leading-5 text-slate-500">그림을 수정했다면 ‘이 그림 사용하기’를 다시 눌러 미리보기에 반영해 주세요.</p>
                 {previewUrl ? <img src={previewUrl} alt="선택한 디자인 원본 미리보기" className="mt-3 aspect-square w-full rounded-2xl border border-slate-100 object-contain" /> : <div className="mt-3 flex aspect-square items-center justify-center rounded-2xl bg-slate-50 p-4 text-center text-xs text-slate-400">그림을 확정하거나 이미지를 선택해 주세요.</div>}
                 <button type="button" disabled={!sourceImage || saving} onClick={() => void handleCreateDraft()}
                   className="mt-4 w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "초안 저장 중..." : "디자인 초안 저장"}</button>

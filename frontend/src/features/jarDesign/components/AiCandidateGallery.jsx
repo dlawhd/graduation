@@ -24,6 +24,15 @@ const AI_STYLES = [
 ];
 
 const CONNECTED_SAFETY_REFRESH_MS = 30_000;
+// 스타일 식별자는 서버 계약을 유지하고, 화면의 분위기만 각 스타일에 맞게 구분한다.
+const STYLE_APPEARANCE = {
+  CUTE_2D: { background: "linear-gradient(125deg, #fff1f2, #fce7f3)", border: "#f9a8d4", icon: "✿", color: "#be185d" },
+  SOFT_25D: { background: "linear-gradient(125deg, #ede9fe, #dbeafe)", border: "#c4b5fd", icon: "◉", color: "#6d28d9" },
+  WATERCOLOR: { background: "linear-gradient(125deg, #e0f2fe, #ccfbf1, #fce7f3)", border: "#99d9df", icon: "◌", color: "#0e7490" },
+  HAND_DRAWN: { background: "linear-gradient(125deg, #fffbeb, #fef3c7)", border: "#fcd34d", icon: "✎", color: "#92400e" },
+  WEIRDO: { background: "linear-gradient(125deg, #ecfccb, #fae8ff)", border: "#bef264", icon: "✦", color: "#4d7c0f" },
+  PIXEL: { background: "linear-gradient(125deg, #e0e7ff, #cffafe)", border: "#a5b4fc", icon: "▦", color: "#4338ca" },
+};
 const DISCONNECTED_FALLBACK_REFRESH_MS = 3_000;
 
 /**
@@ -306,9 +315,12 @@ export default function AiCandidateGallery({ draftId }) {
         {AI_STYLES.map(([style, title, description]) => (
           <button key={style} type="button" onClick={() => void handleGenerate(style)}
             disabled={Boolean(generatingStyle) || hasProcessingGeneration || loading || slotSaving || cutoutSaving || selectingGenerationId !== null}
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-violet-300 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50">
+            style={{ background: STYLE_APPEARANCE[style].background, borderColor: STYLE_APPEARANCE[style].border }}
+            className="group relative rounded-2xl border p-5 text-left shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:shadow-md focus-visible:outline-2 focus-visible:outline-violet-600 disabled:cursor-not-allowed disabled:opacity-60">
+            <span aria-hidden="true" style={{ color: STYLE_APPEARANCE[style].color }} className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-white/80 text-3xl shadow-sm">{STYLE_APPEARANCE[style].icon}</span>
             <p className="text-sm font-black text-slate-800">{generatingStyle === style || processingGeneration?.style === style ? "생성 중..." : title}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
+            <span className="mt-4 inline-block text-xs font-bold" style={{ color: STYLE_APPEARANCE[style].color }}>{generatingStyle === style || processingGeneration?.style === style ? "디자인을 만들고 있어요" : "이 스타일로 만들기 →"}</span>
           </button>
         ))}
       </div>
