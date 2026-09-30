@@ -10,7 +10,7 @@ import java.util.List;
 public record JarDesignDraftDetailResponse(Long draftId, JarDraftStatus status, JarDraftDesignType selectedDesignType,
         Long selectedGenerationId, BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
         List<JarDesignCutoutPoint> cutoutPoints, List<List<JarDesignCutoutPoint>> cutoutRegions,
-        LocalDateTime expiresAt, Long finalizedJarId, List<GenerationItem> generations) {
+        LocalDateTime expiresAt, Long finalizedJarId, List<GenerationItem> generations, JarSlotStyle slotStyle) {
     public record GenerationItem(Long generationId, JarAiStyle style, JarAiGenerationStatus status,
                                  JarAiGenerationErrorCode errorCode, LocalDateTime completedAt) { }
 }

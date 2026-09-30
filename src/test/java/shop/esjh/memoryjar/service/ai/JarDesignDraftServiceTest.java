@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.List;
 import shop.esjh.memoryjar.dto.ai.JarDesignCutoutPoint;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -154,6 +155,25 @@ class JarDesignDraftServiceTest {
                 new BigDecimal("0.50000"), new BigDecimal("0.40000"), new BigDecimal("0.30000"));
 
         verify(draft).updateSlot(new BigDecimal("0.50000"), new BigDecimal("0.40000"), new BigDecimal("0.30000"));
+        verify(draft, never()).updateSlotStyle(any());
+        verify(draft).extendExpiration(any());
+    }
+
+    @Test
+    void updateSlot_savesStyleWithMatchingSelection() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.getSelectedDesignType()).thenReturn(JarDraftDesignType.ORIGINAL);
+        when(draft.getSelectedGenerationId()).thenReturn(null);
+        when(draft.hasCustomDesignSelection()).thenReturn(true);
+        when(properties.getExpiresAfterDays()).thenReturn(7);
+
+        draftService.updateSlot(1L, 10L, new BigDecimal("0.5"), new BigDecimal("0.5"), BigDecimal.ZERO,
+                JarDraftDesignType.ORIGINAL, null, JarSlotStyle.WOOD);
+
+        verify(draft).updateSlotStyle(JarSlotStyle.WOOD);
         verify(draft).extendExpiration(any());
     }
 

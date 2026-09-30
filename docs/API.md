@@ -2228,7 +2228,7 @@ AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라,
 | `GET` | `/api/v1/design-drafts/{draftId}/generations/{generationId}/preview` | 성공 후보의 짧은 Presigned GET URL 발급 |
 | `PATCH` | `/api/v1/design-drafts/{draftId}/selection` | `ORIGINAL`·`AI`·`DEFAULT` 선택 저장 |
 | `PATCH` | `/api/v1/design-drafts/{draftId}/cutout` | 선택 이미지의 배경 제거 외곽선 저장 또는 제거 |
-| `PATCH` | `/api/v1/design-drafts/{draftId}/slot` | 커스텀 이미지 Slot의 정규화 위치·크기 저장 |
+| `PATCH` | `/api/v1/design-drafts/{draftId}/slot` | 커스텀 이미지 Slot의 정규화 위치·크기·모양 저장 |
 | `POST` | `/api/v1/design-drafts/{draftId}/finalize` | Draft 선택을 실제 Jar로 한 번만 확정 |
 
 원본은 PNG/JPEG/WebP만 허용하며 서버가 실제 바이트를 검사해 `480×480` PNG로 정규화한다. AI 결과는 `1024×1024` 정사각형을 검증하고, PIXEL은 `60×60 → 24색 → 480×480` 후처리를 거친다. `PROCESSING` Generation이 있으면 Finalize를 `409`로 거절한다.
@@ -2252,7 +2252,7 @@ AI Draft 영역의 기능별 오류는 공통 오류 봉투의 `error.code`로 �
 `PATCH /api/v1/design-drafts/{draftId}/slot` 성공은 `204`이며 본문이 없다.
 
 ```json
-{"centerX":0.5,"centerY":0.4,"sizeRatio":0.5,"expectedDesignType":"AI","expectedGenerationId":100}
+{"centerX":0.5,"centerY":0.4,"sizeRatio":0.5,"slotStyle":"METAL","expectedDesignType":"AI","expectedGenerationId":100}
 ```
 
 ORIGINAL 편집은 `expectedDesignType: "ORIGINAL"`, `expectedGenerationId: null`을 전송한다.
@@ -2260,6 +2260,10 @@ ORIGINAL 편집은 `expectedDesignType: "ORIGINAL"`, `expectedGenerationId: null
 선택 변경 충돌은 `409 DRAFT_SLOT_TARGET_CHANGED`, 이미지 경계 초과는 `400 DRAFT_SLOT_OUT_OF_BOUNDS`,
 소수 5자리·0~1 위반은 `400 DRAFT_SLOT_INVALID`다. 너비는 이미지의 `12% + 16% × sizeRatio`, 높이는 너비의 `1/3.5`다.
 기존 저장값도 Finalize 전에 경계를 다시 검증하므로 밖으로 나가는 Slot은 재편집해야 한다.
+
+`slotStyle`은 `CAPSULE`, `RECTANGLE`, `OVAL`, `METAL`, `WOOD`, `PIXEL` 중 하나다. 생략/null이면 기존 모양을 유지하고, 알 수 없는 값은 HTTP 400으로 거절한다. 기존 데이터는 V35에서 `CAPSULE`로 채운다. Draft 상세와 최종 Jar의 `design` 응답 모두 `slotStyle`을 반환하며, 모든 모양은 기존 3.5:1 경계 안에서 표시한다. Finalize의 S3 처리 중 모양이 바뀌어도 `409 FINALIZE_TARGET_CHANGED`로 거절한다.
+
+최종 생성 요청은 즉시 보내고 프론트에서 성공 시 최소 약 5초의 테마 연출 후 이동한다. 느린 요청은 실제 응답까지 기다리며, 실패 시에는 추가 지연 없이 오류를 보여준다. 서버에 인위적인 대기나 반복 생성 요청을 추가하지 않는다.
 
 ### 배경 제거 외곽선 계약
 

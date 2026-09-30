@@ -6,6 +6,8 @@ import {
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import CreationExperience from "../features/jarDesign/components/CreationExperience";
+import { presentCreation } from "../features/jarDesign/creationTiming.mjs";
 import SandIcon from "../components/icons/SandIcon";
 import LavenderIcon from "../components/icons/LavenderIcon";
 import MoonlightIcon from "../components/icons/MoonlightIcon";
@@ -1456,6 +1458,9 @@ function DefaultJarCreatePage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const creationInFlight = useRef(false);
+  const creationMounted = useRef(true);
+  useEffect(() => { creationMounted.current = true; return () => { creationMounted.current = false; }; }, []);
   const [error, setError] = useState("");
 
   /*
@@ -1960,21 +1965,22 @@ function DefaultJarCreatePage() {
   // 생성 요청
   async function handleSubmit(e) {
     e.preventDefault();
+    if (creationInFlight.current) return;
+    creationInFlight.current = true;
     setLoading(true);
     setError("");
 
     try {
-      await fetchCsrf();
-
       const payload = {
         ...form,
         openAt: form.openAt,
       };
 
-      const res = await apiClient.post(
-        "/api/v1/jars",
-        payload
-      );
+      const res = await presentCreation(async () => {
+        await fetchCsrf();
+        return apiClient.post("/api/v1/jars", payload);
+      });
+      if (!creationMounted.current) return;
 
       const createdJar =
         res.data?.data;
@@ -2012,6 +2018,7 @@ function DefaultJarCreatePage() {
 
       setError(serverMessage);
     } finally {
+      creationInFlight.current = false;
       setLoading(false);
     }
   }
@@ -2030,10 +2037,9 @@ function DefaultJarCreatePage() {
        * → 오픈 날짜
        * → 저금통 만들기
        */}
+      {loading && <CreationExperience theme={form.theme} name={form.name} />}
       <TutorialSpotlight
-        isOpen={
-          isJarCreateTutorialOpen
-        }
+        isOpen={isJarCreateTutorialOpen && !loading}
         targetRef={
           jarCreateTutorialTargetRef
         }

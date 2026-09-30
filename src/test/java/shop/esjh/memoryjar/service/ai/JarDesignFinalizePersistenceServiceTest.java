@@ -14,6 +14,7 @@ import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.jar.JarOpenMode;
 import shop.esjh.memoryjar.enums.jar.JarTheme;
@@ -146,6 +147,37 @@ class JarDesignFinalizePersistenceServiceTest {
 
     private JarDesignFinalizePersistenceService service() {
         return new JarDesignFinalizePersistenceService(draftRepository, generationRepository, designRepository, jarService);
+    }
+
+    @Test
+    void finalizeCustom_preservesSelectedSlotStyle() {
+        JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(draft.getSlotStyle()).thenReturn(JarSlotStyle.METAL);
+        stubSlot(draft);
+        Jar jar = mock(Jar.class);
+        when(jar.getJarId()).thenReturn(104L);
+        when(jarService.createJarForDesignFinalize(eq(1L), any())).thenReturn(jar);
+        var expected = service().prepare(1L, 10L);
+
+        service().finalizeCustom(1L, 10L, request(), expected, "final.png");
+
+        verify(designRepository).save(argThat(design -> design.getSlotStyle() == JarSlotStyle.METAL));
+    }
+
+    @Test
+    void finalizeCustom_rejectsStyleChangedDuringExternalCopy() {
+        JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(draft.getSlotStyle()).thenReturn(JarSlotStyle.METAL);
+        stubSlot(draft);
+        var expected = service().prepare(1L, 10L);
+        when(draft.getSlotStyle()).thenReturn(JarSlotStyle.WOOD);
+
+        assertThatThrownBy(() -> service().finalizeCustom(1L, 10L, request(), expected, "final.png"))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode()).isEqualTo(AiDraftErrorCode.FINALIZE_TARGET_CHANGED);
+        verifyNoInteractions(jarService, designRepository);
     }
 
     private JarDesignDraft activeDraft(JarDraftDesignType designType) {

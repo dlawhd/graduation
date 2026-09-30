@@ -19,6 +19,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 
 /**
  * Draft OWNER가 유효한 후보와 Slot을 선택하도록 처리한다.
@@ -51,7 +52,7 @@ public class JarDesignDraftService {
         List<JarDesignCutoutPoint> legacyCutoutPoints = cutoutRegions.isEmpty() ? List.of() : cutoutRegions.get(0);
         return new JarDesignDraftDetailResponse(draft.getDraftId(), draft.getStatus(), draft.getSelectedDesignType(), draft.getSelectedGenerationId(),
                 draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), legacyCutoutPoints, cutoutRegions,
-                draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations);
+                draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations, draft.getSlotStyle());
     }
 
     /**
@@ -109,6 +110,14 @@ public class JarDesignDraftService {
     public void updateSlot(Long userId, Long draftId,
                            BigDecimal centerX, BigDecimal centerY, BigDecimal sizeRatio,
                            JarDraftDesignType expectedDesignType, Long expectedGenerationId) {
+        updateSlot(userId, draftId, centerX, centerY, sizeRatio, expectedDesignType, expectedGenerationId, null);
+    }
+
+    /** 기존 필드만 보내는 클라이언트는 모양을 유지하고, 명시한 모양만 같은 Draft 잠금 안에서 변경한다. */
+    @Transactional
+    public void updateSlot(Long userId, Long draftId,
+                           BigDecimal centerX, BigDecimal centerY, BigDecimal sizeRatio,
+                           JarDraftDesignType expectedDesignType, Long expectedGenerationId, JarSlotStyle slotStyle) {
         JarDesignDraft draft = findOwnedActiveDraftForUpdate(userId, draftId);
         // 기존 세 필드 요청은 호환 유지. 새 Editor는 선택 종류와 후보 ID를 항상 함께 보낸다.
         if ((expectedDesignType != null || expectedGenerationId != null)
@@ -121,6 +130,7 @@ public class JarDesignDraftService {
         }
         JarSlotGeometry.validate(centerX, centerY, sizeRatio);
         draft.updateSlot(centerX, centerY, sizeRatio);
+        if (slotStyle != null) draft.updateSlotStyle(slotStyle);
         extendExpiration(draft);
     }
 

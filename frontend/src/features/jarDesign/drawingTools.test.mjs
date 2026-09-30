@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { drawingPoint, drawShape, hasDrawingPixels } from "./drawingTools.mjs";
+import { drawingPoint, drawShape, hasDrawingPixels, SHAPES, BRUSHES, constrainShape, drawBrushStroke, floodFill, sampledColor } from "./drawingTools.mjs";
 
 test("축소된 캔버스 좌표와 바깥 입력을 480px 원본에 매핑한다", () => {
   const rect = { left: 10, top: 20, width: 240, height: 240 };
@@ -10,7 +10,7 @@ test("축소된 캔버스 좌표와 바깥 입력을 480px 원본에 매핑한�
 
 function recordingContext() {
   const calls = [];
-  const ctx = Object.fromEntries(["beginPath", "moveTo", "lineTo", "rect", "ellipse", "closePath", "fill", "stroke"].map((name) => [name, (...args) => calls.push([name, ...args])]));
+  const ctx = Object.fromEntries(["beginPath", "moveTo", "lineTo", "rect", "ellipse", "closePath", "fill", "stroke", "arcTo", "bezierCurveTo", "save", "restore", "arc", "fillRect"].map((name) => [name, (...args) => calls.push([name, ...args])]));
   return { ctx, calls };
 }
 
@@ -39,4 +39,47 @@ test("직선은 채우지 않고 삼각형은 닫힌 경로를 만든다", () =>
 test("흰색·투명 픽셀은 빈 그림이며 작은 유색 영역은 보존한다", () => {
   assert.equal(hasDrawingPixels([255, 255, 255, 255, 0, 0, 0, 0]), false);
   assert.equal(hasDrawingPixels([255, 255, 255, 255, 255, 0, 0, 255]), true);
+});
+
+test("18종 도형은 역방향과 크기 0에서도 유효한 Canvas 경로를 만든다", () => {
+  assert.equal(SHAPES.length, 18);
+  for (const [shape] of SHAPES) for (const end of [{ x: 20, y: 30 }, { x: 90, y: 90 }]) {
+    const { ctx, calls } = recordingContext();
+    drawShape(ctx, shape, { x: 90, y: 90 }, end, true);
+    assert.equal(calls.at(-1)[0], "stroke", shape);
+    assert.ok(calls.length > 2, shape);
+    assert.ok(calls.flatMap((call) => call.slice(1)).every(Number.isFinite), shape);
+  }
+});
+
+test("Shift 보정은 정사각 비율을 유지하면서 캔버스 경계를 넘지 않는다", () => {
+  assert.deepEqual(constrainShape({ x: 460, y: 100 }, { x: 470, y: 300 }), { x: 480, y: 120 });
+  assert.deepEqual(constrainShape({ x: 100, y: 100 }, { x: 70, y: 50 }), { x: 50, y: 50 });
+});
+
+test("6종 펜은 클릭과 긴 획을 그리고 투명도 설정을 격리한다", () => {
+  assert.equal(BRUSHES.length, 6);
+  for (const [brush] of BRUSHES) for (const points of [[{ x: 10, y: 20 }], [{ x: 10, y: 20 }, { x: 100, y: 200 }]]) {
+    const { ctx, calls } = recordingContext();
+    drawBrushStroke(ctx, points, { brush, color: "#ef4444", size: 12, opacity: .5 });
+    assert.equal(calls[0][0], "save"); assert.equal(calls.at(-1)[0], "restore");
+    assert.ok(calls.some(([name]) => ["fill", "fillRect", "stroke"].includes(name)));
+    assert.ok(ctx.globalAlpha > 0 && ctx.globalAlpha <= .5);
+  }
+});
+
+test("채우기는 경계로 분리된 영역만 변경하고 이미 같은 색이면 이력을 늘리지 않는다", () => {
+  const image = { width: 3, height: 3, data: new Uint8ClampedArray(36).fill(255) };
+  for (const offset of [4, 16, 28]) image.data.set([0, 0, 0, 255], offset);
+  assert.equal(floodFill(image, 0, 1, "#ff0000"), true);
+  assert.deepEqual([...image.data.slice(0, 12)], [255, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255, 255]);
+  assert.equal(floodFill(image, 0, 0, "#ff0000"), false);
+});
+
+test("전체 480px 채우기는 재귀 없이 끝나며 바깥 좌표도 안전하게 보정한다", () => {
+  const image = { width: 480, height: 480, data: new Uint8ClampedArray(480 * 480 * 4).fill(255) };
+  assert.equal(floodFill(image, 480, -1, "#123456"), true);
+  assert.deepEqual([...image.data.slice(-4)], [18, 52, 86, 255]);
+  const ctx = { getImageData(x, y) { assert.equal(x, 479); assert.equal(y, 479); return { data: [18, 52, 86, 255] }; } };
+  assert.equal(sampledColor(ctx, { x: 480, y: 480 }), "#123456");
 });

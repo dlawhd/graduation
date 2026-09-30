@@ -21,6 +21,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -64,6 +65,10 @@ public class JarDesign {
     @Column(name = "slot_size_ratio", nullable = false, precision = 6, scale = 5)
     private BigDecimal slotSizeRatio;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "slot_style", nullable = false, length = 20)
+    private JarSlotStyle slotStyle;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -71,7 +76,7 @@ public class JarDesign {
     @Builder
     private JarDesign(Jar jar, JarDesignType designType, String finalS3Key,
                       JarAiGeneration selectedGeneration, BigDecimal slotCenterX,
-                      BigDecimal slotCenterY, BigDecimal slotSizeRatio) {
+                      BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarSlotStyle slotStyle) {
         this.jar = jar;
         this.designType = designType;
         this.finalS3Key = finalS3Key;
@@ -79,5 +84,6 @@ public class JarDesign {
         this.slotCenterX = slotCenterX;
         this.slotCenterY = slotCenterY;
         this.slotSizeRatio = slotSizeRatio;
+        this.slotStyle = JarSlotStyle.orDefault(slotStyle);
     }
 }

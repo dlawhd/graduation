@@ -1294,6 +1294,8 @@ notifications.jar_id → jars.jar_id
 
 AI 커스텀 디자인은 V32/V33으로 이미 반영됐다. `jars.active_ai_generation_id`는 추가하지 않았고, 디자인은 Jar 생성 전 Draft에서 선택한 뒤 커스텀 디자인일 때만 `jar_designs` 한 행으로 연결한다. 상세 컬럼·CHECK·FK·INDEX 계약은 [AI_ERD.md](ai/AI_ERD.md)를 기준으로 한다.
 
+2026-09-30 로컬 구현 추가: V34는 Draft의 `cutout_path_json`을 추가했고, V35는 `jar_design_drafts`와 `jar_designs`에 `slot_style VARCHAR(20) NOT NULL DEFAULT 'CAPSULE'`을 추가한다. 두 컬럼의 CHECK 허용값은 `CAPSULE`, `RECTANGLE`, `OVAL`, `METAL`, `WOOD`, `PIXEL`이다. 기존 좌표·이미지·테이블 관계는 변경하지 않는다. AI_ERD의 초기 설계에 없는 표시 옵션이며, 이 기록은 운영 배포 완료를 의미하지 않는다.
+
 # 13. 이후 코드 작업에서 주의할 사항
 
 ## 13-1. DB 제약과 Service 검증은 다르다
@@ -1343,12 +1345,14 @@ deleted_at = 삭제 시각
 
 ## 13-3. 기존 Flyway 파일은 수정하지 않는다
 
-현재 마이그레이션은 V33까지 존재해.
+현재 로컬 마이그레이션은 V35까지 존재해.
 
 ```
 V1  ~ V31 : 기존 구조와 변경 이력
 V32 : AI Draft·Generation·최종 Design 테이블
 V33 : Draft 원본 S3 삭제 완료 시각 및 정리 인덱스
+V34 : Draft 배경 제거 외곽선 JSON
+V35 : Draft와 최종 디자인의 투입구 모양
 ```
 
 이미 적용된 V1~V33을 수정하면 Flyway 체크섬이 달라질 수 있으므로 이후 변경은 새 Migration으로 추가해야 한다.

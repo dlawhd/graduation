@@ -16,6 +16,7 @@ import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.jar.JarOpenMode;
 import shop.esjh.memoryjar.enums.jar.JarTheme;
@@ -60,6 +61,7 @@ class JarDesignViewServiceTest {
     @DisplayName("JarDesign이 있으면 짧은 이미지 URL과 저장된 Slot을 반환한다")
     void findByJarId_returnsPresignedImageAndSlot() throws Exception {
         JarDesign design = design(10L, "jar-designs/1/final.png");
+        ReflectionTestUtils.setField(design, "slotStyle", JarSlotStyle.PIXEL);
         ReflectionTestUtils.setField(design, "selectedGeneration",
                 JarAiGeneration.builder().aiStyle(JarAiStyle.PIXEL).build());
         when(jarDesignRepository.findByJar_JarId(10L)).thenReturn(Optional.of(design));
@@ -76,6 +78,7 @@ class JarDesignViewServiceTest {
         assertThat(response.slotCenterX()).isEqualByComparingTo("0.50000");
         assertThat(response.slotCenterY()).isEqualByComparingTo("0.30000");
         assertThat(response.slotSizeRatio()).isEqualByComparingTo("0.60000");
+        assertThat(response.slotStyle()).isEqualTo(JarSlotStyle.PIXEL);
 
         ArgumentCaptor<GetObjectPresignRequest> requestCaptor =
                 ArgumentCaptor.forClass(GetObjectPresignRequest.class);

@@ -11,6 +11,7 @@ import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.enums.ai.JarDraftStatus;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
@@ -91,6 +92,7 @@ public class JarDesignFinalizePersistenceService {
                 .slotCenterX(actual.slotCenterX())
                 .slotCenterY(actual.slotCenterY())
                 .slotSizeRatio(actual.slotSizeRatio())
+                .slotStyle(actual.slotStyle())
                 .build();
         designRepository.save(design);
         draft.markFinalized(jar);
@@ -126,7 +128,7 @@ public class JarDesignFinalizePersistenceService {
         requireSlot(draft);
         if (selectedType == JarDraftDesignType.ORIGINAL) {
             return new FinalizeTarget(JarDraftDesignType.ORIGINAL, draft.getOriginalS3Key(), null,
-                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson());
+                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle());
         }
 
         Long generationId = draft.getSelectedGenerationId();
@@ -139,7 +141,7 @@ public class JarDesignFinalizePersistenceService {
             throw new ApiException(AiDraftErrorCode.AI_GENERATION_FINALIZE_NOT_SELECTABLE);
         }
         return new FinalizeTarget(JarDraftDesignType.AI, generation.getGeneratedS3Key(), generation.getGenerationId(),
-                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson());
+                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle());
     }
 
     private void requireSlot(JarDesignDraft draft) {
@@ -167,7 +169,16 @@ public class JarDesignFinalizePersistenceService {
     /** S3 처리 전후에 비교하는 선택 종류·원본 Key·Generation·Slot·외곽선의 불변 Snapshot이다. */
     public record FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
                                  BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
-                                 String cutoutPathJson) {
+                                 String cutoutPathJson, JarSlotStyle slotStyle) {
+        public FinalizeTarget {
+            slotStyle = JarSlotStyle.orDefault(slotStyle);
+        }
+
+        /** 투입구 모양이 없는 기존 스냅샷은 기본값으로 비교한다. */
+        public FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
+                              BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio, String cutoutPathJson) {
+            this(designType, sourceS3Key, generationId, slotCenterX, slotCenterY, slotSizeRatio, cutoutPathJson, JarSlotStyle.CAPSULE);
+        }
         /** 기존 Finalize 단위 테스트와 호출부가 외곽선 없는 Snapshot을 계속 만들 수 있게 한다. */
         public FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
                               BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio) {

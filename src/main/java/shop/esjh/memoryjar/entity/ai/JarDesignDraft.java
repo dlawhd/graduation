@@ -23,6 +23,7 @@ import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.enums.ai.JarDraftStatus;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -73,6 +74,10 @@ public class JarDesignDraft {
 
     @Column(name = "slot_size_ratio", precision = 6, scale = 5)
     private BigDecimal slotSizeRatio;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "slot_style", nullable = false, length = 20)
+    private JarSlotStyle slotStyle = JarSlotStyle.CAPSULE;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -137,6 +142,11 @@ public class JarDesignDraft {
         this.slotSizeRatio = sizeRatio;
     }
 
+    /** 좌표 저장과 같은 잠금·트랜잭션 안에서 투입구 모양을 저장한다. */
+    public void updateSlotStyle(JarSlotStyle style) {
+        this.slotStyle = JarSlotStyle.orDefault(style);
+    }
+
     /** 현재 선택 이미지에 적용할 배경 제거 외곽선을 저장하거나 비운다. */
     public void updateCutoutPathJson(String cutoutPathJson) {
         this.cutoutPathJson = cutoutPathJson;
@@ -151,6 +161,7 @@ public class JarDesignDraft {
         this.slotCenterX = null;
         this.slotCenterY = null;
         this.slotSizeRatio = null;
+        this.slotStyle = JarSlotStyle.CAPSULE;
     }
 
     private void clearCutout() {

@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeSlot, slotDimensions, slotAtPointer, storedSlot, sameSlot } from "./slotGeometry.mjs";
 
+test("투입구 모양은 좌표 보정과 서버 복원 후에도 유지되고 모양만 바꿔도 미저장 상태다", () => {
+  const slot = { centerX: .5, centerY: .5, sizeRatio: .5, slotStyle: "WOOD" };
+  assert.equal(normalizeSlot(slot).slotStyle, "WOOD");
+  assert.deepEqual(storedSlot({ slotCenterX: .5, slotCenterY: .5, slotSizeRatio: .5, slotStyle: "WOOD" }), slot);
+  assert.equal(sameSlot(slot, { ...slot, slotStyle: "METAL" }), false);
+  assert.equal(sameSlot({ ...slot, slotStyle: "CAPSULE" }, { centerX: .5, centerY: .5, sizeRatio: .5 }), true);
+});
+
 test("480px 원본과 1024px AI에서 너비 12~28%, 높이 1/3.5 비율 유지", () => {
   for (const imageWidth of [320, 480, 1024]) {
     for (const [ratio, expectedWidth] of [[0, 0.12], [0.5, 0.20], [1, 0.28]]) {

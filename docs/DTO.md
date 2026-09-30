@@ -213,7 +213,8 @@ public record JarDesignResponse(
     BigDecimal slotCenterX,
     BigDecimal slotCenterY,
     BigDecimal slotSizeRatio,
-    JarAiStyle aiStyle // AI 후보 스타일, ORIGINAL 또는 정보 없음은 null
+    JarAiStyle aiStyle, // AI 후보 스타일, ORIGINAL 또는 정보 없음은 null
+    JarSlotStyle slotStyle // CAPSULE / RECTANGLE / OVAL / METAL / WOOD / PIXEL
 ) {}
 ```
 
@@ -1742,9 +1743,9 @@ AI 디자인은 Jar 생성 전에 Draft 단위로 다룬다. 다음 DTO는 모�
 | --- | --- | --- |
 | `JarAiGenerationCreateRequest` | Request | `style` 필수, `seed` 선택. Prompt·버전은 받지 않음 |
 | `JarDesignSelectionRequest` | Request | `designType` 필수, `AI`일 때 `generationId` 필요 |
-| `JarDesignSlotRequest` | Request | `centerX`, `centerY`, `sizeRatio` 필수. `expectedDesignType`, `expectedGenerationId` 선택(새 Editor는 항상 전송). Service가 소수 5자리·0~1·슬롯 전체 경계·현재 선택 일치를 검증 |
+| `JarDesignSlotRequest` | Request | `centerX`, `centerY`, `sizeRatio` 필수. `expectedDesignType`, `expectedGenerationId` 선택(새 Editor는 항상 전송). `slotStyle` 선택: 생략/null이면 기존 모양 유지. Service가 소수 5자리·0~1·슬롯 전체 경계·현재 선택 일치를 검증 |
 | `JarDesignDraftCreateResponse` | Response | `draftId`, `expiresAt` |
-| `JarDesignDraftDetailResponse` | Response | Draft 상태·선택·Slot·`cutoutRegions`·호환용 `cutoutPoints`·만료·최종 Jar·Generation 메타데이터. S3 Key/URL 제외 |
+| `JarDesignDraftDetailResponse` | Response | Draft 상태·선택·Slot 좌표와 `slotStyle`·`cutoutRegions`·호환용 `cutoutPoints`·만료·최종 Jar·Generation 메타데이터. S3 Key/URL 제외 |
 | `JarAiGenerationPreviewResponse` | Response | OWNER 검증 뒤의 짧은 `previewUrl`, `expiresAt` |
 | `JarAiGenerationRealtimeEventResponse` | WebSocket Response | `draftId`, `generationId`, `style`, `status`, 실패 시 `errorCode` |
 | `JarDesignFinalizeResponse` | Response | 생성된 `jarId`, 최종 `designType` |

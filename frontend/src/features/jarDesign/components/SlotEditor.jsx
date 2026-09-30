@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { draftImageRendering } from "../imageRendering.mjs";
 import { getJarDesignDraftError, getJarDesignOriginalPreview, getJarDesignGenerationPreview,
   updateJarDesignSlot } from "../../../api/jarDesignDraftApi";
-import { DEFAULT_SLOT, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
-import JarSlotOverlay from "./JarSlotOverlay";
+import { DEFAULT_SLOT, SLOT_STYLES, slotStyle, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
+import JarSlotOverlay, { SlotAppearance } from "./JarSlotOverlay";
 import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 
-/** 선택한 원본/AI 이미지 위에 투입구를 배치하고 Draft에 위치·크기만 저장하는 편집기다. */
+/** 선택한 원본/AI 이미지 위에 투입구를 배치하고 Draft에 위치·크기·모양을 저장하는 편집기다. */
 export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled, onSaved, onBusyChange, onDirtyChange }) {
   const [savedSlot, setSavedSlot] = useState(() => storedSlot(draft));
   const [slot, setSlot] = useState(() => normalizeSlot(storedSlot(draft) || DEFAULT_SLOT));
@@ -95,7 +95,8 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
 
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="동전 투입구 편집">
-      <h3 className="text-xl font-black text-slate-800">동전 투입구를 놓아주세요</h3>
+      <span className="text-xs font-black tracking-widest text-violet-500">02 · 작은 디테일</span>
+      <h3 className="mt-2 text-xl font-black text-slate-800">추억이 들어갈 작은 입구</h3>
       <p id="slot-editor-help" className="mt-2 text-sm leading-6 text-slate-500">그림을 누르거나 드래그해 위치를 정해 주세요. 방향키로도 움직일 수 있어요.</p>
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
         <div>
@@ -130,6 +131,17 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
         </div>
         <div className="min-w-0 space-y-5">
           <fieldset disabled={locked} className="space-y-5 disabled:opacity-50">
+            <legend className="sr-only">투입구 모양과 위치</legend>
+            <div>
+              <p className="mb-3 text-sm font-bold text-slate-700">어떤 입구가 어울릴까요?</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {SLOT_STYLES.map(([value, label]) => <button key={value} type="button" aria-pressed={slotStyle(slot.slotStyle) === value}
+                  onClick={() => setSlot((current) => ({ ...current, slotStyle: value }))}
+                  className={`flex min-h-24 flex-col items-center justify-center gap-3 rounded-2xl border p-3 text-xs font-bold ${slotStyle(slot.slotStyle) === value ? "border-violet-500 bg-violet-50 text-violet-800 ring-1 ring-violet-300" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                  <span className="block h-5 w-[70px]" aria-hidden="true"><SlotAppearance value={value} /></span>{label}
+                </button>)}
+              </div>
+            </div>
             <label className="block text-sm font-bold text-slate-700">투입구 크기
               <input type="range" min="0" max="100" step="1" value={slot.sizeRatio * 100}
                 onChange={(event) => setSlot((current) => normalizeSlot({ ...current, sizeRatio: Number(event.target.value) / 100 }))}
@@ -143,11 +155,11 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
                   className="mt-2 block min-h-11 w-full accent-violet-600" />
               </label>
             ))}
-            <button type="button" onClick={() => setSlot({ ...DEFAULT_SLOT })}
+            <button type="button" onClick={() => setSlot((current) => ({ ...current, centerX: .5, centerY: .5 }))}
               className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">가운데로 초기화</button>
           </fieldset>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-          <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : dirty ? "위치와 크기를 정한 뒤 저장해 주세요." : "투입구 위치와 크기가 저장됐어요."}</p>
+          <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : dirty ? "모양·위치·크기를 정한 뒤 저장해 주세요." : "투입구 모양과 위치가 저장됐어요."}</p>
           <button type="button" onClick={() => void saveSlot()} disabled={locked || !dirty}
             className="min-h-12 w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "저장 중..." : "투입구 저장"}</button>
           <p className="text-xs leading-5 text-slate-500">투입구는 그림 위에 따로 표시돼요. 디자인을 바꾸면 투입구 위치도 다시 정해 주세요.</p>

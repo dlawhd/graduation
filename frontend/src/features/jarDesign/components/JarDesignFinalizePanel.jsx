@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import CreationExperience from "./CreationExperience";
+import ThemeMoodPicker, { ThemePreviewStage } from "./ThemeMoodPicker";
+import { presentCreation } from "../creationTiming.mjs";
+import { getThemeIcon } from "../../jarDetail/theme/jarDetailTheme";
 import { draftImageRendering } from "../imageRendering.mjs";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -49,10 +53,13 @@ export default function JarDesignFinalizePanel({
   cutoutSaving,
   disabled,
   onRefresh,
+  onBusyChange,
 }) {
   const navigate = useNavigate();
   const [form, setForm] = useState(INITIAL_JAR_FORM);
   const [finalizing, setFinalizing] = useState(false);
+  const submitting = useRef(false), mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [error, setError] = useState("");
   const [retryPreviewResult, setRetryPreviewResult] = useState({
     selectionKey: "",
@@ -119,29 +126,32 @@ export default function JarDesignFinalizePanel({
       return "최대 인원은 2명에서 50명 사이로 정해 주세요.";
     }
     if (!form.openAt) return "저금통을 열 날짜와 시간을 정해 주세요.";
+    if (new Date(form.openAt).getTime() <= Date.now()) return "오픈 날짜와 시간은 지금보다 나중으로 정해 주세요.";
     return "";
   }
 
   /** 한 번의 Finalize 요청만 보내고, 성공한 Jar 상세 화면으로 이동한다. */
   async function handleSubmit(event) {
     event.preventDefault();
-    if (submitLocked) return;
+    if (submitLocked || submitting.current) return;
     const validationMessage = validateForm();
     if (validationMessage) {
       setError(validationMessage);
       return;
     }
 
+    submitting.current = true;
     setFinalizing(true);
+    onBusyChange?.(true);
     setError("");
     try {
-      const result = await finalizeJarDesignDraft(draft.draftId, {
+      const result = await presentCreation(() => finalizeJarDesignDraft(draft.draftId, {
         ...form,
         name: form.name.trim(),
         description: form.description.trim(),
         maxMembers: Number(form.maxMembers),
-      });
-      navigate(`/jars/${result.jarId}`, { replace: true });
+      }));
+      if (mounted.current) navigate(`/jars/${result.jarId}`, { replace: true });
     } catch (requestError) {
       const failure = getJarDesignDraftError(requestError);
       if (["FINALIZE_TARGET_CHANGED", "DRAFT_SLOT_TARGET_CHANGED", "DRAFT_ALREADY_FINALIZED"].includes(failure.code)) {
@@ -149,7 +159,9 @@ export default function JarDesignFinalizePanel({
       }
       setError(toFinalizeMessage(failure));
     } finally {
+      submitting.current = false;
       setFinalizing(false);
+      onBusyChange?.(false);
     }
   }
 
@@ -165,16 +177,19 @@ export default function JarDesignFinalizePanel({
 
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="최종 미리보기와 저금통 만들기">
+      {finalizing && <CreationExperience theme={form.theme} name={form.name}>
+        {isCustom && imageUrl ? <div className="relative h-full w-full"><img src={imageUrl} alt="" className="h-full w-full object-contain" style={{ ...cutoutMaskStyle, imageRendering: draftImageRendering(draft) }} />{slot && <JarSlotOverlay slot={slot} />}</div> : null}
+      </CreationExperience>}
       <div>
         <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700">마지막 단계</div>
-        <h3 className="mt-3 text-2xl font-black text-slate-800">완성 모습을 확인하고 저금통을 만들어요</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-500">확정하면 디자인과 투입구는 더 이상 바꿀 수 없어요. 대신 기존 기본 저금통 생성 규칙은 그대로 적용돼요.</p>
+        <h3 className="mt-3 text-2xl font-black text-slate-800">이제, 우리의 추억에 이름을 붙여요</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-500">좋아하는 계절과 함께 열어볼 날을 골라주세요. 완성 후에는 디자인과 투입구를 바꿀 수 없어요.</p>
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-black text-slate-700">최종 디자인</p>
-          <div className="relative mt-3 aspect-square overflow-hidden rounded-2xl bg-white">
+        <div className="self-start xl:sticky xl:top-24">
+          <ThemePreviewStage theme={form.theme} name={form.name}>
+          <div className="relative aspect-square overflow-hidden rounded-[24px] bg-white/40">
             {isCustom && imageUrl && (
               <img key={imageKey} src={imageUrl} alt="최종 저금통 디자인 미리보기" className="h-full w-full object-contain"
                 style={{ ...cutoutMaskStyle, imageRendering: draftImageRendering(draft) }}
@@ -196,12 +211,13 @@ export default function JarDesignFinalizePanel({
             )}
             {!isCustom && (
               <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-violet-100 via-white to-pink-100 p-8 text-center">
-                <span className="text-5xl" aria-hidden="true">🫙</span>
+                {getThemeIcon(form.theme, 112)}
                 <p className="mt-4 text-lg font-black text-slate-800">기본 {THEME_LABELS[form.theme]} 저금통</p>
                 <p className="mt-2 text-sm leading-6 text-slate-500">커스텀 이미지 없이 기존 테마 저금통으로 만들어요.</p>
               </div>
             )}
           </div>
+          </ThemePreviewStage>
           {isCustom && <button type="button" onClick={() => void retryPreview()} disabled={retryingPreview || formLocked}
             className="mt-3 min-h-11 text-sm font-bold text-violet-700 disabled:opacity-50">{retryingPreview ? "이미지 불러오는 중..." : "이미지 다시 불러오기"}</button>}
           <p className="mt-3 text-xs leading-5 text-slate-500">
@@ -221,12 +237,7 @@ export default function JarDesignFinalizePanel({
                 maxLength="200" rows="3" disabled={formLocked} placeholder="함께 담을 추억을 짧게 적어 주세요."
                 className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />
             </label>
-            <label className="block text-sm font-bold text-slate-700">테마
-              <select value={form.theme} onChange={(event) => setForm((current) => ({ ...current, theme: event.target.value }))} disabled={formLocked}
-                className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-slate-800 disabled:bg-slate-50">
-                {Object.entries(THEME_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
+            <ThemeMoodPicker value={form.theme} onChange={(theme) => setForm((current) => ({ ...current, theme }))} disabled={formLocked} />
             <label className="block text-sm font-bold text-slate-700">최대 인원
               <input type="number" min="2" max="50" value={form.maxMembers} onChange={(event) => setForm((current) => ({ ...current, maxMembers: event.target.value }))}
                 required disabled={formLocked} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />
@@ -234,6 +245,7 @@ export default function JarDesignFinalizePanel({
             <label className="block text-sm font-bold text-slate-700 sm:col-span-2">오픈 날짜와 시간
               <input type="datetime-local" value={form.openAt} onChange={(event) => setForm((current) => ({ ...current, openAt: event.target.value }))}
                 required disabled={formLocked} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />
+              <span className="mt-2 flex flex-wrap gap-2">{[[7, "일주일 뒤"], [30, "한 달 뒤"], [100, "100일 뒤"]].map(([days, label]) => <button key={days} type="button" disabled={formLocked} onClick={() => { const date = new Date(); date.setDate(date.getDate() + days); const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); setForm((current) => ({ ...current, openAt: local })); }} className="rounded-full bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700">{label}</button>)}</span>
             </label>
             <label className="block text-sm font-bold text-slate-700">오픈 방식
               <select value={form.openMode} onChange={(event) => setForm((current) => ({ ...current, openMode: event.target.value }))} disabled={formLocked}

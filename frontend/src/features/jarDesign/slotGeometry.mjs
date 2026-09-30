@@ -3,6 +3,8 @@ export const SLOT_MIN_WIDTH = 0.12;
 export const SLOT_WIDTH_RANGE = 0.16;
 export const SLOT_ASPECT_RATIO = 3.5;
 export const DEFAULT_SLOT = { centerX: 0.5, centerY: 0.5, sizeRatio: 0.5 };
+export const SLOT_STYLES = [["CAPSULE", "말랑한 캡슐"], ["RECTANGLE", "반듯한 직선"], ["OVAL", "부드러운 타원"], ["METAL", "은빛 테두리"], ["WOOD", "우드 프레임"], ["PIXEL", "레트로 픽셀"]];
+export const slotStyle = (value) => SLOT_STYLES.some(([key]) => key === value) ? value : "CAPSULE";
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const round = (value) => Number(value.toFixed(5));
@@ -21,6 +23,7 @@ export function normalizeSlot(slot) {
   const minX = Math.ceil(widthNumerator / 200) / 100000;
   const minY = Math.ceil(widthNumerator / 700) / 100000;
   return {
+    ...(slot.slotStyle ? { slotStyle: slotStyle(slot.slotStyle) } : {}),
     centerX: round(clamp(slot.centerX, minX, 1 - minX)),
     centerY: round(clamp(slot.centerY, minY, 1 - minY)),
     sizeRatio,
@@ -39,12 +42,14 @@ export function slotAtPointer(slot, clientX, clientY, bounds) {
 
 export function sameSlot(first, second) {
   return Boolean(first && second && first.centerX === second.centerX
-    && first.centerY === second.centerY && first.sizeRatio === second.sizeRatio);
+    && first.centerY === second.centerY && first.sizeRatio === second.sizeRatio
+    && slotStyle(first.slotStyle) === slotStyle(second.slotStyle));
 }
 
 /** 미저장 Draft의 NULL을 숫자 0으로 잘못 복원하지 않는다. */
 export function storedSlot(draft) {
   const values = [draft.slotCenterX, draft.slotCenterY, draft.slotSizeRatio];
   if (values.some((value) => value == null || !Number.isFinite(Number(value)))) return null;
-  return { centerX: Number(values[0]), centerY: Number(values[1]), sizeRatio: Number(values[2]) };
+  return { centerX: Number(values[0]), centerY: Number(values[1]), sizeRatio: Number(values[2]),
+    ...(draft.slotStyle ? { slotStyle: slotStyle(draft.slotStyle) } : {}) };
 }

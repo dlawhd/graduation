@@ -2,6 +2,7 @@ package shop.esjh.memoryjar.dto.jar.response;
 
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -17,6 +18,12 @@ public record JarDesignResponse(
         BigDecimal slotCenterX,
         BigDecimal slotCenterY,
         BigDecimal slotSizeRatio,
-        JarAiStyle aiStyle
+        JarAiStyle aiStyle,
+        JarSlotStyle slotStyle
 ) {
+    /** 기존 호출부는 기존 둥근 투입구로 표시한다. */
+    public JarDesignResponse(JarDesignType designType, String imageUrl, OffsetDateTime imageExpiresAt,
+                             BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarAiStyle aiStyle) {
+        this(designType, imageUrl, imageExpiresAt, slotCenterX, slotCenterY, slotSizeRatio, aiStyle, JarSlotStyle.CAPSULE);
+    }
 }

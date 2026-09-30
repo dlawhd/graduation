@@ -70,12 +70,13 @@ export async function selectJarDesign(draftId, designType, generationId) {
 }
 
 /** 커스텀 이미지 위 동전 투입구 Slot의 정규화된 위치와 크기를 저장한다. */
-export async function updateJarDesignSlot(draftId, { centerX, centerY, sizeRatio, expectedDesignType, expectedGenerationId }) {
+export async function updateJarDesignSlot(draftId, { centerX, centerY, sizeRatio, slotStyle = "CAPSULE", expectedDesignType, expectedGenerationId }) {
   await ensureCsrf();
   await apiClient.patch(`${DRAFT_BASE_URL}/${draftId}/slot`, {
     centerX,
     centerY,
     sizeRatio,
+    slotStyle,
     expectedDesignType,
     expectedGenerationId,
   });

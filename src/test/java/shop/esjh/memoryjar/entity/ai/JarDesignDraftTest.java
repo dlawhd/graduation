@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.entity.ai;
 
 import org.junit.jupiter.api.Test;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ class JarDesignDraftTest {
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
         draft.selectAiGeneration(10L);
+        draft.updateSlotStyle(JarSlotStyle.WOOD);
         draft.updateSlot(new BigDecimal("0.5"), new BigDecimal("0.4"), new BigDecimal("0.3"));
 
         draft.selectDefault();
@@ -28,6 +30,7 @@ class JarDesignDraftTest {
         assertThat(draft.getSlotCenterX()).isNull();
         assertThat(draft.getSlotCenterY()).isNull();
         assertThat(draft.getSlotSizeRatio()).isNull();
+        assertThat(draft.getSlotStyle()).isEqualTo(JarSlotStyle.CAPSULE);
         assertThat(draft.hasCustomDesignSelection()).isFalse();
     }
 

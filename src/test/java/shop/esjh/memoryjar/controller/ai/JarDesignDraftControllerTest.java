@@ -21,6 +21,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import java.math.BigDecimal;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import java.util.Map;
@@ -41,7 +42,21 @@ class JarDesignDraftControllerTest {
           {"centerX":0.5,"centerY":0.4,"sizeRatio":0.3,"expectedDesignType":"AI","expectedGenerationId":100}
           """))
           .andExpect(status().isNoContent());
-  verify(draftService).updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.4"),new BigDecimal("0.3"),JarDraftDesignType.AI,100L);
+  verify(draftService).updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.4"),new BigDecimal("0.3"),JarDraftDesignType.AI,100L,null);
+ }
+ @Test void slot_acceptsSelectedStyle() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/slot").principal(auth()).contentType("application/json").content("""
+          {"centerX":0.5,"centerY":0.4,"sizeRatio":0.3,"expectedDesignType":"ORIGINAL","slotStyle":"METAL"}
+          """))
+          .andExpect(status().isNoContent());
+  verify(draftService).updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.4"),new BigDecimal("0.3"),JarDraftDesignType.ORIGINAL,null,JarSlotStyle.METAL);
+ }
+ @Test void slot_unknownStyleIsRejectedBeforeService() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/slot").principal(auth()).contentType("application/json").content("""
+          {"centerX":0.5,"centerY":0.4,"sizeRatio":0.3,"slotStyle":"UNKNOWN"}
+          """))
+          .andExpect(status().isBadRequest());
+  verifyNoInteractions(draftService);
  }
  @Test void slot_missingCoordinatesAreRejectedBeforeService() throws Exception {
   mockMvc.perform(patch("/api/v1/design-drafts/10/slot").principal(auth()).contentType("application/json").content("{\"sizeRatio\":0.5}"))
@@ -72,7 +87,7 @@ class JarDesignDraftControllerTest {
  }
  @Test void slot_changedCandidateReturnsConflictAndFeatureCode() throws Exception {
   doThrow(new ApiException(AiDraftErrorCode.DRAFT_SLOT_TARGET_CHANGED)).when(draftService)
-          .updateSlot(eq(1L),eq(10L),any(),any(),any(),eq(JarDraftDesignType.ORIGINAL),isNull());
+          .updateSlot(eq(1L),eq(10L),any(),any(),any(),eq(JarDraftDesignType.ORIGINAL),isNull(),isNull());
   mockMvc.perform(patch("/api/v1/design-drafts/10/slot").principal(auth()).contentType("application/json").content("""
           {"centerX":0.5,"centerY":0.5,"sizeRatio":0.5,"expectedDesignType":"ORIGINAL"}
           """))
