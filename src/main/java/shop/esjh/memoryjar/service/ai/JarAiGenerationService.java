@@ -3,6 +3,8 @@ package shop.esjh.memoryjar.service.ai;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import shop.esjh.memoryjar.enums.ai.JarAiGenerationErrorCode;
 import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
@@ -176,7 +178,13 @@ public class JarAiGenerationService {
         } catch (CandidateUploadException exception) {
             outcome = recordFailure(target, style, JarAiGenerationErrorCode.S3_UPLOAD_FAILED,
                     "AI 후보 이미지를 저장하지 못했습니다.");
+        } catch (ApiException exception) {
+            // 콘텐츠 거절과 심사 서비스 장애를 구분하되, 제공자 원문이나 이미지 정보는 저장하지 않는다.
+            outcome = recordFailure(target, style, mapFeatureFailure(exception),
+                    "AI 후보 생성 또는 콘텐츠 심사를 완료하지 못했습니다.");
         } catch (RuntimeException exception) {
+            log.warn("AI 후보 생성 내부 오류입니다. draftId={} generationId={} exceptionType={}",
+                    target.draftId(), target.generationId(), exception.getClass().getSimpleName());
             outcome = recordFailure(target, style, JarAiGenerationErrorCode.INTERNAL_ERROR,
                     "AI 후보 생성 중 내부 오류가 발생했습니다.");
         } finally {
@@ -251,11 +259,28 @@ public class JarAiGenerationService {
 
     private JarAiGenerationErrorCode mapCloudflareFailure(CloudflareWorkersAiClient.FailureType failureType) {
         return switch (failureType) {
+            case CONTENT_POLICY_REJECTED -> JarAiGenerationErrorCode.PROVIDER_CONTENT_POLICY_REJECTED;
+            case INPUT_INVALID -> JarAiGenerationErrorCode.PROVIDER_INPUT_INVALID;
+            case QUOTA_EXCEEDED -> JarAiGenerationErrorCode.PROVIDER_QUOTA_EXCEEDED;
+            case CAPACITY_EXCEEDED -> JarAiGenerationErrorCode.PROVIDER_CAPACITY_EXCEEDED;
             case RATE_LIMITED -> JarAiGenerationErrorCode.PROVIDER_RATE_LIMITED;
             case TIMEOUT -> JarAiGenerationErrorCode.PROVIDER_TIMEOUT;
             case INVALID_RESPONSE -> JarAiGenerationErrorCode.PROVIDER_INVALID_RESPONSE;
             case REQUEST_FAILED -> JarAiGenerationErrorCode.PROVIDER_REQUEST_FAILED;
         };
+    }
+
+    private JarAiGenerationErrorCode mapFeatureFailure(ApiException exception) {
+        if (exception.getErrorCode() == AiDraftErrorCode.DRAFT_CONTENT_POLICY_REJECTED) {
+            return JarAiGenerationErrorCode.CANDIDATE_CONTENT_POLICY_REJECTED;
+        }
+        if (exception.getErrorCode() == AiDraftErrorCode.DRAFT_MODERATION_UNAVAILABLE) {
+            return JarAiGenerationErrorCode.CANDIDATE_MODERATION_UNAVAILABLE;
+        }
+        if (exception.getErrorCode() == AiDraftErrorCode.AI_PROVIDER_CONFIGURATION_UNAVAILABLE) {
+            return JarAiGenerationErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE;
+        }
+        return JarAiGenerationErrorCode.INTERNAL_ERROR;
     }
 
     private void deleteUncommittedCandidate(String s3Key) {

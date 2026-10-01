@@ -8,6 +8,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.slf4j.LoggerFactory;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.config.properties.AiGenerationImageProperties;
 import shop.esjh.memoryjar.config.properties.CloudflareAiProperties;
@@ -204,6 +210,87 @@ class CloudflareWorkersAiClientTest {
                 List.of(new CloudflareWorkersAiClient.CloudflareImageInput("original.png", new byte[]{1, 2, 3})),
                 seed
         );
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {400, 200})
+    void policyReasonIsClassifiedWithoutKeepingOrLoggingProviderText(int httpStatus) throws Exception {
+        Logger logger = (Logger) LoggerFactory.getLogger(CloudflareWorkersAiClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            when(response.statusCode()).thenReturn(httpStatus);
+            when(response.body()).thenReturn(new ByteArrayInputStream("""
+                    {"success":false,"errors":[{"code":3030,
+                      "message":"AiError: Input prompt contains NSFW content. DO_NOT_LOG_TEST_DETAIL"}]}
+                    """.getBytes(StandardCharsets.UTF_8)));
+            when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                    .thenReturn(response);
+
+            assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+                var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+                assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.CONTENT_POLICY_REJECTED);
+                assertThat(failure.getHttpStatus()).isEqualTo(httpStatus);
+                assertThat(failure.getCloudflareErrorCodes()).containsExactly("3030");
+                assertThat(failure.getMessage()).doesNotContain("DO_NOT_LOG_TEST_DETAIL", "NSFW");
+                assertThat(failure.getCause()).isNull();
+            });
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.get(0).getFormattedMessage()).contains("reason=CONTENT_POLICY_REJECTED", "3030")
+                    .doesNotContain("DO_NOT_LOG_TEST_DETAIL", "Input prompt", "draw a cat", "test-token");
+            assertThat(appender.list.get(0).getThrowableProxy()).isNull();
+            verify(httpClient).send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any());
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"<html>DO_NOT_LOG_TEST_DETAIL</html>", "{broken DO_NOT_LOG_TEST_DETAIL", ""})
+    void malformedErrorBodyUsesSafeGenericFailure(String body) throws Exception {
+        when(response.statusCode()).thenReturn(400);
+        when(response.body()).thenReturn(new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+        assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+            var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+            assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
+            assertThat(failure.getCloudflareErrorCodes()).isEmpty();
+            assertThat(failure.getMessage()).doesNotContain("DO_NOT_LOG_TEST_DETAIL");
+            assertThat(failure.getCause()).isNull();
+        });
+    }
+
+    @Test
+    void oversizedErrorBodyIsDiscardedRatherThanClassifiedFromPartialText() throws Exception {
+        when(response.statusCode()).thenReturn(400);
+        when(response.body()).thenReturn(new ByteArrayInputStream(new byte[64 * 1024 + 1]));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+        assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+            var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+            assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
+            assertThat(failure.getCloudflareErrorCodes()).isEmpty();
+        });
+    }
+
+    @Test
+    void arbitraryErrorCodesAndUnsafeRequestIdentifiersAreNotRetained() throws Exception {
+        when(response.statusCode()).thenReturn(400);
+        when(response.headers()).thenReturn(HttpHeaders.of(Map.of("cf-ray", List.of("unsafe identifier")), (name, value) -> true));
+        when(response.body()).thenReturn(new ByteArrayInputStream("""
+                {"errors":[{"code":"DO_NOT_LOG_TEST_DETAIL"},{"code":3030}]}
+                """.getBytes(StandardCharsets.UTF_8)));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+        assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+            var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+            assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
+            assertThat(failure.getCfRay()).isNull();
+            assertThat(failure.getCloudflareErrorCodes()).containsExactly("3030");
+        });
     }
 
     private String readBody(HttpRequest request) throws Exception {

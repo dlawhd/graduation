@@ -1754,6 +1754,8 @@ AI 디자인은 Jar 생성 전에 Draft 단위로 다룬다. 다음 DTO는 모�
 
 AI 생성 접수 성공은 `202 Accepted`와 `{"data":{"generationId":100}}` 형태로 반환한다. WebSocket 완료 이벤트는 상태 변경 신호이므로 클라이언트가 이 DTO만으로 화면 상태를 확정하지 않고 Draft 상세 REST 응답을 다시 조회한다.
 
+2026-10-01 오류 분류 보충: `errorCode` 값에 `PROVIDER_CONTENT_POLICY_REJECTED`, `PROVIDER_INPUT_INVALID`, `PROVIDER_QUOTA_EXCEEDED`, `PROVIDER_CAPACITY_EXCEEDED`, `PROVIDER_CONFIGURATION_UNAVAILABLE`, `CANDIDATE_CONTENT_POLICY_REJECTED`, `CANDIDATE_MODERATION_UNAVAILABLE`를 추가했다. 기존 필드와 코드는 유지한다. Cloudflare 상세 메시지·원문·이미지·Token·cfRay는 DTO에 추가하지 않는다. 클라이언트는 모르는 코드도 일반 실패 안내로 처리해야 하며, 과거 일반 실패를 정책 거절로 추측하면 안 된다.
+
 `JarDesignCutoutRequest`는 새 `regions` 또는 호환용 `points`, `expectedDesignType`, `expectedGenerationId`를 받는다. `regions`는 최대 30개, 영역당 3~240점, 전체 1200점이며 빈 배열은 선택 영역 제거를 의미한다.
 
 # 12. 최종 DTO 전수 대조 결과

@@ -1,5 +1,7 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
+> 2026-10-01 오류 분류 보충: V37은 `chk_jar_ai_generations_state`의 실패 코드 허용 목록만 확장한다. 제공자 정책 거절·입력 검증·할당량·용량 부족·설정 문제와 후보 심사 거절·심사 장애를 구분하고 기존 `GENERATION_QUEUE_FULL`도 허용한다. 컬럼과 REST/WebSocket 필드는 그대로이며 기존 후보·일반 실패는 소급 변경하지 않는다. 아래 PIXEL V3 변경에 Migration이 필요 없다는 설명과는 별개다. 운영 적용 및 실제 제공자 재현은 별도 검증이다.
+
 > 2026-10-01 변경: 신규 PIXEL은 `PIXEL_PP_V3`(96×96·최대 64색·5배 확대 480×480)를 기록한다. 프롬프트·참조 없음·컬럼/API는 유지한다. V36의 비어 있지 않은 버전 제약을 그대로 사용하므로 새 Migration은 필요하지 않다. 과거 V1/V2 이력과 이미지는 소급 변경하지 않는다. 아래 2026-09-30 설명은 당시 기록이다.
 
 > 2026-09-30 변경: V36은 `chk_jar_ai_generations_pixel_versions`에서 PIXEL의 참조 버전을 선택 사항으로 완화한다. 새 `BASE_V2+PIXEL_V6`는 참조 없이 생성하며 후처리는 `PIXEL_PP_V2`다. 컬럼·API 계약·기존 후보 이력은 변경하지 않는다. 운영 적용 여부는 별도로 확인한다.
@@ -199,7 +201,8 @@ jar_designs.selected_generation_id
 
 | FAILED | NULL | NULL | 필수 | NULL 또는 정제된 설명 | 필수 |
 
-- 실패 코드: `SOURCE_IMAGE_LOAD_FAILED`, `PROVIDER_REQUEST_FAILED`, `PROVIDER_TIMEOUT`, `PROVIDER_RATE_LIMITED`, `PROVIDER_INVALID_RESPONSE`, `PIXEL_POSTPROCESS_FAILED`, `S3_UPLOAD_FAILED`, `GENERATION_QUEUE_FULL`, `GENERATION_TIMEOUT`, `INTERNAL_ERROR`.
+- 실패 코드: `SOURCE_IMAGE_LOAD_FAILED`, `PROVIDER_REQUEST_FAILED`, `PROVIDER_CONTENT_POLICY_REJECTED`, `PROVIDER_INPUT_INVALID`, `PROVIDER_QUOTA_EXCEEDED`, `PROVIDER_CAPACITY_EXCEEDED`, `PROVIDER_CONFIGURATION_UNAVAILABLE`, `PROVIDER_TIMEOUT`, `PROVIDER_RATE_LIMITED`, `PROVIDER_INVALID_RESPONSE`, `PIXEL_POSTPROCESS_FAILED`, `S3_UPLOAD_FAILED`, `CANDIDATE_CONTENT_POLICY_REJECTED`, `CANDIDATE_MODERATION_UNAVAILABLE`, `GENERATION_QUEUE_FULL`, `GENERATION_TIMEOUT`, `INTERNAL_ERROR`.
+- V37은 기존 PROCESSING/SUCCEEDED/FAILED 조합을 유지한다. 제공자 오류 원문은 DB에 저장하지 않으며 `error_message`는 서버의 고정 설명만 사용한다. 과거 `PROVIDER_REQUEST_FAILED`와 `INTERNAL_ERROR`는 원인 증거가 없으므로 재분류하지 않는다. 새 오류가 저장된 뒤 구버전 앱으로 되돌리면 구버전 enum이 읽지 못할 수 있으므로 롤백 호환성을 별도 검토한다.
 
 - `s3_deleted_at`이 NULL이어도 S3 객체의 존재까지 보장하지 않는다. 존재와 접근 가능성은 실제 최종화 시 확인한다.
 

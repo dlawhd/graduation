@@ -2247,6 +2247,24 @@ HTTP/1.1 202 Accepted
 
 AI Draft 영역의 기능별 오류는 공통 오류 봉투의 `error.code`로 구분한다. 예를 들어 `DRAFT_NOT_OWNER`는 `403`, `AI_GENERATION_ALREADY_PROCESSING`과 `DRAFT_PROCESSING_FINALIZE_BLOCKED`는 `409`, 실행기 대기열 포화의 `AI_GENERATION_QUEUE_FULL`은 `503`이다. 화면은 문구가 아니라 이 코드를 기준으로 동작을 분기해야 한다.
 
+#### 비동기 생성 실패 안내 (2026-10-01)
+
+접수의 HTTP 상태와 생성 작업의 실패를 구분한다. 아래 코드는 Draft의 `generations[].errorCode`와 완료 이벤트에 전달하며 DTO 필드를 추가하지 않는다.
+
+| 생성 실패 코드 | 의미와 화면 대응 |
+| --- | --- |
+| `PROVIDER_CONTENT_POLICY_REJECTED` | 제공자의 명시적인 콘텐츠 정책 거절. 원본이 부적절하다고 단정하지 않고 즉시 같은 요청의 재시도를 권하지 않는다. |
+| `PROVIDER_INPUT_INVALID` | 명시적인 모델 입력 검증 오류. 원본 또는 서비스 요청 설정 확인이 필요하다. |
+| `PROVIDER_QUOTA_EXCEEDED` | 제공자 사용량 한도. 반복 요청으로 해결되지 않을 수 있음을 안내한다. |
+| `PROVIDER_CAPACITY_EXCEEDED` | 제공자의 일시적 처리 용량 부족. 사용자 선택에 의한 수동 재시도를 제공한다. |
+| `PROVIDER_CONFIGURATION_UNAVAILABLE` | 서버 제공자 설정 확인이 필요하다. |
+| `CANDIDATE_CONTENT_POLICY_REJECTED` | 생성된 후보의 콘텐츠 심사 거절. 원본 심사 거절과 구분한다. |
+| `CANDIDATE_MODERATION_UNAVAILABLE` | 후보 심사 서비스 실패. 정책 위반 판정이 아니며 저장을 허용하지 않는다. |
+
+Cloudflare `3030`만으로 정책 차단을 판단하지 않는다. 제한된 오류 본문을 읽어 확인된 사유만 내부 enum으로 변환하며, 모호한 설명·손상 JSON·상한 초과는 기존 `PROVIDER_REQUEST_FAILED`로 유지한다. HTTP 408은 `PROVIDER_TIMEOUT`, 429의 3036/3040은 각각 할당량/용량 부족으로 구분한다. 로그는 `reason`, HTTP 상태, 제한된 제공자 코드와 cfRay만 남기고 원문은 저장·노출하지 않는다.
+
+프론트는 코드별 설명과 후보 ID를 표시하며 누락·새 코드는 안전한 일반 안내로 처리한다. 확인된 일시 장애의 재시도도 사용자가 버튼을 눌러야만 새 Generation을 만든다. 자동 재시도·필터 해제·프롬프트·PIXEL 규격 변경은 없다. V37 마이그레이션을 먼저 적용한 백엔드에서 새 코드를 기록해야 하며, 기존 후보는 그대로 보존한다.
+
 ### Slot 저장 계약
 
 `PATCH /api/v1/design-drafts/{draftId}/slot` 성공은 `204`이며 본문이 없다.

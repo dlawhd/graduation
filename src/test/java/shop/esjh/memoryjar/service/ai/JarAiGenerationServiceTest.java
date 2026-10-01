@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
+import shop.esjh.memoryjar.config.exception.ApiException;
+import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -230,6 +233,68 @@ class JarAiGenerationServiceTest {
         return new JarAiGenerationService(persistenceService, promptCatalog, cloudflareClient,
                 generatedImageValidator, pixelPostProcessor, moderationService, s3KeyFactory, s3Client, s3Properties,
                 draftProperties, realtimeService);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "CONTENT_POLICY_REJECTED, PROVIDER_CONTENT_POLICY_REJECTED",
+            "INPUT_INVALID, PROVIDER_INPUT_INVALID",
+            "QUOTA_EXCEEDED, PROVIDER_QUOTA_EXCEEDED",
+            "CAPACITY_EXCEEDED, PROVIDER_CAPACITY_EXCEEDED",
+            "REQUEST_FAILED, PROVIDER_REQUEST_FAILED"
+    })
+    @DisplayName("분류된 제공자 오류는 해당 코드로 저장·알림하고 이미지 처리와 저장에 진입하지 않는다")
+    void recordsClassifiedProviderFailure(CloudflareWorkersAiClient.FailureType type,
+                                         JarAiGenerationErrorCode expected) throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.PIXEL);
+        arrangeOriginalRead(new byte[]{1});
+        when(cloudflareClient.generateImage(any())).thenThrow(
+                new CloudflareWorkersAiClient.CloudflareAiClientException(type, "DO_NOT_STORE_TEST_DETAIL"));
+        when(persistenceService.completeFailed(anyLong(), anyLong(), any(), anyString())).thenReturn(true);
+        startAndProcess(service, JarAiStyle.PIXEL, null);
+        verify(persistenceService).completeFailed(10L, 100L, expected, "AI 제공자 요청 또는 응답 검증에 실패했습니다.");
+        verify(realtimeService).sendCompleted(10L, 100L, JarAiStyle.PIXEL,
+                shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus.FAILED, expected);
+        verifyNoInteractions(generatedImageValidator, pixelPostProcessor, moderationService);
+        verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        verify(persistenceService, never()).completeSucceeded(anyLong(), anyLong(), anyString());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "DRAFT_CONTENT_POLICY_REJECTED, CANDIDATE_CONTENT_POLICY_REJECTED",
+            "DRAFT_MODERATION_UNAVAILABLE, CANDIDATE_MODERATION_UNAVAILABLE",
+            "DRAFT_NOT_ACTIVE, INTERNAL_ERROR"
+    })
+    @DisplayName("후보 심사 거절·심사 장애를 구분하고 모르는 기능 오류는 내부 오류로 유지한다")
+    void recordsModerationFailureWithoutSavingCandidate(AiDraftErrorCode reason,
+                                                        JarAiGenerationErrorCode expected) throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeOriginalRead(new byte[]{1});
+        when(cloudflareClient.generateImage(any())).thenReturn(new byte[]{2});
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn(new byte[]{3});
+        doThrow(new ApiException(reason)).when(moderationService).verifyAllowed(any());
+        when(persistenceService.completeFailed(anyLong(), anyLong(), any(), anyString())).thenReturn(true);
+        startAndProcess(service, JarAiStyle.CUTE_2D, null);
+        verify(persistenceService).completeFailed(10L, 100L, expected, "AI 후보 생성 또는 콘텐츠 심사를 완료하지 못했습니다.");
+        verify(realtimeService).sendCompleted(10L, 100L, JarAiStyle.CUTE_2D,
+                shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus.FAILED, expected);
+        verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        verify(persistenceService, never()).completeSucceeded(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
+    void recordsMissingProviderConfigurationWithoutCallingLaterStages() throws Exception {
+        JarAiGenerationService service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeOriginalRead(new byte[]{1});
+        when(cloudflareClient.generateImage(any())).thenThrow(new ApiException(AiDraftErrorCode.AI_PROVIDER_CONFIGURATION_UNAVAILABLE));
+        startAndProcess(service, JarAiStyle.CUTE_2D, null);
+        verify(persistenceService).completeFailed(10L, 100L,
+                JarAiGenerationErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE, "AI 후보 생성 또는 콘텐츠 심사를 완료하지 못했습니다.");
+        verifyNoInteractions(generatedImageValidator, moderationService, pixelPostProcessor);
     }
 
     /** HTTP 접수 단계와 백그라운드 생성 단계를 같은 테스트 스레드에서 순서대로 실행한다. */

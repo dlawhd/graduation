@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { designImageRendering } from "../imageRendering.mjs";
+import { getGenerationFailureGuidance } from "../generationFailure.mjs";
 import { useStompClient } from "../../../realtime/StompClientProvider";
 import { subscribeJarDesignGenerationSocket } from "../../../api/jarDesignGenerationSocketApi";
 import SlotEditor from "./SlotEditor";
@@ -399,6 +400,8 @@ export default function AiCandidateGallery({ draftId }) {
           {!(draft?.generations || []).some((generation) => styleFilter === "ALL" || generation.style === styleFilter) && <div className="flex min-h-48 flex-col items-center justify-center rounded-[22px] border border-dashed border-violet-200 bg-violet-50/40 p-6 text-center sm:col-span-1 xl:col-span-2"><span className="text-3xl text-violet-300" aria-hidden="true">✦</span><p className="mt-3 font-bold text-slate-700">{styleFilter === "ALL" ? "어떤 모습이 될지 궁금한가요?" : "이 스타일의 후보가 아직 없어요"}</p><p className="mt-2 max-w-xs text-sm leading-6 text-slate-500">위에서 스타일을 골라 첫 후보를 만들어보세요. AI 없이 원본을 그대로 선택해도 좋아요.</p></div>}
           {(draft?.generations || []).filter((generation) => styleFilter === "ALL" || generation.style === styleFilter).map((generation) => {
             const isSucceeded = generation.status === "SUCCEEDED";
+            const isFailed = generation.status === "FAILED";
+            const failure = isFailed ? getGenerationFailureGuidance(generation.errorCode) : null;
             const isSelected = draft.selectedDesignType === "AI" && draft.selectedGenerationId === generation.generationId;
             const previewUrl = previewUrls[generation.generationId];
             return (
@@ -414,7 +417,7 @@ export default function AiCandidateGallery({ draftId }) {
                       )} />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold leading-6 text-slate-500">
-                      {isSucceeded ? "미리보기를 준비하는 중이에요." : generation.status === "PROCESSING" ? "AI가 디자인을 만드는 중이에요." : "후보 생성에 실패했어요."}
+                      {isSucceeded ? "미리보기를 준비하는 중이에요." : generation.status === "PROCESSING" ? "AI가 디자인을 만드는 중이에요." : failure?.title || "후보 상태를 확인하고 있어요."}
                     </div>
                   )}
                 </div>
@@ -422,16 +425,23 @@ export default function AiCandidateGallery({ draftId }) {
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-black text-slate-800">{styleLabel(generation.style)}</p>
                     <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${isSucceeded ? "bg-emerald-50 text-emerald-700" : generation.status === "FAILED" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-700"}`}>
-                      {isSucceeded ? "완성" : generation.status === "PROCESSING" ? "만드는 중" : "다시 시도"}
+                      {isSucceeded ? "완성" : generation.status === "PROCESSING" ? "만드는 중" : failure?.badge || "상태 확인"}
                     </span>
                   </div>
-                  {generation.errorCode && <p className="mt-2 text-xs font-semibold text-rose-600">이번 그림은 완성하지 못했어요. 스타일을 골라 다시 만들어 주세요.</p>}
+                  {failure && <div className="mt-3 rounded-xl bg-rose-50 p-3" role="status">
+                    <p className="text-xs font-semibold leading-5 text-rose-700">{failure.message}</p>
+                    <p className="mt-2 break-words text-[11px] leading-4 text-slate-500">확인 코드: {failure.diagnosticCode} · 후보 #{generation.generationId}</p>
+                  </div>}
                   {isSucceeded && previewUrl && originalPreviewUrl && <button type="button" onClick={() => setComparisonId(generation.generationId)} className="mt-3 w-full rounded-xl border border-violet-200 px-3 py-2.5 text-sm font-bold text-violet-700">확대 · 원본과 비교</button>}
-                  <button type="button" onClick={() => void handleSelect(generation.generationId)}
+                  {failure?.canRetry ? <button type="button" onClick={() => void handleGenerate(generation.style)}
+                    disabled={loading || hasProcessingGeneration || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.status !== "ACTIVE"}
+                    className="mt-4 min-h-11 w-full rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-45">
+                    이 스타일로 다시 시도
+                  </button> : <button type="button" onClick={() => void handleSelect(generation.generationId)}
                     disabled={!isSucceeded || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || isSelected}
                     className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
-                    {isSelected ? "선택됨" : selectingGenerationId === generation.generationId ? "선택 저장 중..." : "이 후보 선택"}
-                  </button>
+                    {isSelected ? "선택됨" : selectingGenerationId === generation.generationId ? "선택 저장 중..." : isFailed ? "선택할 수 없는 후보" : "이 후보 선택"}
+                  </button>}
                 </div>
               </article>
             );

@@ -41,7 +41,8 @@ public class CloudflareWorkersAiClient {
     private static final String API_BASE_URL = "https://api.cloudflare.com/client/v4";
     private static final Pattern SAFE_ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]+");
     private static final Pattern SAFE_MODEL = Pattern.compile("@cf/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+");
-    private static final Pattern SAFE_ERROR_CODE = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+    // 제공자 오류 코드는 숫자만 기록한다. 임의의 문자열이 code 필드에 들어와도 로그로 전달하지 않는다.
+    private static final Pattern SAFE_ERROR_CODE = Pattern.compile("[0-9]{1,10}");
     private static final Pattern SAFE_CF_RAY = Pattern.compile("[A-Za-z0-9_-]{1,128}");
     private static final int JSON_ENVELOPE_ALLOWANCE_BYTES = 64 * 1024;
     private static final int MAX_ERROR_RESPONSE_BYTES = 64 * 1024;
@@ -93,12 +94,8 @@ public class CloudflareWorkersAiClient {
             try (InputStream responseBody = response.body()) {
                 int statusCode = response.statusCode();
                 String cfRay = extractCfRay(response.headers());
-                if (response.statusCode() == 429) {
-                    throw providerHttpFailure(FailureType.RATE_LIMITED, statusCode, cfRay, responseBody);
-                }
-
                 if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                    throw providerHttpFailure(FailureType.REQUEST_FAILED, statusCode, cfRay, responseBody);
+                    throw providerHttpFailure(statusCode, cfRay, readErrorEnvelope(responseBody));
                 }
 
                 return extractImageBytes(readBoundedResponseBody(responseBody), statusCode, cfRay);
@@ -106,7 +103,9 @@ public class CloudflareWorkersAiClient {
         } catch (CloudflareAiClientException exception) {
             // Token·Account ID·prompt·Cloudflare 오류 메시지는 로그에 남기지 않는다.
             // 운영자는 status와 오류 코드만으로 권한·요청 규격·할당량 문제를 안전하게 구분할 수 있다.
-            log.warn("Cloudflare AI 요청이 실패했습니다. status={} cloudflareErrorCodes={} cfRay={}",
+            // 원문 대신 유한한 enum만 추가해 3030의 서로 다른 사유도 안전하게 구분한다.
+            log.warn("Cloudflare AI 요청이 실패했습니다. reason={} status={} cloudflareErrorCodes={} cfRay={}",
+                    exception.getFailureType(),
                     exception.getHttpStatus() == null ? "unknown" : exception.getHttpStatus(),
                     exception.getCloudflareErrorCodes().isEmpty() ? "none" : exception.getCloudflareErrorCodes(),
                     exception.getCfRay() == null ? "none" : exception.getCfRay());
@@ -230,8 +229,8 @@ public class CloudflareWorkersAiClient {
         return part;
     }
 
-    private CloudflareAiClientException providerHttpFailure(FailureType failureType, int statusCode, String cfRay,
-                                                            InputStream responseBody) throws IOException {
+    private CloudflareAiClientException providerHttpFailure(int statusCode, String cfRay, JsonNode envelope) {
+        FailureType failureType = CloudflareAiFailureClassifier.classify(statusCode, envelope);
         return new CloudflareAiClientException(
                 failureType,
                 failureType == FailureType.RATE_LIMITED
@@ -239,17 +238,18 @@ public class CloudflareWorkersAiClient {
                         : "Cloudflare AI 요청에 실패했습니다.",
                 statusCode,
                 cfRay,
-                extractCloudflareErrorCodes(readBoundedErrorResponseBody(responseBody))
+                envelope == null ? List.of() : extractCloudflareErrorCodes(envelope)
         );
     }
 
     /** 성공 HTTP 응답 안의 Cloudflare 오류 봉투도 일반 요청 실패로 분류한다. */
+    // 명시적인 원인이 있는 오류 봉투는 HTTP 오류와 동일한 안전 분류를 적용한다.
     private byte[] extractImageBytes(String responseBody, int statusCode, String cfRay) {
         try {
             JsonNode root = objectMapper.readTree(responseBody);
             if (!root.path("success").asBoolean(false)) {
                 throw new CloudflareAiClientException(
-                        FailureType.REQUEST_FAILED,
+                        CloudflareAiFailureClassifier.classify(statusCode, root),
                         "Cloudflare AI가 생성 요청을 거절했습니다.",
                         statusCode,
                         cfRay,
@@ -319,15 +319,17 @@ public class CloudflareWorkersAiClient {
         return new String(body, StandardCharsets.UTF_8);
     }
 
-    /** Cloudflare의 errors[].code만 제한적으로 추출한다. 오류 메시지·본문은 절대 로그에 남기지 않는다. */
-    private List<String> extractCloudflareErrorCodes(String responseBody) {
+    /** HTML·손상된 JSON·상한 초과는 일반 실패로 처리하고, 파싱 예외에 제공자 원문을 보관하지 않는다. */
+    private JsonNode readErrorEnvelope(InputStream responseBody) throws IOException {
+        String body = readBoundedErrorResponseBody(responseBody);
         try {
-            return extractCloudflareErrorCodes(objectMapper.readTree(responseBody));
+            return objectMapper.readTree(body);
         } catch (IOException exception) {
-            return List.of();
+            return null;
         }
     }
 
+    /** Cloudflare의 errors[].code만 제한적으로 추출한다. 오류 메시지·본문은 절대 로그에 남기지 않는다. */
     private List<String> extractCloudflareErrorCodes(JsonNode root) {
         List<String> errorCodes = new ArrayList<>();
         for (JsonNode error : root.path("errors")) {
@@ -421,6 +423,10 @@ public class CloudflareWorkersAiClient {
 
     public enum FailureType {
         RATE_LIMITED,
+        QUOTA_EXCEEDED,
+        CAPACITY_EXCEEDED,
+        CONTENT_POLICY_REJECTED,
+        INPUT_INVALID,
         TIMEOUT,
         INVALID_RESPONSE,
         REQUEST_FAILED
