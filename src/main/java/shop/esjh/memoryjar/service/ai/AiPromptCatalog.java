@@ -41,7 +41,7 @@ public class AiPromptCatalog {
         catalog.put(JarAiStyle.WEIRDO, definition(
                 readPrompt("ai/prompts/bizarre-v6.txt"), null, "BIZARRE_V6", null, null, null));
         // 아이콘 시트의 소재가 결과에 섞이지 않도록 신규 PIXEL에는 사용자 원본만 전송한다.
-        // 과거 프롬프트·참조 리소스는 보관하고 후처리는 비교 검증 전까지 그대로 유지한다.
+        // 과거 프롬프트·참조 리소스는 보관하고, 로컬 비교로 선택한 V3 후처리는 새 후보에만 기록한다.
         catalog.put(JarAiStyle.PIXEL, definition(
                 base, "ai/prompts/pixel-v6.txt", "BASE_V2+PIXEL_V6",
                 null, PixelPostProcessor.POSTPROCESS_VERSION, null));

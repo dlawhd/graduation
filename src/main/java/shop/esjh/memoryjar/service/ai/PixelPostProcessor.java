@@ -17,19 +17,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 검증된 Cloudflare PIXEL 후보를 PIXEL_PP_V2 규칙의 480×480 PNG로 변환한다.
+ * 검증된 Cloudflare PIXEL 후보를 PIXEL_PP_V3 규칙의 480×480 PNG로 변환한다.
  *
  * <p>원본 AI 응답의 형식·크기 검사는 {@link GeneratedAiImageValidator}가 먼저 담당한다.
- * 이 클래스는 그 다음 단계에서만 쓰이며, 흰 배경 합성, 60×60 bilinear 축소,
- * 최대 24색 median-cut 팔레트, nearest-neighbor 확대를 한 버전으로 고정한다.</p>
+ * 이 클래스는 그 다음 단계에서만 쓰이며, 흰 배경 합성, 96×96 bilinear 축소,
+ * 최대 64색 median-cut 팔레트, nearest-neighbor 확대를 한 버전으로 고정한다.</p>
  */
 @Component
 public class PixelPostProcessor {
 
-    public static final String POSTPROCESS_VERSION = "PIXEL_PP_V2";
+    // 격자·팔레트 변경은 새 Generation 버전으로 기록하며 과거 후보를 다시 가공하지 않는다.
+    public static final String POSTPROCESS_VERSION = "PIXEL_PP_V3";
     private static final int SOURCE_SIZE = 1024;
-    private static final int SPRITE_SIZE = 60;
-    private static final int PALETTE_SIZE = 24;
+    private static final int SPRITE_SIZE = 96;
+    private static final int PALETTE_SIZE = 64;
     private static final int OUTPUT_SIZE = 480;
 
     /**
@@ -169,7 +170,7 @@ public class PixelPostProcessor {
         BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = resized.createGraphics();
         try {
-            // 60에서 480으로 정확히 8배 확대해 모든 원본 픽셀을 같은 8×8 블록으로 유지한다.
+            // 96에서 480으로 정확히 5배 확대해 모든 원본 픽셀을 같은 5×5 블록으로 유지한다.
             graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                     RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             graphics.drawImage(source, 0, 0, width, height, null);

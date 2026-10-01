@@ -105,6 +105,13 @@ class JarAiGenerationServiceTest {
         assertThat(request.getValue().images().get(0).bytes()).isEqualTo("original".getBytes(StandardCharsets.UTF_8));
         assertThat(request.getValue().prompt()).isEqualTo(new AiPromptCatalog().resolve(JarAiStyle.PIXEL).prompt());
         verify(promptCatalog, never()).loadReferenceImage(any());
+        // Java 후처리 규격이 늘어도 AI 생성 호출과 후보 저장은 각각 한 번만 수행한다.
+        verifyNoMoreInteractions(cloudflareClient);
+        ArgumentCaptor<RequestBody> candidateBody = ArgumentCaptor.forClass(RequestBody.class);
+        verify(s3Client).putObject(any(PutObjectRequest.class), candidateBody.capture());
+        try (var candidateInput = candidateBody.getValue().contentStreamProvider().newStream()) {
+            assertThat(candidateInput.readAllBytes()).isEqualTo("pixel".getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     @Test

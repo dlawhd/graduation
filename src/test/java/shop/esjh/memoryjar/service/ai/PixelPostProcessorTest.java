@@ -1,6 +1,8 @@
 package shop.esjh.memoryjar.service.ai;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
@@ -13,13 +15,13 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** PIXEL_PP_V2의 규격, 강조색 보존, 팔레트 제한, 정수 확대 규칙을 검증한다. */
+/** PIXEL_PP_V3의 규격, 강조색 보존, 팔레트 제한, 정수 확대 규칙을 검증한다. */
 class PixelPostProcessorTest {
 
     private final PixelPostProcessor postProcessor = new PixelPostProcessor();
 
     @Test
-    void postProcess_createsOpaque480PngWithAtMost24Colors() throws Exception {
+    void postProcess_createsOpaque480PngWithAtMost64Colors() throws Exception {
         BufferedImage source = colorfulImage();
         source.setRGB(0, 0, 0x00000000);
 
@@ -28,7 +30,7 @@ class PixelPostProcessorTest {
         assertThat(result.getWidth()).isEqualTo(480);
         assertThat(result.getHeight()).isEqualTo(480);
         assertThat(result.getColorModel().hasAlpha()).isFalse();
-        assertThat(distinctColors(result)).hasSizeLessThanOrEqualTo(24);
+        assertThat(distinctColors(result)).hasSizeGreaterThan(24).hasSizeLessThanOrEqualTo(64);
     }
 
     @Test
@@ -67,10 +69,10 @@ class PixelPostProcessorTest {
         var graphics = source.createGraphics();
         graphics.setColor(Color.WHITE);
         graphics.fillRect(0, 0, 1024, 1024);
-        // 검정의 미세한 변형이 24색보다 많고 흰색이 과반인 분포를 만든다.
-        for (int i = 0; i < 40; i++) {
+        // 검정의 미세한 변형이 64색보다 많고 흰색이 과반인 분포를 만든다.
+        for (int i = 0; i < 80; i++) {
             graphics.setColor(new Color(i, i, i));
-            graphics.fillRect(i * 20, 700, 20, 100);
+            graphics.fillRect(i * 12, 700, 12, 100);
         }
         graphics.setColor(new Color(200, 50, 50));
         graphics.fillRect(450, 450, 120, 120);
@@ -85,18 +87,52 @@ class PixelPostProcessorTest {
     }
 
     @Test
-    void postProcess_enlargesEveryPixelToUniformEightByEightBlock() throws Exception {
+    void postProcess_enlargesEveryPixelToUniformFiveByFiveBlock() throws Exception {
         BufferedImage result = decode(postProcessor.postProcess(writePng(colorfulImage())));
-        for (int y = 0; y < 480; y += 8) {
-            for (int x = 0; x < 480; x += 8) {
+        for (int y = 0; y < 480; y += 5) {
+            for (int x = 0; x < 480; x += 5) {
                 int expected = result.getRGB(x, y);
-                for (int dy = 0; dy < 8; dy++) {
-                    for (int dx = 0; dx < 8; dx++) {
+                for (int dy = 0; dy < 5; dy++) {
+                    for (int dx = 0; dx < 5; dx++) {
                         assertThat(result.getRGB(x + dx, y + dy)).isEqualTo(expected);
                     }
                 }
             }
         }
+    }
+
+    @Test
+    void postProcess_recordsNewVersionAndProducesDeterministicBytes() throws Exception {
+        byte[] source = writePng(colorfulImage());
+
+        assertThat(PixelPostProcessor.POSTPROCESS_VERSION).isEqualTo("PIXEL_PP_V3");
+        assertThat(postProcessor.postProcess(source)).isEqualTo(postProcessor.postProcess(source));
+    }
+
+    @Test
+    void postProcess_compositesTransparentAndTranslucentPixelsOnWhite() throws Exception {
+        BufferedImage source = new BufferedImage(1024, 1024, BufferedImage.TYPE_INT_ARGB);
+        var graphics = source.createGraphics();
+        try {
+            graphics.setColor(new Color(255, 0, 0, 128));
+            graphics.fillRect(512, 0, 512, 1024);
+        } finally {
+            graphics.dispose();
+        }
+
+        BufferedImage result = decode(postProcessor.postProcess(writePng(source)));
+
+        assertThat(result.getColorModel().hasAlpha()).isFalse();
+        assertThat(result.getRGB(100, 240) & 0xFFFFFF).isEqualTo(0xFFFFFF);
+        assertThat(result.getRGB(380, 240) & 0xFFFFFF).isEqualTo(0xFF7F7F);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    void postProcess_rejectsMissingBytes(byte[] bytes) {
+        assertThatThrownBy(() -> postProcessor.postProcess(bytes))
+                .isInstanceOf(PixelPostProcessor.InvalidPixelPostprocessException.class)
+                .hasMessageContaining("이미지가 없습니다");
     }
 
     private BufferedImage colorfulImage() {

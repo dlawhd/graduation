@@ -1,5 +1,7 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
+> 2026-10-01 변경: 신규 PIXEL은 `PIXEL_PP_V3`(96×96·최대 64색·5배 확대 480×480)를 기록한다. 프롬프트·참조 없음·컬럼/API는 유지한다. V36의 비어 있지 않은 버전 제약을 그대로 사용하므로 새 Migration은 필요하지 않다. 과거 V1/V2 이력과 이미지는 소급 변경하지 않는다. 아래 2026-09-30 설명은 당시 기록이다.
+
 > 2026-09-30 변경: V36은 `chk_jar_ai_generations_pixel_versions`에서 PIXEL의 참조 버전을 선택 사항으로 완화한다. 새 `BASE_V2+PIXEL_V6`는 참조 없이 생성하며 후처리는 `PIXEL_PP_V2`다. 컬럼·API 계약·기존 후보 이력은 변경하지 않는다. 운영 적용 여부는 별도로 확인한다.
 
 > 기괴 컨셉: 스타일 ID `WEIRDO`는 유지하고 신규 `prompt_version`만 `BIZARRE_V6`로 기록한다. 참조·후처리 버전은 기존 WEIRDO처럼 NULL이다. 이름 변경을 위한 추가 DB 마이그레이션은 없다.
@@ -169,7 +171,7 @@ jar_designs.selected_generation_id
 
 | `reference_image_version` | VARCHAR(50) | YES | PIXEL에만 선택 사항. 신규 PIXEL_V6는 NULL, 과거 PIXEL_REF_V1 기록은 보존. 비NULL이면 공백 불가 |
 
-| `postprocess_version` | VARCHAR(50) | YES | PIXEL에만 필수, 현재 PIXEL_PP_V2 |
+| `postprocess_version` | VARCHAR(50) | YES | PIXEL에만 필수, 신규 PIXEL_PP_V3, 과거 V1/V2 보존 |
 
 | `generated_s3_key` | VARCHAR(512) | YES | SUCCEEDED 시 **최종 후보** Private S3 Key, Raw 이미지 아님 |
 
@@ -201,7 +203,7 @@ jar_designs.selected_generation_id
 
 - `s3_deleted_at`이 NULL이어도 S3 객체의 존재까지 보장하지 않는다. 존재와 접근 가능성은 실제 최종화 시 확인한다.
 
-- 신규 PIXEL_V6와 다른 모든 스타일은 사용자 원본 `input_image_0` 하나만 전송한다. 과거 PIXEL_V5의 두 입력과 PIXEL_REF_V1 리소스·이력은 보존한다. V36 이후 PIXEL 참조 버전은 선택 사항이고 후처리 버전은 필수다. 다른 스타일의 Reference/후처리 버전은 NULL이다. 현재 `PIXEL_PP_V2`는 흰 배경 합성 후 60×60 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 8배 확대 480×480 처리다. 이번 프롬프트 변경에서 후처리는 바꾸지 않고 과거 버전 기록도 소급 변경하지 않는다.
+- 신규 PIXEL_V6와 다른 모든 스타일은 사용자 원본 `input_image_0` 하나만 전송한다. 과거 PIXEL_V5의 두 입력과 PIXEL_REF_V1 리소스·이력은 보존한다. V36 이후 PIXEL 참조 버전은 선택 사항이고 후처리 버전은 필수다. 다른 스타일의 Reference/후처리 버전은 NULL이다. 현재 `PIXEL_PP_V3`는 흰 배경 합성 후 96×96 bilinear 축소, 최대 64색 median-cut 팔레트, nearest-neighbor 5배 확대 480×480 처리다. 과거 V2는 60×60·24색·8배 확대이며 기존 이미지와 버전 기록은 소급 변경하지 않는다.
 - AI 응답 성공 여부와 **유효한 최종 이미지 생성 여부는 구분**한다. 응답은 실제 이미지 바이트를 디코딩하고 `1024×1024` 정사각형·PNG 변환을 검증한 뒤, PIXEL은 Java 후처리 결과를 검증해 Private S3에 저장해야 SUCCEEDED가 된다. 다른 스타일에도 480×480을 강제하지 않는다.
 
 - 재생성은 새로운 Generation이다. 과거 성공 결과와 실패 기록을 덮어쓰지 않는다. `created_by`, `jar_id`, `source_upload_id`, `generated_url` 컬럼은 만들지 않는다.

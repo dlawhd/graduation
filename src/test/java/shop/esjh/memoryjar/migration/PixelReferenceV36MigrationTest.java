@@ -50,6 +50,8 @@ class PixelReferenceV36MigrationTest {
         }
         assertThat(insert("PIXEL", null, "PIXEL_PP_V2")).isEqualTo(1);
         assertThat(insert("PIXEL", "PIXEL_REF_V1", "PIXEL_PP_V2")).isEqualTo(1);
+        // 후처리 새 버전도 기존 CHECK를 통과하므로 과거 Migration을 변경할 필요가 없다.
+        assertThat(insert("PIXEL", null, "PIXEL_PP_V3")).isEqualTo(1);
         assertThatThrownBy(() -> insert("PIXEL", " ", "PIXEL_PP_V2")).isInstanceOf(SQLException.class);
         assertThatThrownBy(() -> insert("PIXEL", null, null)).isInstanceOf(SQLException.class);
         assertThatThrownBy(() -> insert("PIXEL", null, " ")).isInstanceOf(SQLException.class);
@@ -57,6 +59,7 @@ class PixelReferenceV36MigrationTest {
             assertThat(insert(style, null, null)).isEqualTo(1);
             assertThatThrownBy(() -> insert(style, "PIXEL_REF_V1", null)).isInstanceOf(SQLException.class);
             assertThatThrownBy(() -> insert(style, null, "PIXEL_PP_V2")).isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insert(style, null, "PIXEL_PP_V3")).isInstanceOf(SQLException.class);
         }
     }
 

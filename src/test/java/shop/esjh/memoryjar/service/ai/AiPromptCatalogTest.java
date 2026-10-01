@@ -49,12 +49,12 @@ class AiPromptCatalogTest {
     }
 
     @Test
-    @DisplayName("신규 PIXEL은 Reference 없이 기존 PIXEL_PP_V2 후처리를 유지한다")
-    void resolve_pixelUsesNoReferenceAndKeepsPostprocess() {
+    @DisplayName("신규 PIXEL은 Reference 없이 96x96·64색 PIXEL_PP_V3 후처리를 사용한다")
+    void resolve_pixelUsesNoReferenceAndV3Postprocess() {
         AiPromptCatalog.AiPromptDefinition definition = catalog.resolve(JarAiStyle.PIXEL);
 
         assertThat(definition.referenceImageVersion()).isNull();
-        assertThat(definition.postprocessVersion()).isEqualTo("PIXEL_PP_V2");
+        assertThat(definition.postprocessVersion()).isEqualTo("PIXEL_PP_V3");
         assertThat(definition.referenceImageResourcePathOptional()).isEmpty();
         assertThatThrownBy(() -> catalog.loadReferenceImage(definition)).isInstanceOf(IllegalArgumentException.class);
     }
