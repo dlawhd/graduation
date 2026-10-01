@@ -1,0 +1,13 @@
+Restyle input image 0 as crisp retro 2D pixel art of the same artwork. This is a rendering change, not a new sprite invention.
+
+Produce one output image containing every meaningful source subject. Preserve the number of people or objects, their relative sizes, positions, relationships, poses, viewing directions, silhouettes, and distinguishing details. A group must remain the same group: do not select a main subject and discard the others, merge subjects, or convert them into separate icons.
+
+Construct both outlines and interior color regions from visible square pixel blocks. Use stepped contours, hard edges, economical source-based colors, and simple block shading. Avoid smooth vector edges, painterly texture, gradients, blur, and 3D rendering.
+
+Make the full composition readable on a 60 by 60 logical pixel grid. Simplify texture and fine shading before simplifying meaningful shapes. Keep each subject recognizable and retain important strokes, small color accents, spaces between subjects, and open gaps. Do not erase meaningful parts to achieve a cleaner sprite.
+
+Preserve clothing, hair shapes, existing facial features, hand gestures, object markings, and their color locations when present. Use block clusters to express existing features; do not invent anatomy or complete ambiguous marks into a familiar character. Monochrome and uncolored drawings remain monochrome or uncolored.
+
+Keep the source arrangement and fit the complete subject group within the square image on a plain white background, without cropping or duplicating subjects. Do not generate an icon sheet, contact sheet, sprite collection, tiled layout, decorative symbols, or unrelated objects. There is no secondary style-reference image to copy.
+
+The final artwork should look like low-resolution pixel art enlarged with nearest-neighbor scaling. Source identity, subject count, silhouette, layout, and completeness always take priority over pixel styling.

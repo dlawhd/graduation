@@ -20,7 +20,6 @@ import java.util.Optional;
 public class AiPromptCatalog {
 
     private static final String BASE_V2 = "ai/prompts/base-v2.txt";
-    private static final String PIXEL_REFERENCE_V1 = "ai/references/pixel-reference-v1.png";
 
     private final Map<JarAiStyle, AiPromptDefinition> definitions;
 
@@ -37,12 +36,15 @@ public class AiPromptCatalog {
                 base, "ai/prompts/watercolor-v1.txt", "BASE_V2+WATERCOLOR_V1", null, null, null));
         catalog.put(JarAiStyle.HAND_DRAWN, definition(
                 base, "ai/prompts/hand-drawn-v1.txt", "BASE_V2+HAND_DRAWN_V1", null, null, null));
+        // 기괴는 비율 변형을 허용하는 전용 보존 규칙을 사용한다. BASE_V2의 변형 금지와 섞지 않는다.
+        // 기존 API·DB의 WEIRDO ID와 과거 생성 버전은 유지한다.
         catalog.put(JarAiStyle.WEIRDO, definition(
-                readPrompt("ai/prompts/funny-universal-v1.txt"),
-                "ai/prompts/funny-crazy-boost-v1.txt", "FUNNY_UNIVERSAL_V1+FUNNY_CRAZY_BOOST_V1", null, null, null));
+                readPrompt("ai/prompts/bizarre-v6.txt"), null, "BIZARRE_V6", null, null, null));
+        // 아이콘 시트의 소재가 결과에 섞이지 않도록 신규 PIXEL에는 사용자 원본만 전송한다.
+        // 과거 프롬프트·참조 리소스는 보관하고 후처리는 비교 검증 전까지 그대로 유지한다.
         catalog.put(JarAiStyle.PIXEL, definition(
-                readPrompt("ai/prompts/pixel-v5.txt"), null, "PIXEL_V5",
-                "PIXEL_REF_V1", PixelPostProcessor.POSTPROCESS_VERSION, PIXEL_REFERENCE_V1));
+                base, "ai/prompts/pixel-v6.txt", "BASE_V2+PIXEL_V6",
+                null, PixelPostProcessor.POSTPROCESS_VERSION, null));
 
         this.definitions = Map.copyOf(catalog);
     }
@@ -60,6 +62,7 @@ public class AiPromptCatalog {
 
     /**
      * PIXEL 생성에서만 사용하는 고정 Reference 이미지를 읽는다.
+     * 과거 버전 비교용 정의에는 사용 가능하지만 신규 PIXEL_V6는 Reference를 요청하지 않는다.
      */
     public byte[] loadReferenceImage(AiPromptDefinition definition) {
         String resourcePath = definition.referenceImageResourcePath();

@@ -1,0 +1,15 @@
+Use input image 0 as the authoritative visual reference. Create an intensely bizarre, uncanny surreal version of the SAME visible subjects, not a cute cartoon or a replacement mascot.
+
+Preservation anchors: source identity and subject count, subject type, relative positions, relationships, pose direction, overall silhouette landmarks, and each subject's distinctive colors and markings. Keep every meaningful subject present and recognizable. Never replace people with creatures, merge subjects, duplicate a subject or omit a smaller subject.
+
+COLOR AND IDENTITY ARE STRICT LOCAL CONSTRAINTS. Restyle each subject independently from its own source features, never from a neighbor's. Keep its hair color on its hair, its clothing color on its clothing, its skin color on its skin, and each small colored accent in its original region. Do not swap those colors or transfer them between parts or subjects. Do not repaint everything as metal. A contrasting center, spot, stripe or outline is an essential identification anchor: keep it conspicuous and intact, not swallowed by a fold or shadow. Preserve differences between subjects rather than turning them into copies.
+
+Make the geometry deeply uncanny within these anchors: warp and buckle the existing planes, use impossible asymmetric folds, knotted ridges, sharply stretched contours and strange dimensional creases. Bend and stretch existing parts without disconnecting them from their original subject. Keep the overall composition and defining silhouette recognizable while radically transforming the internal geometry. Use source-colored matte surfaces with deep but hue-preserving shading, not ordinary flat cartoon shading, cute toy polish or a uniform metallic mask.
+
+For clearly visible faces, dramatically distort their EXISTING features into unsettling asymmetric expressions: skew the same eyes, stretch the existing mouth and distort cheek and forehead planes. Retain the original skin and hair colors and the differences between people. Do not invent extra eyes, mouths, heads, ears or limbs. When faces or anatomy are absent, create the bizarre effect through existing geometry and texture only; never add a face or turn an object into an animal.
+
+When the input is ambiguous or incomplete, preserve its visible lines and shapes as abstract artwork. Distort those same marks without guessing a species or inventing anatomy. Keep intentional gaps open, separate subjects separate, and white or uncolored holes unfilled. Monochrome sources remain monochrome.
+
+The result must be startlingly bizarre and dreamlike, NOT merely playful, generic or decorative, yet remain the original subject group at a glance. No blood, gore, wounds, violence, sexual imagery or threatening scene. No extra subjects, props, text, logos, watermark, coin slot, lid, container, frame or pedestal.
+
+Show the complete original subject group without cropping in one square 1024 by 1024 image, centered on a plain white background with no invented scenery. If a distortion would erase a subject's identity, count, distinctive colored accent or local color placement, change that distortion rather than losing the anchor.

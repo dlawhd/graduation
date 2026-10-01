@@ -14,7 +14,7 @@ const base = 'http://127.0.0.1:3000';
   await fs.mkdir(output, { recursive: true });
   const browser = await chromium.launch({ headless: true, channel: process.env.BROWSER_CHANNEL || 'chrome' });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1440 }, reducedMotion: 'reduce', hasTouch: true });
-  const errors = [], calls = [];
+  const errors = [], calls = [], generatedStyles = [];
   let finalizes = 0, failFinalize = false, savedSlot;
   let draft = { draftId: 10, status: 'ACTIVE', selectedDesignType: null, selectedGenerationId: null,
     slotCenterX: null, slotCenterY: null, slotSizeRatio: null, slotStyle: 'CAPSULE', generations: [], cutoutRegions: [] };
@@ -36,6 +36,7 @@ const base = 'http://127.0.0.1:3000';
       if (p.endsWith('/preview')) return json({ previewUrl: base + (p.includes('original') ? '/fixture/original.svg' : '/fixture/candidate.svg') });
       if (p.endsWith('/generations') && request.method() === 'POST') {
         const payload = request.postDataJSON();
+        generatedStyles.push(payload.style);
         draft.generations.push({ generationId: 101, status: 'SUCCEEDED', style: payload.style });
         return json({ generationId: 101 }, 202);
       }
@@ -103,7 +104,13 @@ const base = 'http://127.0.0.1:3000';
     await page.getByRole('region', { name: '그림판', exact: true }).screenshot({ path: path.join(output, '01-paint-desktop.png') });
     await button('이 그림 사용하기 →').click(); await button('이 그림으로 다음 단계 →').click();
     await button('선택한 스타일로 한 장 만들기 ✦').waitFor();
+    // 화면 이름을 바꿔도 기존 서버 스타일 ID를 보내고 필터·후보 이름까지 일관되게 표시한다.
+    const bizarreStyle = page.getByRole('button', { name: /^기괴 원본을 알아볼 수 있는/ });
+    await bizarreStyle.click(); assert.equal(await bizarreStyle.getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.getByLabel('후보 필터').getByRole('option', { name: '기괴', exact: true }).getAttribute('value'), 'WEIRDO');
     await button('선택한 스타일로 한 장 만들기 ✦').click(); await button('확대 · 원본과 비교').waitFor();
+    assert.deepEqual(generatedStyles, ['WEIRDO'], '기괴 생성은 기존 WEIRDO 계약을 유지');
+    assert.equal(await page.locator('article').filter({ has: button('이 후보 선택') }).getByText('기괴', { exact: true }).count(), 1);
     await page.getByRole('heading', { name: '원본을 어떤 분위기로 바꿔볼까요?' }).evaluate((node) => node.scrollIntoView({ block: 'start' }));
     await page.evaluate(() => window.scrollBy(0, -110));
     await page.screenshot({ path: path.join(output, '02-candidate-gallery.png') });
@@ -117,6 +124,7 @@ const base = 'http://127.0.0.1:3000';
     assert.equal(savedSlot.slotStyle, 'METAL'); assert.equal(savedSlot.expectedGenerationId, 101);
     await page.getByRole('region', { name: '동전 투입구 편집', exact: true }).screenshot({ path: path.join(output, '03-slots.png') });
     await page.reload(); await button('은빛 테두리').waitFor(); assert.equal(await button('은빛 테두리').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('article').getByText('기괴', { exact: true }).count(), 1, '기존 WEIRDO 후보도 새 화면 이름으로 표시');
     await page.getByLabel('저금통 이름', { exact: true }).fill('우리의 가을 편지');
     await button('가을').click(); await button('100일 뒤').click();
     await page.getByRole('region', { name: '최종 미리보기와 저금통 만들기', exact: true }).screenshot({ path: path.join(output, '04-final-preview.png') });

@@ -2,12 +2,16 @@ package shop.esjh.memoryjar.service.ai;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.config.properties.CloudflareAiProperties;
 import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
+import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
@@ -29,6 +33,33 @@ class JarAiGenerationPersistenceServiceTest {
     @Mock private JarDesignDraftService draftService;
     @Mock private JarDesignDraftRepository draftRepository;
     @Mock private JarAiGenerationRepository generationRepository;
+
+    @ParameterizedTest
+    @EnumSource(value = JarAiStyle.class, names = {"PIXEL", "WEIRDO"})
+    void start_recordsNewPromptVersionsWithoutInventingReferenceMetadata(JarAiStyle style) {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        User owner = mock(User.class);
+        JarAiGeneration saved = mock(JarAiGeneration.class);
+        when(draftService.findOwnedActiveDraftForUpdate(1L, 10L)).thenReturn(draft);
+        when(draft.getDraftId()).thenReturn(10L);
+        when(draft.getOwner()).thenReturn(owner);
+        when(owner.getId()).thenReturn(1L);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(generationRepository.saveAndFlush(any())).thenReturn(saved);
+        when(saved.getGenerationId()).thenReturn(100L);
+        var prompt = new AiPromptCatalog().resolve(style);
+
+        var target = service().start(1L, 10L, style, prompt, 7L);
+
+        var generation = ArgumentCaptor.forClass(JarAiGeneration.class);
+        verify(generationRepository).saveAndFlush(generation.capture());
+        assertThat(target.generationId()).isEqualTo(100L);
+        assertThat(generation.getValue().getPromptVersion()).isEqualTo(prompt.promptVersion());
+        assertThat(generation.getValue().getReferenceImageVersion()).isNull();
+        assertThat(generation.getValue().getPostprocessVersion()).isEqualTo(prompt.postprocessVersion());
+        assertThat(generation.getValue().getSeed()).isEqualTo(7L);
+        assertThat(generation.getValue().getStatus()).isEqualTo(JarAiGenerationStatus.PROCESSING);
+    }
 
     @Test
     void start_rejectsDuplicateProcessingWhileDraftIsLocked() {

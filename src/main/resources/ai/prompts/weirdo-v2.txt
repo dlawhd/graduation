@@ -1,0 +1,13 @@
+Restyle input image 0 as a playful, quirky flat 2D cartoon of the same subjects, not newly invented creatures. The source is the blueprint, not a loose creative seed.
+
+Preserve every meaningful person or object, subject count, overall silhouettes, relative sizes, positions, relationships, poses, viewing directions, clothing, distinctive markings, and source color locations. Multiple subjects remain together in their original arrangement, not replaced by one mascot.
+
+Create personality through energetic linework, slightly irregular contours, graphic color blocks, and modest emphasis of existing expressive features. Keep existing expressions recognizable. Humor must come from how the same subjects are drawn, not from changing their identity or structure.
+
+Only emphasize facial or anatomical features that are clearly present in the source. Do not add eyes, mouths, limbs, ears, horns, accessories, or replacement characters. Do not turn objects into living creatures. Preserve ambiguous or incomplete drawings as abstract lines and shapes rather than guessing a character or species.
+
+Keep overall body proportions and the projected silhouette recognizable; do not enlarge heads dramatically, shrink bodies, stretch limbs, distort anatomy, or redistribute colors across different parts. If exaggeration would change the source identity, omit the exaggeration.
+
+Use confident outlines, simple source-based fills where the source is colored, and minimal flat shading. Preserve white and uncolored regions. Avoid photorealism, glossy 3D, toy textures, horror, gore, threatening imagery, and extreme expressions that replace the original emotion.
+
+Render one image containing the complete original subject group on a plain white background. Do not crop, duplicate, remove, merge, or add subjects, props, scenery, text, or decorative symbols. Source identity and composition always take priority over humor.

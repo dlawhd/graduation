@@ -1,8 +1,20 @@
 # Memory Jar AI PIXEL 파이프라인 — 설계·구현 가이드
 
-## 2026-09-27 후처리 V2 변경
+## 2026-09-30 신규 프롬프트 / 참조 변경
 
-현재 신규 생성은 `PIXEL_V5 + PIXEL_REF_V1 + PIXEL_PP_V2`를 사용한다.
+현재 신규 생성 코드: `BASE_V2+PIXEL_V6` + 참조 없음 + `PIXEL_PP_V2`.
+Cloudflare 입력은 사용자 원본 `input_image_0` 하나이며, 아이콘 시트는 더 이상 보내지 않는다.
+Generation의 `reference_image_version`은 NULL, `postprocess_version`은 `PIXEL_PP_V2`다.
+V36으로 참조 버전을 선택 사항으로 완화하되 후처리 버전은 필수로 유지한다.
+예전 프롬프트·Reference 파일·후보·DB 이력은 보존한다. 아래 Reference 필수/BASE 제외 설명은 이전 버전 기록이다.
+
+이번 단계에서는 후처리 알고리즘·60×60 논리 격자·최대 24색·480×480 출력은 변경하지 않는다.
+원본 보존과 누락 여부는 실제 생성 비교가 필요하며 아직 시각 품질 개선을 확정하지 않는다.
+비교 규칙은 `AI_DESIGN_RULES.md`의 2026-09-30 항목을 따른다.
+
+## 2026-09-27 후처리 V2 변경 (당시 기록)
+
+당시 신규 생성은 `PIXEL_V5 + PIXEL_REF_V1 + PIXEL_PP_V2`를 사용했다.
 V2는 흰 배경처럼 마지막 색이 과반을 차지할 때 median-cut 분할 위치가 1로 돌아가던 문제를 수정하고,
 60×60 bilinear 축소 → 최대 24색 → nearest-neighbor 8배 확대(480×480)를 적용한다.
 기존 생성 이력의 V1 버전과 저장된 이미지는 변경하지 않는다. 아래 64×64/V1 설명은 이전 구현 기록이다.

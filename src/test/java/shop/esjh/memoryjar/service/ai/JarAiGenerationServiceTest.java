@@ -3,6 +3,8 @@ package shop.esjh.memoryjar.service.ai;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,11 +45,12 @@ class JarAiGenerationServiceTest {
     @Mock private ResponseInputStream<GetObjectResponse> originalInput;
     @Mock private JarAiGenerationRealtimeService realtimeService;
 
-    @Test
+    @ParameterizedTest
+    @EnumSource(value = JarAiStyle.class, names = {"CUTE_2D", "WEIRDO"})
     @DisplayName("일반 스타일은 검증된 후보를 S3에 저장한 뒤에만 성공 처리한다")
-    void generate_savesNormalCandidateThenMarksSucceeded() throws Exception {
+    void generate_savesNormalCandidateThenMarksSucceeded(JarAiStyle style) throws Exception {
         JarAiGenerationService service = service();
-        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeStart(style);
         arrangeCandidateKey();
         arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
         when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
@@ -55,7 +58,7 @@ class JarAiGenerationServiceTest {
                 .thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
         when(persistenceService.completeSucceeded(eq(10L), eq(100L), anyString())).thenReturn(true);
 
-        JarAiGenerationService.GenerationTask task = startAndProcess(service, JarAiStyle.CUTE_2D, 7L);
+        JarAiGenerationService.GenerationTask task = startAndProcess(service, style, 7L);
 
         ArgumentCaptor<CloudflareWorkersAiClient.CloudflareImageGenerationRequest> request =
                 ArgumentCaptor.forClass(CloudflareWorkersAiClient.CloudflareImageGenerationRequest.class);
@@ -67,21 +70,23 @@ class JarAiGenerationServiceTest {
         verify(persistenceService, never()).completeFailed(anyLong(), anyLong(), any(), anyString());
         assertThat(task.target().generationId()).isEqualTo(100L);
         assertThat(request.getValue().images()).hasSize(1);
-        assertThat(request.getValue().prompt()).isEqualTo("test prompt");
+        assertThat(request.getValue().prompt()).isEqualTo(new AiPromptCatalog().resolve(style).prompt());
+        assertThat(request.getValue().seed()).isEqualTo(7L);
+        verify(promptCatalog, never()).loadReferenceImage(any());
+        verifyNoInteractions(pixelPostProcessor);
         assertThat(putRequest.getValue().contentType()).isEqualTo("image/png");
         assertThat(putRequest.getValue().ifNoneMatch()).isEqualTo("*");
-        verify(realtimeService).sendCompleted(10L, 100L, JarAiStyle.CUTE_2D,
+        verify(realtimeService).sendCompleted(10L, 100L, style,
                 shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus.SUCCEEDED, null);
     }
 
     @Test
-    @DisplayName("PIXEL은 Cloudflare 두 입력 뒤 Java 후처리 결과만 후보로 저장한다")
-    void generate_pixelUsesReferenceAndPostProcessor() throws Exception {
+    @DisplayName("PIXEL_V6는 원본 하나만 전송하고 기존 Java 후처리 결과만 후보로 저장한다")
+    void generate_pixelUsesOnlyOriginalAndPostProcessor() throws Exception {
         JarAiGenerationService service = service();
         arrangeStart(JarAiStyle.PIXEL);
         arrangeCandidateKey();
         arrangeOriginalRead("original".getBytes(StandardCharsets.UTF_8));
-        when(promptCatalog.loadReferenceImage(any())).thenReturn("reference".getBytes(StandardCharsets.UTF_8));
         when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
         when(generatedImageValidator.validateAndNormalize(any())).thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
         when(pixelPostProcessor.postProcess("normalized".getBytes(StandardCharsets.UTF_8)))
@@ -95,8 +100,11 @@ class JarAiGenerationServiceTest {
         verify(cloudflareClient).generateImage(request.capture());
         verify(pixelPostProcessor).postProcess("normalized".getBytes(StandardCharsets.UTF_8));
         verify(moderationService).verifyAllowed("pixel".getBytes(StandardCharsets.UTF_8));
-        assertThat(request.getValue().images()).hasSize(2);
-        assertThat(request.getValue().images().get(1).bytes()).isEqualTo("reference".getBytes(StandardCharsets.UTF_8));
+        assertThat(request.getValue().images()).hasSize(1);
+        assertThat(request.getValue().images().get(0).fileName()).isEqualTo("draft-original.png");
+        assertThat(request.getValue().images().get(0).bytes()).isEqualTo("original".getBytes(StandardCharsets.UTF_8));
+        assertThat(request.getValue().prompt()).isEqualTo(new AiPromptCatalog().resolve(JarAiStyle.PIXEL).prompt());
+        verify(promptCatalog, never()).loadReferenceImage(any());
     }
 
     @Test
@@ -226,10 +234,7 @@ class JarAiGenerationServiceTest {
     }
 
     private void arrangeStart(JarAiStyle style) {
-        AiPromptCatalog.AiPromptDefinition definition = style == JarAiStyle.PIXEL
-                ? new AiPromptCatalog.AiPromptDefinition("test prompt", "PIXEL_V5", "PIXEL_REF_V1",
-                PixelPostProcessor.POSTPROCESS_VERSION, "ai/references/pixel-reference-v1.png")
-                : new AiPromptCatalog.AiPromptDefinition("test prompt", "BASE_V1+CUTE_2D_V1", null, null, null);
+        AiPromptCatalog.AiPromptDefinition definition = new AiPromptCatalog().resolve(style);
         when(promptCatalog.resolve(style)).thenReturn(definition);
         when(persistenceService.start(eq(1L), eq(10L), eq(style), eq(definition), any()))
                 .thenReturn(new JarAiGenerationPersistenceService.GenerationStartTarget(100L, 10L, 1L, "original.png"));

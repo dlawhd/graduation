@@ -1,5 +1,9 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
+> 2026-09-30 변경: V36은 `chk_jar_ai_generations_pixel_versions`에서 PIXEL의 참조 버전을 선택 사항으로 완화한다. 새 `BASE_V2+PIXEL_V6`는 참조 없이 생성하며 후처리는 `PIXEL_PP_V2`다. 컬럼·API 계약·기존 후보 이력은 변경하지 않는다. 운영 적용 여부는 별도로 확인한다.
+
+> 기괴 컨셉: 스타일 ID `WEIRDO`는 유지하고 신규 `prompt_version`만 `BIZARRE_V6`로 기록한다. 참조·후처리 버전은 기존 WEIRDO처럼 NULL이다. 이름 변경을 위한 추가 DB 마이그레이션은 없다.
+
 > 문서 상태: **논리 계약 + 현재 구현 대조**. 이 문서의 테이블 계약은 Flyway V32와 V33으로 반영되어 있다. Slot의 실제 렌더링 공식·Editor는 23번에서 구현했다. 실제 운영 DB 적용, S3/Cloudflare 실연동, 최종 UX·기존 Jar 화면 연결은 별도 검증·구현 항목이다.
 
 > 검토 이력: 2026-09-20 현재 작업 폴더 기준. 신규 3개 테이블·39열과 기존 `jars` 무변경 설계는 유지한다. V33은 `jar_design_drafts.original_s3_deleted_at`을 추가해 Draft 원본 S3 정리 성공을 재시도 가능하게 기록한다.
@@ -163,7 +167,7 @@ jar_designs.selected_generation_id
 
 | `seed` | BIGINT | YES | 생성 시드; 동일 시드라도 결과 동일 보장은 아님 |
 
-| `reference_image_version` | VARCHAR(50) | YES | PIXEL에만 필수, 현재 PIXEL_REF_V1 |
+| `reference_image_version` | VARCHAR(50) | YES | PIXEL에만 선택 사항. 신규 PIXEL_V6는 NULL, 과거 PIXEL_REF_V1 기록은 보존. 비NULL이면 공백 불가 |
 
 | `postprocess_version` | VARCHAR(50) | YES | PIXEL에만 필수, 현재 PIXEL_PP_V2 |
 
@@ -197,7 +201,7 @@ jar_designs.selected_generation_id
 
 - `s3_deleted_at`이 NULL이어도 S3 객체의 존재까지 보장하지 않는다. 존재와 접근 가능성은 실제 최종화 시 확인한다.
 
-- PIXEL만 사용자 스케치 + 버전 관리된 픽셀 스타일 참조의 두 이미지 입력을 사용한다. Java Client는 `input_image_0`과 `input_image_1` multipart 요청·응답 파싱을 단위 테스트로 검증했다. 다른 스타일의 Reference/후처리 버전은 NULL이다. 현재 `PIXEL_PP_V2`는 흰 배경 합성 후 60×60 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 8배 확대 480×480 처리다. 과거 `PIXEL_PP_V1` 기록은 소급 변경하지 않는다.
+- 신규 PIXEL_V6와 다른 모든 스타일은 사용자 원본 `input_image_0` 하나만 전송한다. 과거 PIXEL_V5의 두 입력과 PIXEL_REF_V1 리소스·이력은 보존한다. V36 이후 PIXEL 참조 버전은 선택 사항이고 후처리 버전은 필수다. 다른 스타일의 Reference/후처리 버전은 NULL이다. 현재 `PIXEL_PP_V2`는 흰 배경 합성 후 60×60 bilinear 축소, 최대 24색 median-cut 팔레트, nearest-neighbor 8배 확대 480×480 처리다. 이번 프롬프트 변경에서 후처리는 바꾸지 않고 과거 버전 기록도 소급 변경하지 않는다.
 - AI 응답 성공 여부와 **유효한 최종 이미지 생성 여부는 구분**한다. 응답은 실제 이미지 바이트를 디코딩하고 `1024×1024` 정사각형·PNG 변환을 검증한 뒤, PIXEL은 Java 후처리 결과를 검증해 Private S3에 저장해야 SUCCEEDED가 된다. 다른 스타일에도 480×480을 강제하지 않는다.
 
 - 재생성은 새로운 Generation이다. 과거 성공 결과와 실패 기록을 덮어쓰지 않는다. `created_by`, `jar_id`, `source_upload_id`, `generated_url` 컬럼은 만들지 않는다.
@@ -334,7 +338,7 @@ jar_designs.selected_generation_id
 
 4. FAILED: key/s3_deleted_at NULL, error_code 및 completed_at 필수, error_message 선택.
 
-5. PIXEL은 reference_image_version/postprocess_version 모두 NOT NULL. 다른 스타일은 둘 다 NULL. **특정 버전 V1 문자열로 DB를 영구 고정하지 말 것**(버전 변경 가능).
+5. V36 이후 PIXEL은 reference_image_version이 NULL 또는 비어 있지 않은 버전이고 postprocess_version은 비어 있지 않은 필수 값이다. 다른 스타일은 둘 다 NULL. **특정 버전 V1 문자열로 DB를 영구 고정하지 말 것**(버전 변경 가능).
 
 6. Generation의 `completed_at >= created_at`, `s3_deleted_at >= completed_at` 및 **Draft의** `expires_at >= created_at` 등 시간 순서 제약은 기존 DB 시간 정책과 함께 4번 단계에서 채택/검증한다. (`expires_at`은 Generation 컬럼이 아니다.) 과거 기록을 임의로 고치지는 않는다.
 
