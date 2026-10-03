@@ -7,6 +7,7 @@ import org.springframework.web.server.ResponseStatusException;
 import shop.esjh.memoryjar.config.properties.AiDraftProperties;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 
@@ -38,7 +39,7 @@ public class JarDesignDraftPersistenceService {
      * 업로드 요청자가 현재도 존재할 때만 ACTIVE Draft를 생성하고 7일 만료 시각을 기록한다.
      */
     @Transactional
-    public JarDesignDraft createDraft(Long userId, String originalS3Key) {
+    public JarDesignDraft createDraft(Long userId, String originalS3Key, JarBodyStyle bodyStyle) {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
@@ -46,6 +47,7 @@ public class JarDesignDraftPersistenceService {
         JarDesignDraft draft = JarDesignDraft.builder()
                 .owner(owner)
                 .originalS3Key(originalS3Key)
+                .bodyStyle(bodyStyle)
                 .expiresAt(expiresAt)
                 .build();
 

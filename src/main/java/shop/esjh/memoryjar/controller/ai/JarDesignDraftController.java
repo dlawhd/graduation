@@ -24,6 +24,7 @@ import shop.esjh.memoryjar.dto.ai.request.JarDesignSlotRequest;
 import shop.esjh.memoryjar.dto.ai.request.JarDesignCutoutRequest;
 import shop.esjh.memoryjar.dto.jar.request.JarCreateRequest;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import shop.esjh.memoryjar.service.ai.JarAiGenerationRequestService;
 import shop.esjh.memoryjar.service.ai.JarDesignDraftService;
 import shop.esjh.memoryjar.service.ai.JarDesignFinalizeService;
@@ -134,14 +135,16 @@ public class JarDesignDraftController {
 
     /**
      * multipart의 image 부분만 받으며, 파일 이름·요청 Content-Type은 서비스의 실제 바이트 검증에 사용하지 않는다.
+     * 선택한 bodyStyle은 선택 사항이다. enum 변환으로 알 수 없는 본체는 외부 호출 전에 거절한다.
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<JarDesignDraftCreateResponse>> createDraft(
             Authentication authentication,
-            @RequestParam("image") MultipartFile image
+            @RequestParam("image") MultipartFile image,
+            @RequestParam(value = "bodyStyle", required = false) JarBodyStyle bodyStyle
     ) {
         Long currentUserId = extractCurrentUserId(authentication);
-        JarDesignDraftCreateResponse response = uploadService.uploadOriginalAndCreateDraft(currentUserId, image);
+        JarDesignDraftCreateResponse response = uploadService.uploadOriginalAndCreateDraft(currentUserId, image, bodyStyle);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(response));
     }
 

@@ -12,6 +12,7 @@ import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -57,6 +58,11 @@ public class JarDesignDraftUploadService {
      * 프론트가 보낸 파일명·Content-Type을 신뢰하지 않고 실제 바이트만으로 검증한 뒤 Draft를 만든다.
      */
     public JarDesignDraftCreateResponse uploadOriginalAndCreateDraft(Long userId, MultipartFile image) {
+        return uploadOriginalAndCreateDraft(userId, image, null);
+    }
+
+    /** 본체 정보는 DB에만 기록하고 심사·S3·AI 입력에는 검증된 원본 바이트를 그대로 사용한다. */
+    public JarDesignDraftCreateResponse uploadOriginalAndCreateDraft(Long userId, MultipartFile image, JarBodyStyle bodyStyle) {
         // 존재하지 않는 사용자의 요청으로 외부 심사·S3 비용이 발생하지 않게 먼저 확인한다.
         if (!userRepository.existsById(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
@@ -71,7 +77,7 @@ public class JarDesignDraftUploadService {
         putPrivateOriginal(originalS3Key, normalizedPngBytes);
 
         try {
-            JarDesignDraft draft = persistenceService.createDraft(userId, originalS3Key);
+            JarDesignDraft draft = persistenceService.createDraft(userId, originalS3Key, bodyStyle);
             return new JarDesignDraftCreateResponse(draft.getDraftId(), draft.getExpiresAt());
         } catch (RuntimeException exception) {
             // S3 저장만 성공하고 DB Draft 생성이 실패하면 이 요청의 고유 객체만 보상 삭제한다.

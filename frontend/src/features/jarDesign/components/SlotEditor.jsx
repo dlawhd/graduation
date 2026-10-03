@@ -5,11 +5,14 @@ import { getJarDesignDraftError, getJarDesignOriginalPreview, getJarDesignGenera
 import { DEFAULT_SLOT, SLOT_STYLES, slotStyle, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
 import JarSlotOverlay, { SlotAppearance } from "./JarSlotOverlay";
 import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
+import JarDesignImage from "./JarDesignImage";
+import { getJarBody } from "../jarBodies.mjs";
 
 /** 선택한 원본/AI 이미지 위에 투입구를 배치하고 Draft에 위치·크기·모양을 저장하는 편집기다. */
 export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled, onSaved, onBusyChange, onDirtyChange }) {
   const [savedSlot, setSavedSlot] = useState(() => storedSlot(draft));
-  const [slot, setSlot] = useState(() => normalizeSlot(storedSlot(draft) || DEFAULT_SLOT));
+  const body = getJarBody(draft.bodyStyle);
+  const [slot, setSlot] = useState(() => normalizeSlot(storedSlot(draft) || body?.slot || DEFAULT_SLOT));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
@@ -95,7 +98,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
 
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="동전 투입구 편집">
-      <span className="text-xs font-black tracking-widest text-violet-500">02 · 작은 디테일</span>
+      <span className="text-xs font-black tracking-widest text-violet-500">{body ? "04" : "02"} · 작은 디테일</span>
       <h3 className="mt-2 text-xl font-black text-slate-800">추억이 들어갈 작은 입구</h3>
       <p id="slot-editor-help" className="mt-2 text-sm leading-6 text-slate-500">그림을 누르거나 드래그해 위치를 정해 주세요. 방향키로도 움직일 수 있어요.</p>
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
@@ -113,14 +116,14 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
             onPointerUp={(event) => { if (pointerId.current === event.pointerId) pointerId.current = null; }}
             onPointerCancel={() => { pointerId.current = null; }}
             onLostPointerCapture={() => { pointerId.current = null; }}>
-            {url && <img key={`${url}-${retrying}`} src={url} alt="투입구를 배치할 선택 디자인" draggable={false}
+            {url && <JarDesignImage key={`${url}-${retrying}`} bodyStyle={draft.bodyStyle} imageUrl={url} alt="투입구를 배치할 선택 디자인"
               className="h-full w-full select-none object-contain"
-              style={{ ...cutoutMaskStyle, imageRendering: draftImageRendering(draft) }}
-              onLoad={(event) => {
+              imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)}
+              onImageLoad={(event) => {
                 // 잘못된 이미지 비율 위에서 좌표를 저장하지 않는다. 서버 결과는 모두 정사각형이다.
                 if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) setLoadedUrl(url);
                 else setFailedUrl(url);
-              }} onError={() => setFailedUrl(url)} />}
+              }} onImageError={() => setFailedUrl(url)} />}
             {imageReady && <JarSlotOverlay slot={slot} />}
             {!imageReady && <div className="absolute inset-0 flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-500">
               {failedUrl === url && url ? "이미지를 불러오지 못했어요. 아래에서 다시 불러와 주세요." : "이미지를 불러오는 중이에요."}
@@ -155,8 +158,8 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
                   className="mt-2 block min-h-11 w-full accent-violet-600" />
               </label>
             ))}
-            <button type="button" onClick={() => setSlot((current) => ({ ...current, centerX: .5, centerY: .5 }))}
-              className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">가운데로 초기화</button>
+            <button type="button" onClick={() => setSlot((current) => body ? normalizeSlot({ ...body.slot, slotStyle: current.slotStyle }) : { ...current, centerX: .5, centerY: .5 })}
+              className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">{body ? "저금통 추천 위치로" : "가운데로 초기화"}</button>
           </fieldset>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
           <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : dirty ? "모양·위치·크기를 정한 뒤 저장해 주세요." : "투입구 모양과 위치가 저장됐어요."}</p>

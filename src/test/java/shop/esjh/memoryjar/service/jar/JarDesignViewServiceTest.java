@@ -17,6 +17,7 @@ import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.jar.JarOpenMode;
 import shop.esjh.memoryjar.enums.jar.JarTheme;
@@ -62,6 +63,7 @@ class JarDesignViewServiceTest {
     void findByJarId_returnsPresignedImageAndSlot() throws Exception {
         JarDesign design = design(10L, "jar-designs/1/final.png");
         ReflectionTestUtils.setField(design, "slotStyle", JarSlotStyle.PIXEL);
+        ReflectionTestUtils.setField(design, "bodyStyle", JarBodyStyle.CLASSIC);
         ReflectionTestUtils.setField(design, "selectedGeneration",
                 JarAiGeneration.builder().aiStyle(JarAiStyle.PIXEL).build());
         when(jarDesignRepository.findByJar_JarId(10L)).thenReturn(Optional.of(design));
@@ -79,6 +81,7 @@ class JarDesignViewServiceTest {
         assertThat(response.slotCenterY()).isEqualByComparingTo("0.30000");
         assertThat(response.slotSizeRatio()).isEqualByComparingTo("0.60000");
         assertThat(response.slotStyle()).isEqualTo(JarSlotStyle.PIXEL);
+        assertThat(response.bodyStyle()).isEqualTo(JarBodyStyle.CLASSIC);
 
         ArgumentCaptor<GetObjectPresignRequest> requestCaptor =
                 ArgumentCaptor.forClass(GetObjectPresignRequest.class);
@@ -93,6 +96,7 @@ class JarDesignViewServiceTest {
     void findByJarIds_usesBatchQuery() throws Exception {
         JarDesign first = design(10L, "jar-designs/1/first.png");
         JarDesign second = design(20L, "jar-designs/1/second.png");
+        ReflectionTestUtils.setField(first, "bodyStyle", JarBodyStyle.CAT);
         when(jarDesignRepository.findByJar_JarIdIn(List.of(10L, 20L)))
                 .thenReturn(List.of(first, second));
         when(presignedGetObjectRequest.url()).thenReturn(new URL("https://signed.example.test/final"));
@@ -102,6 +106,8 @@ class JarDesignViewServiceTest {
         Map<Long, JarDesignResponse> responses = service.findByJarIds(List.of(10L, 20L));
 
         assertThat(responses).containsOnlyKeys(10L, 20L);
+        assertThat(responses.get(10L).bodyStyle()).isEqualTo(JarBodyStyle.CAT);
+        assertThat(responses.get(20L).bodyStyle()).isNull();
         verify(jarDesignRepository).findByJar_JarIdIn(List.of(10L, 20L));
     }
 

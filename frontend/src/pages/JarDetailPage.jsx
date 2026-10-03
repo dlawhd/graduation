@@ -2565,6 +2565,13 @@ function getJarDropTargetRect() {
 
   if (!jarElement) return null;
 
+  // 커스텀 저금통은 본체마다 입구 위치가 달라 실제 저장된 슬롯의 화면 좌표를 사용한다.
+  const slotElement = jarElement.querySelector("[data-jar-slot-target]");
+  if (slotElement) {
+    const slotRect = slotElement.getBoundingClientRect();
+    return { x: slotRect.left + slotRect.width / 2, y: slotRect.top + slotRect.height / 2 };
+  }
+
   const rect = jarElement.getBoundingClientRect();
 
   return {

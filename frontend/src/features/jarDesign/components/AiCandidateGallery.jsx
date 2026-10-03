@@ -7,6 +7,8 @@ import SlotEditor from "./SlotEditor";
 import CutoutEditor from "./CutoutEditor";
 import JarDesignFinalizePanel from "./JarDesignFinalizePanel";
 import CandidateComparison from "./CandidateComparison";
+import JarDesignImage from "./JarDesignImage";
+import { getJarBody } from "../jarBodies.mjs";
 import {
   createJarDesignGeneration,
   getJarDesignDraft,
@@ -71,6 +73,7 @@ export default function AiCandidateGallery({ draftId }) {
     .filter((generation) => generation.status === "SUCCEEDED")
     .map((generation) => generation.generationId));
   const draftStatus = draft?.status;
+  const body = getJarBody(draft?.bodyStyle);
   useEffect(() => {
     if (!loading && scrollToEditorRef.current && draft?.selectedDesignType) {
       scrollToEditorRef.current = false;
@@ -327,7 +330,7 @@ export default function AiCandidateGallery({ draftId }) {
     <section inert={finalizing || undefined} className="mt-8 rounded-[28px] border border-violet-100 bg-white p-4 shadow-[0_12px_32px_rgba(76,29,149,0.08)] sm:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="inline-flex rounded-full bg-violet-100 px-3 py-1.5 text-xs font-black text-violet-700">01 · 디자인 고르기</div>
+          <div className="inline-flex rounded-full bg-violet-100 px-3 py-1.5 text-xs font-black text-violet-700">{body ? "03" : "01"} · 디자인 고르기</div>
           <h2 className="mt-3 text-2xl font-black text-slate-800">원본을 어떤 분위기로 바꿔볼까요?</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">마음에 드는 스타일을 고르고 한 장씩 만들어보세요. 원본과 비교한 뒤, 가장 마음에 드는 그림으로 계속할 수 있어요.</p>
         </div>
@@ -337,6 +340,7 @@ export default function AiCandidateGallery({ draftId }) {
         </button>
       </div>
 
+      {body && <p className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900"><strong>{body.name}</strong> 안에 담을 그림을 골라요. AI는 그림만 꾸미고 저금통 모양은 그대로 유지돼요.</p>}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {AI_STYLES.map(([style, title, description]) => (
           <button key={style} type="button" aria-pressed={chosenStyle === style} onClick={() => setChosenStyle(style)}
@@ -376,8 +380,8 @@ export default function AiCandidateGallery({ draftId }) {
           <article className={`overflow-hidden rounded-[22px] border bg-white ${draft?.selectedDesignType === "ORIGINAL" ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}>
             <div className="aspect-square bg-slate-100">
               {originalPreviewUrl ? (
-                <img src={originalPreviewUrl} alt="정규화한 원본 디자인" className="h-full w-full object-cover"
-                  onError={() => handlePreviewError(originalPreviewUrl, refreshOriginalPreview)} />
+                <JarDesignImage bodyStyle={draft?.bodyStyle} imageUrl={originalPreviewUrl} alt="정규화한 원본 디자인" showDefaultSlot
+                  onImageError={() => handlePreviewError(originalPreviewUrl, refreshOriginalPreview)} />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold leading-6 text-slate-500">
                   원본 미리보기를 준비하는 중이에요.
@@ -409,9 +413,9 @@ export default function AiCandidateGallery({ draftId }) {
                 className={`overflow-hidden rounded-[22px] border bg-white ${isSelected ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}>
                 <div className="aspect-square bg-slate-100">
                   {isSucceeded && previewUrl ? (
-                    <img src={previewUrl} alt={`${styleLabel(generation.style)} AI 후보`} className="h-full w-full object-cover"
-                      style={{ imageRendering: designImageRendering(generation.style) }}
-                      onError={() => handlePreviewError(
+                    <JarDesignImage bodyStyle={draft?.bodyStyle} imageUrl={previewUrl} alt={`${styleLabel(generation.style)} AI 후보`} showDefaultSlot
+                      imageRendering={designImageRendering(generation.style)}
+                      onImageError={() => handlePreviewError(
                         previewUrl,
                         () => refreshCandidatePreview(generation.generationId),
                       )} />
@@ -449,7 +453,7 @@ export default function AiCandidateGallery({ draftId }) {
         </div>
       )}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 p-4"><p className="text-xs leading-5 text-slate-500">직접 그린 디자인 대신, 기본 테마 저금통을 써도 좋아요.</p><button type="button" onClick={() => void handleSelectDefault()} disabled={loading || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "DEFAULT"} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 disabled:opacity-50">{draft?.selectedDesignType === "DEFAULT" ? "기본 저금통 선택됨 ✓" : "기본 저금통으로 계속하기 →"}</button></div>
-      {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
+      {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison bodyStyle={draft?.bodyStyle} originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
         onClose={() => setComparisonId(null)} onSelect={() => { setComparisonId(null); void handleSelect(comparisonId); }} />; })()}
       <div ref={editorRef} className="scroll-mt-24" />
       {!loading && draft?.status === "ACTIVE" && ["ORIGINAL", "AI"].includes(draft.selectedDesignType) && (
@@ -466,6 +470,8 @@ export default function AiCandidateGallery({ draftId }) {
         />
       )}
       {!loading && draft?.status === "ACTIVE" && ["ORIGINAL", "AI"].includes(draft.selectedDesignType) && (
+        <div>
+        {body && <p className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">아래 배경 편집은 저금통 안에 담긴 그림에만 적용돼요. 본체는 지워지지 않아요.</p>}
         <CutoutEditor
           key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${JSON.stringify(draft.cutoutRegions || draft.cutoutPoints || [])}`}
           draft={draft}
@@ -476,6 +482,7 @@ export default function AiCandidateGallery({ draftId }) {
           onSaved={(regions) => setDraft((current) => ({ ...current,
             cutoutRegions: regions, cutoutPoints: regions[0] || [] }))}
         />
+        </div>
       )}
       {!loading && draft && (draft.status === "FINALIZED" || (draft.status === "ACTIVE" && ["ORIGINAL", "AI", "DEFAULT"].includes(draft.selectedDesignType))) && (
         <JarDesignFinalizePanel

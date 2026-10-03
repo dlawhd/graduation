@@ -182,14 +182,14 @@ export default function CutoutEditor({ draft, previewUrl, disabled, onSaved, onB
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="배경 지우기">
       <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700">배경 선택</span>
-      <h3 className="mt-3 text-xl font-black text-slate-800">남길 본체를 자유롭게 선택해 주세요</h3>
+      <h3 className="mt-3 text-xl font-black text-slate-800">{draft.bodyStyle ? "저금통 안에 남길 그림을 선택해 주세요" : "남길 본체를 자유롭게 선택해 주세요"}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-500">점을 이어 정밀하게 선택하거나 손으로 둘러 그릴 수 있어요. 떨어진 부분은 새 영역으로 여러 번 추가하세요.</p>
 
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
         <div>
           <div
             role="application"
-            aria-label="저금통 본체 선택 영역"
+            aria-label={draft.bodyStyle ? "저금통 안의 그림 선택 영역" : "저금통 본체 선택 영역"}
             className="relative aspect-square w-full cursor-crosshair touch-none overflow-hidden rounded-xl bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%,transparent_75%,#e2e8f0_75%),linear-gradient(45deg,#e2e8f0_25%,white_25%,white_75%,#e2e8f0_75%)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]"
             onPointerDown={handlePointerDown}
             onPointerMove={(event) => {
@@ -206,7 +206,7 @@ export default function CutoutEditor({ draft, previewUrl, disabled, onSaved, onB
               style={{ imageRendering: draftImageRendering(draft) }}
               onLoad={() => { setFailedUrl(""); setLoadedUrl(url); }}
               onError={() => setFailedUrl(url)} />}
-            {imageReady && maskStyle && <img src={url} alt="선택한 본체 미리보기" draggable={false}
+            {imageReady && maskStyle && <img src={url} alt={draft.bodyStyle ? "남길 그림 미리보기" : "선택한 본체 미리보기"} draggable={false}
               className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
               style={{ ...maskStyle, imageRendering: draftImageRendering(draft) }} />}
             <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
@@ -238,8 +238,8 @@ export default function CutoutEditor({ draft, previewUrl, disabled, onSaved, onB
 
           <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
             {mode === "POINT"
-              ? <p><b>점으로 선택:</b> 본체 테두리를 따라 차례로 클릭한 뒤 현재 영역 닫기를 누르세요.</p>
-              : <p><b>자유롭게 그리기:</b> 본체 바깥을 한 바퀴 드래그하고 손을 떼면 영역이 자동으로 닫혀요.</p>}
+              ? <p><b>점으로 선택:</b> {draft.bodyStyle ? "남길 그림" : "본체"} 테두리를 따라 차례로 클릭한 뒤 현재 영역 닫기를 누르세요.</p>
+              : <p><b>자유롭게 그리기:</b> {draft.bodyStyle ? "남길 그림" : "본체"} 바깥을 한 바퀴 드래그하고 손을 떼면 영역이 자동으로 닫혀요.</p>}
             <p className="mt-1">분리된 귀·장식·글자는 같은 방식으로 영역을 더 추가할 수 있어요.</p>
           </div>
 

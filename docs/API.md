@@ -2217,6 +2217,16 @@ WebSocket 이벤트는 DB 상태를 변경하는 REST API를 대체하는 것이
 
 # 12. AI 디자인 Draft API
 
+### 2026-10-03 본체 선택 추가 (V38)
+
+`POST /api/v1/design-drafts`는 기존 `image`와 함께 선택 사항인 multipart 문자열 `bodyStyle`을 받는다.
+허용값은 `JarBodyStyle`의 30종 ID다. 알 수 없는 값은 외부 이미지 심사/S3 호출 전에 400으로 거절한다.
+신규 화면은 본체 선택 → 그림/업로드 → 원본 또는 AI 후보 → 투입구/배경 → 최종화 순서다.
+Draft 상세와 Jar 조회의 `design`에 nullable `bodyStyle`을 반환한다. 생략/NULL은 종전 이미지 그대로 표시한다.
+Draft 본체는 업로드 시 고정하고 ORIGINAL/AI 최종화 때 `jar_designs`로 복사한다. DEFAULT는 기존 방식대로 Design 행이 없다.
+AI 입력·Presigned 이미지 URL은 그림만 포함하며 본체/투입구는 화면에서 별도 합성한다. 새 API 호출이나 AI 비용은 추가되지 않는다.
+현재 PIXEL 규격은 `AI_PIXEL_PIPELINE.md`의 V3(96×96·최대 64색)다. 아래 이전 규격 표기는 과거 기록이다.
+
 AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라, Jar 생성 전에 사용하는 Draft 흐름이다. 모든 경로는 인증과 CSRF 보호가 필요하며 Draft OWNER만 호출할 수 있다. Draft 상세 응답에는 Private S3 Object Key나 고정 URL을 포함하지 않는다.
 
 | HTTP | 경로 | 현재 동작 |

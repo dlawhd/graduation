@@ -15,6 +15,7 @@ import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.jar.JarOpenMode;
 import shop.esjh.memoryjar.enums.jar.JarTheme;
@@ -110,6 +111,7 @@ class JarDesignFinalizePersistenceServiceTest {
     @Test
     void finalizeCustom_aiCreatesAiJarDesignWithSelectedGeneration() {
         JarDesignDraft draft = activeDraft(JarDraftDesignType.AI);
+        when(draft.getBodyStyle()).thenReturn(JarBodyStyle.WHALE);
         when(draft.getDraftId()).thenReturn(10L);
         when(draft.getSelectedGenerationId()).thenReturn(200L);
         stubSlot(draft);
@@ -122,14 +124,15 @@ class JarDesignFinalizePersistenceServiceTest {
         when(jar.getJarId()).thenReturn(103L);
         when(jarService.createJarForDesignFinalize(eq(1L), any())).thenReturn(jar);
 
-        var result = service().finalizeCustom(1L, 10L, request(), aiTarget(), "final.png");
+        var result = service().finalizeCustom(1L, 10L, request(), service().prepare(1L, 10L), "final.png");
 
         assertThat(result.jarId()).isEqualTo(103L);
         assertThat(result.designType()).isEqualTo(JarDraftDesignType.AI);
         verify(designRepository).save(argThat((JarDesign design) ->
                 design.getDesignType() == JarDesignType.AI
                         && design.getFinalS3Key().equals("final.png")
-                        && design.getSelectedGeneration() == generation));
+                        && design.getSelectedGeneration() == generation
+                        && design.getBodyStyle() == JarBodyStyle.WHALE));
         verify(draft).markFinalized(jar);
     }
 
@@ -154,6 +157,7 @@ class JarDesignFinalizePersistenceServiceTest {
         JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);
         when(draft.getOriginalS3Key()).thenReturn("original.png");
         when(draft.getSlotStyle()).thenReturn(JarSlotStyle.METAL);
+        when(draft.getBodyStyle()).thenReturn(JarBodyStyle.CAT);
         stubSlot(draft);
         Jar jar = mock(Jar.class);
         when(jar.getJarId()).thenReturn(104L);
@@ -163,6 +167,22 @@ class JarDesignFinalizePersistenceServiceTest {
         service().finalizeCustom(1L, 10L, request(), expected, "final.png");
 
         verify(designRepository).save(argThat(design -> design.getSlotStyle() == JarSlotStyle.METAL));
+        assertThat(expected.bodyStyle()).isEqualTo(JarBodyStyle.CAT);
+        verify(designRepository).save(argThat(design -> design.getBodyStyle() == JarBodyStyle.CAT));
+    }
+
+    @Test
+    void finalizeCustom_rejectsBodyChangedDuringExternalCopy() {
+        JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(draft.getBodyStyle()).thenReturn(JarBodyStyle.CAT);
+        stubSlot(draft);
+        var expected = service().prepare(1L, 10L);
+        when(draft.getBodyStyle()).thenReturn(JarBodyStyle.BEAR);
+        assertThatThrownBy(() -> service().finalizeCustom(1L, 10L, request(), expected, "final.png"))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getErrorCode()).isEqualTo(AiDraftErrorCode.FINALIZE_TARGET_CHANGED);
+        verifyNoInteractions(jarService, designRepository);
     }
 
     @Test

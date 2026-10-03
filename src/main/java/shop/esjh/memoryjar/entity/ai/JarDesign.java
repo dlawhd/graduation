@@ -22,6 +22,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -52,6 +53,11 @@ public class JarDesign {
     @Column(name = "final_s3_key", nullable = false, length = 512)
     private String finalS3Key;
 
+    /** 확정한 본체는 이미지와 별도 보관해 모든 Jar 화면이 같은 모양을 사용한다. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "body_style", length = 30, updatable = false)
+    private JarBodyStyle bodyStyle;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "selected_generation_id", unique = true)
     private JarAiGeneration selectedGeneration;
@@ -76,7 +82,7 @@ public class JarDesign {
     @Builder
     private JarDesign(Jar jar, JarDesignType designType, String finalS3Key,
                       JarAiGeneration selectedGeneration, BigDecimal slotCenterX,
-                      BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarSlotStyle slotStyle) {
+                      BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarSlotStyle slotStyle, JarBodyStyle bodyStyle) {
         this.jar = jar;
         this.designType = designType;
         this.finalS3Key = finalS3Key;
@@ -85,5 +91,6 @@ public class JarDesign {
         this.slotCenterY = slotCenterY;
         this.slotSizeRatio = slotSizeRatio;
         this.slotStyle = JarSlotStyle.orDefault(slotStyle);
+        this.bodyStyle = bodyStyle;
     }
 }

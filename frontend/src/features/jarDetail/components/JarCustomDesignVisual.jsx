@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { designImageRendering } from "../../jarDesign/imageRendering.mjs";
 import JarSlotOverlay from "../../jarDesign/components/JarSlotOverlay";
 import { storedSlot } from "../../jarDesign/slotGeometry.mjs";
+import JarDesignImage from "../../jarDesign/components/JarDesignImage";
 
 /**
  * 최종 Jar의 커스텀 이미지와 저장된 투입구 위치를 모든 Jar 화면에서 똑같이 그린다.
@@ -84,13 +85,14 @@ export default function JarCustomDesignVisual({
 
   return (
     <div className={`relative aspect-square overflow-visible bg-transparent ${className}`}>
-      <img
+      <JarDesignImage
         key={`${design.imageUrl}-${reloadAttempt}`}
-        src={design.imageUrl}
+        imageUrl={design.imageUrl}
+        bodyStyle={design.bodyStyle}
         alt={alt}
         className={imageClassName}
-        style={{ imageRendering: designImageRendering(design.aiStyle) }}
-        onError={() => setImageFailed(true)}
+        imageRendering={designImageRendering(design.aiStyle)}
+        onImageError={() => setImageFailed(true)}
       />
       {slot && <JarSlotOverlay slot={slot} />}
     </div>

@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import java.math.BigDecimal;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import java.util.Map;
@@ -37,6 +38,26 @@ class JarDesignDraftControllerTest {
  @MockitoBean JarAiGenerationPreviewService generationPreviewService;
  @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter; @MockitoBean JwtTokenProvider jwtTokenProvider;
  private TestingAuthenticationToken auth(){return new TestingAuthenticationToken(Map.of("userId",1L),null,"ROLE_USER");}
+ @Test void upload_acceptsSelectedBody() throws Exception {
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", "CAT").principal(auth()))
+          .andExpect(status().isCreated());
+  verify(uploadService).uploadOriginalAndCreateDraft(eq(1L), any(), eq(JarBodyStyle.CAT));
+ }
+ @Test void upload_omittedBodyKeepsLegacyContract() throws Exception {
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).principal(auth()))
+          .andExpect(status().isCreated());
+  verify(uploadService).uploadOriginalAndCreateDraft(eq(1L), any(), isNull());
+ }
+ @Test void upload_unknownBodyRejectedBeforeExternalCalls() throws Exception {
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", "UNKNOWN").principal(auth()))
+          .andExpect(status().isBadRequest());
+  verifyNoInteractions(uploadService);
+ }
+ @Test void upload_requiresAuthentication() throws Exception {
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", "CAT"))
+          .andExpect(status().isUnauthorized());
+  verifyNoInteractions(uploadService);
+ }
  @Test void slot_passesAuthenticatedUserAndExpectedCandidate() throws Exception {
   mockMvc.perform(patch("/api/v1/design-drafts/10/slot").principal(auth()).contentType("application/json").content("""
           {"centerX":0.5,"centerY":0.4,"sizeRatio":0.3,"expectedDesignType":"AI","expectedGenerationId":100}

@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import shop.esjh.memoryjar.config.properties.S3Properties;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.repository.UserRepository;
@@ -46,11 +47,11 @@ class JarDesignDraftUploadServiceTest {
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
         when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
-        when(persistenceService.createDraft(eq(1L), anyString())).thenReturn(draft);
+        when(persistenceService.createDraft(eq(1L), anyString(), eq(JarBodyStyle.CAT))).thenReturn(draft);
         when(draft.getDraftId()).thenReturn(100L);
         when(draft.getExpiresAt()).thenReturn(LocalDateTime.of(2026, 9, 25, 12, 0));
 
-        var response = uploadService.uploadOriginalAndCreateDraft(1L, image);
+        var response = uploadService.uploadOriginalAndCreateDraft(1L, image, JarBodyStyle.CAT);
 
         ArgumentCaptor<PutObjectRequest> requestCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
@@ -58,6 +59,7 @@ class JarDesignDraftUploadServiceTest {
         assertThat(requestCaptor.getValue().ifNoneMatch()).isEqualTo("*");
         verify(imageValidator).normalize(new byte[]{1, 2, 3});
         verify(moderationService).verifyAllowed(new byte[]{7, 8, 9});
+        verify(persistenceService).createDraft(eq(1L), anyString(), eq(JarBodyStyle.CAT));
         assertThat(response.draftId()).isEqualTo(100L);
     }
 
@@ -67,7 +69,7 @@ class JarDesignDraftUploadServiceTest {
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
         when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
-        when(persistenceService.createDraft(eq(1L), anyString())).thenThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_ACTIVE));
+        when(persistenceService.createDraft(eq(1L), anyString(), isNull())).thenThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_ACTIVE));
 
         assertThatThrownBy(() -> uploadService.uploadOriginalAndCreateDraft(1L, image))
                 .isInstanceOf(ApiException.class)
@@ -93,6 +95,6 @@ class JarDesignDraftUploadServiceTest {
                 .extracting(error -> ((ApiException) error).getErrorCode())
                 .isEqualTo(AiDraftErrorCode.DRAFT_SOURCE_UPLOAD_FAILED);
 
-        verify(persistenceService, never()).createDraft(anyLong(), anyString());
+        verify(persistenceService, never()).createDraft(anyLong(), anyString(), any());
     }
 }

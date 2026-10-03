@@ -1,5 +1,13 @@
 # 각 API의 Request/Response DTO
 
+## 2026-10-03 본체 선택 응답 보충
+
+- `JarDesignDraftDetailResponse.bodyStyle`, `JarDesignResponse.bodyStyle`: nullable `JarBodyStyle` 문자열.
+- ID는 `CLASSIC, BELLO, APOTHECARY, MILK, FACET, PERFUME, DOME, HEART, STAR, MOON, CLOUD, SHELL, PEARL, CRYSTAL, PLANET, ROCKET, HOUSE, CASTLE, TEAPOT, LANTERN, PIG, CAT, BEAR, RABBIT, PANDA, PENGUIN, WHALE, MUSHROOM, ACORN, FLOWER`.
+- 업로드 multipart의 같은 이름 선택 인자는 서버 enum으로 검증한다. 다른 요청 DTO/선택·최종화 API에는 추가 입력하지 않는다.
+- NULL은 기존 이미지 디자인이며 기본 모양을 임의로 적용하지 않는다. 이미지 URL은 본체가 없는 원본/후보/최종 그림이다.
+- 기존 Slot은 합성 전체 480×480 기준이고, 배경 제거 좌표는 그 안의 원본 이미지 480×480 기준이다.
+
 현재 구현 기준
 
 노션 복사용

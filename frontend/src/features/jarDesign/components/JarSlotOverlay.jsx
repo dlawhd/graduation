@@ -21,7 +21,7 @@ export function SlotAppearance({ value }) {
 export default function JarSlotOverlay({ slot }) {
   const { width, height } = slotDimensions(slot.sizeRatio);
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute"
+    <div aria-hidden="true" data-jar-slot-target className="pointer-events-none absolute"
       style={{ left: `${slot.centerX * 100}%`, top: `${slot.centerY * 100}%`,
         width: `${width * 100}%`, height: `${height * 100}%`, transform: "translate(-50%, -50%)" }}><SlotAppearance value={slot.slotStyle} /></div>
   );

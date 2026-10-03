@@ -24,6 +24,7 @@ import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.enums.ai.JarDraftStatus;
 import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
+import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -50,6 +51,11 @@ public class JarDesignDraft {
 
     @Column(name = "original_s3_key", nullable = false, length = 512)
     private String originalS3Key;
+
+    /** 원본 업로드 시 확정하는 본체다. null은 기존 이미지 단독 디자인을 뜻한다. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "body_style", length = 30, updatable = false)
+    private JarBodyStyle bodyStyle;
 
     @Column(name = "original_s3_deleted_at")
     private LocalDateTime originalS3DeletedAt;
@@ -99,9 +105,10 @@ public class JarDesignDraft {
     private LocalDateTime updatedAt;
 
     @Builder
-    private JarDesignDraft(User owner, String originalS3Key, LocalDateTime expiresAt) {
+    private JarDesignDraft(User owner, String originalS3Key, LocalDateTime expiresAt, JarBodyStyle bodyStyle) {
         this.owner = owner;
         this.originalS3Key = originalS3Key;
+        this.bodyStyle = bodyStyle;
         this.expiresAt = expiresAt;
         this.status = JarDraftStatus.ACTIVE;
     }
