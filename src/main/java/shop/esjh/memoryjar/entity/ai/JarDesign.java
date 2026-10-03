@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.entity.ai;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
@@ -58,6 +59,9 @@ public class JarDesign {
     @Column(name = "body_style", length = 30, updatable = false)
     private JarBodyStyle bodyStyle;
 
+    @Embedded
+    private JarPhotoFrame photoFrame;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "selected_generation_id", unique = true)
     private JarAiGeneration selectedGeneration;
@@ -82,7 +86,8 @@ public class JarDesign {
     @Builder
     private JarDesign(Jar jar, JarDesignType designType, String finalS3Key,
                       JarAiGeneration selectedGeneration, BigDecimal slotCenterX,
-                      BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarSlotStyle slotStyle, JarBodyStyle bodyStyle) {
+                      BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarSlotStyle slotStyle, JarBodyStyle bodyStyle,
+                      JarPhotoFrame photoFrame) {
         this.jar = jar;
         this.designType = designType;
         this.finalS3Key = finalS3Key;
@@ -92,5 +97,6 @@ public class JarDesign {
         this.slotSizeRatio = slotSizeRatio;
         this.slotStyle = JarSlotStyle.orDefault(slotStyle);
         this.bodyStyle = bodyStyle;
+        this.photoFrame = photoFrame;
     }
 }

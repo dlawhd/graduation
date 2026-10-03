@@ -5,6 +5,8 @@ import shop.esjh.memoryjar.config.exception.ErrorCode;
 
 /** AI Draft API가 프론트에 제공하는 기능별 안정 오류 코드다. */
 public enum AiDraftErrorCode implements ErrorCode {
+    DRAFT_PHOTO_FRAME_INVALID(HttpStatus.BAD_REQUEST, "사진 배치 영역이 올바르지 않습니다. 사진 안에서 다시 조절해 주세요."),
+    DRAFT_COMPOSITION_TARGET_CHANGED(HttpStatus.CONFLICT, "다른 화면에서 디자인이나 사진 배치가 바뀌었어요. 새로고침 후 다시 조절해 주세요."),
     DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND, "디자인 초안을 찾을 수 없습니다."),
     DRAFT_NOT_OWNER(HttpStatus.FORBIDDEN, "이 디자인 초안의 OWNER만 작업할 수 있습니다."),
     DRAFT_NOT_ACTIVE(HttpStatus.CONFLICT, "활성 상태가 아니거나 만료된 디자인 초안입니다."),

@@ -22,6 +22,7 @@ import shop.esjh.memoryjar.dto.ai.request.JarAiGenerationCreateRequest;
 import shop.esjh.memoryjar.dto.ai.request.JarDesignSelectionRequest;
 import shop.esjh.memoryjar.dto.ai.request.JarDesignSlotRequest;
 import shop.esjh.memoryjar.dto.ai.request.JarDesignCutoutRequest;
+import shop.esjh.memoryjar.dto.ai.request.JarDesignCompositionRequest;
 import shop.esjh.memoryjar.dto.jar.request.JarCreateRequest;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
@@ -122,6 +123,14 @@ public class JarDesignDraftController {
                                              @Valid @RequestBody JarDesignCutoutRequest request) {
         draftService.updateCutoutRegions(extractCurrentUserId(authentication), draftId, request.effectiveRegions(),
                 request.expectedDesignType(), request.expectedGenerationId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 생성 전 본체와 사진 배치를 저장한다. 이미지 단독 모드는 두 값을 함께 비운다. */
+    @PatchMapping("/{draftId}/composition")
+    public ResponseEntity<Void> updateComposition(Authentication authentication, @PathVariable Long draftId,
+            @Valid @RequestBody JarDesignCompositionRequest request) {
+        draftService.updateComposition(extractCurrentUserId(authentication), draftId, request);
         return ResponseEntity.noContent().build();
     }
 

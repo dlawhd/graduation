@@ -10,11 +10,48 @@ const palettes = {
   ocean: ["#ecfbff", "#b8dbdf", "#649ba7", "#b59566"],
 };
 
+// 형태·사진 창·입구는 저장 데이터의 좌표 계약이다. 외형 취향은 별도로 관리해 기존 저금통도 안전하게 꾸민다.
+// 배열 순서: 밝은 면, 본체, 그늘, 장식, 전시장 밝은 색, 전시장 그늘, 디테일 설명, 소재 설명.
+const finishes = {
+  CLASSIC: ["#ccebdd", "#438c77", "#174e43", "#bd9757", "#e9f0e6", "#ceded2", "황동 테두리 · 식물 음각", "에메랄드 유리 · 브러시드 황동"],
+  BELLO: ["#f8e0db", "#d28786", "#8f455b", "#c39c6d", "#f7e9e5", "#e9d2d3", "로즈 유약 · 물결 세공", "로즈 유광 도자기"],
+  APOTHECARY: ["#b8d9bb", "#4e7d59", "#244b38", "#b69058", "#e9ede1", "#cdd8bc", "허브 각인 · 빈티지 코르크", "포레스트 유리 · 천연 코르크"],
+  MILK: ["#fff8e6", "#e9dcc2", "#a49a81", "#477b9e", "#f7f0de", "#dde7e7", "코발트 꽃 · 밀크 글라스", "아이보리 글라스 · 코발트 핸드페인팅"],
+  FACET: ["#d9f7ee", "#74bbbf", "#376c89", "#b7a983", "#e7f3ee", "#c5dfe7", "빛의 프리즘 · 팔각 컷", "아쿠아 프리즘 · 샴페인 금속"],
+  PERFUME: ["#ebc2d3", "#a4557f", "#542847", "#c9a255", "#f4e5ec", "#e0c9de", "아르데코 · 자수정 마개", "플럼 크리스털 · 골드 필리그리"],
+  DOME: ["#e4f3f7", "#9dbdce", "#536f97", "#9f794c", "#eef2f9", "#d0dcee", "겨울 정원 · 월넛 받침", "서리 유리 · 월넛 목재"],
+  HEART: ["#ffd1c4", "#e27b82", "#9c374e", "#c89a59", "#fbe8e3", "#edc9cf", "리본 · 장미빛 로켓", "코랄 에나멜 · 앤티크 골드"],
+  STAR: ["#fff0b6", "#d5ae59", "#96723c", "#7c6848", "#faf1d8", "#e6d6ae", "별자리 나침반 · 별빛 세공", "샴페인 에나멜 · 브론즈"],
+  MOON: ["#ebdaba", "#b8a283", "#635671", "#c6a769", "#eae7f1", "#c9c1da", "새벽 초승달 · 금빛 별", "문스톤 도자기 · 별빛 금박"],
+  CLOUD: ["#f1e9ff", "#c7b8e4", "#857eaf", "#c6a779", "#eeeafa", "#d4daef", "비 오는 구름 · 작은 참", "라벤더 도자기 · 황동 빗방울"],
+  SHELL: ["#ffe0c9", "#dca4ae", "#9a769d", "#b49c72", "#f8eade", "#e8d3e4", "진주 · 오팔빛 부채살", "피치 진주 유약 · 오팔 세공"],
+  PEARL: ["#e1f6ed", "#bdcce0", "#8277a8", "#bda46d", "#e8f2ef", "#dbd5ed", "오로라 · 보석 받침", "오팔 유리 · 골드 크래들"],
+  CRYSTAL: ["#dbc8f6", "#9a72b9", "#503d7c", "#c4a268", "#f0e8f7", "#d6c6e9", "보랏빛 수정 · 골드 와이어", "자수정 크리스털 · 황동 세공"],
+  PLANET: ["#f3d4ad", "#c0879c", "#695783", "#c6a262", "#f0e8ee", "#d9c9df", "토성의 고리 · 우주 항해", "오로라 에나멜 · 황동 궤도"],
+  ROCKET: ["#bae2db", "#598e91", "#2b506d", "#c16d50", "#e4efea", "#c8d8df", "레트로 우주선 · 탐험 배지", "페트롤 에나멜 · 코퍼 핀"],
+  HOUSE: ["#ffedce", "#ebc29a", "#b98568", "#b95b49", "#f8ede0", "#ecd7c4", "테라코타 기와 · 담쟁이", "크림 도자기 · 구운 테라코타"],
+  CASTLE: ["#e5d5ee", "#b7a4cf", "#726486", "#866992", "#efebf5", "#d5c8e5", "자줏빛 첨탑 · 동화 속 성", "라일락 석기 · 플럼 지붕"],
+  TEAPOT: ["#d6ebd1", "#8bae90", "#4a7564", "#b79762", "#edf0e1", "#d1dfcc", "꽃무늬 셀라돈 · 오후의 차", "셀라돈 도자기 · 금빛 꽃무늬"],
+  LANTERN: ["#ffe3a5", "#d4a553", "#785a3b", "#4e6960", "#e8ede6", "#c6d4c7", "숲의 등불 · 브론즈 프레임", "호박 유리 · 포레스트 브론즈"],
+  PIG: ["#ffe0d5", "#e9a49d", "#b9747f", "#bf934e", "#fae9e0", "#edceca", "복숭아 볼 · 행운의 왕관", "피치 도자기 · 금빛 행운"],
+  CAT: ["#8c9aa6", "#3e536a", "#26384d", "#d0aa65", "#e5e9ef", "#c7d1de", "밤하늘 망토 · 초승달 목걸이", "미드나이트 도자기 · 금빛 별자리"],
+  BEAR: ["#f3cf9d", "#c99662", "#956a4e", "#8b6450", "#f7eddf", "#e6d6c0", "캐러멜 곰 · 체크 머플러", "허니 도자기 · 코지 체크"],
+  RABBIT: ["#f2ddea", "#c9a6c5", "#916a98", "#c8a55f", "#f5e9f1", "#e1d0e5", "달빛 토끼 · 라일락 리본", "모브 도자기 · 달빛 브로치"],
+  PANDA: ["#fff6df", "#e7e2cf", "#a39d87", "#557760", "#ebeee2", "#d6dfcb", "대나무 스카프 · 느긋한 표정", "크림 도자기 · 차콜과 대나무"],
+  PENGUIN: ["#91b3c8", "#496b8a", "#2d425d", "#c98754", "#e8eff4", "#c8d8e6", "겨울 친구 · 니트 머플러", "네이비 도자기 · 테라코타 니트"],
+  WHALE: ["#93c6ce", "#50879c", "#2e566f", "#c8b579", "#e4eff0", "#c3dbe1", "깊은 바다 · 별자리 고래", "오션 글레이즈 · 별빛 금박"],
+  MUSHROOM: ["#fff1cf", "#e3d0ae", "#a99873", "#98474d", "#f1eddf", "#dce0ca", "와인빛 버섯 · 이끼 정원", "밀크 도자기 · 와인 레드 지붕"],
+  ACORN: ["#f3d18b", "#c79b59", "#876344", "#654a36", "#f3ead8", "#ddd4b9", "월넛 모자 · 가을 잎", "꿀빛 도자기 · 월넛 나뭇결"],
+  FLOWER: ["#f9c8ce", "#d77e99", "#9b4b78", "#be9c60", "#f8e6ed", "#e5cbdc", "겹겹의 피오니 · 잎사귀 받침", "피오니 에나멜 · 골드 꽃술"],
+};
+
 function body(id, name, description, collection, palette, path, window, slotY, extra = {}) {
-  const [light, base, shade, accent] = palettes[palette];
-  return Object.freeze({ id, name, description, collection, colors: { light, base, shade, accent }, path,
+  const [light, base, shade, accent, stageLight, stageShade, detail, material] = finishes[id] || palettes[palette];
+  return Object.freeze({ id, name, description, collection, colors: Object.freeze({ light, base, shade, accent }), path,
     window: { x: window[0], y: window[1], width: window[2], height: window[3], radius: window[4] },
-    slot: { centerX: 0.5, centerY: slotY / 480, sizeRatio: 0.22, slotStyle: "CAPSULE" }, ...extra });
+    slot: { centerX: 0.5, centerY: slotY / 480, sizeRatio: 0.22, slotStyle: "CAPSULE" }, ...extra,
+    material: material || extra.material, detail,
+    stage: Object.freeze({ light: stageLight, shade: stageShade }) });
 }
 
 export const JAR_BODY_COLLECTIONS = ["유리와 도자기", "작은 보석", "꿈꾸는 오브제", "다정한 친구", "숲속의 선물"];
@@ -63,7 +100,7 @@ export const JAR_BODIES = Object.freeze([
     "M151 151H329L350 362H365V404H115V362H130Z", [160, 204, 160, 141, 13], 166, { material: "호박 유리 · 브론즈" }),
   body("PIG", "복을 담은 돼지", "통통한 배에 차곡차곡 모으는 행복", "다정한 친구", "blush",
     "M142 153L130 96Q129 78 150 92L193 117Q240 99 287 117L330 92Q351 78 350 96L338 153C379 181 399 225 399 284C399 354 359 394 333 402L329 432H277L274 415H206L203 432H151L147 402C121 394 81 354 81 284C81 225 101 181 142 153Z", [128, 249, 224, 133, 48], 137, { material: "로즈핑크 도자기" }),
-  body("CAT", "고양이의 오후", "햇살 아래 졸고 있는 느긋한 고양이", "다정한 친구", "cream",
+  body("CAT", "고양이의 오후", "별빛 망토를 두르고 당신의 마음을 지키는 고양이", "다정한 친구", "cream",
     "M133 182L122 71Q121 49 143 65L195 111Q240 98 285 111L337 65Q359 49 358 71L347 182C365 220 377 270 370 330Q360 421 240 425Q120 421 110 330C103 270 115 220 133 182Z", [143, 251, 194, 139, 52], 141, { material: "바닐라 세라믹" }),
   body("BEAR", "허그 베어", "말없이 안아 주는 든든한 곰 친구", "다정한 친구", "peach",
     "M143 138C89 108 109 51 152 60Q194 66 190 113Q240 100 290 113C286 66 328 48 354 73Q389 112 337 138C365 176 376 238 374 296Q374 426 240 428Q106 426 106 296C104 238 115 176 143 138Z", [141, 252, 198, 133, 55], 151, { material: "카라멜 도자기" }),

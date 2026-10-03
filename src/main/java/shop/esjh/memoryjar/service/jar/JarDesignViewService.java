@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import shop.esjh.memoryjar.config.properties.S3Properties;
 import shop.esjh.memoryjar.dto.jar.response.JarDesignResponse;
 import shop.esjh.memoryjar.entity.ai.JarDesign;
+import shop.esjh.memoryjar.entity.ai.JarPhotoFrame;
 import shop.esjh.memoryjar.repository.ai.JarDesignRepository;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -95,7 +96,7 @@ public class JarDesignViewService {
                 design.getSlotSizeRatio(),
                 design.getSelectedGeneration() == null ? null : design.getSelectedGeneration().getAiStyle(),
                 design.getSlotStyle(),
-                design.getBodyStyle()
+                design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame())
         );
     }
 

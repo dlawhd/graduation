@@ -21,6 +21,9 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Set;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
 
 /**
  * Canvas 또는 외부에서 받은 원본을 실제 이미지 바이트로 검증한 뒤 Cloudflare 입력용 480×480 PNG로 정규화한다.
@@ -44,6 +47,11 @@ public class DraftOriginalImageValidator {
      * 정규화 결과만 심사·S3 저장·Cloudflare 입력에 사용해 검증한 파일과 실제 사용하는 파일을 일치시킨다.
      */
     public byte[] normalize(byte[] imageBytes) {
+        return normalizeWithContentFrame(imageBytes).pngBytes();
+    }
+
+    /** 실제 디코딩·EXIF 보정 결과에서 여백 영역도 함께 계산해 사진 배치가 인위적인 흰 띠를 확대하지 않게 한다. */
+    public NormalizedOriginal normalizeWithContentFrame(byte[] imageBytes) {
         if (imageBytes == null || imageBytes.length == 0) {
             throw new ApiException(AiDraftErrorCode.DRAFT_SOURCE_IMAGE_REQUIRED);
         }
@@ -78,7 +86,12 @@ public class DraftOriginalImageValidator {
                 BufferedImage oriented = "jpeg".equals(format)
                         ? applyExifOrientation(decoded, readJpegExifOrientation(imageBytes))
                         : decoded;
-                return writePng(centerInsideWhiteCanvas(oriented));
+                double scale = Math.min(480.0 / oriented.getWidth(), 480.0 / oriented.getHeight());
+                int widthOnCanvas = Math.max(1, (int) Math.round(oriented.getWidth() * scale));
+                int heightOnCanvas = Math.max(1, (int) Math.round(oriented.getHeight() * scale));
+                JarPhotoFrameValue contentFrame = new JarPhotoFrameValue(fraction((480-widthOnCanvas)/2),
+                        fraction((480-heightOnCanvas)/2), fraction(widthOnCanvas), fraction(heightOnCanvas));
+                return new NormalizedOriginal(writePng(centerInsideWhiteCanvas(oriented)), contentFrame);
             } finally {
                 reader.dispose();
             }
@@ -89,6 +102,13 @@ public class DraftOriginalImageValidator {
             throw invalidImage();
         }
     }
+
+    private BigDecimal fraction(int pixels) {
+        return BigDecimal.valueOf(pixels).divide(BigDecimal.valueOf(480), 6, RoundingMode.HALF_UP);
+    }
+
+    /** 검증한 동일 PNG와 그 안의 실제 사진 영역을 함께 전달한다. */
+    public record NormalizedOriginal(byte[] pngBytes, JarPhotoFrameValue contentFrame) { }
 
     private boolean exceedsDecodedImageLimit(int width, int height) {
         if (width < 1 || height < 1

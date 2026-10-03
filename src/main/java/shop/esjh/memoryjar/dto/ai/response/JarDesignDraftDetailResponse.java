@@ -2,6 +2,7 @@ package shop.esjh.memoryjar.dto.ai.response;
 
 import shop.esjh.memoryjar.enums.ai.*;
 import shop.esjh.memoryjar.dto.ai.JarDesignCutoutPoint;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,7 +12,7 @@ public record JarDesignDraftDetailResponse(Long draftId, JarDraftStatus status, 
         Long selectedGenerationId, BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
         List<JarDesignCutoutPoint> cutoutPoints, List<List<JarDesignCutoutPoint>> cutoutRegions,
         LocalDateTime expiresAt, Long finalizedJarId, List<GenerationItem> generations, JarSlotStyle slotStyle,
-        JarBodyStyle bodyStyle) {
+        JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame, JarPhotoFrameValue originalContentFrame) {
     public record GenerationItem(Long generationId, JarAiStyle style, JarAiGenerationStatus status,
                                  JarAiGenerationErrorCode errorCode, LocalDateTime completedAt) { }
 }

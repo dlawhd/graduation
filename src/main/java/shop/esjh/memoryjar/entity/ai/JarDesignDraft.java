@@ -1,6 +1,9 @@
 package shop.esjh.memoryjar.entity.ai;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
@@ -52,10 +55,23 @@ public class JarDesignDraft {
     @Column(name = "original_s3_key", nullable = false, length = 512)
     private String originalS3Key;
 
-    /** 원본 업로드 시 확정하는 본체다. null은 기존 이미지 단독 디자인을 뜻한다. */
+    /** 생성 전에는 본체/이미지 단독 모드를 바꿀 수 있다. 완성한 Jar에는 적용하지 않는다. */
     @Enumerated(EnumType.STRING)
-    @Column(name = "body_style", length = 30, updatable = false)
+    @Column(name = "body_style", length = 30)
     private JarBodyStyle bodyStyle;
+
+    @Embedded
+    private JarPhotoFrame photoFrame;
+
+    /** 흰색 정규화 여백을 제외한 실제 원본 영역. AI 입력 원본은 그대로 보존한다. */
+    @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name="x", column=@Column(name="original_x", precision=7, scale=6)),
+        @AttributeOverride(name="y", column=@Column(name="original_y", precision=7, scale=6)),
+        @AttributeOverride(name="width", column=@Column(name="original_width", precision=7, scale=6)),
+        @AttributeOverride(name="height", column=@Column(name="original_height", precision=7, scale=6))
+    })
+    private JarPhotoFrame originalContentFrame;
 
     @Column(name = "original_s3_deleted_at")
     private LocalDateTime originalS3DeletedAt;
@@ -121,6 +137,7 @@ public class JarDesignDraft {
         this.selectedGenerationId = generationId;
         clearSlot();
         clearCutout();
+        this.photoFrame = null;
     }
 
     /** 원본 이미지를 현재 선택으로 기록하고, 기존 Slot을 비운다. */
@@ -129,6 +146,7 @@ public class JarDesignDraft {
         this.selectedGenerationId = null;
         clearSlot();
         clearCutout();
+        this.photoFrame = null;
     }
 
     /**
@@ -140,6 +158,7 @@ public class JarDesignDraft {
         this.selectedGenerationId = null;
         clearSlot();
         clearCutout();
+        this.photoFrame = null;
     }
 
     /** ORIGINAL 또는 AI 이미지 위에 표시할 Slot의 정규화된 위치와 크기를 저장한다. */
@@ -158,6 +177,16 @@ public class JarDesignDraft {
     public void updateCutoutPathJson(String cutoutPathJson) {
         this.cutoutPathJson = cutoutPathJson;
     }
+
+    /** 본체/사진 배치는 한 잠금 안에서 교체하고 옛 좌표와 투명 외곽선은 새 배치에 재사용하지 않는다. */
+    public void updateComposition(JarBodyStyle bodyStyle, JarPhotoFrame frame) {
+        this.bodyStyle = bodyStyle;
+        this.photoFrame = frame;
+        clearSlot();
+        clearCutout();
+    }
+
+    public void setOriginalContentFrame(JarPhotoFrame frame) { this.originalContentFrame = frame; }
 
     /** 의미 있는 사용자 편집이 끝났을 때만 Draft의 유효 기간을 새로 계산한다. */
     public void extendExpiration(LocalDateTime expiresAt) {

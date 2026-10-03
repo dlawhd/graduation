@@ -4,6 +4,7 @@ import shop.esjh.memoryjar.enums.ai.JarDesignType;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -21,8 +22,14 @@ public record JarDesignResponse(
         BigDecimal slotSizeRatio,
         JarAiStyle aiStyle,
         JarSlotStyle slotStyle,
-        JarBodyStyle bodyStyle
+        JarBodyStyle bodyStyle,
+        JarPhotoFrameValue photoFrame
 ) {
+    public JarDesignResponse(JarDesignType designType, String imageUrl, OffsetDateTime imageExpiresAt,
+                             BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
+                             JarAiStyle aiStyle, JarSlotStyle slotStyle, JarBodyStyle bodyStyle) {
+        this(designType, imageUrl, imageExpiresAt, slotCenterX, slotCenterY, slotSizeRatio, aiStyle, slotStyle, bodyStyle, null);
+    }
     /** 본체 선택 이전 호출부는 기존 이미지 단독 렌더링을 유지한다. */
     public JarDesignResponse(JarDesignType designType, String imageUrl, OffsetDateTime imageExpiresAt,
                              BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,

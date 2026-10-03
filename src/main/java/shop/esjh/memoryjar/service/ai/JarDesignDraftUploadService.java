@@ -70,14 +70,15 @@ public class JarDesignDraftUploadService {
 
         byte[] uploadedBytes = readImageBytes(image);
         // 실제 바이트 검증과 480×480 PNG 정규화를 먼저 마쳐 심사·S3·AI 입력이 모두 같은 파일을 사용한다.
-        byte[] normalizedPngBytes = imageValidator.normalize(uploadedBytes);
+        DraftOriginalImageValidator.NormalizedOriginal normalized = imageValidator.normalizeWithContentFrame(uploadedBytes);
+        byte[] normalizedPngBytes = normalized.pngBytes();
         moderationService.verifyAllowed(normalizedPngBytes);
 
         String originalS3Key = createImmutableOriginalS3Key();
         putPrivateOriginal(originalS3Key, normalizedPngBytes);
 
         try {
-            JarDesignDraft draft = persistenceService.createDraft(userId, originalS3Key, bodyStyle);
+            JarDesignDraft draft = persistenceService.createDraft(userId, originalS3Key, bodyStyle, normalized.contentFrame());
             return new JarDesignDraftCreateResponse(draft.getDraftId(), draft.getExpiresAt());
         } catch (RuntimeException exception) {
             // S3 저장만 성공하고 DB Draft 생성이 실패하면 이 요청의 고유 객체만 보상 삭제한다.

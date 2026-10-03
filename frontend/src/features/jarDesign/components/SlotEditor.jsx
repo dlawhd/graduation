@@ -116,7 +116,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
             onPointerUp={(event) => { if (pointerId.current === event.pointerId) pointerId.current = null; }}
             onPointerCancel={() => { pointerId.current = null; }}
             onLostPointerCapture={() => { pointerId.current = null; }}>
-            {url && <JarDesignImage key={`${url}-${retrying}`} bodyStyle={draft.bodyStyle} imageUrl={url} alt="투입구를 배치할 선택 디자인"
+            {url && <JarDesignImage key={`${url}-${retrying}`} bodyStyle={draft.bodyStyle} photoFrame={draft.photoFrame} imageUrl={url} alt="투입구를 배치할 선택 디자인"
               className="h-full w-full select-none object-contain"
               imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)}
               onImageLoad={(event) => {

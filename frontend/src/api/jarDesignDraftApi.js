@@ -94,6 +94,12 @@ export async function updateJarDesignCutout(draftId, { regions, points, expected
   });
 }
 
+/** 원본을 다시 업로드하지 않고 본체와 사진 표시 영역을 저장한다. 오래된 화면의 변경은 서버가 거절한다. */
+export async function updateJarDesignComposition(draftId, composition) {
+  await ensureCsrf();
+  await apiClient.patch(`${DRAFT_BASE_URL}/${draftId}/composition`, composition);
+}
+
 /** Draft의 선택을 실제 Jar로 확정하고 생성된 Jar 식별자를 반환한다. */
 export async function finalizeJarDesignDraft(draftId, jarPayload) {
   await ensureCsrf();

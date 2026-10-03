@@ -38,6 +38,29 @@ class JarDesignDraftControllerTest {
  @MockitoBean JarAiGenerationPreviewService generationPreviewService;
  @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter; @MockitoBean JwtTokenProvider jwtTokenProvider;
  private TestingAuthenticationToken auth(){return new TestingAuthenticationToken(Map.of("userId",1L),null,"ROLE_USER");}
+ @Test void composition_acceptsBodyAndFrame() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/composition").principal(auth()).contentType("application/json").content("""
+      {"bodyStyle":"CAT","photoFrame":{"x":0.1,"y":0.2,"width":0.7,"height":0.5},"expectedDesignType":"ORIGINAL","expectedBodyStyle":"CAT"}
+      """)).andExpect(status().isNoContent());
+  verify(draftService).updateComposition(eq(1L),eq(10L),any());
+ }
+ @Test void composition_acceptsExplicitImageOnlyMode() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/composition").principal(auth()).contentType("application/json").content("""
+      {"bodyStyle":null,"photoFrame":null,"expectedDesignType":"AI","expectedGenerationId":7,"expectedBodyStyle":"CAT"}
+      """)).andExpect(status().isNoContent());
+  verify(draftService).updateComposition(eq(1L),eq(10L),any());
+ }
+ @Test void composition_rejectsInvalidPartialUnknownAndMissingTargetBeforeService() throws Exception {
+  for (String payload : new String[]{"{}", "{\"bodyStyle\":\"UNKNOWN\",\"expectedDesignType\":\"ORIGINAL\"}",
+      "{\"bodyStyle\":\"CAT\",\"expectedDesignType\":\"ORIGINAL\"}",
+      "{\"bodyStyle\":\"CAT\",\"photoFrame\":{\"x\":-1,\"y\":0,\"width\":1,\"height\":1},\"expectedDesignType\":\"ORIGINAL\"}"})
+    mockMvc.perform(patch("/api/v1/design-drafts/10/composition").principal(auth()).contentType("application/json").content(payload)).andExpect(status().isBadRequest());
+  verifyNoInteractions(draftService);
+ }
+ @Test void composition_requiresAuthentication() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/composition").contentType("application/json").content("{\"expectedDesignType\":\"ORIGINAL\"}"))
+      .andExpect(status().isUnauthorized()); verifyNoInteractions(draftService);
+ }
  @Test void upload_acceptsSelectedBody() throws Exception {
   mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", "CAT").principal(auth()))
           .andExpect(status().isCreated());

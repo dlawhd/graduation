@@ -46,8 +46,8 @@ class JarDesignDraftUploadServiceTest {
         JarDesignDraft draft = mock(JarDesignDraft.class);
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
-        when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
-        when(persistenceService.createDraft(eq(1L), anyString(), eq(JarBodyStyle.CAT))).thenReturn(draft);
+        when(imageValidator.normalizeWithContentFrame(new byte[]{1, 2, 3})).thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{7, 8, 9}, null));
+        when(persistenceService.createDraft(eq(1L), anyString(), eq(JarBodyStyle.CAT), isNull())).thenReturn(draft);
         when(draft.getDraftId()).thenReturn(100L);
         when(draft.getExpiresAt()).thenReturn(LocalDateTime.of(2026, 9, 25, 12, 0));
 
@@ -57,9 +57,9 @@ class JarDesignDraftUploadServiceTest {
         verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
         assertThat(requestCaptor.getValue().key()).startsWith("jar-design-drafts/originals/").endsWith(".png");
         assertThat(requestCaptor.getValue().ifNoneMatch()).isEqualTo("*");
-        verify(imageValidator).normalize(new byte[]{1, 2, 3});
+        verify(imageValidator).normalizeWithContentFrame(new byte[]{1, 2, 3});
         verify(moderationService).verifyAllowed(new byte[]{7, 8, 9});
-        verify(persistenceService).createDraft(eq(1L), anyString(), eq(JarBodyStyle.CAT));
+        verify(persistenceService).createDraft(eq(1L), anyString(), eq(JarBodyStyle.CAT), isNull());
         assertThat(response.draftId()).isEqualTo(100L);
     }
 
@@ -68,8 +68,8 @@ class JarDesignDraftUploadServiceTest {
         MockMultipartFile image = new MockMultipartFile("image", "canvas.png", "image/png", new byte[]{1, 2, 3});
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
-        when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
-        when(persistenceService.createDraft(eq(1L), anyString(), isNull())).thenThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_ACTIVE));
+        when(imageValidator.normalizeWithContentFrame(new byte[]{1, 2, 3})).thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{7, 8, 9}, null));
+        when(persistenceService.createDraft(eq(1L), anyString(), isNull(), isNull())).thenThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_ACTIVE));
 
         assertThatThrownBy(() -> uploadService.uploadOriginalAndCreateDraft(1L, image))
                 .isInstanceOf(ApiException.class)
@@ -86,7 +86,7 @@ class JarDesignDraftUploadServiceTest {
         MockMultipartFile image = new MockMultipartFile("image", "canvas.png", "image/png", new byte[]{1, 2, 3});
         when(userRepository.existsById(1L)).thenReturn(true);
         when(s3Properties.getBucket()).thenReturn("private-bucket");
-        when(imageValidator.normalize(new byte[]{1, 2, 3})).thenReturn(new byte[]{7, 8, 9});
+        when(imageValidator.normalizeWithContentFrame(new byte[]{1, 2, 3})).thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{7, 8, 9}, null));
         doThrow(SdkClientException.create("S3 unavailable"))
                 .when(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
 
@@ -95,6 +95,6 @@ class JarDesignDraftUploadServiceTest {
                 .extracting(error -> ((ApiException) error).getErrorCode())
                 .isEqualTo(AiDraftErrorCode.DRAFT_SOURCE_UPLOAD_FAILED);
 
-        verify(persistenceService, never()).createDraft(anyLong(), anyString(), any());
+        verify(persistenceService, never()).createDraft(anyLong(), anyString(), any(), any());
     }
 }

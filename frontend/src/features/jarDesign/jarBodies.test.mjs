@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { JAR_BODIES, JAR_BODY_COLLECTIONS, getJarBody, jarBodyWindowPath } from "./jarBodies.mjs";
 import { normalizeSlot, slotDimensions } from "./slotGeometry.mjs";
 
@@ -32,4 +33,24 @@ test("windows and recommended slots stay inside the shared 480 coordinate frame"
 
 test("legacy and unknown IDs do not silently select a different jar", () => {
   for (const id of [null, undefined, "", "UNKNOWN", "cat"]) assert.equal(getJarBody(id), null);
+});
+
+test("appearance refresh keeps every saved silhouette, photo window and slot coordinate unchanged", () => {
+  // 1b9894c의 도면 계약이다. 외형 개선 때문에 기존 그림이나 쪽지 입구 위치가 이동하면 안 된다.
+  const geometry = JAR_BODIES.map(({ id, path, window, slot }) => ({ id, path, window, slot }));
+  assert.equal(createHash("sha256").update(JSON.stringify(geometry)).digest("hex"), "82764fa855042e0c97eff208ea9367d36f0c09cb823c1f42560807ac2d988301");
+});
+
+test("all 30 objects have distinct complete finishes and valid gallery colors", () => {
+  assert.equal(new Set(JAR_BODIES.map((body) => JSON.stringify(body.colors))).size, 30);
+  assert.equal(new Set(JAR_BODIES.map((body) => body.detail)).size, 30);
+  for (const body of JAR_BODIES) {
+    assert.ok(body.detail.length > 4, body.id);
+    assert.ok(body.material.length > 4, body.id);
+    assert.ok(Object.isFrozen(body.colors));
+    assert.ok(Object.isFrozen(body.stage));
+    for (const color of [...Object.values(body.colors), ...Object.values(body.stage)]) {
+      assert.match(color, /^#[0-9a-f]{6}$/i, body.id);
+    }
+  }
 });

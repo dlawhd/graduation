@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-10-04 V39 증분: `JarDesignCompositionRequest`, `JarPhotoFrameValue` 및 Draft/Design의 `photoFrame`, Draft의 `originalContentFrame`을 추가했다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)이 이번 변경 기준이다. 아래 DTO 개수는 이전 집계다.
+
 ## 2026-10-03 본체 선택 응답 보충
 
 - `JarDesignDraftDetailResponse.bodyStyle`, `JarDesignResponse.bodyStyle`: nullable `JarBodyStyle` 문자열.

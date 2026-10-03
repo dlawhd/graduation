@@ -179,7 +179,7 @@ export default function JarDesignFinalizePanel({
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="최종 미리보기와 저금통 만들기">
       {finalizing && <CreationExperience theme={form.theme} name={form.name}>
-        {isCustom && imageUrl ? <div className="relative h-full w-full"><JarDesignImage bodyStyle={draft.bodyStyle} imageUrl={imageUrl} alt="만드는 중인 저금통" imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)} />{slot && <JarSlotOverlay slot={slot} />}</div> : null}
+        {isCustom && imageUrl ? <div className="relative h-full w-full"><JarDesignImage bodyStyle={draft.bodyStyle} photoFrame={draft.photoFrame} imageUrl={imageUrl} alt="만드는 중인 저금통" imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)} />{slot && <JarSlotOverlay slot={slot} />}</div> : null}
       </CreationExperience>}
       <div>
         <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700">마지막 단계</div>
@@ -192,7 +192,7 @@ export default function JarDesignFinalizePanel({
           <ThemePreviewStage theme={form.theme} name={form.name}>
           <div className="relative aspect-square overflow-hidden rounded-[24px] bg-white/40">
             {isCustom && imageUrl && (
-              <JarDesignImage key={imageKey} bodyStyle={draft.bodyStyle} imageUrl={imageUrl} alt="최종 저금통 디자인 미리보기"
+              <JarDesignImage key={imageKey} bodyStyle={draft.bodyStyle} photoFrame={draft.photoFrame} imageUrl={imageUrl} alt="최종 저금통 디자인 미리보기"
                 imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)}
                 onImageLoad={(event) => {
                   if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) {

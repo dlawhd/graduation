@@ -12,6 +12,8 @@ import shop.esjh.memoryjar.config.properties.S3Properties;
 import shop.esjh.memoryjar.dto.jar.response.JarDesignResponse;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.ai.JarDesign;
+import shop.esjh.memoryjar.entity.ai.JarPhotoFrame;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
 import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import shop.esjh.memoryjar.entity.jar.Jar;
@@ -64,6 +66,8 @@ class JarDesignViewServiceTest {
         JarDesign design = design(10L, "jar-designs/1/final.png");
         ReflectionTestUtils.setField(design, "slotStyle", JarSlotStyle.PIXEL);
         ReflectionTestUtils.setField(design, "bodyStyle", JarBodyStyle.CLASSIC);
+        var frame = new JarPhotoFrameValue(new BigDecimal("0.1"),new BigDecimal("0.2"),new BigDecimal("0.7"),new BigDecimal("0.5"));
+        ReflectionTestUtils.setField(design, "photoFrame", new JarPhotoFrame(frame));
         ReflectionTestUtils.setField(design, "selectedGeneration",
                 JarAiGeneration.builder().aiStyle(JarAiStyle.PIXEL).build());
         when(jarDesignRepository.findByJar_JarId(10L)).thenReturn(Optional.of(design));
@@ -82,6 +86,7 @@ class JarDesignViewServiceTest {
         assertThat(response.slotSizeRatio()).isEqualByComparingTo("0.60000");
         assertThat(response.slotStyle()).isEqualTo(JarSlotStyle.PIXEL);
         assertThat(response.bodyStyle()).isEqualTo(JarBodyStyle.CLASSIC);
+        assertThat(response.photoFrame()).isEqualTo(frame);
 
         ArgumentCaptor<GetObjectPresignRequest> requestCaptor =
                 ArgumentCaptor.forClass(GetObjectPresignRequest.class);

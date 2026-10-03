@@ -23,6 +23,8 @@ import shop.esjh.memoryjar.service.jar.JarService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import shop.esjh.memoryjar.entity.ai.JarPhotoFrame;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
 
 /**
  * Finalize의 DB 상태 검증과 Jar·JarDesign·Draft 확정을 짧은 트랜잭션으로 처리한다.
@@ -95,6 +97,7 @@ public class JarDesignFinalizePersistenceService {
                 .slotSizeRatio(actual.slotSizeRatio())
                 .slotStyle(actual.slotStyle())
                 .bodyStyle(actual.bodyStyle())
+                .photoFrame(actual.photoFrame() == null ? null : new JarPhotoFrame(actual.photoFrame()))
                 .build();
         designRepository.save(design);
         draft.markFinalized(jar);
@@ -130,7 +133,7 @@ public class JarDesignFinalizePersistenceService {
         requireSlot(draft);
         if (selectedType == JarDraftDesignType.ORIGINAL) {
             return new FinalizeTarget(JarDraftDesignType.ORIGINAL, draft.getOriginalS3Key(), null,
-                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle());
+                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()));
         }
 
         Long generationId = draft.getSelectedGenerationId();
@@ -143,7 +146,7 @@ public class JarDesignFinalizePersistenceService {
             throw new ApiException(AiDraftErrorCode.AI_GENERATION_FINALIZE_NOT_SELECTABLE);
         }
         return new FinalizeTarget(JarDraftDesignType.AI, generation.getGeneratedS3Key(), generation.getGenerationId(),
-                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle());
+                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()));
     }
 
     private void requireSlot(JarDesignDraft draft) {
@@ -171,9 +174,15 @@ public class JarDesignFinalizePersistenceService {
     /** S3 처리 전후에 비교하는 선택 종류·원본 Key·Generation·Slot·외곽선의 불변 Snapshot이다. */
     public record FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
                                  BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
-                                 String cutoutPathJson, JarSlotStyle slotStyle, JarBodyStyle bodyStyle) {
+                                 String cutoutPathJson, JarSlotStyle slotStyle, JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame) {
         public FinalizeTarget {
             slotStyle = JarSlotStyle.orDefault(slotStyle);
+        }
+
+        public FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
+                              BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
+                              String cutoutPathJson, JarSlotStyle slotStyle, JarBodyStyle bodyStyle) {
+            this(designType, sourceS3Key, generationId, slotCenterX, slotCenterY, slotSizeRatio, cutoutPathJson, slotStyle, bodyStyle, null);
         }
 
         /** 본체가 없던 기존 Draft의 Snapshot은 원본 이미지 표시를 유지한다. */

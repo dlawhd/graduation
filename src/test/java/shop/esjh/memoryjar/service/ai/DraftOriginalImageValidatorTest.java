@@ -24,6 +24,19 @@ class DraftOriginalImageValidatorTest {
     private final DraftOriginalImageValidator validator = new DraftOriginalImageValidator(properties());
 
     @Test
+    void contentFrameExcludesOnlyNormalizationPadding() throws Exception {
+        var landscape = validator.normalizeWithContentFrame(imageBytes("png", 800, 400));
+        assertThat(landscape.contentFrame().x()).isEqualByComparingTo("0");
+        assertThat(landscape.contentFrame().y()).isEqualByComparingTo("0.25");
+        assertThat(landscape.contentFrame().width()).isEqualByComparingTo("1");
+        assertThat(landscape.contentFrame().height()).isEqualByComparingTo("0.5");
+        var portrait = validator.normalizeWithContentFrame(imageBytes("png", 400, 800));
+        assertThat(portrait.contentFrame().x()).isEqualByComparingTo("0.25");
+        assertThat(portrait.contentFrame().width()).isEqualByComparingTo("0.5");
+        assertThat(decode(portrait.pngBytes()).getWidth()).isEqualTo(480);
+    }
+
+    @Test
     void normalize_keepsCanvasPngAs480By480Png() throws Exception {
         BufferedImage normalized = decode(validator.normalize(imageBytes("png", 480, 480)));
 

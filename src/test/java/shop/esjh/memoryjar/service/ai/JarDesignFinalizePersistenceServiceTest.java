@@ -9,6 +9,8 @@ import shop.esjh.memoryjar.dto.jar.request.JarCreateRequest;
 import shop.esjh.memoryjar.entity.ai.JarAiGeneration;
 import shop.esjh.memoryjar.entity.ai.JarDesign;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
+import shop.esjh.memoryjar.entity.ai.JarPhotoFrame;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus;
@@ -150,6 +152,26 @@ class JarDesignFinalizePersistenceServiceTest {
 
     private JarDesignFinalizePersistenceService service() {
         return new JarDesignFinalizePersistenceService(draftRepository, generationRepository, designRepository, jarService);
+    }
+
+    @Test
+    void finalizeCustomCopiesFrameAndRejectsFrameChangedDuringS3Copy() {
+        JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(draft.getBodyStyle()).thenReturn(JarBodyStyle.CAT);
+        var frame = new JarPhotoFrameValue(new BigDecimal("0.1"),new BigDecimal("0.2"),new BigDecimal("0.7"),new BigDecimal("0.5"));
+        when(draft.getPhotoFrame()).thenReturn(new JarPhotoFrame(frame));
+        stubSlot(draft);
+        var expected = service().prepare(1L,10L);
+        assertThat(expected.photoFrame()).isEqualTo(frame);
+        when(draft.getPhotoFrame()).thenReturn(null);
+        assertThatThrownBy(() -> service().finalizeCustom(1L,10L,request(),expected,"final.png"))
+                .isInstanceOf(ApiException.class).extracting(e -> ((ApiException)e).getErrorCode()).isEqualTo(AiDraftErrorCode.FINALIZE_TARGET_CHANGED);
+        verifyNoInteractions(jarService,designRepository);
+        when(draft.getPhotoFrame()).thenReturn(new JarPhotoFrame(frame));
+        Jar jar=mock(Jar.class); when(jar.getJarId()).thenReturn(102L); when(jarService.createJarForDesignFinalize(eq(1L),any())).thenReturn(jar);
+        service().finalizeCustom(1L,10L,request(),expected,"final.png");
+        verify(designRepository).save(argThat(design -> frame.equals(JarPhotoFrame.valueOf(design.getPhotoFrame()))));
     }
 
     @Test

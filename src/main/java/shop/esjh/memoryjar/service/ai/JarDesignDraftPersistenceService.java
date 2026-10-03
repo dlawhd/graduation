@@ -13,6 +13,8 @@ import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
+import shop.esjh.memoryjar.entity.ai.JarPhotoFrame;
 
 /**
  * 이미 S3에 안전하게 저장된 원본 Key를 DB Draft로 짧게 기록한다.
@@ -40,6 +42,12 @@ public class JarDesignDraftPersistenceService {
      */
     @Transactional
     public JarDesignDraft createDraft(Long userId, String originalS3Key, JarBodyStyle bodyStyle) {
+        return createDraft(userId, originalS3Key, bodyStyle, null);
+    }
+
+    /** 정규화 여백 정보는 추가 이미지 디코딩이나 네트워크 호출 없이 같은 INSERT에 기록한다. */
+    @Transactional
+    public JarDesignDraft createDraft(Long userId, String originalS3Key, JarBodyStyle bodyStyle, JarPhotoFrameValue contentFrame) {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
@@ -51,6 +59,7 @@ public class JarDesignDraftPersistenceService {
                 .expiresAt(expiresAt)
                 .build();
 
+        if (contentFrame != null) draft.setOriginalContentFrame(new JarPhotoFrame(contentFrame));
         return draftRepository.save(draft);
     }
 }

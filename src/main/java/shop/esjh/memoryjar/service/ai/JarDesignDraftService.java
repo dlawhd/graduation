@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Objects;
 import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
+import shop.esjh.memoryjar.dto.ai.request.JarDesignCompositionRequest;
+import shop.esjh.memoryjar.entity.ai.JarPhotoFrame;
 
 /**
  * Draft OWNER가 유효한 후보와 Slot을 선택하도록 처리한다.
@@ -53,7 +55,8 @@ public class JarDesignDraftService {
         return new JarDesignDraftDetailResponse(draft.getDraftId(), draft.getStatus(), draft.getSelectedDesignType(), draft.getSelectedGenerationId(),
                 draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), legacyCutoutPoints, cutoutRegions,
                 draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations,
-                draft.getSlotStyle(), draft.getBodyStyle());
+                draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()),
+                JarPhotoFrame.valueOf(draft.getOriginalContentFrame()));
     }
 
     /**
@@ -160,6 +163,9 @@ public class JarDesignDraftService {
             throw new ApiException(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
         }
 
+        // 사진 창 채우기와 투명 외곽선은 다른 제작 방식이다. 오래된 탭이 채우기 위에 구멍을 만들지 못하게 한다.
+        if (draft.getPhotoFrame() != null && regions != null && !regions.isEmpty())
+            throw new ApiException(AiDraftErrorCode.DRAFT_PHOTO_FRAME_INVALID);
         if (regions == null || regions.isEmpty()) {
             draft.updateCutoutPathJson(null);
         } else {
@@ -187,6 +193,27 @@ public class JarDesignDraftService {
 
     private void extendExpiration(JarDesignDraft draft) {
         draft.extendExpiration(LocalDateTime.now(KST).plusDays(properties.getExpiresAfterDays()));
+    }
+
+    /** OWNER/만료 검사와 행 잠금 뒤 편집 시작 시의 후보·본체·배치를 비교해 오래된 탭의 덮어쓰기를 막는다. */
+    @Transactional
+    public void updateComposition(Long userId, Long draftId, JarDesignCompositionRequest request) {
+        JarDesignDraft draft = findOwnedActiveDraftForUpdate(userId, draftId);
+        if (request.expectedDesignType() != draft.getSelectedDesignType()
+                || !Objects.equals(request.expectedGenerationId(), draft.getSelectedGenerationId())
+                || request.expectedBodyStyle() != draft.getBodyStyle()
+                || !Objects.equals(request.expectedPhotoFrame(), JarPhotoFrame.valueOf(draft.getPhotoFrame())))
+            throw new ApiException(AiDraftErrorCode.DRAFT_COMPOSITION_TARGET_CHANGED);
+        if (!draft.hasCustomDesignSelection())
+            throw new ApiException(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
+        if (!request.isCompositionConsistent())
+            throw new ApiException(AiDraftErrorCode.DRAFT_PHOTO_FRAME_INVALID);
+        if (request.photoFrame() != null) request.photoFrame().validate();
+        // 변경 없는 반복 적용은 투입구/이미지 단독 외곽선을 지우지 않는 멱등 요청이다.
+        if (request.bodyStyle() == draft.getBodyStyle()
+                && Objects.equals(request.photoFrame(), JarPhotoFrame.valueOf(draft.getPhotoFrame()))) return;
+        draft.updateComposition(request.bodyStyle(), request.photoFrame() == null ? null : new JarPhotoFrame(request.photoFrame()));
+        extendExpiration(draft);
     }
 
 }
