@@ -5,6 +5,8 @@ import noteApi from "../api/noteApi";
 import fileApi from "../api/fileApi";
 import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
 import NoteIntoJarIcon from "../components/icons/NoteIntoJarIcon";
+import FlyingNote from "../features/note/components/FlyingNote";
+import { createNoteFlight, NOTE_FLIGHT_DURATION } from "../features/jarDetail/utils/noteFlightGeometry.mjs";
 import { createPortal } from "react-dom";
 import NoteAttachmentPicker, {
   NOTE_ATTACHMENT_LIMIT,
@@ -1302,29 +1304,10 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
   // 화면 가운데에서 저금통 입구까지 쪽지를 날려 보내는 함수
   function startFlyingNoteToJar() {
     const target = getJarDropTargetRect?.();
+    const geometry = createNoteFlight(target, { width: window.innerWidth, height: window.innerHeight });
+    if (!geometry) return 0;
 
-    if (!target) {
-      return 0;
-    }
-
-    const noteWidth = 76;
-    const noteHeight = 92;
-
-    // 모달이 화면 가운데에서 열리니까 시작점도 화면 가운데로 잡아줘
-    const startX = window.innerWidth / 2 - noteWidth / 2;
-    const startY = window.innerHeight / 2 - noteHeight / 2;
-
-    const endX = target.x - noteWidth / 2;
-    const endY = target.y - noteHeight / 2;
-
-    const nextFlight = {
-      id: Date.now(),
-      startX,
-      startY,
-      deltaX: endX - startX,
-      deltaY: endY - startY,
-    };
-
+    const nextFlight = { id: Date.now(), ...geometry };
     setFlyingNote(nextFlight);
 
     // 애니메이션 끝나면 화면에서 제거
@@ -1332,9 +1315,9 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
       setFlyingNote((current) =>
         current?.id === nextFlight.id ? null : current
       );
-    }, 920);
+    }, NOTE_FLIGHT_DURATION);
 
-    return 920;
+    return NOTE_FLIGHT_DURATION;
   }
 
   async function loadNotes(nextQuery = query) {
@@ -1573,6 +1556,10 @@ async function handleCreateNote() {
     setPaperVisible(false);
     setComposerPhase("closed");
     setComposerStep("form");
+
+    // 모달 제거가 화면에 반영된 뒤 측정해야 모바일 스크롤·레이아웃의 최신 위치를 목표로 삼는다.
+    // 백그라운드 탭에서는 RAF가 멈출 수 있으므로 저장 완료 처리를 기다리게 하지 않는다.
+    if (!document.hidden) await new Promise((resolve) => window.requestAnimationFrame(resolve));
 
     // 작은 접힌 쪽지를 저금통 쪽으로 날려 보냄
     const flightDuration = startFlyingNoteToJar();
@@ -2508,40 +2495,6 @@ async function handleCreateNote() {
             animation: paperContentHide 180ms ease-in both;
           }
 
-          @keyframes noteFlightToJar {
-            0% {
-              opacity: 1;
-              transform: translate(0, 0) scale(1) rotate(-8deg);
-            }
-            35% {
-              opacity: 1;
-              transform: translate(
-                calc(var(--note-dx) * 0.34),
-                calc(var(--note-dy) * 0.22 - 26px)
-              ) scale(0.92) rotate(6deg);
-            }
-            75% {
-              opacity: 1;
-              transform: translate(
-                calc(var(--note-dx) * 0.82),
-                calc(var(--note-dy) * 0.86)
-              ) scale(0.46) rotate(12deg);
-            }
-            100% {
-              opacity: 0;
-              transform: translate(var(--note-dx), var(--note-dy)) scale(0.16) rotate(18deg);
-            }
-          }
-
-          .note-flight-paper {
-            position: fixed;
-            width: 76px;
-            height: 92px;
-            pointer-events: none;
-            z-index: 140;
-            animation: noteFlightToJar 920ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            filter: drop-shadow(0 18px 28px rgba(15, 23, 42, 0.2));
-          }
         `}
       </style>
 
@@ -2591,26 +2544,8 @@ async function handleCreateNote() {
         reacting={reactingNoteId === detailNoteId}
         onReact={(emoji) => handleReactToNote(detailNoteId, emoji)}
       />
-      {flyingNote && (
-        <div
-          className="note-flight-paper"
-          style={{
-            left: `${flyingNote.startX}px`,
-            top: `${flyingNote.startY}px`,
-            "--note-dx": `${flyingNote.deltaX}px`,
-            "--note-dy": `${flyingNote.deltaY}px`,
-          }}
-        >
-          {/* 저금통으로 날아가는 쪽지도 같은 SVG를 사용한다.
-              작은 크기와 장식 없는 버전으로 써서 움직일 때 깔끔하게 보이게 한다. */}
-          <MemoryDrawNoteIcon
-            sizeClass="h-full w-full"
-            withShadow={false}
-            withDecorations={false}
-            centered={false}
-          />
-        </div>
-      )}
+      {/* 저금통으로 날아가는 쪽지도 같은 SVG를 사용하고, 화면 좌표에 맞춘 공통 이동 레이어에 표시한다. */}
+      <FlyingNote flight={flyingNote} />
       {toast.show && (
         <div className="fixed right-6 top-6 z-[120]">
           <div

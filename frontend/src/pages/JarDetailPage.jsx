@@ -33,6 +33,7 @@ import {
   formatDateTimeLocalValue,
   toKstOffsetDateTime,
 } from "../features/jarDetail/utils/jarDetailDateUtils";
+import { measureJarDropTarget } from "../features/jarDetail/utils/noteFlightGeometry.mjs";
 import {
   normalizeCommentItems,
   getTotalCommentCount,
@@ -2561,26 +2562,8 @@ function handleOpenNoteComposer() {
 
 // 쪽지가 날아가서 들어갈 "저금통 입구" 좌표를 계산해 주는 함수
 function getJarDropTargetRect() {
-  const jarElement = jarVisualRef.current;
-
-  if (!jarElement) return null;
-
-  // 커스텀 저금통은 본체마다 입구 위치가 달라 실제 저장된 슬롯의 화면 좌표를 사용한다.
-  const slotElement = jarElement.querySelector("[data-jar-slot-target]");
-  if (slotElement) {
-    const slotRect = slotElement.getBoundingClientRect();
-    return { x: slotRect.left + slotRect.width / 2, y: slotRect.top + slotRect.height / 2 };
-  }
-
-  const rect = jarElement.getBoundingClientRect();
-
-  return {
-    // 저금통 가로 가운데
-    x: rect.left + rect.width / 2,
-
-    // 뚜껑 바로 아래쯤을 목표 지점으로 잡아줘
-    y: rect.top + 86,
-  };
+  // 기본·커스텀 모두 실제 입구 중심을 쓴다. 이미지 오류 등으로 입구가 없으면 애니메이션만 생략한다.
+  return measureJarDropTarget(jarVisualRef.current);
 }
 
 // 확대 모달에서 보여줄 쪽지 목록 불러오기

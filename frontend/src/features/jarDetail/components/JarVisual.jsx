@@ -217,7 +217,7 @@ export default function JarVisual({
             <div
               className={`absolute top-[48px] z-20 h-10 w-36 rounded-full ${palette.lid} shadow-lg`}
             />
-            <div className="absolute top-[60px] z-30 h-2 w-14 rounded-full bg-slate-700/80" />
+            <div data-jar-slot-target className="absolute top-[60px] z-30 h-2 w-14 rounded-full bg-slate-700/80" />
 
             <div
               className={`relative z-10 mt-8 h-[210px] w-[180px] overflow-hidden rounded-[42%_42%_28%_28%] border-4 ${palette.jarBody} shadow-[0_20px_50px_rgba(15,23,42,0.12)]`}
