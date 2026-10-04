@@ -1,5 +1,7 @@
 # API
 
+> 2026-10-04 V40 증분: 같은 composition API의 `photoFrame.fit`/`expectedPhotoFrame.fit`에 COVER 또는 CONTAIN을 저장한다. 생략은 COVER, 기존 NULL 배치는 유지한다. 전체 보기와 30종 연출 계약은 [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다.
+
 > 2026-10-04 V39 증분: `PATCH /api/v1/design-drafts/{draftId}/composition`과 사진 배치 응답 필드를 추가했다. 요청·오류·호환성은 [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다. 아래 API 개수는 이전 집계이며 이번 작업에서 전수 재집계하지 않았다.
 
 실제 구현 기준

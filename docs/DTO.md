@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-10-04 V40 증분: `JarPhotoFrameValue.fit`은 COVER/CONTAIN이며 생략·NULL은 COVER로 해석한다. Draft/Design/최종화에서 같은 값에 포함한다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다.
+
 > 2026-10-04 V39 증분: `JarDesignCompositionRequest`, `JarPhotoFrameValue` 및 Draft/Design의 `photoFrame`, Draft의 `originalContentFrame`을 추가했다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)이 이번 변경 기준이다. 아래 DTO 개수는 이전 집계다.
 
 ## 2026-10-03 본체 선택 응답 보충

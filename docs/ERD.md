@@ -1,5 +1,7 @@
 # Memory Jar ERD — Markdown 문서판
 
+> 2026-10-04 V40 증분: Draft/Design에 nullable `photo_fit VARCHAR(10)`, Draft 원본 영역에 nullable `original_fit VARCHAR(10)`과 허용값/좌표 존재 CHECK를 추가한다. 기존 값 백필·테이블·쿼리 추가는 없다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다.
+
 > 2026-10-04 V39 증분: Draft에 사진 배치/원본 영역 각 4개, Design에 사진 배치 4개의 nullable DECIMAL(7,6) 컬럼과 CHECK를 추가한다. 테이블·FK·인덱스는 늘리지 않는다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다. 기존 NULL은 백필하지 않는다.
 
 > 2026-10-03 V38 보충: `jar_design_drafts`, `jar_designs`에 nullable `body_style VARCHAR(30)`과 30종 허용값 CHECK를 추가한다. 기존 행은 NULL로 유지하며 테이블/FK/인덱스 수는 변경하지 않는다. 아래 V33 기준 구조는 당시 기록이고, 최신 증분은 Flyway V34~V38 및 `docs/ai/AI_ERD.md`를 함께 확인한다.

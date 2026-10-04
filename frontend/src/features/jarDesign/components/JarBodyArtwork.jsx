@@ -1,17 +1,23 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { getJarBody } from "../jarBodies.mjs";
 import JarSlotOverlay from "./JarSlotOverlay";
 import { photoFrameStyle } from "../photoFraming.mjs";
+import { JAR_BODY_MOTIONS, observeJarMotion } from "../jarBodyMotion.mjs";
+import "../jarBodyMotion.css";
 
 /** 480 좌표의 저금통·사진 창·장식을 겹쳐 모든 화면에서 같은 완성 모습을 만든다. */
 export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageRendering = "auto", className = "", alt = "선택한 저금통", onImageLoad, onImageError, showDefaultSlot = false, imageStyle }) {
   const id = useId().replace(/:/g, "");
+  const motionRef = useRef(null);
   const body = getJarBody(bodyStyle);
+  useEffect(() => observeJarMotion(motionRef.current), [bodyStyle]);
   if (!body) return null;
   const { colors: c, window: w } = body;
   const paint = (name) => `url(#${id}-${name})`;
-  const frameStyle = photoFrameStyle(photoFrame);
-  return <div role="img" aria-label={alt} className={`relative aspect-square isolate ${className}`} data-jar-body={body.id}>
+  const frameStyle = photoFrameStyle(photoFrame, w);
+  const motion = JAR_BODY_MOTIONS[body.id];
+  return <div ref={motionRef} role="img" aria-label={alt} className={`jar-artwork relative aspect-square isolate ${className}`} data-jar-body={body.id} data-jar-motion={motion.kind}
+    style={{ "--jar-motion-delay": `${motion.delay}s`, "--jar-motion-duration": `${motion.duration}s` }}>
     <svg aria-hidden="true" viewBox="0 0 480 480" className="pointer-events-none absolute inset-0 h-full w-full">
       <defs>
         <linearGradient id={`${id}-body`} x1=".12" y1="0" x2=".85" y2="1"><stop stopColor={c.light}/><stop offset=".34" stopColor={c.base}/><stop offset=".7" stopColor={c.base}/><stop offset="1" stopColor={c.shade}/></linearGradient>
@@ -23,17 +29,21 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
         <pattern id={`${id}-grain`} width="13" height="13" patternUnits="userSpaceOnUse"><circle cx="2" cy="3" r=".7" fill={c.shade} opacity=".16"/><path d="M8 9h2" stroke={c.light} strokeWidth="1" opacity=".4"/></pattern>
         <radialGradient id={`${id}-glow`} cx=".32" cy=".23" r=".8"><stop stopColor={c.light} stopOpacity=".55"/><stop offset=".65" stopColor={c.light} stopOpacity="0"/><stop offset="1" stopColor={c.shade} stopOpacity=".23"/></radialGradient>
         <mask id={`${id}-photo-safe`} maskUnits="userSpaceOnUse" x="0" y="0" width="480" height="480"><rect width="480" height="480" fill="white"/><rect x={w.x-4} y={w.y-4} width={w.width+8} height={w.height+8} rx={w.radius+4} fill="black"/></mask>
+        {/* 기존 고래 실루엣 좌표는 보존하고 꼬리만 별도 관절로 그려 이중 꼬리를 막는다. */}
+        {body.id === "WHALE" && <mask id={`${id}-still-body`} maskUnits="userSpaceOnUse" x="0" y="0" width="480" height="480"><rect width="480" height="480" fill="white"/><rect x="383" y="216" width="97" height="122" fill="black"/></mask>}
       </defs>
       <ellipse cx="240" cy="441" rx="164" ry="23" fill={paint("shadow")}/>
       <Decorations body={body} paint={paint} layer="back"/>
+      <g mask={body.id === "WHALE" ? paint("still-body") : undefined}>
       <path d={body.path} fill={c.shade} opacity=".18" transform="translate(0 7)"/>
       <path d={body.path} fill={paint("body")} stroke={c.shade} strokeWidth="3" strokeLinejoin="round"/>
       <g clipPath={paint("body-clip")}>
         <path d={body.path} fill={paint("glow")}/>
         <path d={body.path} fill={paint("grain")}/>
-        <path d="M125 54Q81 247 126 444L151 444Q111 251 154 53Z" fill={paint("shine")} opacity=".38"/>
+        <path className="jar-motion jar-glaze" d="M125 54Q81 247 126 444L151 444Q111 251 154 53Z" fill={paint("shine")} opacity=".38"/>
         <path d="M365 66Q404 269 352 425" fill="none" stroke={c.shade} strokeWidth="20" opacity=".15"/>
         <path d={body.path} transform="translate(240 245) scale(.965) translate(-240 -245)" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth="2"/>
+      </g>
       </g>
       <rect x={w.x-9} y={w.y-5} width={w.width+18} height={w.height+18} rx={w.radius+9} fill={c.shade} opacity=".25"/>
       <rect x={w.x-7} y={w.y-7} width={w.width+14} height={w.height+14} rx={w.radius+7} fill={paint("rim")} stroke={c.accent} strokeOpacity=".85" strokeWidth="2"/>
@@ -44,6 +54,7 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
       {/* HTML img를 사용해 만료 URL 재시도와 자연 크기 검증 콜백을 기존 흐름 그대로 유지한다. */}
       {/* 마스크 좌표는 480 정사각형 기준이다. 직사각형 사진 창에서도 img 자체는 정사각형으로 유지한다. */}
       {/* 저장된 배치가 있으면 창을 꽉 채운다. NULL인 기존 저금통은 예전 마스크/contain 표시를 유지한다. */}
+      {/* V40의 CONTAIN 배치는 사진 전체와 모서리까지 창 안에 보존한다. 기본 COVER 공식은 그대로다. */}
       <img src={imageUrl} alt="" draggable={false} className={frameStyle ? "select-none" : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none object-contain"}
         style={frameStyle ? { ...frameStyle, imageRendering } : { ...imageStyle, imageRendering, width: `${Math.min(w.width,w.height)/w.width*100}%`, height: `${Math.min(w.width,w.height)/w.height*100}%` }} onLoad={onImageLoad} onError={onImageError}/>
     </div>}
@@ -51,7 +62,7 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
       <rect x={w.x} y={w.y} width={w.width} height={w.height} rx={w.radius} fill="none" stroke={c.shade} strokeOpacity=".4" strokeWidth="2"/>
       <path d={`M${w.x+18} ${w.y-3}H${w.x+w.width-18}`} stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity=".85"/>
       {/* 어떤 장식을 추가해도 사용자의 그림 창은 가리지 않는다. 입구는 이 마스크 밖의 별도 오버레이다. */}
-      <g mask={paint("photo-safe")} data-jar-photo-safe><Decorations body={body} paint={paint} layer="front"/></g>
+      <g mask={paint("photo-safe")} data-jar-photo-safe><Decorations body={body} paint={paint} layer="front"/><Atmosphere body={body}/></g>
     </svg>
     {showDefaultSlot && <JarSlotOverlay slot={body.slot}/>}
   </div>;
@@ -59,21 +70,39 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
 
 /** 작은 세공 요소는 같은 선 굵기를 재사용하되, 배치와 색은 오브제마다 다르게 정한다. */
 function Spark({ x, y, size = 9, color = "#cfb16d" }) {
-  return <path d="M0-10L2.7-2.7L10 0L2.7 2.7L0 10L-2.7 2.7L-10 0L-2.7-2.7Z" transform={`translate(${x} ${y}) scale(${size/10})`} fill={color}/>;
+  return <g transform={`translate(${x} ${y}) scale(${size/10})`}><path className={`jar-motion jar-spark ${x > 300 ? "jar-motion-secondary" : y > 300 ? "jar-motion-tertiary" : ""}`} d="M0-10L2.7-2.7L10 0L2.7 2.7L0 10L-2.7 2.7L-10 0L-2.7-2.7Z" fill={color}/></g>;
 }
 
 function Sprig({ x, y, scale = 1, rotate = 0, color = "#d9c087" }) {
   return <g transform={`translate(${x} ${y}) rotate(${rotate}) scale(${scale})`} fill={color} stroke={color} strokeWidth="1.4">
-    <path d="M0 0Q-8-30 0-65" fill="none"/>
-    <path d="M-3-14Q-23-13-21-29Q-8-29-3-14M-4-32Q-21-34-17-46Q-5-45-4-32M-2-48Q-12-56-5-66Q4-60-2-48M-3-23Q15-20 16-38Q2-36-3-23M-3-42Q13-40 12-55Q0-53-3-42" stroke="none"/>
+    <g className="jar-motion jar-sprig"><path d="M0 0Q-8-30 0-65" fill="none"/>
+    <path d="M-3-14Q-23-13-21-29Q-8-29-3-14M-4-32Q-21-34-17-46Q-5-45-4-32M-2-48Q-12-56-5-66Q4-60-2-48M-3-23Q15-20 16-38Q2-36-3-23M-3-42Q13-40 12-55Q0-53-3-42" stroke="none"/></g>
   </g>;
 }
 
 function Rosette({ x, y, size = 14, color = "#e4bac9", center = "#c9a366" }) {
   return <g transform={`translate(${x} ${y}) scale(${size/14})`}>
+    <g className="jar-motion jar-rosette">
     {[0,60,120,180,240,300].map((angle) => <ellipse key={angle} cx="0" cy="-9" rx="5" ry="9" transform={`rotate(${angle})`} fill={color}/>)}
-    <circle r="5" fill={center}/><circle cx="-1" cy="-1" r="1.5" fill="#fff7d9"/>
+    <circle r="5" fill={center}/><circle cx="-1" cy="-1" r="1.5" fill="#fff7d9"/></g>
   </g>;
+}
+
+/** 사진 창 밖에만 보이는 작은 공기·빛 연출이다. 움직이는 장식도 같은 사진 보호 마스크를 사용한다. */
+function Atmosphere({ body }) {
+  const kind = JAR_BODY_MOTIONS[body.id].kind, color = body.colors.accent;
+  if (body.id === "PERFUME") return <><Spark x={105} y={144} size={7} color={color}/><Spark x={366} y={111} size={9} color={color}/><Spark x={390} y={365} size={5} color={color}/></>;
+  if (kind === "steam" || kind === "chimney") {
+    const x = kind === "chimney" ? 331 : 82, y = kind === "chimney" ? 66 : 160;
+    return <g fill="none" stroke={body.colors.shade} strokeWidth="2" strokeLinecap="round">
+      <path className="jar-motion jar-steam" d={`M${x} ${y}q-9-9 0-19q9-9 0-19`}/>
+      <path className="jar-motion jar-steam jar-motion-secondary" d={`M${x+13} ${y-4}q-7-8 0-16q7-9 0-16`}/>
+    </g>;
+  }
+  if (kind === "bubble") return <g fill="none" stroke={body.colors.light} strokeWidth="2"><circle className="jar-motion jar-bubble" cx="174" cy="99" r="5"/><circle className="jar-motion jar-bubble jar-motion-secondary" cx="230" cy="86" r="3.5"/></g>;
+  if (kind === "snow") return <g fill="#fffdf1"><circle className="jar-motion jar-snow" cx="132" cy="157" r="2.5"/><circle className="jar-motion jar-snow jar-motion-secondary" cx="351" cy="195" r="3"/><circle className="jar-motion jar-snow jar-motion-tertiary" cx="370" cy="282" r="2"/></g>;
+  if (kind === "lantern") return <path className="jar-motion jar-lantern" d="M229 395C212 383 239 375 235 365C253 384 249 391 229 395Z" fill="#fff0b6"/>;
+  return null;
 }
 
 /** 사진을 넣기 전에는 각 오브제의 이야기를 작은 판화로 보여준다. 실제 사진이 있으면 렌더링하지 않는다. */
@@ -127,10 +156,15 @@ function Decorations({ body, paint, layer }) {
     if (id === "TEAPOT") return <ellipse cx="354" cy="253" rx="49" ry="68" fill="none" stroke={c.shade} strokeWidth="23"/>;
     if (id === "LANTERN") return <path d="M197 112V75Q240 15 283 75V112" fill="none" stroke={c.accent} strokeWidth="12"/>;
     if (id === "PLANET") return <ellipse cx="240" cy="267" rx="217" ry="53" transform="rotate(-24 240 267)" fill="none" stroke={c.accent} strokeWidth="14"/>;
+    // 뿌리는 몸통 뒤에 숨기고 관절 위치를 고정해 사진 창·입구에 영향을 주지 않는다.
+    if (id === "CAT") return <g className="jar-motion jar-tail" style={{transformOrigin:"369px 378px"}}><path d="M369 378C426 391 443 351 421 323C402 298 397 283 411 268" fill="none" stroke={c.shade} strokeWidth="20" strokeLinecap="round"/><path d="M370 375C424 387 438 351 419 325C401 301 397 283 411 268" fill="none" stroke={paint("body")} strokeWidth="13" strokeLinecap="round"/><path d="M411 315l14-7m-19-9 12-7" stroke={c.accent} strokeWidth="3"/></g>;
+    if (id === "PIG") return <g className="jar-motion jar-curly-tail" style={{transformOrigin:"390px 282px"}}><path d="M390 282C435 296 446 259 421 257C402 254 402 278 420 275" fill="none" stroke={c.shade} strokeWidth="8" strokeLinecap="round"/></g>;
+    if (id === "BEAR" || id === "RABBIT") return <g className="jar-motion jar-pom-tail" style={{transformOrigin:"365px 364px"}}><circle cx="368" cy="363" r={id === "RABBIT" ? 22 : 15} fill={paint("body")} stroke={c.shade} strokeWidth="2"/><path d="M371 350q10 4 10 13" fill="none" stroke={c.light} strokeWidth="3" strokeLinecap="round"/></g>;
+    if (id === "WHALE") return <g className="jar-motion jar-fin" style={{transformOrigin:"379px 290px"}}><path d="M376 273Q411 216 448 229L427 280L464 304Q425 335 381 309L369 295Z" fill={paint("body")} stroke={c.shade} strokeWidth="3" strokeLinejoin="round"/><path d="M394 270l38-27m-35 59 43 5" stroke={c.light} strokeWidth="2" fill="none"/></g>;
     return null;
   }
   const cap = (x,y,w,h,r=10) => <g><rect x={x} y={y} width={w} height={h} rx={r} fill={paint("metal")} stroke={c.accent} strokeWidth="2"/><path d={`M${x+8} ${y+7}H${x+w-8}`} stroke="#fff7df" strokeOpacity=".75" strokeWidth="3" strokeLinecap="round"/></g>;
-  const eyes = (y, x=205, gap=70, color="#45403d") => <g fill={color}><ellipse cx={x} cy={y} rx="5" ry="7"/><ellipse cx={x+gap} cy={y} rx="5" ry="7"/><circle cx={x-1} cy={y-2} r="1.6" fill="#fff"/><circle cx={x+gap-1} cy={y-2} r="1.6" fill="#fff"/></g>;
+  const eyes = (y, x=205, gap=70, color="#45403d") => <g fill={color}><g className="jar-motion jar-eye"><ellipse cx={x} cy={y} rx="5" ry="7"/><circle cx={x-1} cy={y-2} r="1.6" fill="#fff"/></g><g className="jar-motion jar-eye"><ellipse cx={x+gap} cy={y} rx="5" ry="7"/><circle cx={x+gap-1} cy={y-2} r="1.6" fill="#fff"/></g></g>;
   const rivets = (points) => <g fill={c.light} stroke={c.accent} strokeWidth="1.5">{points.map(([x,y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="3.5"/>)}</g>;
   switch(id) {
     case "CLASSIC": return <>
@@ -188,7 +222,7 @@ function Decorations({ body, paint, layer }) {
       <path d="M88 230q28 80 122 162m182-162q-28 80-122 162" stroke={c.accent} strokeWidth="3" strokeDasharray="1 9" fill="none"/>
       <path d="M239 116C205 105 193 75 218 78l22 23 22-23c25-3 13 27-21 38Z" fill={c.accent} stroke="#f6d7ab" strokeWidth="2"/>
       <path d="M226 116l-20 31 20-7 8-24m20 0 20 31-20-7-8-24" fill={c.accent}/>
-      <path d="M229 380q11-17 22 0l-11 16Z" fill={paint("metal")}/><Rosette x={371} y={170} size={12} color={c.light} center={c.accent}/>
+      <path className="jar-motion jar-heart" d="M229 380q11-17 22 0l-11 16Z" fill={paint("metal")}/><Rosette x={371} y={170} size={12} color={c.light} center={c.accent}/>
     </>;
     case "STAR": return <>
       <g fill={c.light} opacity=".45"><path d="M240 69v103l-48-14ZM87 182l69 80 18-63ZM327 269l17 90-47-49Z"/></g>
@@ -208,7 +242,7 @@ function Decorations({ body, paint, layer }) {
       <g fill="none" strokeLinecap="round"><path d="M153 166Q132 141 110 155M226 121Q256 92 281 115M358 181q24-8 40 14" stroke="#fff" strokeWidth="7" opacity=".6"/>
       <path d="M114 352q118 25 252 0" stroke={c.accent} strokeWidth="2" strokeDasharray="1 7"/>
       <path d="M143 375v34m55-32v45m87-47v29m53-33v39" stroke={c.accent} strokeWidth="2"/></g>
-      <g fill={paint("metal")}><path d="M143 403q-16 20 0 23q16-3 0-23ZM285 397q-13 16 0 20q13-4 0-20Z"/></g>
+      <g fill={paint("metal")}><path className="jar-motion jar-rain" d="M143 403q-16 20 0 23q16-3 0-23Z"/><path className="jar-motion jar-rain jar-motion-secondary" d="M285 397q-13 16 0 20q13-4 0-20Z"/></g>
       <Spark x={198} y={427} size={12} color={c.accent}/><Spark x={338} y={417} size={8} color={c.accent}/>
     </>;
     case "SHELL": return <>
@@ -235,14 +269,14 @@ function Decorations({ body, paint, layer }) {
       <g fill="none" stroke={c.light} strokeWidth="4" opacity=".65"><path d="M144 151q85-37 176 3M102 209q94-43 274-9M112 312q100 38 253-6M149 357q75 24 175-1"/></g>
       <path d="M53 330C126 369 383 246 425 191" stroke={paint("metal")} strokeWidth="13" fill="none"/>
       <path d="M55 326C126 361 381 242 420 193" stroke="#f4deb3" strokeWidth="2" fill="none"/>
-      <circle cx="374" cy="102" r="13" fill={c.accent}/><ellipse cx="374" cy="102" rx="23" ry="5" transform="rotate(-25 374 102)" fill="none" stroke={c.accent} strokeWidth="2"/>
+      <g className="jar-motion jar-orbit"><circle cx="374" cy="102" r="13" fill={c.accent}/><ellipse cx="374" cy="102" rx="23" ry="5" transform="rotate(-25 374 102)" fill="none" stroke={c.accent} strokeWidth="2"/></g>
       <Spark x={88} y={143} size={9} color={c.accent}/><Spark x={392} y={362} size={7} color={c.accent}/>
       <circle cx="74" cy="377" r="3" fill={c.accent}/>
     </>;
     case "ROCKET": return <>
       <path d="M195 116L240 63L285 116Z" fill={c.accent} stroke={c.shade} strokeWidth="2"/><path d="M214 109l26-33 13 16" fill="none" stroke="#f4dfb7" strokeWidth="3"/>
       <path d="M123 320L161 286L156 360Z M357 320L319 286L324 360Z" fill={c.accent} stroke={c.shade} strokeWidth="2"/>
-      <path d="M210 401L225 440L240 414L254 440L271 401" fill="#e9bb67"/><path d="M224 402l16 24 16-24" fill="#fff1b2"/>
+      <g className="jar-motion jar-flame"><path d="M210 401L225 440L240 414L254 440L271 401" fill="#e9bb67"/><path d="M224 402l16 24 16-24" fill="#fff1b2"/></g>
       <path d="M183 369h114v24H183Z" fill={c.shade}/><path d="M193 373v14m23-14v14m48-14v14m23-14v14" stroke={c.accent} strokeWidth="9"/>
       {rivets([[178,181],[302,181],[177,328],[303,328]])}
       <path d="M218 346h44m-32 7h20" stroke={c.accent} strokeWidth="3" strokeLinecap="round"/>
@@ -260,7 +294,7 @@ function Decorations({ body, paint, layer }) {
       <g fill={c.accent} stroke={c.shade} strokeWidth="2"><path d="M60 180L114 97L169 180Z"/><path d="M175 138L240 55L305 138Z M311 180L366 97L420 180Z"/></g>
       <g fill={c.light} opacity=".24"><path d="M66 175l48-71v71ZM181 132l59-69v69ZM318 175l48-71v71Z"/></g>
       <path d="M80 164h68m-57-18h44m-36-17h26M195 122h90m-74-19h59m-44-18h28M332 164h66m-55-18h45m-35-17h25" stroke={c.light} strokeOpacity=".4" strokeWidth="1.5"/>
-      <path d="M240 55V28L272 37L240 45" fill="#bd9859" stroke={c.accent} strokeWidth="2"/>
+      <path d="M240 55V28" fill="none" stroke={c.accent} strokeWidth="2"/><path className="jar-motion jar-flag" d="M240 28L272 37L240 45Z" fill="#bd9859" stroke={c.accent} strokeWidth="2"/>
       <path d="M81 164h65m53-44h82m53 44h65M80 271h69m182 0h69M80 353h69m182 0h69M103 251v20m19 0v39m-19 0v43m255-102v20m19 0v39m-19 0v43" fill="none" stroke={c.shade} strokeWidth="2" opacity=".6"/>
       <g fill="#e4c489" stroke={c.shade} strokeWidth="2"><path d="M104 243v-28q11-18 22 0v28ZM354 243v-28q11-18 22 0v28ZM225 203v-34q15-23 30 0v34Z"/></g>
       <path d="M115 211v29m250-29v29m-125-79v38m-12-18h24" stroke={c.accent} strokeWidth="2"/>
@@ -312,8 +346,8 @@ function Decorations({ body, paint, layer }) {
       <path d="M240 394v23" stroke={c.shade} strokeWidth="2" strokeDasharray="2 4"/>
     </>;
     case "RABBIT": return <>
-      <path d="M178 59Q168 93 191 143M302 59Q312 93 289 143" fill="none" stroke="#e7bacf" strokeWidth="13" strokeLinecap="round"/>
-      <path d="M179 65q-2 31 9 55m113-55q2 31-9 55" stroke="#fff2ec" strokeWidth="3" fill="none"/>{eyes(222,208,64)}
+      <g className="jar-motion jar-ear" style={{transformOrigin:"191px 143px"}}><path d="M178 59Q168 93 191 143" fill="none" stroke="#e7bacf" strokeWidth="13" strokeLinecap="round"/><path d="M179 65q-2 31 9 55" stroke="#fff2ec" strokeWidth="3" fill="none"/></g>
+      <g className="jar-motion jar-ear jar-motion-secondary" style={{transformOrigin:"289px 143px"}}><path d="M302 59Q312 93 289 143" fill="none" stroke="#e7bacf" strokeWidth="13" strokeLinecap="round"/><path d="M301 65q2 31-9 55" stroke="#fff2ec" strokeWidth="3" fill="none"/></g>{eyes(222,208,64)}
       <path d="M234 240L240 246L246 240" fill="#ae718f"/><path d="M240 246v5m-9 0q9 7 18 0" fill="none" stroke="#ae718f" strokeWidth="2"/>
       <ellipse cx="183" cy="245" rx="12" ry="7" fill="#e5adc4"/><ellipse cx="297" cy="245" rx="12" ry="7" fill="#e5adc4"/>
       <path d="M327 173q-21-33-33-16q-7 14 17 26q-33-5-30 14q5 18 32-4Z" fill={c.shade} stroke={c.light} strokeWidth="2"/>
@@ -324,22 +358,23 @@ function Decorations({ body, paint, layer }) {
     case "PANDA": return <>
       <circle cx="138" cy="100" r="25" fill="#384744"/><circle cx="344" cy="100" r="25" fill="#384744"/>
       <ellipse cx="193" cy="202" rx="23" ry="29" transform="rotate(25 193 202)" fill="#384744"/><ellipse cx="287" cy="202" rx="23" ry="29" transform="rotate(-25 287 202)" fill="#384744"/>
-      <circle cx="194" cy="198" r="6" fill="#fff9e8"/><circle cx="286" cy="198" r="6" fill="#fff9e8"/>
+      <circle className="jar-motion jar-eye" cx="194" cy="198" r="6" fill="#fff9e8"/><circle className="jar-motion jar-eye" cx="286" cy="198" r="6" fill="#fff9e8"/>
       <path d="M230 226Q240 220 250 226L240 237Z" fill="#384744"/><path d="M240 237v7m-10 0q10 6 20 0" fill="none" stroke="#384744" strokeWidth="2"/>
-      <path d="M131 248q109 25 218 0l-4 17q-105 25-210 0Z" fill={c.accent}/><path d="M323 260l-8 47 22 2 10-52Z" fill={c.accent}/>
-      <path d="M137 255q102 23 205 0m-23 26h21m-23 12h19" fill="none" stroke="#c8d4ad" strokeWidth="2"/>
+      <path d="M131 248q109 25 218 0l-4 17q-105 25-210 0Z" fill={c.accent}/>
+      <g className="jar-motion jar-scarf" style={{transformOrigin:"337px 261px"}}><path d="M323 260l-8 47 22 2 10-52Z" fill={c.accent}/><path d="M319 281h21m-23 12h19" fill="none" stroke="#c8d4ad" strokeWidth="2"/></g>
+      <path d="M137 255q102 23 205 0" fill="none" stroke="#c8d4ad" strokeWidth="2"/>
       <Sprig x={123} y={365} scale={.95} color={c.accent}/><path d="M159 409h35m92 0h35" stroke="#384744" strokeWidth="13" strokeLinecap="round"/>
     </>;
     case "PENGUIN": return <>
       <ellipse cx="240" cy="207" rx="67" ry="37" fill="#f3e9d3"/>{eyes(194,212,56)}<path d="M225 212H255L240 231Z" fill={c.accent}/>
       <path d="M163 243q77 22 154 0l-1 20q-76 24-152 0Z" fill={c.accent}/><path d="M171 252q68 20 137 0" fill="none" stroke="#f5d4a9" strokeWidth="2" strokeDasharray="3 5"/>
-      <path d="M304 259l-4 46 23 4 7-55Z" fill={c.accent}/><path d="M304 277l21 3m-22 11 20 3" stroke="#f5d4a9" strokeWidth="3"/>
+      <g className="jar-motion jar-scarf" style={{transformOrigin:"318px 259px"}}><path d="M304 259l-4 46 23 4 7-55Z" fill={c.accent}/><path d="M304 277l21 3m-22 11 20 3" stroke="#f5d4a9" strokeWidth="3"/></g>
       <path d="M154 416L191 411L207 434H144Z M326 416L289 411L273 434H336Z" fill={c.accent} stroke={c.shade} strokeWidth="2"/>
-      <path d="M124 296l11 29m220-29-11 29" stroke={c.light} strokeWidth="4" strokeLinecap="round"/>
+      <path className="jar-motion jar-flipper" style={{transformOrigin:"124px 296px"}} d="M124 296l11 29" stroke={c.light} strokeWidth="4" strokeLinecap="round"/><path className="jar-motion jar-flipper jar-motion-secondary" style={{transformOrigin:"355px 296px"}} d="M355 296l-11 29" stroke={c.light} strokeWidth="4" strokeLinecap="round"/>
       <Spark x={170} y={163} size={6} color="#dfe8f2"/><Spark x={318} y={340} size={9} color="#dfe8f2"/>
     </>;
     case "WHALE": return <>
-      <circle cx="347" cy="260" r="6" fill="#243f55"/><circle cx="345" cy="258" r="1.8" fill="#fff4d4"/>
+      <g className="jar-motion jar-eye"><circle cx="347" cy="260" r="6" fill="#243f55"/><circle cx="345" cy="258" r="1.8" fill="#fff4d4"/></g>
       <path d="M345 288Q357 296 369 284" stroke="#243f55" strokeWidth="3" fill="none" strokeLinecap="round"/>
       <path d="M200 137Q195 100 177 98M207 137Q213 100 232 99" stroke={c.base} strokeWidth="9" fill="none" strokeLinecap="round"/>
       <path d="M202 383Q218 416 247 389" fill={c.shade} stroke={c.accent} strokeWidth="2"/>
@@ -361,8 +396,8 @@ function Decorations({ body, paint, layer }) {
       <path d="M92 206Q87 109 240 103Q393 109 388 206Z" fill={c.accent} stroke="#513e31" strokeWidth="3"/>
       <path d="M237 108Q226 62 252 58" stroke="#79553b" strokeWidth="14" fill="none" strokeLinecap="round"/>
       <g stroke="#d4b189" strokeWidth="2" fill="none" opacity=".7"><path d="M135 138L188 194M190 118L257 194M253 116L323 191M310 133L359 184M135 190L193 122M207 194L274 120M285 194L335 146"/><path d="M108 198q132-23 264 0"/></g>
-      <path d="M267 104q50-66 70-37q-5 47-70 37Z" fill="#7c8b5c" stroke="#526442" strokeWidth="2"/>
-      <path d="M274 99l52-26m-35 16 5-12m11 3 10 0" fill="none" stroke="#c9d19f" strokeWidth="2"/>
+      <g className="jar-motion jar-leaf"><path d="M267 104q50-66 70-37q-5 47-70 37Z" fill="#7c8b5c" stroke="#526442" strokeWidth="2"/>
+      <path d="M274 99l52-26m-35 16 5-12m11 3 10 0" fill="none" stroke="#c9d19f" strokeWidth="2"/></g>
       <path d="M122 265q-8 67 43 103m193-103q8 67-43 103M176 391l64 30 64-30" fill="none" stroke={c.accent} strokeWidth="2"/>
       <Spark x={122} y={232} size={7} color={c.light}/>
     </>;

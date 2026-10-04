@@ -1,5 +1,7 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
+> 2026-10-04 V40 증분: Draft/Design 사진 배치에 `photo_fit`, Draft 원본 영역에 `original_fit` nullable VARCHAR(10)을 추가한다. 전체 보기(CONTAIN)와 기존 COVER를 보존하며 스냅샷도 방식을 비교한다. [사진 배치 구현 계약](AI_PHOTO_FRAMING.md)의 V40 절을 확인한다. 기존 Migration·데이터는 변경하지 않는다.
+
 > 2026-10-04 V39 증분: 사용자 요청에 따라 생성 전 Draft의 본체는 변경 가능하며, 이미지 단독으로도 전환한다. 사진 배치/원본 영역을 별도 메타데이터로 저장한다. 아래 V38의 'Draft 원본 생성 시 본체 고정'은 당시 정책이고 이번 흐름에는 적용하지 않는다. 완성 Jar의 디자인 불변 원칙은 유지한다. [사진 배치 구현 계약](AI_PHOTO_FRAMING.md)을 확인한다.
 
 > 2026-10-03 본체 선택 보충: V38은 Draft와 JarDesign에 `body_style VARCHAR(30) NULL` 및 `JarBodyStyle` 30종 CHECK를 추가한다. 기존 NULL은 원래 이미지 표시를 유지하며 백필하지 않는다. Draft 원본 생성 시 본체도 고정하고, ORIGINAL/AI Finalize Snapshot과 영구 Design으로 복사한다. DEFAULT에는 Design 행을 만들지 않는다. 본체는 S3 이미지/AI 입력에 합성하지 않는다. Slot은 전체 480 좌표, 외곽선은 그림 자체의 480 좌표다. 앱은 기존 단일/배치 조회에서 이 컬럼도 읽어 추가 쿼리가 없다. V38 백엔드를 먼저 배포하고 새 프론트를 배포해야 한다. 구 프론트로 롤백하면 신규 본체를 표시하지 못하므로 함께 롤백할지 검토한다.

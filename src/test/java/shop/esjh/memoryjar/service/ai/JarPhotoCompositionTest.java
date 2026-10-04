@@ -81,4 +81,17 @@ class JarPhotoCompositionTest {
         var f = new JarPhotoFrameValue(d("0.100000"),d("0.200000"),d("0.700000"),d("0.500000"));
         assertThat(f).isEqualTo(frame());
     }
+    @Test void wholeImageModeIsSavedAndParticipatesInConflictAndIdempotencyChecks() {
+        var draft = active(); service.updateComposition(1L,10L,request());
+        var whole = new JarPhotoFrameValue(d("0"),d("0.25"),d("1"),d("0.5"),JarPhotoFit.CONTAIN);
+        service.updateComposition(1L,10L,new JarDesignCompositionRequest(JarBodyStyle.CAT,whole,JarDraftDesignType.ORIGINAL,null,JarBodyStyle.CAT,frame()));
+        assertThat(draft.getPhotoFrame().toValue()).isEqualTo(whole);
+        draft.updateSlot(d("0.5"),d("0.5"),d("0.2"));
+        service.updateComposition(1L,10L,new JarDesignCompositionRequest(JarBodyStyle.CAT,whole,JarDraftDesignType.ORIGINAL,null,JarBodyStyle.CAT,whole));
+        assertThat(draft.getSlotCenterX()).isNotNull();
+        var staleCover = new JarPhotoFrameValue(whole.x(),whole.y(),whole.width(),whole.height());
+        error(() -> service.updateComposition(1L,10L,new JarDesignCompositionRequest(JarBodyStyle.CAT,frame(),JarDraftDesignType.ORIGINAL,null,JarBodyStyle.CAT,staleCover)),AiDraftErrorCode.DRAFT_COMPOSITION_TARGET_CHANGED);
+        assertThat(draft.getPhotoFrame().toValue()).isEqualTo(whole);
+        assertThat(new JarPhotoFrameValue(d("0"),d("0"),d("1"),d("1"),null).fit()).isEqualTo(JarPhotoFit.COVER);
+    }
 }

@@ -25,6 +25,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(JpaAuditConfig.class)
 class JarPhotoFrameRepositoryTest extends AbstractMariaDbRepositoryTest {
+    @Test void wholeImageModeSurvivesDraftAndFinalDesignReload() {
+        var owner = saveUser("whole-photo-owner", "whole-frame@example.com", "테스트");
+        var photo = new JarPhotoFrameValue(BigDecimal.ZERO,new BigDecimal("0.25"),BigDecimal.ONE,new BigDecimal("0.5"),
+                shop.esjh.memoryjar.enums.ai.JarPhotoFit.CONTAIN);
+        var draft = JarDesignDraft.builder().owner(owner).originalS3Key("whole.png").bodyStyle(JarBodyStyle.PERFUME)
+                .expiresAt(LocalDateTime.now().plusDays(1)).build();
+        draft.selectOriginal(); draft.updateComposition(JarBodyStyle.PERFUME,new JarPhotoFrame(photo)); persist(draft);
+        var jar = saveJar(owner,"전체 보기",LocalDateTime.now().plusDays(1));
+        var design = persist(JarDesign.builder().jar(jar).designType(JarDesignType.ORIGINAL).finalS3Key("final-whole.png")
+                .bodyStyle(JarBodyStyle.PERFUME).photoFrame(new JarPhotoFrame(photo)).slotCenterX(new BigDecimal("0.5"))
+                .slotCenterY(new BigDecimal("0.3")).slotSizeRatio(new BigDecimal("0.2")).build());
+        var draftId=draft.getDraftId(); var designId=design.getJarDesignId(); flushAndClear();
+        assertThat(entityManager.find(JarDesignDraft.class,draftId).getPhotoFrame().toValue()).isEqualTo(photo);
+        assertThat(entityManager.find(JarDesign.class,designId).getPhotoFrame().toValue()).isEqualTo(photo);
+    }
     @Test
     void framingRoundTripsAndImageOnlyClearsCompositionWithoutChangingOriginal() {
         var owner = saveUser("photo-frame-owner", "frame@example.com", "테스트");

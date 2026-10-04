@@ -5,6 +5,7 @@ import AiCandidateGallery from "../features/jarDesign/components/AiCandidateGall
 import JarBodyPicker from "../features/jarDesign/components/JarBodyPicker";
 import JarDesignImage from "../features/jarDesign/components/JarDesignImage";
 import { getJarBody } from "../features/jarDesign/jarBodies.mjs";
+import { prepareSourceImage, SOURCE_IMAGE_ACCEPT } from "../features/jarDesign/sourceImageFile.mjs";
 import {
   createJarDesignDraft,
   getJarDesignDraftError,
@@ -26,6 +27,10 @@ export default function JarDesignNewPage() {
   const [error, setError] = useState("");
   const [sourceDirty, setSourceDirty] = useState(false);
   const creatingDraft = useRef(false);
+  const sourceSelection = useRef(0);
+  const [readingSource, setReadingSource] = useState(false);
+  const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
+  const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
 
   useEffect(() => {
     if (!sourceImage) {
@@ -39,6 +44,9 @@ export default function JarDesignNewPage() {
 
   /** 새 원본을 고르면 이전 Draft로 이어지는 URL을 지워 잘못된 후보를 섞지 않는다. */
   function setDesignSource(imageFile) {
+    sourceSelection.current += 1;
+    setReadingSource(false);
+    setLoadedPreviewUrl("");
     setSourceImage(imageFile);
     setSearchParams(body ? { body: body.id, step: "image" } : { mode: "image-only", step: "image" } , { replace: true });
     setError("");
@@ -46,24 +54,27 @@ export default function JarDesignNewPage() {
   }
 
   /** 파일 선택은 사용성을 위한 사전 안내이며, 실제 PNG/JPEG/WebP·단일 프레임 검증은 서버가 책임진다. */
-  function handleExternalImageChange(event) {
+  async function handleExternalImageChange(event) {
     const imageFile = event.target.files?.[0];
     event.target.value = "";
     if (!imageFile) return;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(imageFile.type)) {
-      setError("PNG, JPEG, WebP 이미지 파일만 선택할 수 있어요.");
-      return;
+    const selection = ++sourceSelection.current;
+    setReadingSource(true);
+    setError("");
+    try {
+      const prepared = await prepareSourceImage(imageFile);
+      // 연속 선택·입력 방식 전환 뒤 늦게 끝난 이전 파일이 최신 그림을 덮어쓰지 않는다.
+      if (selection === sourceSelection.current) setDesignSource(prepared);
+    } catch (readError) {
+      if (selection === sourceSelection.current) setError(readError.message || "사진을 읽지 못했어요. 다시 선택해 주세요.");
+    } finally {
+      if (selection === sourceSelection.current) setReadingSource(false);
     }
-    if (imageFile.size > 10 * 1024 * 1024) {
-      setError("원본 이미지는 10MB를 초과할 수 없어요.");
-      return;
-    }
-    setDesignSource(imageFile);
   }
 
   /** Draft가 성공적으로 저장된 뒤에만 URL에 ID를 남겨 새로고침 후에도 후보 보관함을 복원한다. */
   async function handleCreateDraft() {
-    if ((!body && !imageOnly) || !sourceImage || saving || creatingDraft.current || (inputMode === "DRAW" && sourceDirty)) return;
+    if ((!body && !imageOnly) || !sourceImage || !previewReady || readingSource || saving || creatingDraft.current || (inputMode === "DRAW" && sourceDirty)) return;
     creatingDraft.current = true;
     setSaving(true);
     setError("");
@@ -107,7 +118,7 @@ export default function JarDesignNewPage() {
               <button type="button" disabled={saving} onClick={() => setSearchParams(body ? { body: body.id } : {})} className="min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-emerald-800 disabled:opacity-50">모양 다시 고르기</button>
             </div>
             <div className="flex flex-wrap gap-2" role="tablist" aria-label="디자인 원본 입력 방식">
-              <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "DRAW"} onClick={() => setInputMode("DRAW")}
+              <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "DRAW"} onClick={() => { sourceSelection.current += 1; setReadingSource(false); setInputMode("DRAW"); }}
                 className={`rounded-xl px-4 py-2.5 text-sm font-black ${inputMode === "DRAW" ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600"}`}>직접 그리기</button>
               <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "UPLOAD"} onClick={() => setInputMode("UPLOAD")}
                 className={`rounded-xl px-4 py-2.5 text-sm font-black ${inputMode === "UPLOAD" ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600"}`}>이미지 불러오기</button>
@@ -115,19 +126,26 @@ export default function JarDesignNewPage() {
             <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
               <div hidden={inputMode !== "DRAW"} className="min-w-0"><JarDesignCanvas disabled={saving || !imageStep || inputMode !== "DRAW"} onConfirm={setDesignSource} onDirtyChange={setSourceDirty} /></div>
               {inputMode === "UPLOAD" && (
-                <label className="flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-violet-200 bg-violet-50/40 p-6 text-center hover:border-violet-400">
-                  <span className="text-4xl">🖼️</span><span className="mt-3 font-black text-slate-800">외부 이미지 선택</span>
-                  <span className="mt-2 text-xs leading-5 text-slate-500">PNG, JPEG, WebP · 최대 10MB<br />애니메이션 이미지는 사용할 수 없어요.</span>
-                  <input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={saving} onChange={handleExternalImageChange} />
-                </label>
+                <div className="min-w-0">
+                  <label className="relative flex min-h-72 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[22px] border-2 border-dashed border-violet-200 bg-violet-50/40 p-6 text-center hover:border-violet-400 focus-within:ring-2 focus-within:ring-violet-500">
+                    {previewUrl ? <img key={previewUrl} src={previewUrl} alt="선택한 원본 사진" className="max-h-72 w-full rounded-xl object-contain" /> : <span className="text-4xl">🖼️</span>}
+                    <span className="mt-3 font-black text-slate-800">{previewUrl ? "다른 사진 선택" : "외부 이미지 선택"}</span>
+                    <span className="mt-2 text-xs leading-5 text-slate-500">PNG, JPEG, WebP · 최대 10MB<br />HEIC 사진은 JPEG로 변환해 주세요.</span>
+                    {/* 모바일에서도 실제 파일 입력이 선택 영역 전체를 받도록 한다. */}
+                    <input aria-label="외부 이미지 선택" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" type="file" accept={SOURCE_IMAGE_ACCEPT} disabled={saving} onChange={(event) => void handleExternalImageChange(event)} />
+                  </label>
+                  <p role="status" className="mt-3 break-words text-xs leading-5 text-emerald-800">{readingSource ? "선택한 사진을 확인하고 있어요…" : sourceImage ? `${sourceImage.name || "선택한 그림"} · ${previewReady ? "사진 준비 완료. 다음 단계로 계속해 주세요." : "미리보기를 확인하고 있어요…"}` : "사진을 고르면 여기에서 바로 확인할 수 있어요."}</p>
+                  {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+                </div>
               )}
               <aside className="h-fit rounded-[22px] border border-violet-100 bg-gradient-to-b from-white to-violet-50/50 p-4 shadow-sm lg:sticky lg:top-24">
                 <h2 className="text-sm font-black text-slate-800">저금통에 담긴 모습</h2>
                 <p className="mt-2 text-xs leading-5 text-slate-500">그림을 수정했다면 ‘이 그림 사용하기’를 다시 눌러 미리보기에 반영해 주세요.</p>
-                <div className="mt-3 aspect-square rounded-2xl bg-[#f7f4ee]">{(body || previewUrl) && <JarDesignImage bodyStyle={body?.id} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" showDefaultSlot />}</div>
+                <div className="mt-3 aspect-square rounded-2xl bg-[#f7f4ee]">{(body || previewUrl) && <JarDesignImage key={previewUrl} bodyStyle={body?.id} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" showDefaultSlot
+                  onImageLoad={() => setLoadedPreviewUrl(previewUrl)} onImageError={() => { setLoadedPreviewUrl(""); setError("이 사진의 미리보기를 읽지 못했어요. JPEG 또는 PNG로 다시 저장한 사진을 선택해 주세요."); }} />}</div>
                 {!previewUrl && <p className="mt-2 text-center text-xs leading-5 text-slate-500">그림을 확정하거나 이미지를 골라<br />저금통 안을 채워주세요.</p>}
                 {sourceDirty && sourceImage && inputMode === "DRAW" && <p role="status" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">그림이 바뀌었어요. ‘이 그림 사용하기’를 눌러 최신 그림을 반영해 주세요.</p>}
-                <button type="button" disabled={!sourceImage || saving || (inputMode === "DRAW" && sourceDirty)} onClick={() => void handleCreateDraft()}
+                <button type="button" disabled={!sourceImage || !previewReady || readingSource || saving || (inputMode === "DRAW" && sourceDirty)} onClick={() => void handleCreateDraft()}
                   className="mt-4 w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "그림을 준비하고 있어요…" : "이 그림으로 다음 단계 →"}</button>
                 <p className="mt-3 text-xs leading-5 text-slate-500">{body ? "다음 화면에서 사진을 빈틈없이 채우고 위치·확대를 조절해요. 모양을 바꾸거나 이미지만 쓰는 방식으로 돌아갈 수 있어요." : "다음 화면에서 원본 또는 AI 후보를 고른 뒤 기존 이미지 자르기·배경 지우기를 이용해요."}</p>
               </aside>
@@ -135,7 +153,7 @@ export default function JarDesignNewPage() {
           </section>
         )}
 
-        {error && <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
+        {error && !(imageStep && inputMode === "UPLOAD") && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
         {draftId && <AiCandidateGallery key={draftId} draftId={draftId} />}
       </main>
     </div>

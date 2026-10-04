@@ -1,0 +1,65 @@
+/* 움직임은 작은 장식에만 제한한다. 사진·본체·투입구의 기준 사각형은 고정이다. */
+.jar-artwork .jar-motion {
+  animation-duration: var(--jar-motion-duration, 9s);
+  animation-delay: var(--jar-motion-delay, 0s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.jar-artwork[data-motion-active="true"] .jar-motion { animation-play-state: running; }
+.jar-eye { animation-name: jar-blink; }
+.jar-artwork[data-jar-motion="jewel"] .jar-spark { animation-name: jar-twinkle; }
+.jar-artwork[data-jar-motion="botanical"] .jar-sprig,
+.jar-leaf { animation-name: jar-leaf; transform-origin: bottom center; }
+.jar-artwork[data-jar-motion="bloom"] .jar-rosette { animation-name: jar-bloom; }
+.jar-artwork[data-jar-motion="glaze"] .jar-glaze { animation-name: jar-glaze; }
+.jar-steam, .jar-bubble, .jar-snow { animation-name: jar-rise; opacity: 0; }
+.jar-orbit { animation-name: jar-orbit; }
+.jar-flame, .jar-heart { animation-name: jar-pulse; transform-origin: top center; }
+.jar-flag, .jar-rain { animation-name: jar-swing; transform-origin: top center; }
+.jar-lantern { animation-name: jar-lamplight; }
+.jar-tail { animation-name: jar-tail-sway; }
+.jar-curly-tail { animation-name: jar-tail-curl; }
+.jar-pom-tail { animation-name: jar-pom-breathe; }
+.jar-fin { animation-name: jar-fin-sway; }
+.jar-ear { animation-name: jar-ear-listen; }
+.jar-scarf, .jar-flipper { animation-name: jar-detail-sway; }
+.jar-artwork .jar-motion-secondary { animation-delay: calc(var(--jar-motion-delay) - 2.8s); }
+.jar-artwork .jar-motion-tertiary { animation-delay: calc(var(--jar-motion-delay) - 5.4s); }
+@keyframes jar-blink {
+  0%, 41%, 45%, 100% { transform: scaleY(1); }
+  42.5%, 43.2% { transform: scaleY(.08); }
+}
+@keyframes jar-twinkle {
+  0%, 25%, 68%, 100% { opacity: .12; transform: scale(.7); }
+  44% { opacity: .85; transform: scale(1); }
+}
+@keyframes jar-leaf { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.8deg); } }
+@keyframes jar-bloom { 0%, 100% { transform: scale(.98) rotate(-1deg); } 50% { transform: scale(1.02) rotate(1deg); } }
+@keyframes jar-glaze { 0%, 100% { opacity: .22; } 50% { opacity: .5; } }
+@keyframes jar-rise {
+  0%, 15% { opacity: 0; transform: translateY(4px); }
+  35% { opacity: .5; }
+  70%, 100% { opacity: 0; transform: translateY(-18px); }
+}
+@keyframes jar-orbit { 0%, 100% { transform: translate(-3px, 1px); } 50% { transform: translate(3px, -2px); } }
+@keyframes jar-pulse { 0%, 100% { opacity: .72; transform: scaleY(.93); } 50% { opacity: 1; transform: scaleY(1.04); } }
+@keyframes jar-swing { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@keyframes jar-lamplight { 0%, 100% { opacity: .3; } 45% { opacity: .7; } 65% { opacity: .5; } }
+/* 관절은 SVG의 고정 480 좌표다. 사진·입구 대신 몸통 밖의 작은 부분만 천천히 움직인다. */
+.jar-artwork .jar-tail, .jar-artwork .jar-curly-tail, .jar-artwork .jar-pom-tail,
+.jar-artwork .jar-fin, .jar-artwork .jar-ear, .jar-artwork .jar-scarf,
+.jar-artwork .jar-flipper { transform-box: view-box; }
+@keyframes jar-tail-sway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(4deg); } }
+@keyframes jar-tail-curl { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+@keyframes jar-pom-breathe { 0%,100% { transform: scale(.98); } 50% { transform: scale(1.035); } }
+@keyframes jar-fin-sway { 0%,100% { transform: rotate(-2.5deg); } 50% { transform: rotate(3deg); } }
+@keyframes jar-ear-listen { 0%,35%,60%,100% { transform: rotate(0); } 45% { transform: rotate(-2.5deg); } 52% { transform: rotate(1deg); } }
+@keyframes jar-detail-sway { 0%,100% { transform: rotate(-1.5deg); } 50% { transform: rotate(2deg); } }
+/* OS의 움직임 줄이기를 존중하고 정지 상태에도 장식과 조작 기능을 유지한다. */
+@media (prefers-reduced-motion: reduce) {
+  .jar-artwork .jar-motion { animation: none; transform: none; }
+  .jar-steam, .jar-bubble, .jar-snow { opacity: .25; }
+}

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JAR_BODIES } from "./jarBodies.mjs";
-import { WHOLE_PHOTO, coverPhotoFrame, normalizePhotoFrame, photoFrameStyle, photoFrameControls, samePhotoFrame, validPhotoFrame } from "./photoFraming.mjs";
+import { WHOLE_PHOTO, coverPhotoFrame, containPhotoFrame, normalizePhotoFrame, photoFrameStyle, photoFrameControls, samePhotoFrame, validPhotoFrame } from "./photoFraming.mjs";
 
 test("30개 사진 창 모두 원본 안에서 빈틈없이 채우고 원본 비율을 유지한다", () => {
   for (const body of JAR_BODIES) for (const source of [WHOLE_PHOTO, {x:0,y:.21875,width:1,height:.5625}, {x:.25,y:0,width:.5,height:1}]) {
@@ -41,4 +41,28 @@ test("정규화된 1px 폭 사진도 확대와 모양 변경에서 유효한 영
     const frame = coverPhotoFrame(body.window,{x:.497917,y:0,width:.002083,height:1},4);
     assert.ok(validPhotoFrame(frame));
   }
+});
+
+test("전체 보기는 30개 창에서 가로·세로·정사각 사진을 자르거나 늘이지 않는다", () => {
+  for (const body of JAR_BODIES) for (const source of [WHOLE_PHOTO, {x:0,y:.21875,width:1,height:.5625}, {x:.25,y:0,width:.5,height:1}]) {
+    const frame = containPhotoFrame(source), style = photoFrameStyle(frame, body.window);
+    assert.deepEqual(frame, {...source,fit:"CONTAIN"});
+    const w = parseFloat(style.width)/100 * frame.width, h = parseFloat(style.height)/100 * frame.height;
+    assert.ok(w <= 1.000001 && h <= 1.000001);
+    assert.ok(Math.max(w,h) > .65);
+    const radius=body.window.radius;
+    const dx=Math.max(0,radius-(1-w)*body.window.width/2), dy=Math.max(0,radius-(1-h)*body.window.height/2);
+    assert.ok(dx*dx+dy*dy <= radius*radius+.001, body.id);
+    assert.ok(Math.abs(w*body.window.width/(h*body.window.height)-frame.width/frame.height) < .000001);
+    const left = parseFloat(style.left)/100 + frame.x*parseFloat(style.width)/100;
+    const top = parseFloat(style.top)/100 + frame.y*parseFloat(style.height)/100;
+    assert.ok(Math.abs(left-(1-w)/2) < .000001);
+    assert.ok(Math.abs(top-(1-h)/2) < .000001);
+  }
+});
+test("같은 좌표라도 방식 변경은 실제 변경이며 V39 미지정은 COVER와 같다", () => {
+  assert.ok(samePhotoFrame(WHOLE_PHOTO,{...WHOLE_PHOTO,fit:"COVER"}));
+  assert.ok(!samePhotoFrame(WHOLE_PHOTO,containPhotoFrame()));
+  assert.ok(samePhotoFrame(containPhotoFrame(), JSON.parse(JSON.stringify(containPhotoFrame()))));
+  assert.deepEqual(photoFrameStyle(WHOLE_PHOTO),photoFrameStyle({...WHOLE_PHOTO,fit:"COVER"},{width:300,height:100}));
 });

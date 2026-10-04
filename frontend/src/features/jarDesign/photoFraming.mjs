@@ -27,14 +27,37 @@ export function normalizePhotoFrame(frame, source = WHOLE_PHOTO) {
     y: round(clamp(frame.y, bounds.y, Math.max(bounds.y, Math.min(1-height, bounds.y+bounds.height-height)))), width, height };
 }
 
-export function photoFrameStyle(frame) {
+/** 전체 보기는 실제 사진 영역을 창 안에 등비 축소한다. 흰색 정규화 띠는 사진 영역에 포함하지 않는다. */
+export function containPhotoFrame(source = WHOLE_PHOTO) {
+  return { ...(validPhotoFrame(source) ? source : WHOLE_PHOTO), fit: "CONTAIN" };
+}
+
+export function photoFrameStyle(frame, window) {
   if (!validPhotoFrame(frame)) return null;
-  return { position: "absolute", maxWidth: "none", width: `${round(100/frame.width)}%`, height: `${round(100/frame.height)}%`,
-    left: `${round(-frame.x/frame.width*100)}%`, top: `${round(-frame.y/frame.height*100)}%`, objectFit: "fill" };
+  // COVER는 기존 공식 그대로다. CONTAIN만 전체 선택 영역의 비율을 유지하며 가운데에 놓는다.
+  const ratio = window?.width / window?.height;
+  const fit = frame.fit === "CONTAIN" && Number.isFinite(ratio) && ratio > 0;
+  let width = fit ? Math.min(1, frame.width/frame.height/ratio) : 1;
+  let height = fit ? Math.min(1, ratio/(frame.width/frame.height)) : 1;
+  // 둥근 창의 네 귀퉁이에 사진 모서리가 잘리지 않도록 가장 큰 안전한 사각형을 구한다.
+  const radius = Math.max(0, Math.min(window?.radius || 0, window?.width/2, window?.height/2));
+  if (fit && radius > 0) {
+    let low = 0, high = 1;
+    for (let i=0; i<24; i++) {
+      const scale = (low+high)/2;
+      const x = (1-width*scale)*window.width/2, y = (1-height*scale)*window.height/2;
+      const dx = Math.max(0,radius-x), dy = Math.max(0,radius-y);
+      if (dx*dx+dy*dy <= radius*radius) low=scale; else high=scale;
+    }
+    width *= low; height *= low;
+  }
+  return { position: "absolute", maxWidth: "none", width: `${round(width*100/frame.width)}%`, height: `${round(height*100/frame.height)}%`,
+    left: `${round((1-width)*50-frame.x/frame.width*width*100)}%`, top: `${round((1-height)*50-frame.y/frame.height*height*100)}%`, objectFit: "fill" };
 }
 
 export function samePhotoFrame(a, b) {
-  return a === b || Boolean(a && b && ["x","y","width","height"].every((key) => Math.abs(a[key]-b[key]) < .0000005));
+  return a === b || Boolean(a && b && (a.fit || "COVER") === (b.fit || "COVER")
+    && ["x","y","width","height"].every((key) => Math.abs(a[key]-b[key]) < .0000005));
 }
 
 /** 저장한 배치를 슬라이더로 복원할 때 DB 소수점 반올림 때문에 불필요한 '수정됨'이 생기지 않게 한다. */

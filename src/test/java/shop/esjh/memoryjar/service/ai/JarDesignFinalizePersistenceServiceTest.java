@@ -174,6 +174,23 @@ class JarDesignFinalizePersistenceServiceTest {
         verify(designRepository).save(argThat(design -> frame.equals(JarPhotoFrame.valueOf(design.getPhotoFrame()))));
     }
 
+    @Test void finalizeCopiesWholeModeAndRejectsModeOnlyChangeDuringS3Copy() {
+        var draft=activeDraft(JarDraftDesignType.ORIGINAL); stubSlot(draft);
+        when(draft.getOriginalS3Key()).thenReturn("original.png"); when(draft.getBodyStyle()).thenReturn(JarBodyStyle.CAT);
+        var whole=new JarPhotoFrameValue(BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ONE,BigDecimal.ONE,
+                shop.esjh.memoryjar.enums.ai.JarPhotoFit.CONTAIN);
+        when(draft.getPhotoFrame()).thenReturn(new JarPhotoFrame(whole));
+        var expected=service().prepare(1L,10L);
+        when(draft.getPhotoFrame()).thenReturn(new JarPhotoFrame(new JarPhotoFrameValue(BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ONE,BigDecimal.ONE)));
+        assertThatThrownBy(() -> service().finalizeCustom(1L,10L,request(),expected,"final.png"))
+                .isInstanceOf(ApiException.class).extracting(e -> ((ApiException)e).getErrorCode()).isEqualTo(AiDraftErrorCode.FINALIZE_TARGET_CHANGED);
+        verifyNoInteractions(jarService,designRepository);
+        when(draft.getPhotoFrame()).thenReturn(new JarPhotoFrame(whole));
+        var jar=mock(Jar.class); when(jar.getJarId()).thenReturn(105L); when(jarService.createJarForDesignFinalize(eq(1L),any())).thenReturn(jar);
+        service().finalizeCustom(1L,10L,request(),expected,"final.png");
+        verify(designRepository).save(argThat(design -> whole.equals(JarPhotoFrame.valueOf(design.getPhotoFrame()))));
+    }
+
     @Test
     void finalizeCustom_preservesSelectedSlotStyle() {
         JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);

@@ -69,7 +69,8 @@ public class JarDesignDraft {
         @AttributeOverride(name="x", column=@Column(name="original_x", precision=7, scale=6)),
         @AttributeOverride(name="y", column=@Column(name="original_y", precision=7, scale=6)),
         @AttributeOverride(name="width", column=@Column(name="original_width", precision=7, scale=6)),
-        @AttributeOverride(name="height", column=@Column(name="original_height", precision=7, scale=6))
+        @AttributeOverride(name="height", column=@Column(name="original_height", precision=7, scale=6)),
+        @AttributeOverride(name="fit", column=@Column(name="original_fit", length=10))
     })
     private JarPhotoFrame originalContentFrame;
 

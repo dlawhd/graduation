@@ -189,6 +189,17 @@ class JarDesignDraftControllerTest {
           .andExpect(jsonPath("$.data.previewUrl").value("https://signed.example.test/candidate"));
   verify(generationPreviewService).createPreviewUrl(1L,10L,100L);
  }
+ @Test void compositionWholeFitReachesServiceAndUnknownFitIsRejected() throws Exception {
+  mockMvc.perform(patch("/api/v1/design-drafts/10/composition").principal(auth()).contentType("application/json").content("""
+          {"bodyStyle":"CAT","photoFrame":{"x":0,"y":0.25,"width":1,"height":0.5,"fit":"CONTAIN"},"expectedDesignType":"ORIGINAL","expectedBodyStyle":"CAT"}
+          """)) .andExpect(status().isNoContent());
+  verify(draftService).updateComposition(eq(1L),eq(10L),argThat(r -> r.photoFrame().fit() == shop.esjh.memoryjar.enums.ai.JarPhotoFit.CONTAIN));
+  org.mockito.Mockito.clearInvocations(draftService);
+  mockMvc.perform(patch("/api/v1/design-drafts/10/composition").principal(auth()).contentType("application/json").content("""
+          {"bodyStyle":"CAT","photoFrame":{"x":0,"y":0,"width":1,"height":1,"fit":"STRETCH"},"expectedDesignType":"ORIGINAL"}
+          """)) .andExpect(status().isBadRequest());
+  verifyNoInteractions(draftService);
+ }
  @Test void originalPreview_usesAuthenticatedUserAndReturnsPresignedUrl() throws Exception {
   when(generationPreviewService.createOriginalPreviewUrl(1L,10L)).thenReturn(
           new JarAiGenerationPreviewResponse("https://signed.example.test/original", OffsetDateTime.parse("2026-09-20T12:00:00Z")));

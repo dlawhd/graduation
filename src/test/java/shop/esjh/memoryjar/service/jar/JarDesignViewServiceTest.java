@@ -66,7 +66,8 @@ class JarDesignViewServiceTest {
         JarDesign design = design(10L, "jar-designs/1/final.png");
         ReflectionTestUtils.setField(design, "slotStyle", JarSlotStyle.PIXEL);
         ReflectionTestUtils.setField(design, "bodyStyle", JarBodyStyle.CLASSIC);
-        var frame = new JarPhotoFrameValue(new BigDecimal("0.1"),new BigDecimal("0.2"),new BigDecimal("0.7"),new BigDecimal("0.5"));
+        var frame = new JarPhotoFrameValue(new BigDecimal("0.1"),new BigDecimal("0.2"),new BigDecimal("0.7"),new BigDecimal("0.5"),
+                shop.esjh.memoryjar.enums.ai.JarPhotoFit.CONTAIN);
         ReflectionTestUtils.setField(design, "photoFrame", new JarPhotoFrame(frame));
         ReflectionTestUtils.setField(design, "selectedGeneration",
                 JarAiGeneration.builder().aiStyle(JarAiStyle.PIXEL).build());
