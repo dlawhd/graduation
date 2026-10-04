@@ -18,6 +18,9 @@ import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import shop.esjh.memoryjar.entity.ai.JarPhotoFrame;
+import shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue;
+import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 
 /**
  * AI 후보 생성에 필요한 짧은 DB 트랜잭션만 담당한다.
@@ -65,7 +68,9 @@ public class JarAiGenerationPersistenceService {
         JarAiGeneration saved = generationRepository.saveAndFlush(generation);
 
         return new GenerationStartTarget(saved.getGenerationId(), draft.getDraftId(), draft.getOwner().getId(),
-                draft.getOriginalS3Key());
+                draft.getOriginalS3Key(), draft.getBodyStyle() == null ? null :
+                    JarPhotoFrame.valueOf(draft.getAiInputPhotoFrame() != null ? draft.getAiInputPhotoFrame()
+                        : draft.getSelectedDesignType() == JarDraftDesignType.ORIGINAL ? draft.getPhotoFrame() : null));
     }
 
     /**
@@ -109,6 +114,10 @@ public class JarAiGenerationPersistenceService {
     }
 
     /** 외부 호출에 필요한 식별자와 S3 Key만 전달해 영속 Entity가 트랜잭션 밖으로 나가지 않게 한다. */
-    public record GenerationStartTarget(Long generationId, Long draftId, Long ownerId, String originalS3Key) {
+    public record GenerationStartTarget(Long generationId, Long draftId, Long ownerId, String originalS3Key,
+                                        JarPhotoFrameValue inputPhotoFrame) {
+        public GenerationStartTarget(Long generationId, Long draftId, Long ownerId, String originalS3Key) {
+            this(generationId, draftId, ownerId, originalS3Key, null);
+        }
     }
 }

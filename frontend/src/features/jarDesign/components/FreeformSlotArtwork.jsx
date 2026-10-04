@@ -17,9 +17,9 @@ export default function FreeformSlotArtwork({ value }) {
       {/* 내부 면도 같은 실루엣이다. 꽃 안에 또 가로 슬롯을 그리지 않는다. */}
       <path data-slot-opening d={entry.path} transform="translate(50 50) scale(.72) translate(-50 -50)"
         fill={`url(#${uid}-inside)`} stroke={edge} strokeWidth="2" strokeLinejoin="round"/>
-      <path d={entry.path} transform="translate(50 50) scale(.87) translate(-50 -50)" fill="none" stroke={accent} strokeOpacity=".65" strokeWidth=".9"/>
+      <path className="slot-rim-glow" d={entry.path} transform="translate(50 50) scale(.87) translate(-50 -50)" fill="none" stroke={accent} strokeOpacity=".65" strokeWidth=".9"/>
     </g>
-    <PortalDetails kind={entry.id} edge={edge} accent={accent}/>
+    <g className="slot-details"><PortalDetails kind={entry.id} edge={edge} accent={accent}/></g>
   </svg>;
 }
 
@@ -43,6 +43,6 @@ function PortalDetails({ kind, edge, accent }) {
     case "KEY_GATE": return <g fill={accent}><circle cx="50" cy="11" r="2"/><circle cx="29" cy="88" r="1.5"/><circle cx="71" cy="88" r="1.5"/></g>;
     case "SUN_GATE": return <g>{shine(50,14)}{shine(25,23)}{shine(76,77)}<circle cx="12" cy="64" r="1.7" fill={accent}/></g>;
     case "SNOWFLAKE_GATE": return <g stroke={accent} strokeWidth="1.5" fill="none"><path d="M50 9V24M50 76V91M18 29L30 37M70 63L82 71M18 71L30 63M70 37L82 29"/></g>;
-    default: return null;
+    default: return <g>{shine(23,24)}{shine(76,77)}</g>;
   }
 }

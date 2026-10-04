@@ -41,22 +41,24 @@ export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved,
     if (locked || whole || (event.pointerType === "mouse" && event.button !== 0)) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     const rect = event.currentTarget.getBoundingClientRect();
-    drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, frame, rect };
+    drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, frame, rect,
+      source: event.currentTarget.dataset.photoDrag === "source" };
   }
   function moveDrag(event) {
     const start = drag.current;
     if (locked || whole || !start || event.pointerId !== start.id) return;
     // 사진을 끌어 움직이면 보이는 원본 영역은 반대 방향으로 이동한다. 모바일/키보드도 같은 경계 제한을 쓴다.
     setFrame(normalizePhotoFrame({ ...start.frame,
-      x: start.frame.x - (event.clientX-start.x)/start.rect.width*start.frame.width,
-      y: start.frame.y - (event.clientY-start.y)/start.rect.height*start.frame.height }, source));
+      x: start.frame.x + (start.source ? 1 : -start.frame.width)*(event.clientX-start.x)/start.rect.width,
+      y: start.frame.y + (start.source ? 1 : -start.frame.height)*(event.clientY-start.y)/start.rect.height }, source));
   }
   function keyboard(event) {
     const offset = { ArrowLeft: [-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1] }[event.key];
     if (!offset || locked || whole) return;
     event.preventDefault();
     const step = event.shiftKey ? .001 : .01;
-    setFrame(normalizePhotoFrame({ ...frame, x: frame.x-offset[0]*step, y: frame.y-offset[1]*step }, source));
+    const direction = event.currentTarget.dataset.photoDrag === "source" ? 1 : -1;
+    setFrame(normalizePhotoFrame({ ...frame, x: frame.x+direction*offset[0]*step, y: frame.y+direction*offset[1]*step }, source));
   }
   /** 같은 서명 URL이 반환되어도 기존 이미지 Key 방식으로 다시 로드하고 편집 중인 위치·배율은 유지한다. */
   async function retryPreview() {
@@ -94,11 +96,14 @@ export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved,
     </div><p className="mt-2 text-xs leading-5 text-stone-500">전체 보기는 사진과 창의 비율이 다르면 위아래 또는 양옆에 여백이 생길 수 있어요. 사진이 잘리거나 늘어나지는 않아요.</p></fieldset>
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-2">
       <div><p className="mb-3 text-xs font-bold text-stone-600">{whole ? "원본 전체 · 사진의 모든 부분을 담아요" : "원본과 선택 영역 · 밝은 영역이 저금통에 담겨요"}</p>
-        <div className="relative aspect-square overflow-hidden rounded-2xl bg-stone-100">
+        <div data-photo-drag="source" role="group" aria-label="원본에서 사진 선택 영역 조절" tabIndex={locked || whole ? -1 : 0}
+          onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={() => { drag.current = null; }}
+          onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onKeyDown={keyboard}
+          className={`relative aspect-square overflow-hidden rounded-2xl bg-stone-100 outline-offset-4 focus-visible:outline-emerald-700 ${locked || whole ? "" : "touch-none cursor-move"}`}>
           {previewUrl && <img key={imageKey} src={previewUrl} alt="사진 배치 원본" className="h-full w-full object-contain" draggable={false} style={{ imageRendering: draftImageRendering(draft) }} onLoad={() => setLoadedKey(imageKey)} onError={() => setFailedKey(imageKey)}/>}
           <div aria-hidden="true" className="pointer-events-none absolute border-2 border-emerald-400" style={{ left:`${displayedFrame.x*100}%`,top:`${displayedFrame.y*100}%`,width:`${displayedFrame.width*100}%`,height:`${displayedFrame.height*100}%`,boxShadow:"0 0 0 800px rgb(30 45 35 / .42)" }}>{!whole && <><span className="absolute inset-x-1/3 inset-y-0 border-x border-white/40"/><span className="absolute inset-x-0 inset-y-1/3 border-y border-white/40"/></>}</div>
         </div>
-        <p className="mt-2 text-xs leading-5 text-stone-500">영역 밖의 사진은 지워지지 않아요. 언제든 다른 부분으로 배치할 수 있어요.</p>
+        <p className="mt-2 text-xs leading-5 text-stone-500">{whole ? "사진 전체를 담아요." : "원본의 밝은 선택 영역도 드래그해 옮길 수 있어요."} 영역 밖의 사진은 지워지지 않아요.</p>
       </div>
       <div className="min-w-0 rounded-3xl border border-stone-200 bg-gradient-to-b from-[#e7eee5] to-[#f6ead8] p-4">
         <div className="flex items-center justify-between gap-3"><p className="text-xs font-black tracking-wide text-emerald-900">적용하면 이렇게 보여요</p><span className="text-xs text-stone-600">{body.name}</span></div>

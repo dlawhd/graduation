@@ -12,7 +12,8 @@ public record JarDesignDraftDetailResponse(Long draftId, JarDraftStatus status, 
         Long selectedGenerationId, BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
         List<JarDesignCutoutPoint> cutoutPoints, List<List<JarDesignCutoutPoint>> cutoutRegions,
         LocalDateTime expiresAt, Long finalizedJarId, List<GenerationItem> generations, JarSlotStyle slotStyle,
-        JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame, JarPhotoFrameValue originalContentFrame) {
+        JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame, JarPhotoFrameValue originalContentFrame,
+        JarPhotoFrameValue aiInputPhotoFrame) {
     public record GenerationItem(Long generationId, JarAiStyle style, JarAiGenerationStatus status,
                                  JarAiGenerationErrorCode errorCode, LocalDateTime completedAt) { }
 }

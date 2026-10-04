@@ -1,0 +1,18 @@
+/* 구멍·좌표는 고정한다. 낮은 빈도의 반사광·장식만 움직이고 화면 밖·숨긴 탭에서는 멈춘다. */
+.slot-artwork .slot-ambient { opacity: 0; background: radial-gradient(ellipse at 30% 20%,#fff9d9a0,transparent 62%); animation: slot-breathe 9s ease-in-out infinite paused; }
+.slot-artwork .slot-rim-glow { animation: slot-rim 10s ease-in-out infinite paused; }
+.slot-artwork .slot-details { transform-box: view-box; transform-origin: 50px 50px; animation: slot-sway 12s ease-in-out infinite paused; }
+.slot-artwork[data-motion-active="true"] :is(.slot-ambient,.slot-rim-glow,.slot-details) { animation-play-state: running; }
+.slot-artwork[data-slot-motion="shine"] .slot-ambient { background: linear-gradient(110deg,transparent 30%,#fff9 49%,transparent 65%); background-size: 300% 100%; animation-name: slot-silver; }
+.slot-artwork[data-slot-motion="tide"] .slot-rim-glow { animation-name: slot-tide; }
+.slot-artwork[data-slot-motion="orbit"] .slot-details { animation-name: slot-orbit; }
+.slot-artwork[data-slot-motion="pulse"] .slot-rim-glow { animation-name: slot-heartbeat; }
+.slot-artwork[data-slot-motion="warm"] .slot-ambient { background: radial-gradient(ellipse,#ffe4b866,transparent 65%); animation-duration: 11s; }
+@keyframes slot-breathe { 0%,55%,100% { opacity:0; } 68% { opacity:.22; } 80% { opacity:.08; } }
+@keyframes slot-rim { 0%,60%,100% { opacity:.5; } 72% { opacity:1; } }
+@keyframes slot-silver { 0%,60%,100% { opacity:0; background-position:100% 0; } 65% { opacity:.28; } 80% { opacity:0; background-position:0% 0; } }
+@keyframes slot-tide { 0%,50%,100% { stroke-opacity:.45; } 63% { stroke-opacity:.9; } 77% { stroke-opacity:.55; } }
+@keyframes slot-orbit { 0%,60%,100% { transform:rotate(0deg); } 72% { transform:rotate(4deg); } 86% { transform:rotate(-2deg); } }
+@keyframes slot-sway { 0%,55%,100% { transform:rotate(0deg); } 67% { transform:rotate(-2deg); } 79% { transform:rotate(2deg); } }
+@keyframes slot-heartbeat { 0%,65%,100% { opacity:.5; } 71%,79% { opacity:1; } 75%,83% { opacity:.65; } }
+@media (prefers-reduced-motion:reduce) { .slot-artwork :is(.slot-ambient,.slot-rim-glow,.slot-details) { animation:none!important; transform:none!important; } .slot-artwork .slot-ambient { opacity:0; } }

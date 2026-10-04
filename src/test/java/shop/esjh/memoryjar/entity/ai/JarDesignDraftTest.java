@@ -14,6 +14,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class JarDesignDraftTest {
 
+    @Test void originalCropSurvivesAiSelectionAndAiReframingButImageOnlyClearsIt() {
+        var draft=JarDesignDraft.builder().originalS3Key("original.png").bodyStyle(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT)
+            .expiresAt(LocalDateTime.now().plusDays(1)).build();
+        var original=new JarPhotoFrame(new shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue(new BigDecimal(".2"),new BigDecimal(".3"),new BigDecimal(".5"),new BigDecimal(".4")));
+        var generated=new JarPhotoFrame(new shop.esjh.memoryjar.dto.ai.JarPhotoFrameValue(BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ONE,BigDecimal.ONE));
+        draft.selectOriginal();draft.updateComposition(draft.getBodyStyle(),original);
+        draft.selectAiGeneration(10L);
+        assertThat(draft.getPhotoFrame()).isNull();
+        assertThat(draft.getAiInputPhotoFrame()).isSameAs(original);
+        draft.updateComposition(draft.getBodyStyle(),generated);
+        assertThat(draft.getAiInputPhotoFrame()).isSameAs(original);
+        draft.selectOriginal();
+        assertThat(draft.getPhotoFrame()).isSameAs(original);
+        draft.updateComposition(null,null);
+        assertThat(draft.getAiInputPhotoFrame()).isNull();
+        assertThat(draft.getOriginalS3Key()).isEqualTo("original.png");
+    }
+
     @Test
     void selectDefault_clearsAiCandidateAndSlot() {
         JarDesignDraft draft = JarDesignDraft.builder()

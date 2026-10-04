@@ -118,6 +118,32 @@ class JarAiGenerationServiceTest {
     }
 
     @Test
+    void generate_sendsOnlySavedCropWithoutChangingSourceOrAddingProviderCalls() throws Exception {
+        var style=JarAiStyle.WATERCOLOR;
+        when(promptCatalog.resolve(style)).thenReturn(new AiPromptCatalog().resolve(style));
+        arrangeCandidateKey();
+        var frame=JarAiInputImageProcessorTest.frame(".5","0",".5","1");
+        when(persistenceService.start(eq(1L),eq(10L),eq(style),any(),any()))
+            .thenReturn(new JarAiGenerationPersistenceService.GenerationStartTarget(100L,10L,1L,"original.png",frame));
+        byte[] original=JarAiInputImageProcessorTest.twoColors();
+        arrangeOriginalRead(original);
+        when(cloudflareClient.generateImage(any())).thenReturn(new byte[]{1});
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn(new byte[]{2});
+        when(persistenceService.completeSucceeded(eq(10L),eq(100L),anyString())).thenReturn(true);
+
+        startAndProcess(service(),style,null);
+
+        var request=ArgumentCaptor.forClass(CloudflareWorkersAiClient.CloudflareImageGenerationRequest.class);
+        verify(cloudflareClient).generateImage(request.capture());
+        var image=JarAiInputImageProcessorTest.decode(request.getValue().images().get(0).bytes());
+        assertThat(image.getRGB(240,240)&0xffffff).isEqualTo(0x0000ff);
+        assertThat(image.getRGB(0,240)&0xffffff).isEqualTo(0xffffff);
+        assertThat(JarAiInputImageProcessorTest.decode(original).getRGB(0,240)&0xffffff).isEqualTo(0xff0000);
+        verifyNoMoreInteractions(cloudflareClient);
+        verify(s3Client,never()).putObject(argThat((PutObjectRequest r)->r.key().equals("original.png")),any(RequestBody.class));
+    }
+
+    @Test
     @DisplayName("Cloudflare timeout은 후보 저장 없이 PROVIDER_TIMEOUT으로 종료한다")
     void generate_recordsProviderTimeout() throws Exception {
         JarAiGenerationService service = service();

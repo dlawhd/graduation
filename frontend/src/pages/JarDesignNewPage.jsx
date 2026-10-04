@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import JarDesignCanvas from "../features/jarDesign/components/JarDesignCanvas";
 import AiCandidateGallery from "../features/jarDesign/components/AiCandidateGallery";
@@ -31,6 +31,13 @@ export default function JarDesignNewPage() {
   const [readingSource, setReadingSource] = useState(false);
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
+  const stepKey = draftId ? `draft:${draftId}` : imageStep ? "image" : "body";
+  // 같은 경로의 query만 바뀌어도 새 단계의 첫 제목부터 보여준다. 사진 교체·모양 탐색에는 이동하지 않는다.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    const frame = requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    return () => cancelAnimationFrame(frame);
+  }, [stepKey]);
 
   useEffect(() => {
     if (!sourceImage) {
@@ -95,7 +102,7 @@ export default function JarDesignNewPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-5 py-10 sm:px-6">
+    <div style={{ overflowAnchor: "none" }} className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-5 py-10 sm:px-6">
       <main className="mx-auto max-w-6xl">
         <Link to="/jars/new" className="text-sm font-bold text-violet-700 hover:text-violet-900">← 만들기 방식 다시 선택</Link>
         <section className="mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8">

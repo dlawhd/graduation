@@ -3,7 +3,7 @@ import { draftImageRendering } from "../imageRendering.mjs";
 import { getJarDesignDraftError, getJarDesignOriginalPreview, getJarDesignGenerationPreview,
   updateJarDesignSlot } from "../../../api/jarDesignDraftApi";
 import { DEFAULT_SLOT, slotStyle, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
-import { SLOT_CATALOG, SLOT_COLLECTIONS, filterSlotStyles, getSlotAppearance } from "../slotCatalog.mjs";
+import { SLOT_CATALOG, SLOT_COLLECTIONS, slotPage, getSlotAppearance } from "../slotCatalog.mjs";
 import JarSlotOverlay, { SlotSwatch } from "./JarSlotOverlay";
 import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 import JarDesignImage from "./JarDesignImage";
@@ -19,6 +19,8 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
     return SLOT_COLLECTIONS.includes(storedCollection) ? storedCollection : "꽃과 자연";
   });
   const selectedAppearance = getSlotAppearance(slot.slotStyle);
+  const [page, setPage] = useState(1);
+  const shown = slotPage(collection, page);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
@@ -148,21 +150,27 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
                 <div className="min-w-0"><p className="text-sm font-black text-slate-800">{selectedAppearance.name}</p><p className="mt-1 text-xs leading-5 text-slate-500">{selectedAppearance.description}</p></div>
               </div>
               <div role="group" aria-label="투입구 컬렉션" className="mb-3 flex flex-wrap gap-1.5">
-                {SLOT_COLLECTIONS.map(label => <button type="button" key={label} aria-pressed={collection === label} onClick={() => setCollection(label)}
+                {SLOT_COLLECTIONS.map(label => <button type="button" key={label} aria-pressed={collection === label} onClick={() => { setCollection(label); setPage(1); }}
                   className={`min-h-11 rounded-full px-3 text-xs font-bold ${collection === label ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>)}
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {filterSlotStyles(collection).map(({id: value, name: label, description}) => <button key={value} type="button" aria-label={label} aria-pressed={slotStyle(slot.slotStyle) === value}
+                {shown.entries.map(({id: value, name: label, description}) => <button key={value} type="button" aria-label={label} aria-pressed={slotStyle(slot.slotStyle) === value}
                   onClick={() => setSlot((current) => normalizeSlot({ ...current, slotStyle: value }))}
                   className={`flex min-h-28 min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-xs font-bold ${slotStyle(slot.slotStyle) === value ? "border-violet-500 bg-violet-50 text-violet-800 ring-1 ring-violet-300" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
                   <SlotSwatch value={value} size={56}/><span>{label}{slotStyle(slot.slotStyle) === value && <span aria-hidden="true"> ✓</span>}</span>
                   <span className="text-[10px] font-normal leading-4 text-slate-500">{description}</span>
                 </button>)}
               </div>
+              <nav aria-label="입구 페이지" className="mt-3 flex flex-wrap items-center justify-center gap-1">
+                <button type="button" aria-label="이전 입구 페이지" disabled={shown.page === 1} onClick={() => setPage(shown.page - 1)} className="min-h-11 min-w-11 rounded-xl bg-slate-100 disabled:opacity-30">←</button>
+                {Array.from({length: shown.pages}, (_,i) => i+1).filter(n => n === 1 || n === shown.pages || Math.abs(n-shown.page) <= 1).map((n,i,visible) => <span key={n} className="flex items-center gap-1">{i > 0 && n-visible[i-1] > 1 && <span aria-hidden="true" className="px-1">…</span>}<button type="button" aria-label={`${n}페이지`} aria-current={n === shown.page ? "page" : undefined} onClick={() => setPage(n)} className={`min-h-11 min-w-11 rounded-xl text-sm font-bold ${n === shown.page ? "bg-violet-600 text-white" : "bg-slate-100"}`}>{n}</button></span>)}
+                <button type="button" aria-label="다음 입구 페이지" disabled={shown.page === shown.pages} onClick={() => setPage(shown.page + 1)} className="min-h-11 min-w-11 rounded-xl bg-slate-100 disabled:opacity-30">→</button>
+                <span role="status" className="w-full text-center text-xs text-slate-500">{shown.page} / {shown.pages} 페이지 · {shown.total}개</span>
+              </nav>
               <p className="mt-3 text-xs leading-5 text-slate-500">종류를 둘러봐도 선택은 유지돼요. 모양을 바꿀 때 화면 밖으로 나가는 경우만 위치를 안쪽으로 맞춰요.</p>
             </div>
             <label className="block text-sm font-bold text-slate-700">투입구 크기
-              <input type="range" min="0" max="100" step="1" value={slot.sizeRatio * 100}
+              <input type="range" min="-50" max="100" step="1" value={slot.sizeRatio * 100}
                 onChange={(event) => setSlot((current) => normalizeSlot({ ...current, sizeRatio: Number(event.target.value) / 100 }))}
                 className="mt-2 block min-h-11 w-full accent-violet-600" />
               <span className="flex justify-between text-xs font-normal text-slate-500"><span>작게</span><span>크게</span></span>

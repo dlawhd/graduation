@@ -1,5 +1,6 @@
 /** 입구의 이름·분류·재질·외곽선을 한 곳에서 관리한다. 좌표와 크기는 기존 슬롯 계약을 그대로 쓴다. */
-export const SLOT_COLLECTIONS = Object.freeze(["전체", "클래식 입구", "꽃과 자연", "상상의 문"]);
+import { EXTRA_SLOT_CATALOG } from "./extraSlotCatalog.mjs";
+export const SLOT_COLLECTIONS = Object.freeze(["전체", "클래식 입구", "꽃과 자연", "상상의 문", "동물 친구들", "바다의 편지", "달과 우주", "달콤한 간식", "취미와 일상", "기하와 보석"]);
 
 const capsule = "M30 4H180A26 26 0 0 1 180 56H30A26 26 0 0 1 30 4Z";
 const bevel = "M19 4H191L206 19V41L191 56H19L4 41V19Z";
@@ -56,14 +57,22 @@ const freeform = [
   ["SNOWFLAKE_GATE", "눈꽃 편지", "상상의 문", "여섯 갈래 얼음 결정의 문", "M43 4H57L59 27L78 14L87 28L67 42L91 43V57L67 58L87 72L78 86L59 73L57 96H43L41 73L22 86L13 72L33 58L9 57V43L33 42L13 28L22 14L41 27Z", ["#f1fbff","#abcfe1","#769bb5","#ffffff"]],
 ];
 
-export const FREEFORM_SLOT_CATALOG = Object.freeze(freeform.map(([id,name,collection,description,path,colors,target=[.5,.5]]) =>
+export const V43_FREEFORM_SLOT_CATALOG = Object.freeze(freeform.map(([id,name,collection,description,path,colors,target=[.5,.5]]) =>
   Object.freeze({id,name,collection,description,path,colors:Object.freeze(colors),aspectRatio:1,freeform:true,
     target:Object.freeze({x:target[0],y:target[1],width:.12,height:.12})})));
+export const FREEFORM_SLOT_CATALOG = Object.freeze([...V43_FREEFORM_SLOT_CATALOG, ...EXTRA_SLOT_CATALOG]);
 export const SLOT_CATALOG = Object.freeze([
-  ...LEGACY_SLOT_CATALOG.slice(0,8).map(entry=>Object.freeze({...entry,collection:"클래식 입구"})),
+  ...LEGACY_SLOT_CATALOG.slice(0,12).map(entry=>Object.freeze({...entry,collection:"클래식 입구"})),
   ...FREEFORM_SLOT_CATALOG,
 ]);
 export const SLOT_STYLES = Object.freeze(SLOT_CATALOG.map(({ id, name }) => Object.freeze([id, name])));
 const byId = new Map([...LEGACY_SLOT_CATALOG, ...SLOT_CATALOG].map(entry => [entry.id, entry]));
 export const getSlotAppearance = value => byId.get(value) || SLOT_CATALOG[0];
 export const filterSlotStyles = collection => SLOT_CATALOG.filter(entry => collection === "전체" || entry.collection === collection);
+
+/** 필터·페이지 변경은 선택한 입구와 저장 좌표에 영향을 주지 않는 로컬 표시 상태다. */
+export function slotPage(collection, page = 1) {
+  const entries = filterSlotStyles(collection), pages = Math.max(1, Math.ceil(entries.length / 6));
+  const current = Math.min(pages, Math.max(1, Math.trunc(page) || 1));
+  return { entries: entries.slice((current - 1) * 6, current * 6), page: current, pages, total: entries.length };
+}

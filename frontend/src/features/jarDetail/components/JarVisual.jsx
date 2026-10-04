@@ -142,7 +142,7 @@ export default function JarVisual({
   return (
     <div
       ref={jarRef}
-      className="relative mx-auto flex h-[320px] w-[260px] items-center justify-center outline-none"
+      className={hasCustomDesign ? "relative mx-auto flex aspect-square w-full max-w-[360px] items-center justify-center outline-none" : "relative mx-auto flex h-[320px] w-[260px] items-center justify-center outline-none"}
       aria-label="저금통"
     >
       {/* 이 컴포넌트 안에서만 쓰는 애니메이션 CSS */}
@@ -208,7 +208,7 @@ export default function JarVisual({
           <JarCustomDesignVisual
             design={jar.design}
             alt={`${jar?.name || "저금통"} 최종 디자인`}
-            className="relative z-10 h-[230px] w-[230px]"
+            className="relative z-10 h-full w-full"
             onReload={onReloadDesignImage}
           />
         ) : (

@@ -1,5 +1,7 @@
 ## 2026-10-01 PIXEL 후처리 V3 — 현재 코드
 
+> 2026-10-04 V44 증분: 화면 입구 9개 컬렉션×12개(108종), 호환 ID 포함 서버 120종. sizeRatio는 -0.5~1로 확장하되 이전 0~1 기하는 유지한다. Draft에 nullable aiInputPhotoFrame을 추가하여 저장한 원본 장면으로 AI 입력을 만들며 원본/S3는 보존한다. V44 백엔드·DB를 먼저 배포한다. [모바일·사진 배치·입구 변경 계약](AI_MOBILE_COMPOSITION_V44.md)이 이번 증분 기준이며 아래 V43 이전 설명은 당시 기록이다.
+
 신규 PIXEL은 `BASE_V2+PIXEL_V6`, 참조 없음, `PIXEL_PP_V3`를 사용한다.
 흰 배경 합성 → 96×96 bilinear 축소 → 최대 64색 median-cut → nearest-neighbor 5배 확대(480×480)다.
 프롬프트·기괴 `BIZARRE_V6`·표시 설정은 변경하지 않는다. 과거 후보와 V1/V2 기록은 보존한다.

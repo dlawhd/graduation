@@ -2,6 +2,9 @@ import { slotDimensions, slotStyle } from "../slotGeometry.mjs";
 import DecorativeSlotArtwork from "./DecorativeSlotArtwork";
 import FreeformSlotArtwork from "./FreeformSlotArtwork";
 import { getSlotAppearance } from "../slotCatalog.mjs";
+import { useEffect, useRef } from "react";
+import { observeJarMotion } from "../jarBodyMotion.mjs";
+import "../slotMotion.css";
 
 const APPEARANCE = {
   CAPSULE: { borderRadius: "999px", background: "#0f172a", border: "1px solid #ffffffb3" },
@@ -14,7 +17,21 @@ const APPEARANCE = {
 
 /** 전체 경계 안에서만 장식해 모양을 바꾸어도 저장 좌표나 쪽지 투입 애니메이션이 어긋나지 않는다. */
 export function SlotAppearance({ value }) {
+  const ref = useRef(null);
   const kind = slotStyle(value);
+  const entry = getSlotAppearance(kind);
+  useEffect(() => observeJarMotion(ref.current), [kind]);
+  const motion = ["METAL","BRASS","ROSE_GOLD","OBSIDIAN","PEARL","PORCELAIN"].includes(kind) ? "shine"
+    : entry.collection === "바다의 편지" ? "tide" : ["달과 우주","기하와 보석","상상의 문"].includes(entry.collection) ? "orbit"
+    : entry.collection === "동물 친구들" ? "pulse" : entry.collection === "달콤한 간식" ? "warm" : "breathe";
+  return <span ref={ref} data-slot-motion={motion} className="slot-artwork relative block h-full w-full">
+    <StaticSlotAppearance kind={kind}/>
+    <span aria-hidden="true" className="slot-ambient pointer-events-none absolute inset-0 rounded-full"/>
+  </span>;
+}
+
+/** 구멍과 실제 쪽지 목표는 고정이다. 애니메이션은 테두리의 반사광·세공에만 적용한다. */
+function StaticSlotAppearance({ kind }) {
   if (getSlotAppearance(kind).freeform) return <FreeformSlotArtwork value={kind}/>;
   if (!APPEARANCE[kind]) return <DecorativeSlotArtwork value={kind}/>;
   return <span className="relative block h-full w-full overflow-hidden shadow-inner" style={{ ...APPEARANCE[kind], padding: 0 }}>

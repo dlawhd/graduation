@@ -22,7 +22,8 @@ public final class JarSlotGeometry {
     public static void validate(BigDecimal centerX, BigDecimal centerY, BigDecimal sizeRatio, JarSlotStyle style) {
         validateValue(centerX);
         validateValue(centerY);
-        validateValue(sizeRatio);
+        if (sizeRatio == null || sizeRatio.scale() > 5 || sizeRatio.compareTo(new BigDecimal("-0.5")) < 0 || sizeRatio.compareTo(BigDecimal.ONE) > 0)
+            throw new ApiException(AiDraftErrorCode.DRAFT_SLOT_INVALID);
         BigDecimal width = MIN_WIDTH.add(WIDTH_RANGE.multiply(sizeRatio));
         BigDecimal aspectRatio = JarSlotStyle.orDefault(style).aspectRatio();
         // 나눗셈의 반올림 오차 없이 슬롯 양 끝이 이미지 내부인지 비교한다.

@@ -1,4 +1,5 @@
 import apiClient, { ensureCsrf } from "./apiClient";
+import { prepareSourceUpload } from "../features/jarDesign/sourceUpload.mjs";
 
 /**
  * Jar 생성 전 디자인 Draft API만 담당한다.
@@ -16,17 +17,18 @@ export async function createJarDesignDraft(imageFile, bodyStyle) {
     throw new Error("디자인 원본 이미지를 먼저 준비해 주세요.");
   }
 
+  const uploadFile = await prepareSourceUpload(imageFile);
   const formData = new FormData();
   formData.append(
     "image",
-    imageFile,
-    imageFile.name || "jar-design-original.png"
+    uploadFile,
+    uploadFile.name || "jar-design-original.png"
   );
   // 본체는 이미지에 합성하지 않는다. 원본은 AI 입력으로 유지하고 서버에는 선택 코드만 함께 저장한다.
   if (bodyStyle) formData.append("bodyStyle", bodyStyle);
 
   await ensureCsrf();
-  const response = await apiClient.post(DRAFT_BASE_URL, formData);
+  const response = await apiClient.post(DRAFT_BASE_URL, formData, { timeout: 90_000 });
   return unwrap(response);
 }
 
@@ -110,6 +112,10 @@ export async function finalizeJarDesignDraft(draftId, jarPayload) {
 /** 서버의 기능별 error.code를 우선 사용해 화면이 안정적으로 분기할 수 있게 한다. */
 export function getJarDesignDraftError(error) {
   const apiError = error?.response?.data?.error;
+  if (!apiError && error?.response?.status === 413) return { code: "DRAFT_UPLOAD_TOO_LARGE", message: "서버의 업로드 용량 제한에 걸렸어요. 더 작은 사진을 선택해 주세요." };
+  if (!apiError && ["ERR_NETWORK", "ECONNABORTED", "ETIMEDOUT"].includes(error?.code)) return {
+    code: "DRAFT_NETWORK_UNAVAILABLE", message: "서버와 연결하지 못했어요. 사진은 그대로 남아 있어요. Wi-Fi 또는 모바일 데이터를 확인한 뒤 다시 눌러 주세요. 계속 실패하면 서버 업로드 제한·CORS 확인이 필요해요.",
+  };
   return {
     code: apiError?.code || "DRAFT_REQUEST_FAILED",
     message: apiError?.message || error?.message || "디자인 요청을 처리하지 못했어요.",

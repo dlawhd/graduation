@@ -33,7 +33,8 @@ class JarFreeformSlotV43MigrationTest {
                     assertThat(row.getBigDecimal(2)).isEqualByComparingTo("0.04");
                     assertThat(row.getBigDecimal(3)).isEqualByComparingTo("1");
                 }
-                for (JarSlotStyle style:JarSlotStyle.values())
+                // 이 검사는 V43 시점의 40개만 검증한다. 후속 V44 전용 ID를 과거 DB에 요구하지 않는다.
+                for (JarSlotStyle style:java.util.Arrays.copyOf(JarSlotStyle.values(), 40))
                     assertThat(sql.executeUpdate("UPDATE "+table+" SET slot_style='"+style.name()+"'")).isEqualTo(1);
                 for (String invalid:new String[]{"UNKNOWN","","FLOWER"})
                     assertThatThrownBy(()->sql.executeUpdate("UPDATE "+table+" SET slot_style='"+invalid+"'")).isInstanceOf(SQLException.class);

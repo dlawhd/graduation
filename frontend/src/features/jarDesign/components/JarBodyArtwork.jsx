@@ -61,7 +61,6 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
     </div>}
     <svg aria-hidden="true" viewBox="0 0 480 480" className="pointer-events-none absolute inset-0 h-full w-full">
       <rect x={w.x} y={w.y} width={w.width} height={w.height} rx={w.radius} fill="none" stroke={c.shade} strokeOpacity=".4" strokeWidth="2"/>
-      <path d={`M${w.x+18} ${w.y-3}H${w.x+w.width-18}`} stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity=".85"/>
       {/* 어떤 장식을 추가해도 사용자의 그림 창은 가리지 않는다. 입구는 이 마스크 밖의 별도 오버레이다. */}
       <g mask={paint("photo-safe")} data-jar-photo-safe><Decorations body={body} paint={paint} layer="front"/><Atmosphere body={body}/></g>
     </svg>

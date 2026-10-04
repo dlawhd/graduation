@@ -1,4 +1,4 @@
-// 사진 창의 가로세로 비율을 지키며 원본 안의 표시 영역만 바꾼다. 원본·AI 입력 자체는 잘라내지 않는다.
+// 사진 창의 비율을 지키며 표시 영역을 조절한다. 원본은 보존하며 서버는 저장한 영역으로 임시 AI 입력을 만든다.
 export const WHOLE_PHOTO = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const round = (n) => Math.round(n * 1e6) / 1e6;

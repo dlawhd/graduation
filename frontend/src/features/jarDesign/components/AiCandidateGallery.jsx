@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { designImageRendering } from "../imageRendering.mjs";
 import { getGenerationFailureGuidance } from "../generationFailure.mjs";
 import { useStompClient } from "../../../realtime/StompClientProvider";
@@ -46,6 +47,7 @@ const DISCONNECTED_FALLBACK_REFRESH_MS = 3_000;
  * 이미지 URL은 DB 응답에 저장하지 않고, 성공 후보를 렌더링할 때만 별도 Presigned URL을 요청한다.
  */
 export default function AiCandidateGallery({ draftId }) {
+  const navigate = useNavigate();
   const { connected, subscribe } = useStompClient();
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -313,16 +315,16 @@ export default function AiCandidateGallery({ draftId }) {
     }
   }
 
-  /** 직접 디자인을 쓰지 않기로 한 경우에도 Draft Finalize API 안에서 기존 Jar 생성 로직을 재사용한다. */
+  /** 직접 디자인 대신 기존 기본 테마 선택 페이지로 돌아간다. Draft는 TTL 정리 정책을 유지한다. */
   async function handleSelectDefault() {
     if (actionInFlight.current || finalizing || selectingGenerationId !== null || slotSaving || cutoutSaving || !confirmDiscardEdits()) return;
     actionInFlight.current = true;
     setSelectingGenerationId("default");
     setError("");
     try {
-      await selectJarDesign(draftId, "DEFAULT");
-      scrollToEditorRef.current = true;
-      await loadDraft();
+      // 기본 테마의 8종 선택·미리보기·기존 생성 폼을 그대로 재사용한다. 임시 Draft는 기존 TTL로 정리된다.
+      navigate("/jars/new?mode=default");
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     } catch (requestError) {
       setError(getJarDesignDraftError(requestError).message);
     } finally {
@@ -334,12 +336,19 @@ export default function AiCandidateGallery({ draftId }) {
   const customSelected = ["ORIGINAL", "AI"].includes(draft?.selectedDesignType);
   const selectedPreview = draft?.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft?.selectedGenerationId];
   const needsComposition = Boolean(draft?.status === "ACTIVE" && customSelected && (editingComposition || (body && !draft.photoFrame)));
+  // 사진 배치 단계가 열리거나 적용되어 AI 단계로 돌아오면 아래 슬롯 편집기가 아닌 첫 제목부터 읽는다.
+  useLayoutEffect(() => {
+    if (loading) return;
+    scrollToEditorRef.current = false;
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [needsComposition, loading]);
   function compositionSaved(value) {
     setDraft((current) => samePhotoFrame(current.photoFrame ?? null, value.photoFrame) && current.bodyStyle === value.bodyStyle
-      ? current : ({ ...current, ...value, slotCenterX:null, slotCenterY:null, slotSizeRatio:null, slotStyle:"CAPSULE", cutoutRegions:[], cutoutPoints:[] }));
+      ? current : ({ ...current, ...value, aiInputPhotoFrame: value.bodyStyle == null ? null : current.selectedDesignType === "ORIGINAL" ? value.photoFrame : current.aiInputPhotoFrame,
+        slotCenterX:null, slotCenterY:null, slotSizeRatio:null, slotStyle:"CAPSULE", cutoutRegions:[], cutoutPoints:[] }));
     setEditingComposition(false);
     setCompositionDirty(false);
-    scrollToEditorRef.current = true;
+    scrollToEditorRef.current = false;
   }
   if (!loading && needsComposition) return <div className="mt-8" ref={editorRef}>
     <PhotoFrameEditor key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${draft.bodyStyle}:${JSON.stringify(draft.photoFrame)}`}
@@ -364,7 +373,7 @@ export default function AiCandidateGallery({ draftId }) {
         </button>
       </div>
 
-      {body && <p className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900"><strong>{body.name}</strong> 안에 담을 그림을 골라요. AI는 그림만 꾸미고 저금통 모양은 그대로 유지돼요.</p>}
+      {body && <p className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900"><strong>{body.name}</strong> 안에 담을 그림을 골라요. AI는 원본에서 저장한 사진 선택 영역을 꾸미고 저금통 모양은 유지해요. AI 후보의 사진 배치는 별도로 조절할 수 있어요.</p>}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {AI_STYLES.map(([style, title, description]) => (
           <button key={style} type="button" aria-pressed={chosenStyle === style} onClick={() => setChosenStyle(style)}
@@ -404,7 +413,7 @@ export default function AiCandidateGallery({ draftId }) {
           <article className={`overflow-hidden rounded-[22px] border bg-white ${draft?.selectedDesignType === "ORIGINAL" ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}>
             <div className="aspect-square bg-slate-100">
               {originalPreviewUrl ? (
-                <JarDesignImage bodyStyle={draft?.bodyStyle} photoFrame={body ? (draft.selectedDesignType === "ORIGINAL" && draft.photoFrame ? draft.photoFrame : coverPhotoFrame(body.window, draft.originalContentFrame || WHOLE_PHOTO)) : null} imageUrl={originalPreviewUrl} alt="정규화한 원본 디자인" showDefaultSlot
+                <JarDesignImage bodyStyle={draft?.bodyStyle} photoFrame={body ? (draft.aiInputPhotoFrame || (draft.selectedDesignType === "ORIGINAL" ? draft.photoFrame : null) || coverPhotoFrame(body.window, draft.originalContentFrame || WHOLE_PHOTO)) : null} imageUrl={originalPreviewUrl} alt="정규화한 원본 디자인" showDefaultSlot
                   onImageError={() => handlePreviewError(originalPreviewUrl, refreshOriginalPreview)} />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold leading-6 text-slate-500">
@@ -477,7 +486,7 @@ export default function AiCandidateGallery({ draftId }) {
         </div>
       )}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 p-4"><p className="text-xs leading-5 text-slate-500">직접 그린 디자인 대신, 기본 테마 저금통을 써도 좋아요.</p><button type="button" onClick={() => void handleSelectDefault()} disabled={loading || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "DEFAULT"} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 disabled:opacity-50">{draft?.selectedDesignType === "DEFAULT" ? "기본 저금통 선택됨 ✓" : "기본 저금통으로 계속하기 →"}</button></div>
-      {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison bodyStyle={draft?.bodyStyle} photoFit={draft?.photoFrame?.fit} originalContentFrame={draft?.originalContentFrame} originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
+      {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison bodyStyle={draft?.bodyStyle} photoFit={draft?.photoFrame?.fit} originalContentFrame={draft?.originalContentFrame} originalPhotoFrame={draft?.aiInputPhotoFrame} originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
         onClose={() => setComparisonId(null)} onSelect={() => { setComparisonId(null); void handleSelect(comparisonId); }} />; })()}
       <div ref={editorRef} className="scroll-mt-24" />
       {!loading && draft?.status === "ACTIVE" && customSelected && <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">

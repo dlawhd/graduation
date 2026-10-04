@@ -10,15 +10,15 @@ export const slotStyle = (value) => getSlotAppearance(value).id;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const round = (value) => Number(value.toFixed(5));
 
-/** sizeRatio는 슬라이더 위치이며, 실제 이미지 너비의 12~28%로 변환한다. */
+/** 기존 0~1 저장 값은 12~28% 그대로다. V44의 -0.5~0 구간만 4~12% 작은 입구를 추가한다. */
 export function slotDimensions(sizeRatio, style) {
-  const width = SLOT_MIN_WIDTH + SLOT_WIDTH_RANGE * sizeRatio;
+  const width = (1200000 + 16 * Math.round(sizeRatio * 100000)) / 10000000;
   return { width, height: width / getSlotAppearance(style).aspectRatio };
 }
 
 /** DB 소수점 다섯 자리로 양자화한 뒤에도 슬롯이 경계 밖으로 나가지 않도록 안쪽으로 보정한다. */
 export function normalizeSlot(slot) {
-  const sizeRatio = round(clamp(slot.sizeRatio, 0, 1));
+  const sizeRatio = round(clamp(slot.sizeRatio, -0.5, 1));
   // 정수 분수로 계산해 0.14가 부동소수 오차로 0.14001로 밀리지 않게 한다.
   const widthNumerator = 1200000 + 16 * Math.round(sizeRatio * 100000);
   const minX = Math.ceil(widthNumerator / 200) / 100000;

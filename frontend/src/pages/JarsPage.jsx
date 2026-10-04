@@ -358,12 +358,12 @@ function JarListVisual({ jar }) {
 
   if (jar?.design) {
     return (
-      <div className="relative mx-auto flex h-[196px] w-36 items-center justify-center">
+      <div className="relative mx-auto flex aspect-square w-full max-w-[240px] items-center justify-center">
         <div className={`absolute inset-4 rounded-full blur-3xl ${palette.glow}`} />
         <JarCustomDesignVisual
           design={jar.design}
           alt={`${jar?.name || "저금통"} 최종 디자인`}
-          className="relative z-10 h-36 w-36"
+          className="relative z-10 h-full w-full"
         />
       </div>
     );
@@ -1100,7 +1100,7 @@ export default function JarsPage() {
 
                     <div className="flex flex-col gap-6 md:flex-row md:items-center">
                       {/* 왼쪽: 썸네일 */}
-                      <div className="md:w-[170px] md:shrink-0">
+                      <div className={jar.design ? "md:w-[240px] md:shrink-0" : "md:w-[170px] md:shrink-0"}>
                         <JarListVisual jar={jar} />
                       </div>
 

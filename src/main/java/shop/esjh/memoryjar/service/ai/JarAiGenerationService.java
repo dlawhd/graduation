@@ -100,7 +100,8 @@ public class JarAiGenerationService {
             long stageStartedAtNanos = System.nanoTime();
             byte[] originalImage;
             try {
-                originalImage = loadOriginalImage(target.originalS3Key());
+                // 접수 시 잠금 안에서 복사한 불변 배치로만 입력을 자른다. 실행 대기 중 편집이 바뀌어도 입력이 섞이지 않는다.
+                originalImage = JarAiInputImageProcessor.prepare(loadOriginalImage(target.originalS3Key()), target.inputPhotoFrame());
             } finally {
                 timings.s3GetMs = elapsedMillis(stageStartedAtNanos);
             }

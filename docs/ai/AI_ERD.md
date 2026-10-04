@@ -1,5 +1,7 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
+> 2026-10-04 V44 증분: 화면 입구 9개 컬렉션×12개(108종), 호환 ID 포함 서버 120종. sizeRatio는 -0.5~1로 확장하되 이전 0~1 기하는 유지한다. Draft에 nullable aiInputPhotoFrame을 추가하여 저장한 원본 장면으로 AI 입력을 만들며 원본/S3는 보존한다. V44 백엔드·DB를 먼저 배포한다. [모바일·사진 배치·입구 변경 계약](AI_MOBILE_COMPOSITION_V44.md)이 이번 증분 기준이며 아래 V43 이전 설명은 당시 기록이다.
+
 > 2026-10-04 V43 증분: 기존 24종 ID는 그대로 보존하고 자유형 16종을 별도 enum/두 CHECK에 추가한다(허용 40종, 새 UI 24종). 기존 필드·기본값·좌표·사진·본체는 변경하지 않는다. 새 자유형만 정사각 경계를 사용한다. [자유형 계약](AI_SLOT_STYLES.md)을 확인한다.
 
 > 2026-10-04 V42 증분: `JarSlotStyle` 24종과 두 slot_style CHECK를 확장한다. 이전 Slot 기하·CAPSULE 기본값·기존 좌표·사진·본체는 유지한다. [입구 공방 계약](AI_SLOT_STYLES.md)을 확인한다.

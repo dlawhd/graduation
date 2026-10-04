@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-10-04 V44 증분: 화면 입구 9개 컬렉션×12개(108종), 호환 ID 포함 서버 120종. sizeRatio는 -0.5~1로 확장하되 이전 0~1 기하는 유지한다. Draft에 nullable aiInputPhotoFrame을 추가하여 저장한 원본 장면으로 AI 입력을 만들며 원본/S3는 보존한다. V44 백엔드·DB를 먼저 배포한다. [모바일·사진 배치·입구 변경 계약](ai/AI_MOBILE_COMPOSITION_V44.md)이 이번 증분 기준이며 아래 V43 이전 설명은 당시 기록이다.
+
 > 2026-10-04 V43 증분: 필드는 그대로이며 JarSlotStyle은 호환용 24종 + 자유형 16종(총 40종)이다. 새 UI에는 클래식 8종/자유형 16종만 표시한다. [도면·기하·생략 입력 계약](ai/AI_SLOT_STYLES.md)을 확인한다.
 
 > 2026-10-04 V42 증분: `JarSlotStyle`을 기존 6종 + 장식 18종으로 확장한다. Slot 요청/응답 필드와 생략 시 기존 값 유지 정책은 그대로다. [입구 공방 계약](ai/AI_SLOT_STYLES.md)을 확인한다.

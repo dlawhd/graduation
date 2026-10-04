@@ -30,6 +30,32 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class JarAiGenerationPersistenceServiceTest {
 
+    @Test void startCapturesOriginalCropSeparatelyFromSelectedAiOutputFrame() {
+        var draft=mock(JarDesignDraft.class);var owner=mock(User.class);var saved=mock(JarAiGeneration.class);
+        when(draftService.findOwnedActiveDraftForUpdate(1L,10L)).thenReturn(draft);
+        when(draft.getDraftId()).thenReturn(10L);when(draft.getOwner()).thenReturn(owner);when(owner.getId()).thenReturn(1L);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(generationRepository.saveAndFlush(any())).thenReturn(saved);when(saved.getGenerationId()).thenReturn(100L);
+        when(draft.getBodyStyle()).thenReturn(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT);
+        var original=new shop.esjh.memoryjar.entity.ai.JarPhotoFrame(JarAiInputImageProcessorTest.frame(".5","0",".5","1"));
+        when(draft.getAiInputPhotoFrame()).thenReturn(original);
+        var target=service().start(1L,10L,JarAiStyle.WATERCOLOR,definition(),null);
+        assertThat(target.inputPhotoFrame()).isEqualTo(original.toValue());
+        verify(draft,never()).getPhotoFrame();
+    }
+
+    @Test void oldAiOutputCropMustNotBeMistakenForOriginalCrop() {
+        var draft=mock(JarDesignDraft.class);var owner=mock(User.class);var saved=mock(JarAiGeneration.class);
+        when(draftService.findOwnedActiveDraftForUpdate(1L,10L)).thenReturn(draft);
+        when(draft.getDraftId()).thenReturn(10L);when(draft.getOwner()).thenReturn(owner);when(owner.getId()).thenReturn(1L);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(generationRepository.saveAndFlush(any())).thenReturn(saved);when(saved.getGenerationId()).thenReturn(100L);
+        when(draft.getBodyStyle()).thenReturn(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT);
+        when(draft.getSelectedDesignType()).thenReturn(shop.esjh.memoryjar.enums.ai.JarDraftDesignType.AI);
+        assertThat(service().start(1L,10L,JarAiStyle.WATERCOLOR,definition(),null).inputPhotoFrame()).isNull();
+        verify(draft,never()).getPhotoFrame();
+    }
+
     @Mock private JarDesignDraftService draftService;
     @Mock private JarDesignDraftRepository draftRepository;
     @Mock private JarAiGenerationRepository generationRepository;

@@ -109,6 +109,7 @@ class JarPhotoFrameRepositoryTest extends AbstractMariaDbRepositoryTest {
         var restored = entityManager.find(JarDesignDraft.class, draftId);
         assertThat(restored.getBodyStyle()).isEqualTo(JarBodyStyle.ROCKET);
         assertThat(restored.getPhotoFrame().toValue()).isEqualTo(photo);
+        assertThat(restored.getAiInputPhotoFrame().toValue()).isEqualTo(photo);
         assertThat(restored.getOriginalContentFrame().toValue()).isEqualTo(original);
         assertThat(entityManager.find(JarDesign.class, designId).getPhotoFrame().toValue()).isEqualTo(photo);
 
@@ -117,6 +118,7 @@ class JarPhotoFrameRepositoryTest extends AbstractMariaDbRepositoryTest {
         restored = entityManager.find(JarDesignDraft.class, draftId);
         assertThat(restored.getBodyStyle()).isNull();
         assertThat(restored.getPhotoFrame()).isNull();
+        assertThat(restored.getAiInputPhotoFrame()).isNull();
         assertThat(restored.getOriginalS3Key()).isEqualTo("original.png");
         assertThat(restored.getOriginalContentFrame().toValue()).isEqualTo(original);
     }

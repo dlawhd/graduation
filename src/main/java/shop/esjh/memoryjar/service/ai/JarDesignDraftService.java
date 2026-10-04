@@ -56,7 +56,7 @@ public class JarDesignDraftService {
                 draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), legacyCutoutPoints, cutoutRegions,
                 draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations,
                 draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()),
-                JarPhotoFrame.valueOf(draft.getOriginalContentFrame()));
+                JarPhotoFrame.valueOf(draft.getOriginalContentFrame()), JarPhotoFrame.valueOf(draft.getAiInputPhotoFrame()));
     }
 
     /**

@@ -74,6 +74,17 @@ public class JarDesignDraft {
     })
     private JarPhotoFrame originalContentFrame;
 
+    /** AI 후보를 바꿔도 원본에서 사용자가 고른 장면은 잃지 않는다. AI 출력의 배치와 구분해서 저장한다. */
+    @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name="x", column=@Column(name="ai_input_x", precision=7, scale=6)),
+        @AttributeOverride(name="y", column=@Column(name="ai_input_y", precision=7, scale=6)),
+        @AttributeOverride(name="width", column=@Column(name="ai_input_width", precision=7, scale=6)),
+        @AttributeOverride(name="height", column=@Column(name="ai_input_height", precision=7, scale=6)),
+        @AttributeOverride(name="fit", column=@Column(name="ai_input_fit", length=10))
+    })
+    private JarPhotoFrame aiInputPhotoFrame;
+
     @Column(name = "original_s3_deleted_at")
     private LocalDateTime originalS3DeletedAt;
 
@@ -147,7 +158,7 @@ public class JarDesignDraft {
         this.selectedGenerationId = null;
         clearSlot();
         clearCutout();
-        this.photoFrame = null;
+        this.photoFrame = bodyStyle == null ? null : aiInputPhotoFrame;
     }
 
     /**
@@ -183,6 +194,8 @@ public class JarDesignDraft {
     public void updateComposition(JarBodyStyle bodyStyle, JarPhotoFrame frame) {
         this.bodyStyle = bodyStyle;
         this.photoFrame = frame;
+        if (bodyStyle == null) this.aiInputPhotoFrame = null;
+        else if (selectedDesignType == JarDraftDesignType.ORIGINAL) this.aiInputPhotoFrame = frame;
         clearSlot();
         clearCutout();
     }

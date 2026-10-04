@@ -11,6 +11,12 @@ import static org.assertj.core.api.Assertions.*;
 
 /** 실제 슬롯 크기 경계에서 저장·최종화가 같은 좌표를 허용하는지 검증한다. */
 class JarSlotGeometryTest {
+    @ParameterizedTest @EnumSource(JarSlotStyle.class)
+    void smallerRangeKeepsEveryStyleInsideBounds(JarSlotStyle style) {
+        assertThatCode(()->JarSlotGeometry.validate(decimal(".02"),decimal(".02"),decimal("-.5"),style)).doesNotThrowAnyException();
+        assertThatThrownBy(()->JarSlotGeometry.validate(decimal(".5"),decimal(".5"),decimal("-.50001"),style))
+            .isInstanceOf(ApiException.class).extracting(e->((ApiException)e).getErrorCode()).isEqualTo(AiDraftErrorCode.DRAFT_SLOT_INVALID);
+    }
     @ParameterizedTest
     @CsvSource({"0.06,0.01715,0", "0.94,0.98285,0", "0.14,0.04,1", "0.86,0.96,1", "0.5,0.5,0.5"})
     void acceptsFullyContainedSlot(String x, String y, String ratio) {
