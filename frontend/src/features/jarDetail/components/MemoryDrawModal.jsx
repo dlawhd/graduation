@@ -22,6 +22,8 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
    palette,
    today,
    history,
+   historyPagination,
+   onHistoryPageChange,
    loading,
    drawing,
    error,
@@ -33,6 +35,20 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
    onOpenAllNotes,
    onOpenChat,
  }) {
+   const historyPage = historyPagination?.page || 0;
+   const historyPageCount = historyPagination?.totalPages || 0;
+   // 오늘 결과를 유지하면서 과거 기록만 5개씩 이동한다.
+   const historyPager = historyPageCount > 1 ? (
+     <nav aria-label="추억 뽑기 기록 페이지" className="mt-4 flex items-center justify-center gap-3 text-sm">
+       <button type="button" disabled={loading || historyPage === 0}
+         onClick={() => onHistoryPageChange?.(historyPage - 1)}
+         className="rounded-xl border px-3 py-2 disabled:opacity-40">이전</button>
+       <span>{historyPage + 1} / {historyPageCount}</span>
+       <button type="button" disabled={loading || historyPage + 1 >= historyPageCount}
+         onClick={() => onHistoryPageChange?.(historyPage + 1)}
+         className="rounded-xl border px-3 py-2 disabled:opacity-40">다음</button>
+     </nav>
+   ) : null;
    // 추억 쪽지 뽑기 애니메이션이 재생 중인지 저장한다.
    // true면 결과를 바로 보여주지 않고, 가운데에서 쪽지 뽑기 연출을 먼저 보여준다.
    const [drawAnimationPlaying, setDrawAnimationPlaying] = useState(false);
@@ -621,7 +637,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
                    </div>
 
                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                     {history.length}개
+                     {historyPagination?.totalElements ?? history.length}개
                    </span>
                  </div>
 
@@ -633,7 +649,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
 
                  {history.length > 0 && (
                    <div className="space-y-3">
-                     {history.slice(0, 5).map((item) => (
+                     {history.map((item) => (
                        <button
                          key={item.drawId}
                          type="button"
@@ -664,11 +680,30 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
                      ))}
                    </div>
                  )}
+                 {historyPager}
                </aside>
              </div>
            )}
 
            {/* 열린 저금통 + 오늘 뽑은 쪽지가 있을 때 */}
+           {jar?.isOpen && !loading && !error && !note && !isAllMemoriesReceived && history.length > 0 && (
+             <aside className={`mt-5 rounded-[30px] border p-6 ${palette.panel}`}>
+               <h3 className="mb-3 text-sm font-black text-slate-800">
+                 이전 뽑기 기록 · {historyPagination?.totalElements ?? history.length}개
+               </h3>
+               <div className="space-y-3">
+                 {history.map((item) => (
+                   <button key={item.drawId} type="button" onClick={() => handleSelectHistoryItem(item)}
+                     className={`w-full rounded-2xl border p-4 text-left ${palette.softCard}`}>
+                     <p className="text-xs text-slate-500">{item.drawDate}</p>
+                     <p className="text-sm font-black text-slate-800">{item.title || "제목 없는 추억"}</p>
+                   </button>
+                 ))}
+               </div>
+               {historyPager}
+             </aside>
+           )}
+
            {jar?.isOpen && !loading && !error && note && (
              <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
                {/* 결과 카드 */}
@@ -762,7 +797,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
                    </div>
 
                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}>
-                     {history.length}개
+                     {historyPagination?.totalElements ?? history.length}개
                    </span>
                  </div>
 
@@ -774,7 +809,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
 
                  {history.length > 0 && (
                    <div className="space-y-3">
-                     {history.slice(0, 5).map((item) => (
+                     {history.map((item) => (
                        <button
                          key={item.drawId}
                          type="button"
@@ -805,6 +840,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
                      ))}
                    </div>
                  )}
+                 {historyPager}
                </aside>
              </div>
            )}

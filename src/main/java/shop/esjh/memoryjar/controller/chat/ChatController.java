@@ -80,7 +80,13 @@ public class ChatController {
 
         // 3. REST fallback으로 저장된 메시지도 WebSocket 구독자에게 알려준다.
         // 이렇게 해야 WebSocket이 정상 연결된 다른 사용자 화면에도 새 메시지가 바로 보인다.
-        broadcastSavedMessage(jarId, response);
+        try {
+            broadcastSavedMessage(jarId, response);
+        } catch (org.springframework.messaging.MessagingException deliveryFailure) {
+            // 저장은 이미 커밋됐다. 방송 장애 때문에 저장 실패라고 반환하여 재전송을 유도하지 않는다.
+            org.slf4j.LoggerFactory.getLogger(ChatController.class)
+                    .warn("채팅 저장 후 실시간 방송 실패. jarId={} messageId={}", jarId, response.messageId());
+        }
 
         // 4. 201 Created + 공통 성공 응답으로 반환하기
         return ResponseEntity

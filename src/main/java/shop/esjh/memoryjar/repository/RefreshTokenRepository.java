@@ -14,6 +14,9 @@ import java.util.Optional;
 // DB에서 refresh 토큰을 조건에 맞게 조회해서, 이 토큰이 지금 사용 가능한지 확인하는 역할
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
+    @Query("select t.user.id from RefreshToken t where t.tokenHash = :tokenHash")
+    Optional<Long> findOwnerIdByTokenHash(@Param("tokenHash") String tokenHash);
+
     // ✅ tokenHash로 refresh 토큰 1개 찾기
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 

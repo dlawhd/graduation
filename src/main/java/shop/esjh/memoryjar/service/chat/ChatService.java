@@ -81,15 +81,33 @@ public class ChatService {
 
         // 5. 빈 채팅 방지
         // @Valid에서도 막지만, Service 테스트나 내부 호출을 위해 한 번 더 안전하게 검사한다.
-        if (content == null || content.isBlank()) {
+        if (content == null || content.isBlank() || content.length() > 1000) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "채팅 내용은 비어 있을 수 없어요."
             );
         }
 
+        String requestId = request.requestId();
+        if (requestId != null) {
+            if (!requestId.matches("[A-Za-z0-9_-]{1,64}")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "전송 식별자 형식이 올바르지 않습니다.");
+            }
+            // 동일 사용자의 동시 재시도를 멤버 행 잠금으로 직렬화하고 DB UNIQUE로 이중 보호한다.
+            jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 멤버만 전송할 수 있어요."));
+            var existing = chatMessageRepository.findByJar_JarIdAndSender_IdAndClientRequestId(jarId, currentUserId, requestId);
+            if (existing.isPresent()) {
+                if (!existing.get().getContent().equals(content)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 다른 내용으로 사용한 전송 식별자입니다.");
+                }
+                return toChatMessageResponse(existing.get(), currentUserId);
+            }
+        }
+
         // 6. TEXT 채팅 메시지 엔티티 생성
         ChatMessage message = ChatMessage.createText(jar, currentUser, content);
+        message.identifyRequest(requestId);
 
         // 7. DB에 저장
         ChatMessage savedMessage = chatMessageRepository.save(message);

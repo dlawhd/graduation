@@ -43,6 +43,21 @@ class GlobalExceptionHandlerTest {
     private MockMvc mockMvc;
 
     @Test
+    void missingRequiredParameterReturns400() throws Exception {
+        mockMvc.perform(get("/test/parameter"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void unsupportedMethodReturns405WithAllow() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/test/parameter"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string("Allow", org.hamcrest.Matchers.containsString("GET")))
+                .andExpect(jsonPath("$.error.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    @Test
     @DisplayName("IllegalArgumentException이 발생하면 400 JSON 응답을 반환한다")
     void handleIllegalArgument() throws Exception {
         mockMvc.perform(get("/test/illegal"))
@@ -110,6 +125,7 @@ class GlobalExceptionHandlerTest {
     static class TestController {
 
         @GetMapping("/test/illegal")
+        // 이 아래 메서드와 별도로 필수 파라미터 검증용 주소를 둔다.
         public String illegal() {
             throw new IllegalArgumentException("이름은 비워둘 수 없습니다.");
         }
@@ -132,6 +148,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/error")
         public String error() {
             throw new RuntimeException("예상하지 못한 오류");
+        }
+
+        @GetMapping("/test/parameter")
+        public String requiredParameter(@org.springframework.web.bind.annotation.RequestParam String value) {
+            return value;
         }
 
         @GetMapping("/test/domain-conflict")

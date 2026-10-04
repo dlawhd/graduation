@@ -106,7 +106,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
      *
      * 사용자가 어떤 topic을 구독하려고 할 때 실행됩니다.
      */
-    private void validateSubscribe(StompHeaderAccessor accessor) {
+    void validateSubscribe(StompHeaderAccessor accessor) {
         // 현재 로그인한 사용자 ID를 꺼냅니다.
         Long currentUserId = extractCurrentUserId(accessor.getUser());
 

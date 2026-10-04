@@ -247,7 +247,7 @@ export function useJarInvites({ jarId, jar }) {
       } catch (e) {
         const serverMessage =
           e?.response?.data?.error?.message ||
-          e?.response?.data?.message |
+          e?.response?.data?.message ||
           e?.message ||
           "초대코드 생성에 실패했어요.";
 

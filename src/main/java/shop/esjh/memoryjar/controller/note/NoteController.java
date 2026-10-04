@@ -94,7 +94,9 @@ public class NoteController {
             Authentication authentication,
             @PathVariable Long jarId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "") String tag
     ) {
         // page, size가 이상하면 PageRequest.of()까지 가지 않도록 먼저 막는다.
         validatePageAndSize(page, size);
@@ -103,7 +105,9 @@ public class NoteController {
         Long currentUserId = extractCurrentUserId(authentication);
 
         // 서비스에 쪽지 목록 조회를 맡긴다.
-        NoteListResponse response = noteService.listNotes(currentUserId, jarId, page, size);
+        NoteListResponse response = q.isBlank() && tag.isBlank()
+                ? noteService.listNotes(currentUserId, jarId, page, size)
+                : noteService.listNotes(currentUserId, jarId, page, size, q, tag);
 
         // 공통 응답 형태로 감싸서 반환한다.
         return ApiResponse.of(response);

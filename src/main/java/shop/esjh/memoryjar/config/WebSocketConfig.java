@@ -39,13 +39,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     // REST와 WebSocket이 같은 CORS 주소를 사용하도록 공통 설정을 가져온다.
     private final AppProperties appProperties;
+    private final WebSocketDeliveryAuthorizationInterceptor deliveryAuthorization;
 
     public WebSocketConfig(
             WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor,
-            AppProperties appProperties
+            AppProperties appProperties,
+            WebSocketDeliveryAuthorizationInterceptor deliveryAuthorization
     ) {
         this.webSocketAuthChannelInterceptor = webSocketAuthChannelInterceptor;
         this.appProperties = appProperties;
+        this.deliveryAuthorization = deliveryAuthorization;
     }
 
     /*
@@ -84,7 +87,47 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      */
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(webSocketAuthChannelInterceptor);
+        registration.interceptors(new org.springframework.messaging.support.ChannelInterceptor() {
+            @Override
+            public org.springframework.messaging.Message<?> preSend(org.springframework.messaging.Message<?> message,
+                    org.springframework.messaging.MessageChannel channel) {
+                var headers = org.springframework.messaging.simp.stomp.StompHeaderAccessor.wrap(message);
+                var command = headers.getCommand();
+                if (command == org.springframework.messaging.simp.stomp.StompCommand.CONNECT
+                        || command == org.springframework.messaging.simp.stomp.StompCommand.SUBSCRIBE
+                        || command == org.springframework.messaging.simp.stomp.StompCommand.SEND) {
+                    if (!deliveryAuthorization.isCurrent(headers.getUser())) {
+                        throw new org.springframework.security.access.AccessDeniedException("다시 로그인해 주세요.");
+                    }
+                    if (command == org.springframework.messaging.simp.stomp.StompCommand.CONNECT) {
+                        deliveryAuthorization.remember(headers.getSessionId(), headers.getUser());
+                    }
+                }
+                return message;
+            }
+        }, webSocketAuthChannelInterceptor);
+    }
+
+    @Override
+    public void configureClientOutboundChannel(ChannelRegistration registration) {
+        registration.interceptors(deliveryAuthorization);
+    }
+
+    @Override
+    public void configureWebSocketTransport(org.springframework.web.socket.config.annotation.WebSocketTransportRegistration registration) {
+        registration.addDecoratorFactory(handler -> new org.springframework.web.socket.handler.WebSocketHandlerDecorator(handler) {
+            @Override
+            public void afterConnectionEstablished(org.springframework.web.socket.WebSocketSession session) throws Exception {
+                deliveryAuthorization.connected(session);
+                super.afterConnectionEstablished(session);
+            }
+            @Override
+            public void afterConnectionClosed(org.springframework.web.socket.WebSocketSession session,
+                    org.springframework.web.socket.CloseStatus status) throws Exception {
+                deliveryAuthorization.forget(session.getId());
+                super.afterConnectionClosed(session, status);
+            }
+        });
     }
 
     /*

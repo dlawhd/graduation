@@ -35,12 +35,13 @@ function unwrapData(response) {
  * - 사용자가 일부러 넣은 앞뒤 공백은 그대로 보낸다.
  * - 단, 화면에서는 공백만 있는 메시지는 submit 전에 막을 예정.
  */
-export async function sendChatMessage(jarId, content) {
+export async function sendChatMessage(jarId, content, requestId) {
   // POST 요청은 CSRF 토큰이 필요하므로 먼저 받아온다.
   await fetchCsrf();
 
   const response = await apiClient.post(`/api/v1/jars/${jarId}/chat/messages`, {
     content,
+    requestId,
   });
 
   return unwrapData(response);

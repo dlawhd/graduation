@@ -381,8 +381,20 @@ export default function JarDetailPage() {
   // 저금통 확대 보기 모달 상태
   const [jarZoomOpen, setJarZoomOpen] = useState(false);
   const [jarZoomNotes, setJarZoomNotes] = useState([]);
+  const [jarZoomPagination, setJarZoomPagination] = useState({ page: 0, totalPages: 0, totalElements: 0 });
+  const jarZoomQueryRef = useRef({ page: 0, q: "", tag: "" });
+  const jarZoomRequestRef = useRef(0);
   const [jarZoomLoading, setJarZoomLoading] = useState(false);
   const [jarZoomError, setJarZoomError] = useState("");
+
+  // 다른 저금통으로 이동한 뒤 이전 요청이 늦게 도착해 목록을 덮어쓰지 않게 한다.
+  useEffect(() => {
+    ++jarZoomRequestRef.current;
+    jarZoomQueryRef.current = { page: 0, q: "", tag: "" };
+    setJarZoomNotes([]);
+    setJarZoomPagination({ page: 0, totalPages: 0, totalElements: 0 });
+    return () => { ++jarZoomRequestRef.current; };
+  }, [jarId]);
 
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
@@ -2162,6 +2174,7 @@ useEffect(() => {
   const {
     dailyDrawToday,
     dailyDrawHistory,
+    dailyDrawHistoryPagination,
     dailyDrawLoading,
     dailyDrawDrawing,
     dailyDrawError,
@@ -2239,7 +2252,7 @@ useEffect(() => {
       setJarZoomOpen(true);
 
       // 오른쪽 목록도 같이 채워두면 화면이 자연스러워
-      await loadJarZoomNotes();
+      // 목록 조회는 모달의 열림 효과가 한 번만 담당한다.
 
       // 쪽지 상세 열기 + 필요하면 댓글 포커스 정보도 같이 넘기기
       await handleOpenJarZoomNoteDetail(focusNoteId, {
@@ -2567,21 +2580,34 @@ function getJarDropTargetRect() {
 }
 
 // 확대 모달에서 보여줄 쪽지 목록 불러오기
-async function loadJarZoomNotes() {
+async function loadJarZoomNotes(options = {}) {
+  const query = { ...jarZoomQueryRef.current, ...options };
+  jarZoomQueryRef.current = { page: query.page, q: query.q, tag: query.tag };
+  const requestId = ++jarZoomRequestRef.current;
   setJarZoomLoading(true);
   setJarZoomError("");
 
   try {
     const res = await apiClient.get(`/api/v1/jars/${jarId}/notes`, {
       params: {
-        page: 0,
-        size: 24,
+        page: query.page,
+        size: 3,
+        q: query.q,
+        tag: query.tag,
       },
     });
 
     const items = normalizeJarZoomNotes(res.data?.data);
+    if (requestId !== jarZoomRequestRef.current) return;
+    const totalPages = res.data?.data?.totalPages || 0;
+    if (query.page > 0 && query.page >= Math.max(1, totalPages)) {
+      // 마지막 페이지의 쪽지가 삭제되면 빈 페이지에 머물지 않고 남은 마지막 페이지를 조회한다.
+      return loadJarZoomNotes({ ...query, page: Math.max(0, totalPages - 1) });
+    }
     setJarZoomNotes(items);
+    setJarZoomPagination(res.data?.data || { page: 0, totalPages: 0, totalElements: 0 });
   } catch (e) {
+    if (requestId !== jarZoomRequestRef.current) return;
     const serverMessage =
       e?.response?.data?.error?.message ||
       e?.response?.data?.message ||
@@ -2591,7 +2617,7 @@ async function loadJarZoomNotes() {
     setJarZoomError(serverMessage);
     setJarZoomNotes([]);
   } finally {
-    setJarZoomLoading(false);
+    if (requestId === jarZoomRequestRef.current) setJarZoomLoading(false);
   }
 }
 
@@ -3148,7 +3174,7 @@ async function handleOpenJarZoom() {
     return;
   }
 
-  await loadJarZoomNotes();
+  // 열린 모달의 첫 목록 조회는 JarZoomModal에서 요청한다.
 }
 
 // 저금통 확대 모달 닫기
@@ -3169,7 +3195,6 @@ async function handleOpenDailyDrawNoteDetail(noteId) {
   // 오른쪽 확대 목록도 자연스럽게 채워두기 위해 확대 모달을 같이 열어둔다.
   setJarZoomOpen(true);
 
-  await loadJarZoomNotes();
   await handleOpenJarZoomNoteDetail(noteId);
 }
 
@@ -3305,7 +3330,6 @@ async function handleOpenMemoryDrawNoteDetail(noteId) {
 async function handleOpenMemoryDrawAllNotes() {
   setMemoryDrawOpen(false);
   setJarZoomOpen(true);
-  await loadJarZoomNotes();
 }
 
 /*
@@ -4254,11 +4278,13 @@ async function handleViewOpenedJarNotes() {
           open={jarZoomOpen}
           jar={jar}
           notes={jarZoomNotes}
+          pagination={jarZoomPagination}
+          onQueryChange={loadJarZoomNotes}
           loading={jarZoomLoading}
           error={jarZoomError}
           palette={palette}
           onClose={handleCloseJarZoom}
-          onRetry={loadJarZoomNotes}
+          onRetry={() => loadJarZoomNotes()}
           onOpenNoteDetail={handleOpenJarZoomNoteDetail}
           onReactNote={handleReactInJarZoomDetail}
           reactingNoteId={jarZoomReactingNoteId}
@@ -4279,6 +4305,8 @@ async function handleViewOpenedJarNotes() {
           palette={palette}
           today={dailyDrawToday}
           history={dailyDrawHistory}
+          historyPagination={dailyDrawHistoryPagination}
+          onHistoryPageChange={(page) => loadDailyDrawHistory({ page })}
           loading={dailyDrawLoading}
           drawing={dailyDrawDrawing}
           error={dailyDrawError}

@@ -1,5 +1,7 @@
 # Memory Jar ERD — Markdown 문서판
 
+> 2026-10-05 V46·V47 증분: `users.session_version BIGINT NOT NULL DEFAULT 0`은 JWT·WebSocket 인증 폐기용 버전이다. `chat_messages.client_request_id VARCHAR(64) NULL`과 UNIQUE `(jar_id, sender_id, client_request_id)`는 재전송의 중복 저장을 막는다. NULL은 기존 요청·SYSTEM 메시지 호환용이다. 새 테이블은 없고 이전 마이그레이션은 수정하지 않는다.
+
 > 2026-10-04 V45 증분: 기하와 보석은 새 선택 화면에서만 제외하고, 귀여운 컬렉션 3개×12종을 추가한다. 화면 11개×12종=132종, 기존 저장 호환 포함 서버 156종이다. V45는 두 slot_style CHECK만 확장하며 기존 좌표·사진·AI 입력·API 필드는 보존한다. [색상·반짝임·크기 변경 및 검증](ai/AI_SLOT_FINISHES_V45.md)을 확인한다. 아래 V44 이전 설명은 당시 기록이다.
 
 > 2026-10-04 V44 증분: 화면 입구 9개 컬렉션×12개(108종), 호환 ID 포함 서버 120종. sizeRatio는 -0.5~1로 확장하되 이전 0~1 기하는 유지한다. Draft에 nullable aiInputPhotoFrame을 추가하여 저장한 원본 장면으로 AI 입력을 만들며 원본/S3는 보존한다. V44 백엔드·DB를 먼저 배포한다. [모바일·사진 배치·입구 변경 계약](ai/AI_MOBILE_COMPOSITION_V44.md)이 이번 증분 기준이며 아래 V43 이전 설명은 당시 기록이다.

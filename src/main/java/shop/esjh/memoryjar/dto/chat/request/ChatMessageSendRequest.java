@@ -13,6 +13,11 @@ public record ChatMessageSendRequest(
         // 너무 긴 채팅을 막기 위한 제한
         // 처음에는 1000자 정도면 충분함
         @Size(max = 1000, message = "채팅 내용은 1000자 이하로 입력해 주세요.")
-        String content
+        String content,
+        // 응답이 유실되어 같은 전송을 재시도해도 쪽지가 두 번 저장되지 않도록 식별한다.
+        @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9_-]{1,64}", message = "전송 식별자 형식이 올바르지 않습니다.")
+        String requestId
 ) {
+    // 기존 클라이언트와 내부 호출의 content-only 요청은 그대로 지원한다.
+    public ChatMessageSendRequest(String content) { this(content, null); }
 }

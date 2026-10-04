@@ -121,6 +121,10 @@ apiClient.interceptors.response.use(
       // 원래 실패했던 요청을 다시 보냄
       return apiClient(originalRequest);
     } catch (refreshError) {
+      // 네트워크/5xx/CSRF 오류는 세션 폐기의 증거가 아니다. 입력과 로그인 상태를 보존한다.
+      if (refreshError?.response?.status !== 401) {
+        return Promise.reject(refreshError);
+      }
       /*
        * Access Token 재발급까지 실패했다는 것은
        * Refresh Token도 사용할 수 없다는 의미다.

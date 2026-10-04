@@ -90,6 +90,19 @@ class ChatControllerTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @Test
+    void savedMessageStillReturns201WhenBroadcastFails() throws Exception {
+        ChatMessageResponse saved = new ChatMessageResponse(100L, 10L, 1L, "시험", ChatMessageType.TEXT,
+                "저장됨", true, LocalDateTime.now());
+        given(chatService.sendTextMessage(eq(1L), eq(10L), any())).willReturn(saved);
+        org.mockito.Mockito.doThrow(new org.springframework.messaging.MessageDeliveryException("fixture delivery failure"))
+                .when(messagingTemplate).convertAndSend(anyString(), any(Object.class));
+        var authentication = new TestingAuthenticationToken(Map.of("userId", 1L), null);
+        mockMvc.perform(post("/api/v1/jars/10/chat/messages").principal(authentication).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"content\":\"저장됨\",\"requestId\":\"fixture_1\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.messageId").value(100));
+    }
+
+    @Test
     void sendMessage는_채팅을_저장하고_201을_반환한다() throws Exception {
         // given
         ChatMessageSendRequest request = new ChatMessageSendRequest(" 안녕! ");

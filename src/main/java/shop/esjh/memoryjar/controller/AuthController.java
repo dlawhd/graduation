@@ -726,6 +726,7 @@ public class AuthController {
 
         // name은 사용자 정보로 넣는다.
         claims.put("name", rotation.name());
+        claims.put("sessionVersion", rotation.sessionVersion());
 
         // birthyear는 선택값이므로 값이 있을 때만 JWT claims에 넣는다.
         // String.valueOf(null)을 쓰면 "null" 문자열이 들어갈 수 있어서 사용하지 않는다.
@@ -826,6 +827,8 @@ public class AuthController {
             );
         }
 
+
+        claims.put("sessionVersion", user.getSessionVersion());
 
         String accessToken =
                 jwtTokenProvider

@@ -59,6 +59,11 @@ public class ChatMessage extends BaseEntity {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "client_request_id", length = 64)
+    private String clientRequestId;
+
+    public void identifyRequest(String requestId) { this.clientRequestId = requestId; }
+
     /*
      * Builder 생성자
      * - 밖에서 new ChatMessage(...) 직접 만들지 않고

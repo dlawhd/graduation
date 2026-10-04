@@ -52,6 +52,9 @@ class AuthControllerTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
+    private shop.esjh.memoryjar.jwt.SessionValidityService sessionValidityService;
+
+    @MockitoBean
     private EmailVerificationService emailVerificationService;
 
     /*
@@ -606,7 +609,8 @@ class AuthControllerTest {
                         "test@test.com",
                         "은서",
                         "2000",
-                        "new-refresh"
+                        "new-refresh",
+                        0L
                 ));
 
         given(jwtTokenProvider.createAccessToken(eq("1"), anyMap()))

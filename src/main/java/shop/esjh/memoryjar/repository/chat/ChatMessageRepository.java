@@ -11,6 +11,11 @@ import java.util.Optional;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
+    // MariaDB REPEATABLE READ에서는 일반 조회가 잠금 이전의 스냅샷을 볼 수 있다.
+    // 멤버 잠금을 기다린 재시도도 첫 요청의 저장 결과를 읽도록 current read를 사용한다.
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    Optional<ChatMessage> findByJar_JarIdAndSender_IdAndClientRequestId(Long jarId, Long senderId, String requestId);
+
     // 메시지 ID로 채팅 메시지 1개 찾기
     // 예: 읽음 처리할 때 lastReadMessageId가 진짜 존재하는 메시지인지 확인
     Optional<ChatMessage> findByMessageId(Long messageId);

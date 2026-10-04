@@ -20,6 +20,7 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
+    private final shop.esjh.memoryjar.repository.UserRepository userRepository;
 
     /*
      * 현재 한국 시간을 반환해.
@@ -32,14 +33,23 @@ public class RefreshTokenService {
     }
 
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
-                               JwtProperties jwtProperties) {
+                               JwtProperties jwtProperties,
+                               shop.esjh.memoryjar.repository.UserRepository userRepository) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtProperties = jwtProperties;
+        this.userRepository = userRepository;
     }
 
     // ✅ 로그인 성공 시 refresh 토큰 발급 + DB 저장
     @Transactional
     public String issue(User user) {
+
+        User currentUser = userRepository.findByIdForUpdate(user.getId())
+                .orElseThrow(this::invalidRefreshTokenException);
+        // 로그인 검사 직후 비밀번호가 바뀐 요청으로 새 세션을 만들지 않는다.
+        if (userRepository.findSessionVersionByIdForUpdate(user.getId()).orElse(-1L) != user.getSessionVersion()) {
+            throw invalidRefreshTokenException();
+        }
 
         // 현재 시간을 한국 시간으로 만든다.
         LocalDateTime now = nowKst();
@@ -52,7 +62,7 @@ public class RefreshTokenService {
 
         // ✅ RefreshToken 엔티티 만들기
         RefreshToken entity = RefreshToken.builder()
-                .user(user)
+                .user(currentUser)
                 .tokenHash(hash)
                 .expiresAt(now.plusSeconds(jwtProperties.getRefreshExpSeconds())) // 만료 시간(지금으로부터 14일 뒤)
                 .build();
@@ -81,6 +91,12 @@ public class RefreshTokenService {
         LocalDateTime now = nowKst();
         String hash = TokenCrypto.sha256Hex(refreshRaw);
 
+        // 회전과 전체 폐기의 잠금 순서를 사용자 → 토큰으로 통일해 교착과 폐기 누락을 막는다.
+        Long ownerId = refreshTokenRepository.findOwnerIdByTokenHash(hash)
+                .orElseThrow(this::invalidRefreshTokenException);
+        User currentUser = userRepository.findByIdForUpdate(ownerId)
+                .orElseThrow(this::invalidRefreshTokenException);
+
         /*
          * 여기에서 DB 행 잠금을 얻어.
          *
@@ -104,7 +120,7 @@ public class RefreshTokenService {
         oldToken.revoke(now);
 
         // 새 토큰도 동일한 사용자의 토큰으로 만들어야 해.
-        User user = oldToken.getUser();
+        User user = currentUser;
 
         // 새로운 refresh 토큰 원본을 생성해.
         String newRaw = TokenCrypto.generateRefreshRaw();
@@ -134,7 +150,8 @@ public class RefreshTokenService {
                 user.getEmail(),
                 user.getName(),
                 user.getBirthyear(),
-                newRaw
+                newRaw,
+                userRepository.findSessionVersionByIdForUpdate(ownerId).orElseThrow(this::invalidRefreshTokenException)
         );
     }
 
@@ -199,6 +216,10 @@ public class RefreshTokenService {
                 nowKst();
 
 
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(this::invalidRefreshTokenException);
+        userRepository.incrementSessionVersion(userId);
+
         return refreshTokenRepository
                 .revokeAllActiveByUserId(
                         userId,
@@ -241,7 +262,8 @@ public class RefreshTokenService {
             String email,
             String name,
             String birthyear,
-            String newRefreshRaw
+            String newRefreshRaw,
+            long sessionVersion
     ) {
     }
 }

@@ -35,6 +35,9 @@ class SecurityErrorHandlerTest {
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockitoBean
+    private shop.esjh.memoryjar.jwt.SessionValidityService sessionValidityService;
+
     @Test
     @DisplayName("로그인하지 않고 인증이 필요한 API에 접근하면 401 JSON 응답을 반환한다")
     void commenceReturns401Json() throws Exception {

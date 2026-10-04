@@ -160,19 +160,34 @@ public class NoteService {
             int page,
             int size
     ) {
+        return listNotes(currentUserId, jarId, page, size, "", "");
+    }
+
+    /** 목록의 짧은 미리보기가 아니라 서버의 전체 본문을 검색하고 결과 자체를 페이지로 조회한다. */
+    public NoteListResponse listNotes(Long currentUserId, Long jarId, int page, int size, String q, String tag) {
 
         // 1. 저금통 있는지 확인
         Jar jar = getJarOrThrow(jarId);
 
         // 2. 현재 사용자가 이 저금통 멤버인지 확인
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 쪽지 목록을 볼 수 있어.");
+        boolean jarOpen = isJarOpen(jar);
 
         // 3. 페이지 조회
+        String query = q == null ? "" : q.trim();
+        String tagQuery = tag == null ? "" : tag.trim();
+        if (query.length() > 200 || tagQuery.length() > 100 || page < 0 || size < 1 || size > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "검색어 또는 페이지 범위를 확인해 주세요.");
+        }
         Pageable pageable = PageRequest.of(page, size);
-        Page<Note> notePage = noteRepository.findByJarId(jar.getJarId(), pageable);
+        // 잠긴 본문에 검색을 허용하면 결과 개수만으로도 비공개 내용을 추측할 수 있다.
+        if ((!query.isEmpty() || !tagQuery.isEmpty()) && !jarOpen) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "저금통이 열린 뒤에 검색할 수 있어요.");
+        }
+        Page<Note> notePage = query.isEmpty() && tagQuery.isEmpty()
+                ? noteRepository.findByJarId(jar.getJarId(), pageable)
+                : noteRepository.searchByJarId(jarId, searchPattern(query), searchPattern(tagQuery), pageable);
         List<Note> notes = notePage.getContent();
-
-        boolean jarOpen = isJarOpen(jar);
 
         // 4. 첨부파일을 한 번에 조회해서 noteId별로 묶어둠
         Map<Long, List<NoteAttachmentResponse>> attachmentMap = jarOpen
@@ -241,6 +256,13 @@ public class NoteService {
                         attachment.getCaption()
                 ))
                 .toList();
+    }
+
+    private String searchPattern(String value) {
+        if (value.isEmpty()) return "";
+        // LIKE 와일드카드도 사용자가 입력한 글자 그대로 검색한다.
+        return "%" + value.toLowerCase(java.util.Locale.ROOT)
+                .replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
     }
 
     // 목록에서는 내용 전체 대신 미리보기만 짧게 보여주기

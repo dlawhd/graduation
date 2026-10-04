@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-10-05 V46·V47 증분: 쪽지 목록 응답의 `items/page/size/totalElements/totalPages`, `previewContent`는 유지하고 요청에 선택 `q`·`tag`를 추가한다. 채팅 전송은 `content`에 선택 `requestId`(영숫자·`_`·`-`, 1~64자)를 추가한다. JWT 내부 `sessionVersion`은 `/me` 응답을 변경하지 않는다. 아래 초기 DTO 예시는 이전 시점 기록이다.
+
 > 2026-10-04 V45 증분: 기하와 보석은 새 선택 화면에서만 제외하고, 귀여운 컬렉션 3개×12종을 추가한다. 화면 11개×12종=132종, 기존 저장 호환 포함 서버 156종이다. V45는 두 slot_style CHECK만 확장하며 기존 좌표·사진·AI 입력·API 필드는 보존한다. [색상·반짝임·크기 변경 및 검증](ai/AI_SLOT_FINISHES_V45.md)을 확인한다. 아래 V44 이전 설명은 당시 기록이다.
 
 > 2026-10-04 V44 증분: 화면 입구 9개 컬렉션×12개(108종), 호환 ID 포함 서버 120종. sizeRatio는 -0.5~1로 확장하되 이전 0~1 기하는 유지한다. Draft에 nullable aiInputPhotoFrame을 추가하여 저장한 원본 장면으로 AI 입력을 만들며 원본/S3는 보존한다. V44 백엔드·DB를 먼저 배포한다. [모바일·사진 배치·입구 변경 계약](ai/AI_MOBILE_COMPOSITION_V44.md)이 이번 증분 기준이며 아래 V43 이전 설명은 당시 기록이다.
@@ -594,7 +596,7 @@ OWNER가 사용할 수 있는 API야.
 
 예전 초안의 첨부파일 DTO에는 `caption`이 없었는데, 현재 코드에서는 사진과 함께 작성한 추억 설명을 반환해.
 
-또한 기존 API 초안에 있던 `q`, `tag`, `authorId`, `from`, `to` 검색 파라미터는 현재 공개된 쪽지 목록 Controller에 구현되어 있지 않아. 현재 명세에는 `page`, `size`만 작성하는 게 정확해.
+목록은 `page`, `size`와 열린 저금통의 `q`, `tag` 검색을 지원해. `authorId`, `from`, `to`는 아직 구현하지 않았어. 검색은 `previewContent`가 아닌 저장된 전체 본문에 적용해.
 
 ## P. 쪽지 상세 조회
 
@@ -1954,7 +1956,7 @@ JarDesignFinalizeResponse
 | 기존 Jar 화면용 Optional `JarDesign` 응답 DTO | 미구현 |
 | AI 이미지 URL을 포함한 Jar 응답 | 미구현 |
 | 쪽지 수정·삭제 API | 미구현 |
-| 쪽지 검색·태그 필터 API | 미구현 |
+| 쪽지 검색·태그 필터 API | 구현, 열린 저금통에서 지원 |
 | 채팅 파일 전송 DTO | 미구현 |
 | 알림 설정 조회·수정 API | 미구현 |
 | 회원 탈퇴 API | 미구현 |

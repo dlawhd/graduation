@@ -30,6 +30,8 @@ class RefreshTokenServiceTest {
 
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    private shop.esjh.memoryjar.repository.UserRepository userRepository;
 
     private RefreshTokenService refreshTokenService;
 
@@ -42,8 +44,17 @@ class RefreshTokenServiceTest {
 
         refreshTokenService = new RefreshTokenService(
                 refreshTokenRepository,
-                jwtProperties
+                jwtProperties,
+                userRepository
         );
+        // 잠금 순서는 모든 토큰 시험에서 동일하다. 실패 케이스에서도 쓰이지 않는 설정은 허용한다.
+        lenient().when(userRepository.findByIdForUpdate(anyLong())).thenAnswer(call -> {
+            User user = createUser();
+            org.springframework.test.util.ReflectionTestUtils.setField(user, "id", call.getArgument(0));
+            return Optional.of(user);
+        });
+        lenient().when(userRepository.findSessionVersionByIdForUpdate(anyLong())).thenReturn(Optional.of(0L));
+        lenient().when(refreshTokenRepository.findOwnerIdByTokenHash(anyString())).thenReturn(Optional.of(createUser().getId()));
     }
 
     @Test
@@ -63,7 +74,7 @@ class RefreshTokenServiceTest {
         RefreshToken savedToken = captor.getValue();
 
         assertThat(raw).isNotBlank();
-        assertThat(savedToken.getUser()).isEqualTo(user);
+        assertThat(savedToken.getUser().getId()).isEqualTo(user.getId());
         assertThat(savedToken.getTokenHash())
                 .isEqualTo(TokenCrypto.sha256Hex(raw));
         assertThat(savedToken.getRevokedAt()).isNull();

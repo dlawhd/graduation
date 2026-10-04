@@ -501,6 +501,10 @@ public class LocalAuthService {
         /*
          * 해당 LOCAL Credential을 다시 가져온다.
          */
+        // 회전과 같은 사용자 → 토큰 잠금 순서를 사용한다. 재설정 중 새 세션 회전을 막는다.
+        userRepository.findByIdForUpdate(identity.userId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용자를 찾을 수 없어요."));
+
         UserLocalCredential credential =
                 userLocalCredentialRepository
                         .findByLoginId(
@@ -1067,6 +1071,10 @@ public class LocalAuthService {
          *
          * PasswordEncoder가 안전하게 비교해 준다.
          */
+        // 해시 비교 전에 세션 버전을 읽는다. 비교 중 재설정되면 발급 단계에서 이전 버전을 거부한다.
+        User user = credential.getUser();
+        user.getSessionVersion();
+
         boolean passwordMatches =
                 passwordEncoder.matches(
                         password,
@@ -1087,10 +1095,6 @@ public class LocalAuthService {
          * Credential에 연결되어 있는
          * 실제 Memory Jar User를 가져온다.
          */
-        User user =
-                credential.getUser();
-
-
         /*
          * Controller에서는 이 User를 가지고
          * Access Token / Refresh Token 쿠키를 발급한다.

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactionBar from "./ReactionBar";
 import { getThemeIcon } from "../theme/jarDetailTheme";
-import { normalizeJarZoomTags } from "../utils/jarDetailUtils";
 import JarCustomDesignVisual from "./JarCustomDesignVisual";
 
 /*
@@ -22,6 +21,8 @@ export default function JarZoomModal({
   open,
   jar,
   notes,
+  pagination,
+  onQueryChange,
   loading,
   error,
   palette,
@@ -32,7 +33,6 @@ export default function JarZoomModal({
   reactingNoteId,
   onReloadDesignImage = null,
 }) {
-  const NOTES_PER_PAGE = 3;
 
   // notes가 혹시 배열이 아니어도 화면이 터지지 않게 안전하게 맞춘다.
   const safeNotes = Array.isArray(notes) ? notes : [];
@@ -54,39 +54,11 @@ export default function JarZoomModal({
 
   // 오른쪽 목록 페이지
   const [notePage, setNotePage] = useState(1);
+  const [appliedSearch, setAppliedSearch] = useState({ q: "", tag: "" });
 
   // 검색어/태그 기준으로 필터링
-  const filteredNotes = useMemo(() => {
-    const q = searchForm.q.trim().toLowerCase();
-    const tag = searchForm.tag.trim().toLowerCase();
-
-    return visibleNotes.filter((note) => {
-      const title =
-        typeof note?.title === "string" ? note.title.toLowerCase() : "";
-
-      const content =
-        typeof note?.content === "string" ? note.content.toLowerCase() : "";
-
-      const location =
-        typeof note?.location === "string"
-          ? note.location.toLowerCase()
-          : "";
-
-      const tags = normalizeJarZoomTags(note?.tags).map((item) =>
-        item.toLowerCase()
-      );
-
-      const matchesQ =
-        !q ||
-        title.includes(q) ||
-        content.includes(q) ||
-        location.includes(q);
-
-      const matchesTag = !tag || tags.some((item) => item.includes(tag));
-
-      return matchesQ && matchesTag;
-    });
-  }, [visibleNotes, searchForm]);
+  // 서버가 전체 본문·태그를 검색하므로 짧은 previewContent로 다시 필터링하지 않는다.
+  const filteredNotes = visibleNotes;
 
   // 왼쪽 저금통 안에 보여줄 쪽지도 검색 결과 기준으로 8개만
   const previewNotes = useMemo(() => {
@@ -94,15 +66,10 @@ export default function JarZoomModal({
   }, [filteredNotes]);
 
   // 오른쪽 총 페이지 수
-  const notePageCount = useMemo(() => {
-    return Math.max(1, Math.ceil(filteredNotes.length / NOTES_PER_PAGE));
-  }, [filteredNotes]);
+  const notePageCount = Math.max(1, pagination?.totalPages || 0);
 
   // 오른쪽 현재 페이지 3개
-  const pagedNotes = useMemo(() => {
-    const startIndex = (notePage - 1) * NOTES_PER_PAGE;
-    return filteredNotes.slice(startIndex, startIndex + NOTES_PER_PAGE);
-  }, [filteredNotes, notePage]);
+  const pagedNotes = filteredNotes;
 
   // 왼쪽 둥둥 떠다니는 쪽지들
   const floatingNotes = useMemo(() => {
@@ -139,25 +106,38 @@ export default function JarZoomModal({
     });
 
     setNotePage(1);
-  }, [open]);
+    setAppliedSearch({ q: "", tag: "" });
+    if (isJarOpen) onQueryChange?.({ page: 0, q: "", tag: "" });
+  }, [open, isJarOpen]);
 
   // 검색 결과 바뀌면 1페이지로 이동한다.
   useEffect(() => {
     setNotePage(1);
-  }, [searchForm.q, searchForm.tag]);
+  }, [appliedSearch.q, appliedSearch.tag]);
 
   // 페이지가 범위 밖으로 벗어나면 자동으로 마지막 페이지로 보정한다.
   useEffect(() => {
-    if (notePage > notePageCount) {
-      setNotePage(notePageCount);
-    }
-  }, [notePage, notePageCount]);
+    if (pagination) setNotePage((pagination.page || 0) + 1);
+  }, [pagination]);
+
+  function changePage(page) {
+    onQueryChange?.({ page: page - 1, ...appliedSearch });
+  }
+
+  function applySearch(event) {
+    event?.preventDefault();
+    const query = { q: searchForm.q.trim(), tag: searchForm.tag.trim() };
+    setAppliedSearch(query);
+    onQueryChange?.({ page: 0, ...query });
+  }
 
   function handleResetSearch() {
     setSearchForm({
       q: "",
       tag: "",
     });
+    setAppliedSearch({ q: "", tag: "" });
+    onQueryChange?.({ page: 0, q: "", tag: "" });
   }
 
   // Hook과 함수 선언이 끝난 뒤에 return null 처리해야 한다.
@@ -315,7 +295,7 @@ export default function JarZoomModal({
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}
                 >
-                  {isJarOpen ? `쪽지 ${safeNotes.length}개` : "비밀 보관 중"}
+                  {isJarOpen ? `쪽지 ${pagination?.totalElements ?? safeNotes.length}개` : "비밀 보관 중"}
                 </span>
               </div>
 
@@ -333,7 +313,7 @@ export default function JarZoomModal({
                       onReload={onReloadDesignImage}
                     />
                     <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow">
-                      {isJarOpen ? `쪽지 ${safeNotes.length}개` : "오픈 전까지 비밀이에요!"}
+                      {isJarOpen ? `쪽지 ${pagination?.totalElements ?? safeNotes.length}개` : "오픈 전까지 비밀이에요!"}
                     </span>
                   </div>
                 ) : (
@@ -461,13 +441,14 @@ export default function JarZoomModal({
                   </div>
 
                   <form
-                    onSubmit={(e) => e.preventDefault()}
+                    onSubmit={applySearch}
                     className={`mb-5 rounded-[24px] border p-4 ${palette.panelSoft}`}
                   >
                     <div className="grid gap-3">
                       <input
                         type="text"
                         value={searchForm.q}
+                        maxLength={200}
                         onChange={(e) =>
                           setSearchForm((prev) => ({
                             ...prev,
@@ -481,6 +462,7 @@ export default function JarZoomModal({
                       <input
                         type="text"
                         value={searchForm.tag}
+                        maxLength={100}
                         onChange={(e) =>
                           setSearchForm((prev) => ({
                             ...prev,
@@ -493,7 +475,8 @@ export default function JarZoomModal({
 
                       <div className="flex flex-wrap justify-end gap-2">
                         <button
-                          type="button"
+                          type="submit"
+                          disabled={loading}
                           className={`rounded-2xl px-4 py-2 text-sm font-bold transition hover:scale-[1.01] ${palette.primaryButton}`}
                         >
                           검색
@@ -512,10 +495,10 @@ export default function JarZoomModal({
 
                   <div className="mb-4 flex items-center justify-between">
                     <p className="text-xs font-semibold text-slate-500">
-                      검색 결과 {filteredNotes.length}개
+                      검색 결과 {pagination?.totalElements ?? filteredNotes.length}개
                     </p>
 
-                    {filteredNotes.length !== safeNotes.length && (
+                    {(appliedSearch.q || appliedSearch.tag) && (
                       <span
                         className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}
                       >
@@ -638,7 +621,6 @@ export default function JarZoomModal({
 
                 {!loading &&
                   !error &&
-                  filteredNotes.length > 0 &&
                   notePageCount > 1 && (
                     <div className="mt-4 shrink-0 border-t border-white/60 pt-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -650,22 +632,23 @@ export default function JarZoomModal({
                           <button
                             type="button"
                             onClick={() =>
-                              setNotePage((prev) => Math.max(1, prev - 1))
+                              changePage(Math.max(1, notePage - 1))
                             }
-                            disabled={notePage === 1}
+                            disabled={loading || notePage === 1}
                             className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
                           >
                             이전
                           </button>
 
                           {Array.from(
-                            { length: notePageCount },
-                            (_, index) => index + 1
+                            { length: Math.min(5, notePageCount) },
+                            (_, index) => Math.max(1, Math.min(notePage - 2, notePageCount - 4)) + index
                           ).map((pageNumber) => (
                             <button
                               key={pageNumber}
                               type="button"
-                              onClick={() => setNotePage(pageNumber)}
+                              onClick={() => changePage(pageNumber)}
+                              disabled={loading}
                               className={`rounded-2xl px-3 py-2 text-sm font-bold transition ${
                                 pageNumber === notePage
                                   ? palette.primaryButton
@@ -679,11 +662,9 @@ export default function JarZoomModal({
                           <button
                             type="button"
                             onClick={() =>
-                              setNotePage((prev) =>
-                                Math.min(notePageCount, prev + 1)
-                              )
+                              changePage(Math.min(notePageCount, notePage + 1))
                             }
-                            disabled={notePage === notePageCount}
+                            disabled={loading || notePage === notePageCount}
                             className={`rounded-2xl border px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
                           >
                             다음

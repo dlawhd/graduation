@@ -14,6 +14,23 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     // 삭제되지 않은 쪽지 1개 찾기
     Optional<Note> findByNoteId(Long noteId);
 
+    // 컬렉션 fetch join 없이 작성자만 함께 읽어 페이지 크기와 전체 개수를 정확하게 유지한다.
+    @Query(value = """
+            select n from Note n join fetch n.author
+            where n.jar.jarId = :jarId
+              and (:q = '' or lower(n.title) like :q escape '!'
+                or lower(n.content) like :q escape '!' or lower(n.location) like :q escape '!')
+              and (:tag = '' or function('json_search', lower(cast(n.tags as string)), 'one', :tag, '!') is not null)
+            order by n.createdAt desc, n.noteId desc
+            """, countQuery = """
+            select count(n) from Note n where n.jar.jarId = :jarId
+              and (:q = '' or lower(n.title) like :q escape '!'
+                or lower(n.content) like :q escape '!' or lower(n.location) like :q escape '!')
+              and (:tag = '' or function('json_search', lower(cast(n.tags as string)), 'one', :tag, '!') is not null)
+            """)
+    Page<Note> searchByJarId(@Param("jarId") Long jarId, @Param("q") String q,
+            @Param("tag") String tag, Pageable pageable);
+
     /*
      * 특정 저금통의 쪽지 목록을 조회한다.
      *
@@ -33,7 +50,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
                 from Note n
                 join fetch n.author
                 where n.jar.jarId = :jarId
-                order by n.createdAt desc
+                order by n.createdAt desc, n.noteId desc
                 """,
             countQuery = """
                 select count(n)

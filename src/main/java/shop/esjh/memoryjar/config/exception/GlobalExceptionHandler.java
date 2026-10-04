@@ -183,9 +183,20 @@ public class GlobalExceptionHandler {
     }
 
     /** URL 파라미터·경로 변수 검증과 숫자 형식 오류도 서버 오류가 아닌 400으로 통일한다. */
-    @ExceptionHandler({ConstraintViolationException.class, MethodArgumentTypeMismatchException.class})
+    @ExceptionHandler({ConstraintViolationException.class, MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.HandlerMethodValidationException.class})
     public ResponseEntity<ErrorEnvelope> handleParameterValidation(Exception ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "요청 값이 올바르지 않습니다.", request);
+    }
+
+    /** 존재하는 주소에 지원하지 않는 HTTP 메서드를 보내면 500 대신 405와 Allow를 반환한다. */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorEnvelope> handleMethodNotAllowed(
+            org.springframework.web.HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).headers(ex.getHeaders())
+                .body(ErrorEnvelope.of(ErrorResponse.of("METHOD_NOT_ALLOWED",
+                        "지원하지 않는 요청 방식입니다.", request.getRequestURI())));
     }
 
     /** multipart 이미지가 빠졌거나 형식이 맞지 않는 요청을 명확한 4xx로 반환한다. */

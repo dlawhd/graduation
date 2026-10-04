@@ -242,6 +242,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          * 이 토큰이 이후 Memory Jar API 요청에서
          * "현재 로그인한 사용자가 누구인지" 증명하는 역할을 한다.
          */
+        claims.put("sessionVersion", user.getSessionVersion());
+
         String jwt =
                 jwtTokenProvider.createAccessToken(
                         subject,

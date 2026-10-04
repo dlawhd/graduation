@@ -23,6 +23,9 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
 
   // 지금까지의 추억 뽑기 기록
   const [dailyDrawHistory, setDailyDrawHistory] = useState([]);
+  const [dailyDrawHistoryPagination, setDailyDrawHistoryPagination] = useState({ page: 0, totalPages: 0, totalElements: 0 });
+  const historyPageRef = useRef(0);
+  const historyRequestRef = useRef(0);
 
   // 뽑기 조회/실행 로딩 상태
   const [dailyDrawLoading, setDailyDrawLoading] = useState(false);
@@ -107,8 +110,9 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
    * Daily Draw 히스토리 조회
    */
   const loadDailyDrawHistory = useCallback(
-    async ({ silent = false } = {}) => {
+    async ({ silent = false, page = historyPageRef.current } = {}) => {
       if (!jarId) return;
+      const requestId = ++historyRequestRef.current;
 
       if (!silent) {
         setDailyDrawLoading(true);
@@ -117,11 +121,15 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
       setDailyDrawError("");
 
       try {
-        const data = await getDailyDrawHistory(jarId, 0, 20);
+        const data = await getDailyDrawHistory(jarId, page, 5);
+        if (requestId !== historyRequestRef.current) return;
         const items = Array.isArray(data?.items) ? data.items : [];
 
         setDailyDrawHistory(items);
+        historyPageRef.current = data?.page || 0;
+        setDailyDrawHistoryPagination(data || { page: 0, totalPages: 0, totalElements: 0 });
       } catch (e) {
+        if (requestId !== historyRequestRef.current) return;
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -131,13 +139,21 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
         setDailyDrawError(serverMessage);
         setDailyDrawHistory([]);
       } finally {
-        if (!silent) {
+        if (!silent && requestId === historyRequestRef.current) {
           setDailyDrawLoading(false);
         }
       }
     },
     [jarId]
   );
+
+  useEffect(() => {
+    historyPageRef.current = 0;
+    ++historyRequestRef.current;
+    setDailyDrawHistory([]);
+    setDailyDrawHistoryPagination({ page: 0, totalPages: 0, totalElements: 0 });
+    return () => { ++historyRequestRef.current; };
+  }, [jarId]);
 
   /*
    * Daily Draw 전체 새로고침
@@ -252,6 +268,7 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
     dailyDrawToday,
     setDailyDrawToday,
     dailyDrawHistory,
+    dailyDrawHistoryPagination,
     dailyDrawLoading,
     dailyDrawDrawing,
     dailyDrawError,

@@ -33,6 +33,28 @@ class NoteRepositoryTest extends AbstractMariaDbRepositoryTest {
     private NoteRepository noteRepository;
 
     @Test
+    void searchFindsFullContentBeyondPreviewAndPaginatesAllNotes() {
+        User owner = saveUser("search-owner", "search-owner@example.com", "owner");
+        Jar jar = saveJar(owner, "search", LocalDateTime.now().minusDays(1));
+        for (int index = 0; index < 28; index++) {
+            Note note = saveNote(jar, owner, "note-" + index, LocalDateTime.now());
+            org.springframework.test.util.ReflectionTestUtils.setField(note, "content", "앞부분".repeat(30) + "숨겨진검색어");
+            org.springframework.test.util.ReflectionTestUtils.setField(note, "tags", java.util.List.of("추억100%", "바다"));
+        }
+        Jar other = saveJar(owner, "other", LocalDateTime.now());
+        saveNote(other, owner, "not-in-this-jar", LocalDateTime.now());
+        flushAndClear();
+        Page<Note> first = noteRepository.searchByJarId(jar.getJarId(), "%숨겨진검색어%", "%바다%", PageRequest.of(0, 3));
+        Page<Note> last = noteRepository.searchByJarId(jar.getJarId(), "%숨겨진검색어%", "%바다%", PageRequest.of(9, 3));
+        assertThat(first.getTotalElements()).isEqualTo(28);
+        assertThat(first.getTotalPages()).isEqualTo(10);
+        assertThat(first.getContent()).hasSize(3);
+        assertThat(last.getContent()).hasSize(1);
+        assertThat(noteRepository.searchByJarId(jar.getJarId(), "", "%100!%%", PageRequest.of(0, 3)).getTotalElements()).isEqualTo(28);
+        assertThat(noteRepository.searchByJarId(jar.getJarId(), "%없는검색어%", "", PageRequest.of(0, 3)).getContent()).isEmpty();
+    }
+
+    @Test
     @DisplayName("findByNoteId는 삭제되지 않은 쪽지를 조회한다")
     void findByNoteId_returnsActiveNote() {
         User owner = saveUser("owner-note-find", "owner-note-find@example.com", "owner");

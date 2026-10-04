@@ -288,9 +288,8 @@ useEffect(() => {
       if (!ignore) {
         if (status === 401 || status === 403) {
           setMe(null);
-        } else {
-          setMe(null);
         }
+        // 일시적 통신 장애에는 이미 확인된 사용자 상태를 지우지 않는다.
       }
     } finally {
       if (!ignore) {

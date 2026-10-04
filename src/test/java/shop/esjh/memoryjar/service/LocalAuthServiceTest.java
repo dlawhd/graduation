@@ -97,6 +97,24 @@ class LocalAuthServiceTest {
     @InjectMocks
     private LocalAuthService localAuthService;
 
+    @Test
+    void resetPasswordLocksUserAndRevokesEverySessionAfterCredentialChange() {
+        User user = User.builder().id(1L).email("reset@example.com").name("시험").build();
+        UserLocalCredential credential = UserLocalCredential.builder().user(user)
+                .loginId("reset_user").passwordHash("old-hash").build();
+        when(userLocalCredentialRepository.findByLoginId("reset_user")).thenReturn(Optional.of(credential));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("Memoryjar123!")).thenReturn("new-hash");
+        localAuthService.resetPassword("reset_user", "reset@example.com", "fixture-reset-token",
+                "Memoryjar123!", "Memoryjar123!");
+        assertThat(credential.getPasswordHash()).isEqualTo("new-hash");
+        verify(emailVerificationService).consumePasswordResetVerification("reset@example.com", "fixture-reset-token");
+        var order = org.mockito.Mockito.inOrder(userRepository, userLocalCredentialRepository, refreshTokenService);
+        order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(userLocalCredentialRepository).save(credential);
+        order.verify(refreshTokenService).revokeAllForUser(1L);
+    }
+
 
     @Test
     @DisplayName("한 번도 사용되지 않은 아이디는 사용 가능하다")

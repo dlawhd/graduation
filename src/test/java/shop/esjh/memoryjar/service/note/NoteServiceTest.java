@@ -101,6 +101,37 @@ class NoteServiceTest {
     }
 
     @Test
+    void lockedJarDoesNotExposePrivateContentThroughSearchCounts() {
+        var jar = createJar(10L, LocalDateTime.now().plusDays(1), JarLockLevel.HIDDEN);
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        for (var query : List.of(new String[]{"비밀", ""}, new String[]{"", "비밀태그"})) {
+            var failure = catchThrowableOfType(() -> noteService.listNotes(1L, 10L, 0, 3, query[0], query[1]), ResponseStatusException.class);
+            assertThat(failure.getStatusCode().value()).isEqualTo(403);
+        }
+        verifyNoInteractions(noteRepository);
+    }
+
+    @Test
+    void nonMemberCannotSearchNotes() {
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(createJar(10L, LocalDateTime.now().minusDays(1), JarLockLevel.HIDDEN)));
+        var failure = catchThrowableOfType(() -> noteService.listNotes(1L, 10L, 0, 3, "본문", ""), ResponseStatusException.class);
+        assertThat(failure.getStatusCode().value()).isEqualTo(403);
+        verifyNoInteractions(noteRepository);
+    }
+
+    @Test
+    void oversizedSearchAndInvalidPageAreRejectedBeforeQuery() {
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(createJar(10L, LocalDateTime.now().plusDays(1), JarLockLevel.HIDDEN)));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        var longSearch = catchThrowableOfType(() -> noteService.listNotes(1L, 10L, 0, 3, "a".repeat(201), ""), ResponseStatusException.class);
+        var invalidPage = catchThrowableOfType(() -> noteService.listNotes(1L, 10L, -1, 3, "", ""), ResponseStatusException.class);
+        assertThat(longSearch.getStatusCode().value()).isEqualTo(400);
+        assertThat(invalidPage.getStatusCode().value()).isEqualTo(400);
+        verifyNoInteractions(noteRepository);
+    }
+
+    @Test
     void createNote_정상작성_성공() {
         // given
         Long currentUserId = 1L;

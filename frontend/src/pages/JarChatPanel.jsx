@@ -9,7 +9,6 @@ import {
 } from "../api/chatApi";
 import {
   subscribeChatSocket,
-  sendChatSocketMessage,
 } from "../api/chatSocketApi";
 
 import {
@@ -24,7 +23,7 @@ import {
  * 쉽게 말하면:
  * - 처음 들어오면 REST API로 기존 채팅 목록을 불러오고
  * - WebSocket으로 새 메시지를 실시간으로 받고
- * - 메시지를 보낼 때 WebSocket으로 전송하고
+ * - 메시지를 보낼 때 REST 저장 응답으로 성공을 확인하고
  * - WebSocket 연결이 실패하면 기존 Polling 방식으로 새 메시지를 확인하고
  * - 마지막으로 본 메시지를 읽음 처리하고
  * - unreadCount도 보여줘.
@@ -164,7 +163,6 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   const {
     connected: webSocketConnected,
     subscribe,
-    publish,
   } = useStompClient();
 
   // 채팅 메시지 목록
@@ -222,7 +220,15 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   const scrollBoxRef = useRef(null);
 
   // Polling에서 최신 messageId를 안정적으로 쓰기 위한 ref
-  const lastMessageIdRef = useRef(null);
+  // 소켓에서 받은 최고 ID와 분리한다. REST로 빠짐없이 조회한 범위만 커서로 사용한다.
+  const historyCursorRef = useRef(null);
+  const newerRequestRef = useRef(false);
+  const pendingSendRef = useRef(null);
+  const sendingRef = useRef(false);
+  const initialLoadingRef = useRef(true);
+  const activeJarRef = useRef(jarId);
+  const catchUpRef = useRef(null);
+  activeJarRef.current = jarId;
 
   // 이전 메시지 더 보기 중에는 아래로 자동 스크롤하면 안 되므로 구분용 ref
   const shouldScrollToBottomRef = useRef(true);
@@ -237,9 +243,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
    * messages가 바뀔 때마다 마지막 메시지 ID를 저장해둔다.
    * setInterval 안에서는 state가 오래된 값으로 잡힐 수 있어서 ref를 같이 쓴다.
    */
-  useEffect(() => {
-    lastMessageIdRef.current = getLastMessageId(messages);
-  }, [messages]);
+  // 현재 구현에서는 최고 표시 ID 대신 REST 조회 범위의 historyCursorRef를 갱신한다.
 
   /*
    * 채팅창 맨 아래로 이동
@@ -423,6 +427,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
    */
   const loadInitialMessages = useCallback(async () => {
     if (!jarId) return;
+    initialLoadingRef.current = true;
 
     try {
       setLoading(true);
@@ -431,11 +436,13 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       const data = await getChatMessages(jarId, {
         limit: DEFAULT_LIMIT,
       });
+      if (activeJarRef.current !== jarId) return;
 
       const items = normalizeMessageItems(data);
 
       const firstUnreadId = data?.firstUnreadMessageId ?? null;
       const lastMessageId = getLastMessageId(items);
+      historyCursorRef.current = lastMessageId;
 
       setMessages(items);
       setHasNext(Boolean(data?.hasNext));
@@ -469,6 +476,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       await loadUnreadCount();
     } catch (e) {
+      if (activeJarRef.current !== jarId) return;
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -480,7 +488,10 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setHasNext(false);
       setNextBeforeMessageId(null);
     } finally {
-      setLoading(false);
+      if (activeJarRef.current === jarId) {
+        initialLoadingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [jarId, loadUnreadCount, markLatestMessageAsRead]);
 
@@ -496,6 +507,8 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   useEffect(() => {
     // 이전 저금통의 채팅 메시지를 비운다.
     setMessages([]);
+    historyCursorRef.current = null;
+    pendingSendRef.current = null;
 
     // 입력창에 남아 있던 글을 비운다.
     setDraft("");
@@ -583,32 +596,16 @@ export default function JarChatPanel({ jarId, currentUserId }) {
               [normalizedMessage]
             );
           });
+          catchUpRef.current?.();
 
-          const nextReadMessageId =
-            Math.max(
-              Number(
-                lastMessageIdRef.current ||
-                  0
-              ),
-              Number(
-                normalizedMessage.messageId ||
-                  0
-              )
-            );
-
-          if (nextReadMessageId > 0) {
-            markChatAsRead(
-              jarId,
-              nextReadMessageId
-            )
-              .then(loadUnreadCount)
-              .catch(() => {
-                /*
-                 * 읽음 처리 실패해도
-                 * 채팅 화면은 유지한다.
-                 */
-              });
-          }
+          /*
+           * live 메시지의 최고 ID로 커서를 올리면 중간 이력을 건너뛴다.
+           * 소켓은 화면 반영만 하고, REST 보충 조회가 읽음 위치를 결정한다.
+           */
+          /*
+           * 읽음 처리 실패해도
+           * 채팅 화면은 유지한다.
+           */
         },
 
         onError: () => {
@@ -681,9 +678,9 @@ export default function JarChatPanel({ jarId, currentUserId }) {
    * 이 함수는 현재 화면의 마지막 messageId 이후 메시지를 가져온다.
    */
   const handleLoadNewer = async () => {
-    if (!jarId || !hasNewer || loadingNewer) return;
+    if (!jarId || !hasNewer || loadingNewer || newerRequestRef.current) return;
 
-    const afterMessageId = lastMessageIdRef.current;
+    const afterMessageId = historyCursorRef.current;
 
     if (!afterMessageId) {
       setHasNewer(false);
@@ -691,6 +688,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
     }
 
     try {
+      newerRequestRef.current = true;
       setLoadingNewer(true);
       setError("");
 
@@ -700,6 +698,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       });
 
       const newerItems = normalizeMessageItems(data);
+      if (activeJarRef.current !== jarId) return;
 
       if (newerItems.length === 0) {
         setHasNewer(false);
@@ -727,9 +726,10 @@ export default function JarChatPanel({ jarId, currentUserId }) {
        * 28개처럼 limit보다 적게 오면
        * 이제 뒤에 더 없다고 본다.
        */
-      setHasNewer(newerItems.length >= DEFAULT_LIMIT);
+      setHasNewer(Boolean(data?.hasNext));
 
       const newestMessageId = getLastMessageId(newerItems);
+      if (newestMessageId) historyCursorRef.current = newestMessageId;
 
       if (newestMessageId) {
         await markChatAsRead(jarId, newestMessageId);
@@ -744,6 +744,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       setError(serverMessage);
     } finally {
+      newerRequestRef.current = false;
       setLoadingNewer(false);
     }
   };
@@ -752,19 +753,14 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   /*
    * 메시지 보내기
    *
-   * WebSocket 연결 성공 상태면:
-   * - WebSocket publish로 보낸다.
-   * - 화면에는 바로 추가하지 않는다.
-   * - 서버가 다시 /topic 으로 뿌려준 메시지를 받을 때 화면에 추가한다.
-   *
-   * WebSocket 연결 실패 상태면:
-   * - 기존 REST 전송을 사용한다.
-   * - 이게 fallback 역할이다.
+   * 연결 상태와 무관하게 REST로 저장 성공을 확인한다.
+   * 서버의 WebSocket 방송과 저장 응답은 messageId로 합쳐 한 번만 표시한다.
+   * 응답이 유실되면 같은 전송 식별자로 재시도해 중복 저장을 막는다.
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!jarId || sending) return;
+    if (!jarId || sendingRef.current) return;
 
     // 공백만 있는 메시지는 화면에서 먼저 막는다.
     if (isBlankMessage(draft)) {
@@ -773,6 +769,13 @@ export default function JarChatPanel({ jarId, currentUserId }) {
     }
 
     const originalContent = draft;
+    // 저장 응답이 유실된 경우에는 같은 키로 재시도한다. 내용을 수정하면 새 전송으로 구분한다.
+    if (pendingSendRef.current?.content !== originalContent) {
+      pendingSendRef.current = { content: originalContent,
+        requestId: globalThis.crypto?.randomUUID?.() || `chat_${Date.now()}_${Math.random().toString(36).slice(2)}` };
+    }
+    let confirmed = false;
+    sendingRef.current = true;
 
     try {
       setSending(true);
@@ -782,43 +785,17 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setDraft("");
 
       /*
-       * WebSocket 연결 상태라면 먼저 실시간 전송을 시도한다.
-       */
-      if (webSocketConnected) {
-        try {
-          sendChatSocketMessage({
-            publish,
-            jarId,
-            content: originalContent,
-          });
-
-          /*
-           * 서버가 채팅 topic으로 같은 메시지를 다시 보내므로
-           * 여기서는 화면에 직접 추가하지 않는다.
-           */
-          return;
-        } catch (webSocketError) {
-          /*
-           * 화면에서는 연결된 것으로 보였지만
-           * 실제 전송 순간 연결이 끊겼을 수 있다.
-           *
-           * 이때 아래 REST 전송으로 자연스럽게 넘어간다.
-           */
-          console.warn(
-            "채팅 WebSocket 전송 실패, REST로 다시 전송합니다.",
-            webSocketError
-          );
-        }
-      }
-
-      /*
-       * WebSocket을 사용할 수 없거나 전송에 실패하면
-       * REST API로 메시지를 저장한다.
+       * WebSocket publish 자체는 DB 저장 성공을 알려주지 않는다.
+       * REST 응답을 기다리고 방송은 실시간 수신용으로만 사용한다.
        */
       const savedMessage = await sendChatMessage(
         jarId,
-        originalContent
+        originalContent,
+        pendingSendRef.current.requestId
       );
+      confirmed = true;
+      pendingSendRef.current = null;
+      if (activeJarRef.current !== jarId) return;
 
       const normalizedMessage = {
         ...savedMessage,
@@ -830,20 +807,12 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       setMessages((prev) =>
         mergeUniqueMessages(prev, [normalizedMessage])
       );
+      catchUpRef.current?.();
 
       /*
-       * 방금 서버에 저장된 메시지 번호까지 읽었다고 처리한다.
-       *
-       * 오래된 messages 배열을 사용할 필요가 없어서
-       * Polling과 전송이 겹쳐도 더 안전하다.
+       * 내 전송 ID로 읽음 위치를 뛰어넘으면 아직 조회하지 않은 상대 메시지가 읽음 처리된다.
+       * 연속된 REST 보충 조회에서만 읽음 위치를 갱신하고 여기서는 개수만 확인한다.
        */
-      if (normalizedMessage?.messageId) {
-        await markChatAsRead(
-          jarId,
-          normalizedMessage.messageId
-        );
-      }
-
       await loadUnreadCount();
     } catch (e) {
       const serverMessage =
@@ -852,11 +821,14 @@ export default function JarChatPanel({ jarId, currentUserId }) {
         e?.message ||
         "채팅을 보내지 못했어요.";
 
-      setError(serverMessage);
+      setError(!e?.response || e.response.status >= 500
+        ? "전송 결과를 확인하지 못했어요. 같은 내용으로 다시 보내도 중복 저장되지 않아요."
+        : serverMessage);
 
       // 실패하면 사용자가 다시 보낼 수 있도록 입력값을 복구한다.
-      setDraft(originalContent);
+      if (!confirmed) setDraft(originalContent);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -869,14 +841,13 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   useEffect(() => {
     if (!jarId) return;
 
-    // WebSocket 연결이 성공했으면 Polling은 멈춘다.
-    // 새 메시지는 WebSocket으로 바로 받기 때문이다.
-    if (webSocketConnected) return;
+    // 소켓 연결 중에도 보충 조회한다. 재연결 구간이나 미조회 페이지의 누락을 회복한다.
 
     let stopped = false;
 
     async function pollNewMessages() {
-      const afterMessageId = lastMessageIdRef.current;
+      if (newerRequestRef.current || initialLoadingRef.current) return;
+      const afterMessageId = historyCursorRef.current;
 
       // 메시지가 하나도 없는 상태에서 WebSocket이 실패했다면
       // 새 메시지 여부를 확인하기 위해 전체 목록을 다시 불러온다.
@@ -886,6 +857,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       }
 
       try {
+        newerRequestRef.current = true;
         const data = await getNewChatMessages(jarId, {
           afterMessageId,
           limit: DEFAULT_LIMIT,
@@ -894,6 +866,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
         if (stopped) return;
 
         const newItems = normalizeMessageItems(data);
+        setHasNewer(Boolean(data?.hasNext));
 
         if (newItems.length === 0) {
           return;
@@ -906,6 +879,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
         });
 
         const newestMessageId = getLastMessageId(newItems);
+        if (newestMessageId) historyCursorRef.current = newestMessageId;
 
         if (newestMessageId) {
           await markChatAsRead(jarId, newestMessageId);
@@ -914,13 +888,19 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       } catch (e) {
         // Polling 실패는 화면을 깨지 않도록 조용히 둔다.
         // 필요하면 나중에 작은 상태 표시만 추가하면 된다.
+      } finally {
+        newerRequestRef.current = false;
       }
     }
 
-    const timerId = window.setInterval(pollNewMessages, POLLING_INTERVAL_MS);
+    catchUpRef.current = pollNewMessages;
+    pollNewMessages();
+    // 연결 중에는 실시간 수신 때 즉시 보충하고 10초마다 안전망 조회만 한다.
+    const timerId = window.setInterval(pollNewMessages, webSocketConnected ? 10_000 : POLLING_INTERVAL_MS);
 
     return () => {
       stopped = true;
+      if (catchUpRef.current === pollNewMessages) catchUpRef.current = null;
       window.clearInterval(timerId);
     };
   }, [jarId, webSocketConnected, loadInitialMessages, loadUnreadCount]);

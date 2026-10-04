@@ -43,6 +43,20 @@ class JwtAuthenticationFilterTest {
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockitoBean
+    private SessionValidityService sessionValidityService;
+
+    @Test
+    void revokedAccessTokenReturns401EvenWithValidSignature() throws Exception {
+        Claims claims = Mockito.mock(Claims.class);
+        when(jwtTokenProvider.validate("revoked")).thenReturn(true);
+        when(jwtTokenProvider.getClaimsFromToken("revoked")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn("1");
+        when(sessionValidityService.isCurrent(1L, 0L)).thenReturn(false);
+        mockMvc.perform(get("/secure").cookie(new Cookie("accessToken", "revoked")))
+                .andExpect(status().isUnauthorized());
+    }
+
     @Test
     @DisplayName("유효한 accessToken 쿠키가 있으면 인증이 붙고 /secure 요청이 성공한다")
     void authenticateWhenValidAccessTokenCookieExists() throws Exception {
@@ -59,6 +73,8 @@ class JwtAuthenticationFilterTest {
         // 4. 토큰에서 꺼낸 정보도 우리가 원하는 값으로 넣기
         when(jwtTokenProvider.getClaimsFromToken(accessToken)).thenReturn(claims);
         when(claims.getSubject()).thenReturn("1");
+        when(claims.getExpiration()).thenReturn(new java.util.Date(System.currentTimeMillis() + 60_000));
+        when(sessionValidityService.isCurrent(1L, 0L)).thenReturn(true);
         when(claims.get("email")).thenReturn("test@example.com");
         when(claims.get("name")).thenReturn("은서");
         when(claims.get("birthyear")).thenReturn("2000");
@@ -105,6 +121,17 @@ class JwtAuthenticationFilterTest {
                 .andExpect(content().string("public ok"));
     }
 
+    @Test
+    void oldHttpSessionCannotAuthenticateApiWithoutCurrentJwt() throws Exception {
+        var session = new org.springframework.mock.web.MockHttpSession();
+        var context = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new org.springframework.security.authentication.TestingAuthenticationToken(
+                Map.of("userId", "1"), null, "ROLE_USER"));
+        session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+        mockMvc.perform(get("/api/secure").servletPath("/api/secure").session(session))
+                .andExpect(status().isUnauthorized());
+    }
+
     @RestController
     static class TestController {
 
@@ -113,7 +140,7 @@ class JwtAuthenticationFilterTest {
             return "public ok";
         }
         // 인증된 사람만 들어갈 수 있는 문, 필터가 SecurityContext에 넣어준 principal 값을 그대로 꺼내서 반환
-        @GetMapping("/secure")
+        @GetMapping({"/secure", "/api/secure"})
         public Map<String, Object> secureEndpoint(Authentication authentication) {
             return (Map<String, Object>) authentication.getPrincipal();
         }

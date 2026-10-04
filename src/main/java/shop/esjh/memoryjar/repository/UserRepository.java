@@ -22,6 +22,19 @@ import java.util.Optional;
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // 인증 검사에는 사용자 전체나 연관 엔티티 대신 숫자 한 개만 조회한다.
+    @Query("select u.sessionVersion from User u where u.id = :userId")
+    Optional<Long> findSessionVersionById(@Param("userId") Long userId);
+
+    // 로그인 트랜잭션의 오래된 스냅샷/엔티티를 피하고, 잠근 행의 최신 버전을 읽는다.
+    @Query(value = "SELECT session_version FROM users WHERE id = :userId AND deleted_at IS NULL FOR UPDATE", nativeQuery = true)
+    Optional<Long> findSessionVersionByIdForUpdate(@Param("userId") Long userId);
+
+    // 영속성 컨텍스트에 예전 User가 있어도 DB의 현재 버전을 원자적으로 증가시킨다.
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
+    @Query("update User u set u.sessionVersion = u.sessionVersion + 1 where u.id = :userId")
+    int incrementSessionVersion(@Param("userId") Long userId);
+
     /*
      * 이메일로 Memory Jar 사용자를 찾는다.
      *

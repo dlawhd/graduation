@@ -67,6 +67,24 @@ class ChatServiceTest {
     private User otherUser;
     private Jar jar;
 
+    @Test
+    void retryWithSameRequestIdReturnsSavedMessageWithoutSavingAgain() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(currentUser));
+        when(jarRepository.findByJarId(JAR_ID)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID)).thenReturn(true);
+        var member = shop.esjh.memoryjar.entity.jar.JarMember.builder().jar(jar).user(currentUser)
+                .role(shop.esjh.memoryjar.enums.jar.JarRole.MEMBER).joinedAt(NOW).build();
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(JAR_ID, USER_ID)).thenReturn(Optional.of(member));
+        var saved = ChatMessage.createText(jar, currentUser, "재시도");
+        setMessageIdAndTime(saved, 123L);
+        when(chatMessageRepository.findByJar_JarIdAndSender_IdAndClientRequestId(JAR_ID, USER_ID, "request_1"))
+                .thenReturn(Optional.of(saved));
+        assertThat(chatService.sendTextMessage(USER_ID, JAR_ID, new ChatMessageSendRequest("재시도", "request_1")).messageId()).isEqualTo(123L);
+        verify(chatMessageRepository, never()).save(any());
+        assertThatThrownBy(() -> chatService.sendTextMessage(USER_ID, JAR_ID, new ChatMessageSendRequest("다른내용", "request_1")))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("409");
+    }
+
     /*
      * 각 테스트 전에 공통으로 사용할 사용자, 저금통, Service를 준비한다.
      */
