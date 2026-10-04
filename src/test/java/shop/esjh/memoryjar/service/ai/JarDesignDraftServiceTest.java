@@ -178,6 +178,26 @@ class JarDesignDraftServiceTest {
     }
 
     @Test
+    void updateSlot_validatesStoredFreeformWhenOldClientOmitsStyle() {
+        var draft=mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
+        when(draft.hasCustomDesignSelection()).thenReturn(true);
+        when(draft.getSlotStyle()).thenReturn(JarSlotStyle.BLOSSOM_GATE);
+        // 가로 슬롯에서 허용했던 y=.04는 높이가 있는 꽃에서는 이미지 밖이다.
+        assertThatThrownBy(()->draftService.updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.04"),BigDecimal.ONE))
+                .isInstanceOf(ApiException.class).extracting(e->((ApiException)e).getErrorCode())
+                .isEqualTo(AiDraftErrorCode.DRAFT_SLOT_OUT_OF_BOUNDS);
+        verify(draft,never()).updateSlot(any(),any(),any());
+        verify(draft,never()).extendExpiration(any());
+        when(properties.getExpiresAfterDays()).thenReturn(7);
+        draftService.updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.14"),BigDecimal.ONE);
+        verify(draft).updateSlot(new BigDecimal("0.5"),new BigDecimal("0.14"),BigDecimal.ONE);
+        verify(draft,never()).updateSlotStyle(any());
+    }
+
+    @Test
     void updateSlot_rejectsChangedCandidateWithoutWritingOrExtendingExpiration() {
         JarDesignDraft draft = mock(JarDesignDraft.class);
         when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));

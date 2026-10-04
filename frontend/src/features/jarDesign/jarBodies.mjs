@@ -1,4 +1,6 @@
-/** 30종 저금통의 고정 ID와 480×480 도면이다. 사진과 AI 이미지는 도면 안의 창에만 표시한다. */
+import { ANIMAL_BODY_CATALOG } from "./animalBodyCatalog.mjs";
+
+/** 저금통의 고정 ID와 480×480 도면이다. 사진과 AI 이미지는 도면 안의 창에만 표시한다. */
 const palettes = {
   mint: ["#fbfffd", "#d5eee4", "#72b5a0", "#b9904d"],
   blush: ["#fff8f6", "#f7d4d5", "#cf919e", "#b98856"],
@@ -46,7 +48,7 @@ const finishes = {
 };
 
 function body(id, name, description, collection, palette, path, window, slotY, extra = {}) {
-  const [light, base, shade, accent, stageLight, stageShade, detail, material] = finishes[id] || palettes[palette];
+  const [light, base, shade, accent, stageLight, stageShade, detail, material] = extra.finish || finishes[id] || palettes[palette];
   return Object.freeze({ id, name, description, collection, colors: Object.freeze({ light, base, shade, accent }), path,
     window: { x: window[0], y: window[1], width: window[2], height: window[3], radius: window[4] },
     slot: { centerX: 0.5, centerY: slotY / 480, sizeRatio: 0.22, slotStyle: "CAPSULE" }, ...extra,
@@ -118,10 +120,20 @@ export const JAR_BODIES = Object.freeze([
     "M104 192H376V278C376 359 319 394 240 436C161 394 104 359 104 278Z", [143, 235, 194, 123, 40], 178, { material: "월넛 · 꿀빛 도자기" }),
   body("FLOWER", "피어나는 마음", "매일 조금씩 더 아름답게 피어나는 꽃", "숲속의 선물", "blush",
     "M174 147C146 74 226 34 264 95C309 31 382 85 352 148C431 121 455 216 390 249C457 284 416 363 351 343C358 416 271 444 242 376C204 447 125 409 140 347C64 378 22 293 91 253C23 214 75 132 140 156Z", [148, 181, 184, 158, 76], 148, { material: "피오니 세라믹" }),
+  ...ANIMAL_BODY_CATALOG.map(({ id, name, description, finish, path, window, slotY, emblem, keywords }) =>
+    body(id, name, description, "다정한 친구", null, path, window, slotY, { finish, emblem, keywords, newAnimal:true })),
 ]);
 
 const byId = new Map(JAR_BODIES.map((entry) => [entry.id, entry]));
 export function getJarBody(id) { return byId.get(id) || null; }
+
+/** 검색은 로컬 도면만 필터링한다. 선택한 본체는 검색 결과에서 숨겨져도 그대로 유지한다. */
+export function filterJarBodies(collection = "전체", query = "") {
+  const needle = query.trim().replace(/\s+/g, "").toLocaleLowerCase();
+  return JAR_BODIES.filter((body) =>
+    (collection === "전체" || (collection === "새 동물 친구" ? body.newAnimal : body.collection === collection)) &&
+    (!needle || [body.name, body.description, body.detail, body.material, body.keywords, body.id].join("").replace(/\s+/g, "").toLocaleLowerCase().includes(needle)));
+}
 
 /** SVG와 HTML 사진 창에서 같은 둥근 사각형 경계를 사용한다. */
 export function jarBodyWindowPath({ x, y, width, height, radius }) {

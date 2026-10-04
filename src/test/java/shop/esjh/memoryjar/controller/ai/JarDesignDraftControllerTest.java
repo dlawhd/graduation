@@ -2,6 +2,8 @@ package shop.esjh.memoryjar.controller.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -61,10 +63,11 @@ class JarDesignDraftControllerTest {
   mockMvc.perform(patch("/api/v1/design-drafts/10/composition").contentType("application/json").content("{\"expectedDesignType\":\"ORIGINAL\"}"))
       .andExpect(status().isUnauthorized()); verifyNoInteractions(draftService);
  }
- @Test void upload_acceptsSelectedBody() throws Exception {
-  mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", "CAT").principal(auth()))
+ @ParameterizedTest @EnumSource(JarBodyStyle.class)
+ void upload_acceptsSelectedBody(JarBodyStyle body) throws Exception {
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", body.name()).principal(auth()))
           .andExpect(status().isCreated());
-  verify(uploadService).uploadOriginalAndCreateDraft(eq(1L), any(), eq(JarBodyStyle.CAT));
+  verify(uploadService).uploadOriginalAndCreateDraft(eq(1L), any(), eq(body));
  }
  @Test void upload_omittedBodyKeepsLegacyContract() throws Exception {
   mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).principal(auth()))
@@ -88,12 +91,13 @@ class JarDesignDraftControllerTest {
           .andExpect(status().isNoContent());
   verify(draftService).updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.4"),new BigDecimal("0.3"),JarDraftDesignType.AI,100L,null);
  }
- @Test void slot_acceptsSelectedStyle() throws Exception {
+ @ParameterizedTest @EnumSource(JarSlotStyle.class)
+ void slot_acceptsSelectedStyle(JarSlotStyle style) throws Exception {
   mockMvc.perform(patch("/api/v1/design-drafts/10/slot").principal(auth()).contentType("application/json").content("""
-          {"centerX":0.5,"centerY":0.4,"sizeRatio":0.3,"expectedDesignType":"ORIGINAL","slotStyle":"METAL"}
-          """))
+          {"centerX":0.5,"centerY":0.4,"sizeRatio":0.3,"expectedDesignType":"ORIGINAL","slotStyle":"%s"}
+          """.formatted(style.name())))
           .andExpect(status().isNoContent());
-  verify(draftService).updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.4"),new BigDecimal("0.3"),JarDraftDesignType.ORIGINAL,null,JarSlotStyle.METAL);
+  verify(draftService).updateSlot(1L,10L,new BigDecimal("0.5"),new BigDecimal("0.4"),new BigDecimal("0.3"),JarDraftDesignType.ORIGINAL,null,style);
  }
  @Test void slot_unknownStyleIsRejectedBeforeService() throws Exception {
   mockMvc.perform(patch("/api/v1/design-drafts/10/slot").principal(auth()).contentType("application/json").content("""

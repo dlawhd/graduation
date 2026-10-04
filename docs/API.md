@@ -1,5 +1,11 @@
 # API
 
+> 2026-10-04 V43 증분: 화면은 클래식 8종 + 자유형 16종이고 API는 기존 24종 포함 40개 slotStyle을 허용한다. 필드는 유지하며 새 자유형의 높이 경계는 정사각 기준으로 저장/Finalize에서 검사한다. 생략 시 저장된 종류로 검증한다. [자유형 계약·배포 순서](ai/AI_SLOT_STYLES.md)을 확인한다.
+
+> 2026-10-04 V42 증분: 기존 Slot 저장·조회·최종화 API의 `slotStyle` 허용값을 24종으로 확장한다. 필드·권한·위치·크기 공식은 유지한다. [입구 공방 계약](ai/AI_SLOT_STYLES.md)을 확인한다. 아래 여섯 종류 목록은 V35 당시 기록이다.
+
+> 2026-10-04 V41 증분: 기존 업로드/composition API와 조회 응답의 `JarBodyStyle` 허용 ID를 동물 20종 포함 총 50종으로 확장한다. 필드·권한·외부 호출은 그대로다. V41 백엔드 배포 후 프론트를 배포한다. [동물 본체 추가 계약](ai/AI_ANIMAL_BODIES.md)을 확인한다. 아래 30종 설명은 V38 당시 기록이다.
+
 > 2026-10-04 V40 증분: 같은 composition API의 `photoFrame.fit`/`expectedPhotoFrame.fit`에 COVER 또는 CONTAIN을 저장한다. 생략은 COVER, 기존 NULL 배치는 유지한다. 전체 보기와 30종 연출 계약은 [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다.
 
 > 2026-10-04 V39 증분: `PATCH /api/v1/design-drafts/{draftId}/composition`과 사진 배치 응답 필드를 추가했다. 요청·오류·호환성은 [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다. 아래 API 개수는 이전 집계이며 이번 작업에서 전수 재집계하지 않았다.

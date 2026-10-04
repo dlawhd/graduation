@@ -4,6 +4,7 @@ import JarSlotOverlay from "./JarSlotOverlay";
 import { photoFrameStyle } from "../photoFraming.mjs";
 import { JAR_BODY_MOTIONS, observeJarMotion } from "../jarBodyMotion.mjs";
 import "../jarBodyMotion.css";
+import { AnimalBodyDecorations, AnimalBodyEmblem } from "./AnimalBodyArtwork";
 
 /** 480 좌표의 저금통·사진 창·장식을 겹쳐 모든 화면에서 같은 완성 모습을 만든다. */
 export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageRendering = "auto", className = "", alt = "선택한 저금통", onImageLoad, onImageError, showDefaultSlot = false, imageStyle }) {
@@ -107,6 +108,7 @@ function Atmosphere({ body }) {
 
 /** 사진을 넣기 전에는 각 오브제의 이야기를 작은 판화로 보여준다. 실제 사진이 있으면 렌더링하지 않는다. */
 function WindowEmblem({ body }) {
+  if (body.newAnimal) return <AnimalBodyEmblem body={body}/>;
   const c = body.colors;
   let motif;
   switch (body.id) {
@@ -151,6 +153,7 @@ function WindowEmblem({ body }) {
 
 /** 본체별 뚜껑·귀·고리·받침을 별도 도형으로 그려 실루엣과 재질을 구분한다. */
 function Decorations({ body, paint, layer }) {
+  if (body.newAnimal) return <AnimalBodyDecorations body={body} paint={paint} layer={layer}/>;
   const { id, colors:c } = body;
   if (layer === "back") {
     if (id === "TEAPOT") return <ellipse cx="354" cy="253" rx="49" ry="68" fill="none" stroke={c.shade} strokeWidth="23"/>;

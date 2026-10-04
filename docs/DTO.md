@@ -1,5 +1,11 @@
 # 각 API의 Request/Response DTO
 
+> 2026-10-04 V43 증분: 필드는 그대로이며 JarSlotStyle은 호환용 24종 + 자유형 16종(총 40종)이다. 새 UI에는 클래식 8종/자유형 16종만 표시한다. [도면·기하·생략 입력 계약](ai/AI_SLOT_STYLES.md)을 확인한다.
+
+> 2026-10-04 V42 증분: `JarSlotStyle`을 기존 6종 + 장식 18종으로 확장한다. Slot 요청/응답 필드와 생략 시 기존 값 유지 정책은 그대로다. [입구 공방 계약](ai/AI_SLOT_STYLES.md)을 확인한다.
+
+> 2026-10-04 V41 증분: `bodyStyle`/`expectedBodyStyle`의 기존 `JarBodyStyle` enum에 동물 20종을 추가한다. 현재 50종이며 기존 문자열/NULL은 유지한다. [추가 ID·호환성](ai/AI_ANIMAL_BODIES.md)을 확인한다. 아래 30종 목록은 당시 기록이다.
+
 > 2026-10-04 V40 증분: `JarPhotoFrameValue.fit`은 COVER/CONTAIN이며 생략·NULL은 COVER로 해석한다. Draft/Design/최종화에서 같은 값에 포함한다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다.
 
 > 2026-10-04 V39 증분: `JarDesignCompositionRequest`, `JarPhotoFrameValue` 및 Draft/Design의 `photoFrame`, Draft의 `originalContentFrame`을 추가했다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)이 이번 변경 기준이다. 아래 DTO 개수는 이전 집계다.

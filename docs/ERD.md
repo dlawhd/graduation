@@ -1,5 +1,11 @@
 # Memory Jar ERD — Markdown 문서판
 
+> 2026-10-04 V43 증분: 두 slot_style CHECK에 자유형 16개 ID를 추가한다(허용 40종). 컬럼·기본값·기존 행·인덱스는 유지하며 기존 모양/좌표를 재해석하지 않는다. [호환 계약](ai/AI_SLOT_STYLES.md)을 확인한다.
+
+> 2026-10-04 V42 증분: Draft/Design의 두 `slot_style` CHECK만 24종으로 확장한다. 컬럼·좌표·기본값·테이블·인덱스·기존 행은 변경하지 않는다. [입구 공방 계약](ai/AI_SLOT_STYLES.md)을 확인한다.
+
+> 2026-10-04 V41 증분: `chk_draft_body_style`, `chk_design_body_style`에 새 동물 20종의 ID를 추가한다. 컬럼·테이블·FK·인덱스 및 기존 데이터는 그대로다. [동물 본체 추가 계약](ai/AI_ANIMAL_BODIES.md)을 확인한다.
+
 > 2026-10-04 V40 증분: Draft/Design에 nullable `photo_fit VARCHAR(10)`, Draft 원본 영역에 nullable `original_fit VARCHAR(10)`과 허용값/좌표 존재 CHECK를 추가한다. 기존 값 백필·테이블·쿼리 추가는 없다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다.
 
 > 2026-10-04 V39 증분: Draft에 사진 배치/원본 영역 각 4개, Design에 사진 배치 4개의 nullable DECIMAL(7,6) 컬럼과 CHECK를 추가한다. 테이블·FK·인덱스는 늘리지 않는다. [사진 배치 구현 계약](ai/AI_PHOTO_FRAMING.md)을 확인한다. 기존 NULL은 백필하지 않는다.

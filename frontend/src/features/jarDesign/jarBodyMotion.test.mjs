@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { JAR_BODIES } from "./jarBodies.mjs";
 import { JAR_BODY_MOTIONS, observeJarMotion } from "./jarBodyMotion.mjs";
 
-test("30종 모두 소재에 맞는 느리고 제한된 연출이 있으며 저장 좌표와 분리한다", () => {
+test("모든 본체가 소재에 맞는 느리고 제한된 연출이 있으며 저장 좌표와 분리한다", () => {
   assert.deepEqual(Object.keys(JAR_BODY_MOTIONS).sort(),JAR_BODIES.map(b=>b.id).sort());
   assert.ok(new Set(Object.values(JAR_BODY_MOTIONS).map(m=>m.kind)).size >= 12);
   for (const motion of Object.values(JAR_BODY_MOTIONS)) {

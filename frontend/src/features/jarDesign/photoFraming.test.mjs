@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { JAR_BODIES } from "./jarBodies.mjs";
 import { WHOLE_PHOTO, coverPhotoFrame, containPhotoFrame, normalizePhotoFrame, photoFrameStyle, photoFrameControls, samePhotoFrame, validPhotoFrame } from "./photoFraming.mjs";
 
-test("30개 사진 창 모두 원본 안에서 빈틈없이 채우고 원본 비율을 유지한다", () => {
+test("모든 사진 창이 원본 안에서 빈틈없이 채워지고 원본 비율을 유지한다", () => {
   for (const body of JAR_BODIES) for (const source of [WHOLE_PHOTO, {x:0,y:.21875,width:1,height:.5625}, {x:.25,y:0,width:.5,height:1}]) {
     for (const zoom of [1, 1.01, 2, 4]) for (const x of [0,.5,1]) for (const y of [0,.5,1]) {
       const frame = coverPhotoFrame(body.window, source, zoom, x, y);
@@ -43,7 +43,7 @@ test("정규화된 1px 폭 사진도 확대와 모양 변경에서 유효한 영
   }
 });
 
-test("전체 보기는 30개 창에서 가로·세로·정사각 사진을 자르거나 늘이지 않는다", () => {
+test("전체 보기는 모든 창에서 가로·세로·정사각 사진을 자르거나 늘이지 않는다", () => {
   for (const body of JAR_BODIES) for (const source of [WHOLE_PHOTO, {x:0,y:.21875,width:1,height:.5625}, {x:.25,y:0,width:.5,height:1}]) {
     const frame = containPhotoFrame(source), style = photoFrameStyle(frame, body.window);
     assert.deepEqual(frame, {...source,fit:"CONTAIN"});

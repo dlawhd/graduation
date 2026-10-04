@@ -1,5 +1,11 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
+> 2026-10-04 V43 증분: 기존 24종 ID는 그대로 보존하고 자유형 16종을 별도 enum/두 CHECK에 추가한다(허용 40종, 새 UI 24종). 기존 필드·기본값·좌표·사진·본체는 변경하지 않는다. 새 자유형만 정사각 경계를 사용한다. [자유형 계약](AI_SLOT_STYLES.md)을 확인한다.
+
+> 2026-10-04 V42 증분: `JarSlotStyle` 24종과 두 slot_style CHECK를 확장한다. 이전 Slot 기하·CAPSULE 기본값·기존 좌표·사진·본체는 유지한다. [입구 공방 계약](AI_SLOT_STYLES.md)을 확인한다.
+
+> 2026-10-04 V41 증분: 동물 본체 20종을 추가해 `JarBodyStyle`이 50종이 된다. Draft/Design의 기존 `body_style` CHECK만 확장하며 기존 ID·NULL·사진 배치·입구 데이터는 변경하지 않는다. [동물 본체 추가 계약](AI_ANIMAL_BODIES.md)을 확인한다.
+
 > 2026-10-04 V40 증분: Draft/Design 사진 배치에 `photo_fit`, Draft 원본 영역에 `original_fit` nullable VARCHAR(10)을 추가한다. 전체 보기(CONTAIN)와 기존 COVER를 보존하며 스냅샷도 방식을 비교한다. [사진 배치 구현 계약](AI_PHOTO_FRAMING.md)의 V40 절을 확인한다. 기존 Migration·데이터는 변경하지 않는다.
 
 > 2026-10-04 V39 증분: 사용자 요청에 따라 생성 전 Draft의 본체는 변경 가능하며, 이미지 단독으로도 전환한다. 사진 배치/원본 영역을 별도 메타데이터로 저장한다. 아래 V38의 'Draft 원본 생성 시 본체 고정'은 당시 정책이고 이번 흐름에는 적용하지 않는다. 완성 Jar의 디자인 불변 원칙은 유지한다. [사진 배치 구현 계약](AI_PHOTO_FRAMING.md)을 확인한다.

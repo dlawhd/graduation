@@ -1,4 +1,5 @@
-/** 형태·사진·입구 좌표를 움직이지 않고 작은 장식만 살아나게 하는 30종의 연출 계약이다. */
+import { ANIMAL_BODY_CATALOG } from "./animalBodyCatalog.mjs";
+/** 형태·사진·입구 좌표를 움직이지 않고 작은 장식만 살아나게 하는 오브제의 연출 계약이다. */
 const profiles = {
   CLASSIC: ["botanical", "허브 잎의 느린 흔들림"], BELLO: ["glaze", "도자기에 머무는 반사광"],
   APOTHECARY: ["botanical", "허브 잎의 작은 숨결"], MILK: ["botanical", "꽃과 잎의 부드러운 흔들림"],
@@ -14,6 +15,7 @@ const profiles = {
   PANDA: ["blink", "대나무 판다 눈 깜빡임"], PENGUIN: ["blink", "겨울 펭귄 눈 깜빡임"],
   WHALE: ["bubble", "고래 눈 깜빡임과 작은 물방울"], MUSHROOM: ["botanical", "이끼 정원의 잎 흔들림"],
   ACORN: ["leaf", "도토리 위 가을 잎"], FLOWER: ["bloom", "피오니 꽃잎의 작은 숨결"],
+  ...Object.fromEntries(ANIMAL_BODY_CATALOG.map(({id,name}) => [id,["blink",`${name}의 눈 깜빡임과 작은 장식 움직임`]])),
 };
 export const JAR_BODY_MOTIONS = Object.freeze(Object.fromEntries(Object.entries(profiles).map(([id, [kind, label]], index) =>
   [id, Object.freeze({ kind, label, delay: -(index * .47), duration: 7.8 + index % 5 * .65 })])));

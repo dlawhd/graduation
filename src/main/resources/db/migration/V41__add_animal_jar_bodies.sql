@@ -1,0 +1,18 @@
+-- 기존 ID·NULL·사진 배치·입구는 변경하지 않고 동물 20종의 허용값만 확장한다.
+ALTER TABLE jar_design_drafts
+    DROP CONSTRAINT chk_draft_body_style,
+    ADD CONSTRAINT chk_draft_body_style CHECK (body_style IS NULL OR body_style IN (
+        'CLASSIC','BELLO','APOTHECARY','MILK','FACET','PERFUME','DOME','HEART','STAR','MOON',
+        'CLOUD','SHELL','PEARL','CRYSTAL','PLANET','ROCKET','HOUSE','CASTLE','TEAPOT','LANTERN',
+        'PIG','CAT','BEAR','RABBIT','PANDA','PENGUIN','WHALE','MUSHROOM','ACORN','FLOWER',
+        'SHIBA','CORGI','FOX','RACCOON','KOALA','RED_PANDA','OTTER','SEAL','HAMSTER','HEDGEHOG',
+        'SQUIRREL','DEER','OWL','CHICK','DUCK','TURTLE','FROG','AXOLOTL','ELEPHANT','CAPYBARA'));
+
+ALTER TABLE jar_designs
+    DROP CONSTRAINT chk_design_body_style,
+    ADD CONSTRAINT chk_design_body_style CHECK (body_style IS NULL OR body_style IN (
+        'CLASSIC','BELLO','APOTHECARY','MILK','FACET','PERFUME','DOME','HEART','STAR','MOON',
+        'CLOUD','SHELL','PEARL','CRYSTAL','PLANET','ROCKET','HOUSE','CASTLE','TEAPOT','LANTERN',
+        'PIG','CAT','BEAR','RABBIT','PANDA','PENGUIN','WHALE','MUSHROOM','ACORN','FLOWER',
+        'SHIBA','CORGI','FOX','RACCOON','KOALA','RED_PANDA','OTTER','SEAL','HAMSTER','HEDGEHOG',
+        'SQUIRREL','DEER','OWL','CHICK','DUCK','TURTLE','FROG','AXOLOTL','ELEPHANT','CAPYBARA'));

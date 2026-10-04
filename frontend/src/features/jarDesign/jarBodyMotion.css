@@ -26,6 +26,7 @@
 .jar-fin { animation-name: jar-fin-sway; }
 .jar-ear { animation-name: jar-ear-listen; }
 .jar-scarf, .jar-flipper { animation-name: jar-detail-sway; }
+.jar-trunk { animation-name: jar-detail-sway; }
 .jar-artwork .jar-motion-secondary { animation-delay: calc(var(--jar-motion-delay) - 2.8s); }
 .jar-artwork .jar-motion-tertiary { animation-delay: calc(var(--jar-motion-delay) - 5.4s); }
 @keyframes jar-blink {
@@ -51,7 +52,7 @@
 /* 관절은 SVG의 고정 480 좌표다. 사진·입구 대신 몸통 밖의 작은 부분만 천천히 움직인다. */
 .jar-artwork .jar-tail, .jar-artwork .jar-curly-tail, .jar-artwork .jar-pom-tail,
 .jar-artwork .jar-fin, .jar-artwork .jar-ear, .jar-artwork .jar-scarf,
-.jar-artwork .jar-flipper { transform-box: view-box; }
+.jar-artwork .jar-flipper, .jar-artwork .jar-trunk { transform-box: view-box; }
 @keyframes jar-tail-sway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(4deg); } }
 @keyframes jar-tail-curl { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
 @keyframes jar-pom-breathe { 0%,100% { transform: scale(.98); } 50% { transform: scale(1.035); } }

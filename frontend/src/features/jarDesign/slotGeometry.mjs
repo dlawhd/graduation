@@ -1,18 +1,19 @@
 /** 정사각형 원본·AI·PIXEL 이미지에 공통으로 쓰는 슬롯 렌더링 계약이다. */
+import { getSlotAppearance } from "./slotCatalog.mjs";
+export { SLOT_STYLES } from "./slotCatalog.mjs";
 export const SLOT_MIN_WIDTH = 0.12;
 export const SLOT_WIDTH_RANGE = 0.16;
 export const SLOT_ASPECT_RATIO = 3.5;
 export const DEFAULT_SLOT = { centerX: 0.5, centerY: 0.5, sizeRatio: 0.5 };
-export const SLOT_STYLES = [["CAPSULE", "말랑한 캡슐"], ["RECTANGLE", "반듯한 직선"], ["OVAL", "부드러운 타원"], ["METAL", "은빛 테두리"], ["WOOD", "우드 프레임"], ["PIXEL", "레트로 픽셀"]];
-export const slotStyle = (value) => SLOT_STYLES.some(([key]) => key === value) ? value : "CAPSULE";
+export const slotStyle = (value) => getSlotAppearance(value).id;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const round = (value) => Number(value.toFixed(5));
 
 /** sizeRatio는 슬라이더 위치이며, 실제 이미지 너비의 12~28%로 변환한다. */
-export function slotDimensions(sizeRatio) {
+export function slotDimensions(sizeRatio, style) {
   const width = SLOT_MIN_WIDTH + SLOT_WIDTH_RANGE * sizeRatio;
-  return { width, height: width / SLOT_ASPECT_RATIO };
+  return { width, height: width / getSlotAppearance(style).aspectRatio };
 }
 
 /** DB 소수점 다섯 자리로 양자화한 뒤에도 슬롯이 경계 밖으로 나가지 않도록 안쪽으로 보정한다. */
@@ -21,7 +22,8 @@ export function normalizeSlot(slot) {
   // 정수 분수로 계산해 0.14가 부동소수 오차로 0.14001로 밀리지 않게 한다.
   const widthNumerator = 1200000 + 16 * Math.round(sizeRatio * 100000);
   const minX = Math.ceil(widthNumerator / 200) / 100000;
-  const minY = Math.ceil(widthNumerator / 700) / 100000;
+  // 이전 ID는 기존 700 분모 그대로, 자유형은 정사각 경계까지 검사한다.
+  const minY = Math.ceil(widthNumerator / (200 * getSlotAppearance(slot.slotStyle).aspectRatio)) / 100000;
   return {
     ...(slot.slotStyle ? { slotStyle: slotStyle(slot.slotStyle) } : {}),
     centerX: round(clamp(slot.centerX, minX, 1 - minX)),

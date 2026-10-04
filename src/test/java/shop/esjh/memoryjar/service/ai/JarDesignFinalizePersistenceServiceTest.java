@@ -1,6 +1,8 @@
 package shop.esjh.memoryjar.service.ai;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -150,6 +152,18 @@ class JarDesignFinalizePersistenceServiceTest {
         verifyNoInteractions(jarService, designRepository);
     }
 
+    @Test
+    void prepare_rejectsFreeformUsingItsFullHeight() {
+        var draft=activeDraft(JarDraftDesignType.ORIGINAL);
+        when(draft.getSlotStyle()).thenReturn(JarSlotStyle.BLOSSOM_GATE);
+        when(draft.getSlotCenterX()).thenReturn(new BigDecimal("0.5"));
+        when(draft.getSlotCenterY()).thenReturn(new BigDecimal("0.04"));
+        when(draft.getSlotSizeRatio()).thenReturn(BigDecimal.ONE);
+        assertThatThrownBy(()->service().prepare(1L,10L)).isInstanceOf(ApiException.class)
+                .extracting(e->((ApiException)e).getErrorCode()).isEqualTo(AiDraftErrorCode.DRAFT_SLOT_OUT_OF_BOUNDS);
+        verifyNoInteractions(jarService,designRepository);
+    }
+
     private JarDesignFinalizePersistenceService service() {
         return new JarDesignFinalizePersistenceService(draftRepository, generationRepository, designRepository, jarService);
     }
@@ -191,11 +205,12 @@ class JarDesignFinalizePersistenceServiceTest {
         verify(designRepository).save(argThat(design -> whole.equals(JarPhotoFrame.valueOf(design.getPhotoFrame()))));
     }
 
-    @Test
-    void finalizeCustom_preservesSelectedSlotStyle() {
+    @ParameterizedTest
+    @EnumSource(JarSlotStyle.class)
+    void finalizeCustom_preservesSelectedSlotStyle(JarSlotStyle style) {
         JarDesignDraft draft = activeDraft(JarDraftDesignType.ORIGINAL);
         when(draft.getOriginalS3Key()).thenReturn("original.png");
-        when(draft.getSlotStyle()).thenReturn(JarSlotStyle.METAL);
+        when(draft.getSlotStyle()).thenReturn(style);
         when(draft.getBodyStyle()).thenReturn(JarBodyStyle.CAT);
         stubSlot(draft);
         Jar jar = mock(Jar.class);
@@ -205,7 +220,7 @@ class JarDesignFinalizePersistenceServiceTest {
 
         service().finalizeCustom(1L, 10L, request(), expected, "final.png");
 
-        verify(designRepository).save(argThat(design -> design.getSlotStyle() == JarSlotStyle.METAL));
+        verify(designRepository).save(argThat(design -> design.getSlotStyle() == style));
         assertThat(expected.bodyStyle()).isEqualTo(JarBodyStyle.CAT);
         verify(designRepository).save(argThat(design -> design.getBodyStyle() == JarBodyStyle.CAT));
     }

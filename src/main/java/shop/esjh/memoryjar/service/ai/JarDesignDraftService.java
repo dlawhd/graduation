@@ -132,7 +132,8 @@ public class JarDesignDraftService {
         if (!draft.hasCustomDesignSelection()) {
             throw new ApiException(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
         }
-        JarSlotGeometry.validate(centerX, centerY, sizeRatio);
+        // 구 클라이언트가 모양을 생략해도 실제 저장된 자유형 높이로 검증해야 한다.
+        JarSlotGeometry.validate(centerX, centerY, sizeRatio, slotStyle == null ? draft.getSlotStyle() : slotStyle);
         draft.updateSlot(centerX, centerY, sizeRatio);
         if (slotStyle != null) draft.updateSlotStyle(slotStyle);
         extendExpiration(draft);

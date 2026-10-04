@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { draftImageRendering } from "../imageRendering.mjs";
 import { getJarDesignDraftError, getJarDesignOriginalPreview, getJarDesignGenerationPreview,
   updateJarDesignSlot } from "../../../api/jarDesignDraftApi";
-import { DEFAULT_SLOT, SLOT_STYLES, slotStyle, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
-import JarSlotOverlay, { SlotAppearance } from "./JarSlotOverlay";
+import { DEFAULT_SLOT, slotStyle, normalizeSlot, sameSlot, slotAtPointer, storedSlot } from "../slotGeometry.mjs";
+import { SLOT_CATALOG, SLOT_COLLECTIONS, filterSlotStyles, getSlotAppearance } from "../slotCatalog.mjs";
+import JarSlotOverlay, { SlotSwatch } from "./JarSlotOverlay";
 import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 import JarDesignImage from "./JarDesignImage";
 import { getJarBody } from "../jarBodies.mjs";
@@ -13,6 +14,11 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
   const [savedSlot, setSavedSlot] = useState(() => storedSlot(draft));
   const body = getJarBody(draft.bodyStyle);
   const [slot, setSlot] = useState(() => normalizeSlot(storedSlot(draft) || body?.slot || DEFAULT_SLOT));
+  const [collection, setCollection] = useState(() => {
+    const storedCollection = storedSlot(draft) && getSlotAppearance(draft.slotStyle).collection;
+    return SLOT_COLLECTIONS.includes(storedCollection) ? storedCollection : "꽃과 자연";
+  });
+  const selectedAppearance = getSlotAppearance(slot.slotStyle);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
@@ -101,8 +107,8 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
       <span className="text-xs font-black tracking-widest text-violet-500">{body ? "04" : "02"} · 작은 디테일</span>
       <h3 className="mt-2 text-xl font-black text-slate-800">추억이 들어갈 작은 입구</h3>
       <p id="slot-editor-help" className="mt-2 text-sm leading-6 text-slate-500">그림을 누르거나 드래그해 위치를 정해 주세요. 방향키로도 움직일 수 있어요.</p>
-      <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
-        <div>
+      <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
+        <div className="min-w-0">
           <div role="group" aria-label="투입구 위치 편집 영역" aria-describedby="slot-editor-help" tabIndex={locked ? -1 : 0}
             className="relative aspect-square w-full touch-none overflow-hidden rounded-xl bg-slate-100 outline-offset-4 focus-visible:outline-violet-500"
             onKeyDown={moveWithKeyboard}
@@ -136,14 +142,24 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
           <fieldset disabled={locked} className="space-y-5 disabled:opacity-50">
             <legend className="sr-only">투입구 모양과 위치</legend>
             <div>
-              <p className="mb-3 text-sm font-bold text-slate-700">어떤 입구가 어울릴까요?</p>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold text-slate-700">어떤 입구가 어울릴까요?</p><span className="text-xs text-slate-500">{SLOT_CATALOG.length}가지 작은 디테일</span></div>
+              <div className="mb-3 flex min-h-20 items-center gap-4 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-rose-50 p-4">
+                <SlotSwatch value={selectedAppearance.id}/>
+                <div className="min-w-0"><p className="text-sm font-black text-slate-800">{selectedAppearance.name}</p><p className="mt-1 text-xs leading-5 text-slate-500">{selectedAppearance.description}</p></div>
+              </div>
+              <div role="group" aria-label="투입구 컬렉션" className="mb-3 flex flex-wrap gap-1.5">
+                {SLOT_COLLECTIONS.map(label => <button type="button" key={label} aria-pressed={collection === label} onClick={() => setCollection(label)}
+                  className={`min-h-11 rounded-full px-3 text-xs font-bold ${collection === label ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>)}
+              </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {SLOT_STYLES.map(([value, label]) => <button key={value} type="button" aria-pressed={slotStyle(slot.slotStyle) === value}
-                  onClick={() => setSlot((current) => ({ ...current, slotStyle: value }))}
-                  className={`flex min-h-24 flex-col items-center justify-center gap-3 rounded-2xl border p-3 text-xs font-bold ${slotStyle(slot.slotStyle) === value ? "border-violet-500 bg-violet-50 text-violet-800 ring-1 ring-violet-300" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-                  <span className="block h-5 w-[70px]" aria-hidden="true"><SlotAppearance value={value} /></span>{label}
+                {filterSlotStyles(collection).map(({id: value, name: label, description}) => <button key={value} type="button" aria-label={label} aria-pressed={slotStyle(slot.slotStyle) === value}
+                  onClick={() => setSlot((current) => normalizeSlot({ ...current, slotStyle: value }))}
+                  className={`flex min-h-28 min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-xs font-bold ${slotStyle(slot.slotStyle) === value ? "border-violet-500 bg-violet-50 text-violet-800 ring-1 ring-violet-300" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                  <SlotSwatch value={value} size={56}/><span>{label}{slotStyle(slot.slotStyle) === value && <span aria-hidden="true"> ✓</span>}</span>
+                  <span className="text-[10px] font-normal leading-4 text-slate-500">{description}</span>
                 </button>)}
               </div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">종류를 둘러봐도 선택은 유지돼요. 모양을 바꿀 때 화면 밖으로 나가는 경우만 위치를 안쪽으로 맞춰요.</p>
             </div>
             <label className="block text-sm font-bold text-slate-700">투입구 크기
               <input type="range" min="0" max="100" step="1" value={slot.sizeRatio * 100}

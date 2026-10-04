@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
 import java.sql.SQLException;
 import static org.assertj.core.api.Assertions.*;
 
@@ -34,8 +33,12 @@ class JarBodyV38MigrationTest {
                     assertThat(result.getString(1)).isNull();
                     assertThat(result.getString(2)).isEqualTo(table.equals("jar_design_drafts") ? "original.png" : "final.png");
                 }
-                for (JarBodyStyle body : JarBodyStyle.values()) {
-                    assertThat(sql.executeUpdate("UPDATE " + table + " SET body_style='" + body.name() + "'")).isEqualTo(1);
+                // V38 당시 ID를 명시해 현재 enum의 확장이나 순서가 과거 계약 검증을 바꾸지 않게 한다.
+                for (String body : new String[]{"CLASSIC","BELLO","APOTHECARY","MILK","FACET","PERFUME","DOME",
+                        "HEART","STAR","MOON","CLOUD","SHELL","PEARL","CRYSTAL","PLANET",
+                        "ROCKET","HOUSE","CASTLE","TEAPOT","LANTERN","PIG","CAT","BEAR","RABBIT","PANDA",
+                        "PENGUIN","WHALE","MUSHROOM","ACORN","FLOWER"}) {
+                    assertThat(sql.executeUpdate("UPDATE " + table + " SET body_style='" + body + "'")).isEqualTo(1);
                 }
                 assertThatThrownBy(() -> sql.executeUpdate("UPDATE " + table + " SET body_style='UNKNOWN'"))
                         .isInstanceOf(SQLException.class);

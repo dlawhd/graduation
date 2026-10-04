@@ -7,6 +7,7 @@ import FlyingNote from "../src/features/note/components/FlyingNote";
 import { createNoteFlight, measureJarDropTarget } from "../src/features/jarDetail/utils/noteFlightGeometry.mjs";
 import { getThemePalette } from "../src/features/jarDetail/theme/jarDetailTheme";
 import apiClient from "../src/api/apiClient";
+import { SLOT_CATALOG } from "../src/features/jarDesign/slotCatalog.mjs";
 
 // 실제 쪽지 작성 컴포넌트와 좌표를 검증하되 저장·인증·S3 요청은 모두 메모리에서 끝낸다.
 if (!import.meta.env.DEV) throw new Error("로컬 개발 전용 화면입니다.");
@@ -30,11 +31,12 @@ function NoteDropPreview() {
   const [kind, setKind] = useState("BEAR");
   const [x, setX] = useState(0.76);
   const [y, setY] = useState(0.62);
+  const [slotStyle, setSlotStyle] = useState("METAL");
   const [held, setHeld] = useState(false);
   const [flight, setFlight] = useState(null);
   const [composerRequest, setComposerRequest] = useState(0);
   const design = kind === "DEFAULT" ? null : { imageUrl, bodyStyle: kind === "LEGACY" ? null : kind,
-    slotCenterX: x, slotCenterY: y, slotSizeRatio: 0.5, slotStyle: "METAL" };
+    slotCenterX: x, slotCenterY: y, slotSizeRatio: 0.5, slotStyle };
   const jar = { jarId: 999, name: "내가 정한 입구로 쪽지 넣기", theme: "SPRING", myRole: "OWNER", isOpen: false, design };
   const palette = getThemePalette(jar.theme);
   function playFlight() {
@@ -49,6 +51,7 @@ function NoteDropPreview() {
     <div className="mt-5 flex flex-wrap items-center gap-4">
       <label>저금통 <select aria-label="검증 저금통" value={kind} onChange={(event) => { setFlight(null); setKind(event.target.value); }} className="rounded-xl border bg-white p-2"><option value="BEAR">허그 베어</option><option value="MOON">달의 안부</option><option value="LEGACY">이전 이미지 저금통</option><option value="DEFAULT">기본 테마 저금통</option></select></label>
       <label>가로 <input aria-label="검증 입구 가로" type="range" min="0.15" max="0.85" step="0.01" value={x} onChange={(event) => { setFlight(null); setX(Number(event.target.value)); }} /></label>
+      <label>입구 <select aria-label="검증 입구 모양" value={slotStyle} onChange={event=>{setFlight(null);setSlotStyle(event.target.value);}} className="rounded-xl border bg-white p-2">{SLOT_CATALOG.map(entry=><option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
       <label>세로 <input aria-label="검증 입구 세로" type="range" min="0.1" max="0.9" step="0.01" value={y} onChange={(event) => { setFlight(null); setY(Number(event.target.value)); }} /></label>
       <label className="flex items-center gap-2"><input type="checkbox" checked={held} onChange={(event) => setHeld(event.target.checked)} />도착 지점 고정 확인</label>
       <label className="flex items-center gap-2"><input type="checkbox" onChange={(event) => { rejectNoteSave = event.target.checked; }} />저장 실패 검증</label>

@@ -4,7 +4,7 @@ import JarDesignCanvas from "../features/jarDesign/components/JarDesignCanvas";
 import AiCandidateGallery from "../features/jarDesign/components/AiCandidateGallery";
 import JarBodyPicker from "../features/jarDesign/components/JarBodyPicker";
 import JarDesignImage from "../features/jarDesign/components/JarDesignImage";
-import { getJarBody } from "../features/jarDesign/jarBodies.mjs";
+import { getJarBody, JAR_BODIES } from "../features/jarDesign/jarBodies.mjs";
 import { prepareSourceImage, SOURCE_IMAGE_ACCEPT } from "../features/jarDesign/sourceImageFile.mjs";
 import {
   createJarDesignDraft,
@@ -101,7 +101,7 @@ export default function JarDesignNewPage() {
         <section className="mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8">
           <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black tracking-wide text-emerald-800">MEMORY JAR · 작은 저금통 공방</span>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{draftId ? "우리의 그림에 분위기를 더해요" : imageStep ? "이 저금통에 어떤 추억을 담을까요?" : "추억을 담을, 나만의 작은 오브제"}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">30가지 저금통 중 마음에 드는 모양을 고르고, 그 안에 나만의 그림이나 사진을 담아보세요. 원본 그대로도, AI로 꾸며도 좋아요.</p>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{JAR_BODIES.length}가지 저금통 중 마음에 드는 모양을 고르고, 그 안에 나만의 그림이나 사진을 담아보세요. 원본 그대로도, AI로 꾸며도 좋아요.</p>
           <ol className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500" aria-label="디자인 제작 순서">{["저금통 또는 이미지 단독", "그림 담기", "사진 배치 · AI 꾸미기", "투입구와 배경", "이름 붙이기"].map((label, i) => <li key={label} aria-current={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "step" : undefined} className={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "text-emerald-800" : ""}><span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{i + 1}</span>{label}</li>)}</ol>
         </section>
 

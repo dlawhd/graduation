@@ -3,6 +3,8 @@ package shop.esjh.memoryjar.service.ai;
 import java.math.BigDecimal;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
+import shop.esjh.memoryjar.enums.ai.JarSlotStyle;
 import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import static org.assertj.core.api.Assertions.*;
@@ -31,6 +33,21 @@ class JarSlotGeometryTest {
         assertThatThrownBy(() -> JarSlotGeometry.validate(decimal(x), decimal(y), decimal(ratio)))
                 .isInstanceOf(ApiException.class)
                 .extracting(error -> ((ApiException) error).getErrorCode()).isEqualTo(AiDraftErrorCode.DRAFT_SLOT_INVALID);
+    }
+
+    @ParameterizedTest
+    @EnumSource(JarSlotStyle.class)
+    void validatesHeightUsingSavedStyle(JarSlotStyle style) {
+        assertThatCode(() -> JarSlotGeometry.validate(decimal("0.14"),decimal("0.14"),decimal("1"),style)).doesNotThrowAnyException();
+        if (style.aspectRatio().compareTo(BigDecimal.ONE) == 0) {
+            assertThatThrownBy(() -> JarSlotGeometry.validate(decimal("0.5"),decimal("0.13999"),decimal("1"),style))
+                    .isInstanceOf(ApiException.class).extracting(error -> ((ApiException)error).getErrorCode())
+                    .isEqualTo(AiDraftErrorCode.DRAFT_SLOT_OUT_OF_BOUNDS);
+            assertThatThrownBy(() -> JarSlotGeometry.validate(decimal("0.5"),decimal("0.86001"),decimal("1"),style))
+                    .isInstanceOf(ApiException.class);
+        } else {
+            assertThatCode(() -> JarSlotGeometry.validate(decimal("0.5"),decimal("0.04"),decimal("1"),style)).doesNotThrowAnyException();
+        }
     }
 
     private BigDecimal decimal(String value) { return value == null ? null : new BigDecimal(value); }
