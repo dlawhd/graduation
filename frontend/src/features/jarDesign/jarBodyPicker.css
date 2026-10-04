@@ -1,0 +1,6 @@
+/* 선택 카드의 설명·버튼까지 보이도록 전시 이미지 높이를 화면 높이에 맞춘다. 매우 낮은 창에서는 스크롤을 허용한다. */
+.jar-body-choice-stage { width: min(100%, 240px); }
+@media (min-width: 1024px) {
+  .jar-body-choice-preview { max-height: calc(100dvh - 112px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .jar-body-choice-stage { width: clamp(120px, calc(100dvh - 420px), 190px); }
+}

@@ -142,7 +142,7 @@ export default function JarVisual({
   return (
     <div
       ref={jarRef}
-      className={hasCustomDesign ? "relative mx-auto flex aspect-square w-full max-w-[360px] items-center justify-center outline-none" : "relative mx-auto flex h-[320px] w-[260px] items-center justify-center outline-none"}
+      className={hasCustomDesign ? "relative mx-auto flex aspect-square w-full max-w-[420px] items-center justify-center outline-none" : "relative mx-auto flex h-[320px] w-[260px] items-center justify-center outline-none"}
       aria-label="저금통"
     >
       {/* 이 컴포넌트 안에서만 쓰는 애니메이션 CSS */}
@@ -274,7 +274,8 @@ export default function JarVisual({
           type="button"
           onClick={handleOpenZoom}
 
-          className={`absolute bottom-2 left-1/2 z-40 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-black text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-white ${
+          /* 커스텀 그림을 가리지 않도록 버튼은 그림 아래로 내린다. 부모의 기존 mt-20 간격 안에 들어간다. */
+          className={`absolute ${hasCustomDesign ? "-bottom-7" : "bottom-2"} left-1/2 z-40 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-black text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-white ${
             tutorialHighlighted
               ? "ring-4 ring-white/90"
               : ""

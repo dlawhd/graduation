@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { JAR_BODIES, JAR_BODY_COLLECTIONS, getJarBody, filterJarBodies } from "../jarBodies.mjs";
 import JarBodyStage from "./JarBodyStage";
+import "../jarBodyPicker.css";
 
 /** 서버 요청 없이 본체를 검색·비교하고, 선택한 고정 ID만 다음 단계로 전달한다. */
 export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly, disabled = false, previewUrl = "" }) {
@@ -33,13 +34,13 @@ export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly
       </div>
       {!bodies.length && <div role="status" className="rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-10 text-center"><p className="text-sm text-stone-600">아직 그 이름의 친구는 없어요. 다른 이름이나 소재로 찾아볼까요?</p><button type="button" disabled={disabled} onClick={() => { setQuery(""); setCollection("전체"); }} className="mt-4 min-h-11 rounded-xl bg-emerald-50 px-4 text-sm font-bold text-emerald-800">모든 모양 다시 보기</button></div>}
     </div>
-    <aside className="rounded-[28px] border border-white bg-[#fffdf8] p-5 shadow-[0_12px_40px_rgba(68,60,44,0.07)] lg:sticky lg:top-24">
+    <aside aria-label="선택한 저금통 미리보기" className="jar-body-choice-preview rounded-[28px] border border-white bg-[#fffdf8] p-4 shadow-[0_12px_40px_rgba(68,60,44,0.07)] lg:sticky lg:top-24">
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[10px] font-bold tracking-[.2em] text-emerald-800">YOUR LITTLE TREASURE</p><span className="text-[10px] text-stone-400">480 × 480</span></div>
-      <JarBodyStage body={previewBody} imageUrl={previewUrl} alt={selected?.name || "클래식 저금통 예시"} className="mt-4 rounded-t-[100px] rounded-b-[22px] border border-stone-200/70"/>
-      <div className="mt-5" aria-live="polite"><p className="text-xs text-stone-500">{selected?.collection || `${JAR_BODIES.length}가지 모양, 하나뿐인 추억`}</p><h3 className="mt-2 text-xl font-black text-slate-800">{selected?.name || "마음에 드는 모양을 골라요"}</h3><p className="mt-3 min-h-12 text-sm leading-6 text-stone-600">{selected?.description || "모양을 누르면 크게 볼 수 있어요. 다음 단계에서 나만의 사진이나 그림을 담아주세요."}</p></div>
+      <JarBodyStage body={previewBody} imageUrl={previewUrl} alt={selected?.name || "클래식 저금통 예시"} className="jar-body-choice-stage mx-auto mt-3 rounded-t-[100px] rounded-b-[22px] border border-stone-200/70"/>
+      <div className="mt-3" aria-live="polite"><p className="text-xs text-stone-500">{selected?.collection || `${JAR_BODIES.length}가지 모양, 하나뿐인 추억`}</p><h3 className="mt-1 text-xl font-black text-slate-800">{selected?.name || "마음에 드는 모양을 골라요"}</h3><p className="mt-2 text-xs leading-5 text-stone-600">{selected?.description || "모양을 누르면 크게 볼 수 있어요. 다음 단계에서 나만의 사진이나 그림을 담아주세요."}</p></div>
       {selected && <div className="mt-3 border-t border-stone-200 pt-3"><p className="text-[10px] font-bold tracking-widest text-stone-400">FINISH & DETAILS</p><p className="mt-1 text-xs leading-5 text-stone-600">{selected.material}</p></div>}
-      <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-900">가운데 작은 일러스트는 미리보기예요. 다음 단계에서 내 사진이나 그림으로 채우고, 원하면 AI 스타일도 입힐 수 있어요.</p>
-      <button type="button" onClick={onContinue} disabled={disabled || !selected} className="mt-5 min-h-12 w-full rounded-xl bg-emerald-800 px-4 py-3 text-sm font-black text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40">이 저금통에 그림 담기 →</button>
+      <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">작은 일러스트는 예시예요. 다음 단계에서 내 사진·그림을 담고, AI로 꾸밀 수 있어요.</p>
+      <button type="button" onClick={onContinue} disabled={disabled || !selected} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-800 px-4 py-3 text-sm font-black text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40">이 저금통에 그림 담기 →</button>
     </aside>
     {selected && <div className="fixed bottom-4 left-4 right-4 z-20 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-white/95 p-3 shadow-lg backdrop-blur lg:hidden"><span className="min-w-0 flex-1 truncate pl-1 text-sm font-black text-emerald-900" title={selected.name}>{selected.name}</span><button type="button" disabled={disabled} onClick={onContinue} className="min-h-11 shrink-0 rounded-xl bg-emerald-800 px-4 text-sm font-bold text-white">그림 담기 →</button></div>}
   </section>;

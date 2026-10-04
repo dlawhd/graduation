@@ -1,6 +1,7 @@
 import { slotDimensions, slotStyle } from "../slotGeometry.mjs";
 import DecorativeSlotArtwork from "./DecorativeSlotArtwork";
 import FreeformSlotArtwork from "./FreeformSlotArtwork";
+import SlotSparkles from "./SlotSparkles";
 import { getSlotAppearance } from "../slotCatalog.mjs";
 import { useEffect, useRef } from "react";
 import { observeJarMotion } from "../jarBodyMotion.mjs";
@@ -27,6 +28,7 @@ export function SlotAppearance({ value }) {
   return <span ref={ref} data-slot-motion={motion} className="slot-artwork relative block h-full w-full">
     <StaticSlotAppearance kind={kind}/>
     <span aria-hidden="true" className="slot-ambient pointer-events-none absolute inset-0 rounded-full"/>
+    <SlotSparkles entry={entry}/>
   </span>;
 }
 

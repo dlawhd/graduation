@@ -12,8 +12,9 @@ import apiClient from "../src/api/apiClient";
 import { JAR_BODIES } from "../src/features/jarDesign/jarBodies.mjs";
 import JarBodyStage from "../src/features/jarDesign/components/JarBodyStage";
 import { samePhotoFrame, WHOLE_PHOTO, coverPhotoFrame, containPhotoFrame } from "../src/features/jarDesign/photoFraming.mjs";
-import { SLOT_CATALOG } from "../src/features/jarDesign/slotCatalog.mjs";
+import { SLOT_CATALOG, SLOT_COLLECTIONS, LEGACY_SLOT_CATALOG, FREEFORM_SLOT_CATALOG } from "../src/features/jarDesign/slotCatalog.mjs";
 import { SlotSwatch } from "../src/features/jarDesign/components/JarSlotOverlay";
+import { slotGlints } from "../src/features/jarDesign/slotGlints.mjs";
 
 // Vite의 기본 index.html 빌드에 포함되지 않는 로컬 UI 검증용 진입점이다.
 // 모든 HTTP 요청은 이 메모리 어댑터에서 종료되며 WebSocket 연결을 시작하지 않는다.
@@ -60,12 +61,15 @@ apiClient.defaults.adapter = async (config) => {
   return { data: { data }, status: 200, statusText: "OK", headers: {}, config };
 };
 function Result() { return <main className="mx-auto max-w-lg p-6"><h1 className="text-2xl font-bold">로컬 생성 완료 · {finalForm.name}</h1><JarCustomDesignVisual design={{ ...draft, imageUrl: activeSample }}/><p>저장한 본체: {draft.bodyStyle || "이미지 단독"}</p><p>저장한 입구: {draft.slotStyle || "CAPSULE"}</p><p data-saved-photo-frame>{JSON.stringify(draft.photoFrame)}</p><p>사진 배치 저장 요청: {requests.filter((r) => r.url.endsWith("/composition")).length}</p></main>; }
-/** 실제 공용 렌더러의 입구 108종을 밝은/어두운 바탕과 작은 표시 크기에서 비교한다. */
+/** 실제 공용 렌더러의 새 입구와 이전 저장 입구를 밝은/어두운 바탕에서 비교한다. */
 function SlotSheet() {
   const [checks,setChecks]=useState([]);
+  const [legacyChecks,setLegacyChecks]=useState([]);
+  const [holdGlints,setHoldGlints]=useState(false);
+  const [sheetCollection,setSheetCollection]=useState("전체");
   useEffect(()=>{
     // 실제 SVG 엔진으로 구멍의 도착 영역 9점을 검사한다. 겉보기 중앙이 빈 초승달 같은 오류를 잡는다.
-    setChecks(SLOT_CATALOG.filter(entry=>entry.freeform).map(entry=>{
+    setChecks(FREEFORM_SLOT_CATALOG.map(entry=>{
       const svg=document.querySelector(`svg[data-slot-artwork="${entry.id}"]`);
       const hole=svg.querySelector("[data-slot-opening]");
       const outer=svg.querySelector("clipPath path");
@@ -81,15 +85,47 @@ function SlotSheet() {
         const distance=(x-50)**2+(y-50)**2;
         if (safe && (!best || distance<best.distance)) best={x,y,distance};
       }
-      return {id:entry.id,valid,best,bounds:box.x>=0 && box.y>=0 && box.x+box.width<=100 && box.y+box.height<=100};
+      // 운영 렌더러는 고정된 좌표만 사용한다. 실제 SVG로 반짝임의 중심과 주변이 테두리 안에 있는지 검증한다.
+      const glints = [[28,20],[77,78]].map(([preferredX,preferredY])=>{
+        const candidates=[];
+        for(let x=6;x<=94;x+=2) for(let y=6;y<=94;y+=2) candidates.push({x,y,distance:(x-preferredX)**2+(y-preferredY)**2});
+        candidates.sort((a,b)=>a.distance-b.distance);
+        // 원하는 모서리에서 가까운 점부터 검사하고 첫 안전 지점에서 멈춘다.
+        for(const {x,y} of candidates) {
+          const safe=[-1,0,1].every(dx=>[-1,0,1].every(dy=>
+            outer.isPointInFill(new DOMPoint(x+dx,y+dy)) && !hole.isPointInFill(new DOMPoint((x+dx-50)/.72+50,(y+dy-50)/.72+50))));
+          if(safe) return [x,y];
+        }
+        return null;
+      });
+      const anchoredGlints=slotGlints(entry).every(([x,y])=>[-1,0,1].every(dx=>[-1,0,1].every(dy=>
+        outer.isPointInFill(new DOMPoint(x+dx,y+dy)) && !hole.isPointInFill(new DOMPoint((x+dx-50)/.72+50,(y+dy-50)/.72+50)))));
+      return {id:entry.id,valid,best,glints,anchoredGlints,bounds:box.x>=0 && box.y>=0 && box.x+box.width<=100 && box.y+box.height<=100};
+    }));
+    setLegacyChecks(LEGACY_SLOT_CATALOG.filter(entry=>entry.path).map(entry=>{
+      const svg=document.querySelector(`svg[data-slot-artwork="${entry.id}"]`);
+      const outer=svg.querySelector("clipPath path"), hole=svg.querySelector("[data-slot-opening]");
+      const safe=(x,y)=>[-1,0,1].every(dx=>[-1,0,1].every(dy=>outer.isPointInFill(new DOMPoint(x+dx,y+dy)) && !hole.isPointInFill(new DOMPoint(x+dx,y+dy))));
+      const points=[[32,9],[180,49]].map(([px,py])=>{
+        const candidates=[];
+        for(let x=6;x<=204;x+=2) for(let y=4;y<=56;y+=2) candidates.push({x,y,distance:(x-px)**2+(y-py)**2});
+        candidates.sort((a,b)=>a.distance-b.distance);
+        const point=candidates.find(({x,y})=>safe(x,y));
+        return point ? [point.x,point.y] : null;
+      });
+      return {id:entry.id,points,valid:slotGlints(entry).every(([x,y])=>safe(x,y))};
     }));
   },[]);
   return <main className="mx-auto max-w-[1280px] px-5 py-8">
+    {holdGlints && <style>{`.slot-glint { animation:none !important; opacity:.95 !important; transform:scale(1) !important; }`}</style>}
     <p className="text-xs font-bold tracking-[.25em] text-violet-700">MEMORY ATELIER · SMALL DETAILS</p>
-    <h1 className="mt-3 text-3xl font-black text-slate-800">추억이 들어가는 108가지 작은 문</h1>
-    <p className="mt-3 text-sm text-slate-500">9개 컬렉션 · 각 12개. 위는 크게 · 아래는 실제 작은 크기.</p>
-    <p data-slot-geometry-check className="mt-2 text-xs text-slate-500">도면·도착 영역 검사: {checks.length}종 / {checks.filter(check=>check.valid && check.bounds).length}종 통과{checks.filter(check=>!check.valid || !check.bounds).map(check=>` · ${JSON.stringify(check)}`).join("")}</p>
-    <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">{SLOT_CATALOG.map(entry=><article key={entry.id} className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+    <h1 className="mt-3 text-3xl font-black text-slate-800">추억이 들어가는 {SLOT_CATALOG.length}가지 작은 문</h1>
+    <p className="mt-3 text-sm text-slate-500">{SLOT_COLLECTIONS.length-1}개 컬렉션 · 각 12개. 이전 저장 디자인도 함께 검사합니다.</p>
+    <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={holdGlints} onChange={event=>setHoldGlints(event.target.checked)}/>반짝임 순간 비교</label>
+    <label className="mt-3 flex items-center gap-2 text-sm">비교 컬렉션<select aria-label="입구 비교 컬렉션" value={sheetCollection} onChange={event=>setSheetCollection(event.target.value)} className="rounded-xl border bg-white p-2">{SLOT_COLLECTIONS.map(name=><option key={name}>{name}</option>)}</select></label>
+    <p data-legacy-glint-checks={JSON.stringify(legacyChecks)} className="mt-2 text-xs text-slate-500">이전 입구 반사광 검사: {legacyChecks.filter(check=>check.valid).length}/{legacyChecks.length}</p>
+    <p data-slot-geometry-check data-slot-checks={JSON.stringify(checks)} className="mt-2 text-xs text-slate-500">도면·도착 영역 검사: {checks.length}종 / {checks.filter(check=>check.valid && check.bounds).length}종 통과{checks.filter(check=>!check.valid || !check.bounds).map(check=>` · ${JSON.stringify(check)}`).join("")}</p>
+    <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">{[...SLOT_CATALOG,...LEGACY_SLOT_CATALOG.slice(12),...FREEFORM_SLOT_CATALOG.filter(entry=>entry.collection==="기하와 보석")].filter(entry=>sheetCollection==="전체" || entry.collection===sheetCollection).map(entry=><article key={entry.id} className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
       <div className="flex h-32 items-center justify-center bg-gradient-to-br from-[#fcf8f2] to-[#ebe6f2]"><SlotSwatch value={entry.id} size={98}/></div>
       <div className="flex justify-center gap-6 bg-slate-800 py-4"><SlotSwatch value={entry.id} size={40}/><span className="rounded-lg bg-white"><SlotSwatch value={entry.id} size={40}/></span></div>
       <div className="p-4"><p className="text-[10px] font-bold text-violet-600">{entry.collection}</p><h2 className="mt-1 text-sm font-black text-slate-800">{entry.name}</h2><p className="mt-1 text-xs text-slate-500">{entry.description}</p></div>
@@ -168,6 +204,6 @@ function FixtureApp() {
     setVersion((v) => v+1);
   }
   return <><div className="flex flex-wrap gap-2 bg-amber-50 p-3 text-xs"><button onClick={() => reset("landscape")} className="min-h-11 rounded-xl bg-white px-3">가로 사진 배치 검증</button><button onClick={() => reset("square")} className="min-h-11 rounded-xl bg-white px-3">정사각 그림 배치 검증</button><button onClick={() => { saveFailsOnce=true; }} className="min-h-11 rounded-xl bg-white px-3">다음 저장 실패 검증</button><button onClick={()=>void syntheticUpload()}>대용량 JPEG 입력 검증</button><button onClick={()=>void syntheticUpload("image/png")}>투명 PNG 입력 검증</button><button onClick={()=>{uploadFailsOnce=true;}}>다음 전송 Network Error</button><p data-upload-probe className="w-full min-w-0 break-all">{uploadResult}</p></div>
-  <MemoryRouter key={version} initialEntries={[version || landscapeFixture ? "/?draft=999" : "/"]}><OnboardingProvider userId={1} checkingAuth={false}><StompClientProvider><header className="flex flex-wrap justify-between gap-3 bg-white px-6 py-4 text-sm font-bold text-emerald-800"><Link to="/">MEMORY JAR · 로컬 검증 (서버 요청 없음)</Link><nav className="flex flex-wrap gap-4"><Link to="/contact-sheet">{JAR_BODIES.length}종 한눈에</Link><Link to="/slot-sheet">입구 108종</Link><Link to="/?draft=999">후보·편집 검증</Link></nav></header><Routes><Route path="/jars/new" element={<JarsNewPage/>}/><Route path="/jars/999" element={<Result/>}/><Route path="/contact-sheet" element={<ContactSheet/>}/><Route path="/slot-sheet" element={<SlotSheet/>}/><Route path="*" element={<JarDesignNewPage/>}/></Routes></StompClientProvider></OnboardingProvider></MemoryRouter></>;
+  <MemoryRouter key={version} initialEntries={[version || landscapeFixture ? "/?draft=999" : "/"]}><OnboardingProvider userId={1} checkingAuth={false}><StompClientProvider><header className="flex flex-wrap justify-between gap-3 bg-white px-6 py-4 text-sm font-bold text-emerald-800"><Link to="/">MEMORY JAR · 로컬 검증 (서버 요청 없음)</Link><nav className="flex flex-wrap gap-4"><Link to="/contact-sheet">{JAR_BODIES.length}종 한눈에</Link><Link to="/slot-sheet">입구 {SLOT_CATALOG.length}종</Link><Link to="/?draft=999">후보·편집 검증</Link></nav></header><Routes><Route path="/jars/new" element={<JarsNewPage/>}/><Route path="/jars/999" element={<Result/>}/><Route path="/contact-sheet" element={<ContactSheet/>}/><Route path="/slot-sheet" element={<SlotSheet/>}/><Route path="*" element={<JarDesignNewPage/>}/></Routes></StompClientProvider></OnboardingProvider></MemoryRouter></>;
 }
 previewRoot.render(<FixtureApp/>);

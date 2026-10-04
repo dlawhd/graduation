@@ -1,4 +1,5 @@
 /** V44 입구 도면: 색만 바꾼 복제가 아닌 주제별 실루엣을 공유 렌더러에 전달한다. */
+import { slotFinish } from "./slotFinishes.mjs";
 const circle = (x,y,r) => `M${x-r} ${y}a${r} ${r} 0 1 0 ${r*2} 0a${r} ${r} 0 1 0 ${-r*2} 0Z`;
 const radial = (points, outer, inner, angle=-90) => Array.from({length:points*2},(_,i)=>{
   const a=(angle+i*180/points)*Math.PI/180,r=i%2?inner:outer;
@@ -104,6 +105,6 @@ const groups = [
 ];
 // 비대칭/분리된 실루엣은 SVG의 실제 내부 9점을 통과한 도착 영역을 명시한다. 애니메이션과 무관한 고정 좌표다.
 const aims = { WING_GATE:[.43,.62], SAIL_GATE:[.43,.5], ECLIPSE_GATE:[.73,.5], CHERRY_GATE:[.61,.53], MUSIC_GATE:[.47,.5], SPIRAL_GATE:[.49,.56] };
-export const EXTRA_SLOT_CATALOG = Object.freeze(groups.flatMap(([collection,colors,items]) => items.map(([id,name,path]) =>
-  Object.freeze({id,name,collection,description:`${name} 모양에 담는 작은 추억`,path,colors:Object.freeze(colors),aspectRatio:1,freeform:true,
+export const EXTRA_SLOT_CATALOG = Object.freeze(groups.flatMap(([collection,colors,items]) => items.map(([id,name,path], index) =>
+  Object.freeze({id,name,collection,description:`${name} 모양에 담는 작은 추억`,path,colors:Object.freeze(slotFinish(collection,index,colors)),aspectRatio:1,freeform:true,
     target:Object.freeze({x:aims[id]?.[0] ?? .5,y:aims[id]?.[1] ?? .5,width:.06,height:.06})}))));

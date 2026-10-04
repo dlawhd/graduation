@@ -2,7 +2,8 @@
 .slot-artwork .slot-ambient { opacity: 0; background: radial-gradient(ellipse at 30% 20%,#fff9d9a0,transparent 62%); animation: slot-breathe 9s ease-in-out infinite paused; }
 .slot-artwork .slot-rim-glow { animation: slot-rim 10s ease-in-out infinite paused; }
 .slot-artwork .slot-details { transform-box: view-box; transform-origin: 50px 50px; animation: slot-sway 12s ease-in-out infinite paused; }
-.slot-artwork[data-motion-active="true"] :is(.slot-ambient,.slot-rim-glow,.slot-details) { animation-play-state: running; }
+.slot-artwork .slot-glint { opacity:0; transform-origin:0 0; animation:slot-badge-glint var(--slot-glint-duration) ease-out var(--slot-glint-delay) infinite paused; }
+.slot-artwork[data-motion-active="true"] :is(.slot-ambient,.slot-rim-glow,.slot-details,.slot-glint) { animation-play-state: running; }
 .slot-artwork[data-slot-motion="shine"] .slot-ambient { background: linear-gradient(110deg,transparent 30%,#fff9 49%,transparent 65%); background-size: 300% 100%; animation-name: slot-silver; }
 .slot-artwork[data-slot-motion="tide"] .slot-rim-glow { animation-name: slot-tide; }
 .slot-artwork[data-slot-motion="orbit"] .slot-details { animation-name: slot-orbit; }
@@ -15,4 +16,6 @@
 @keyframes slot-orbit { 0%,60%,100% { transform:rotate(0deg); } 72% { transform:rotate(4deg); } 86% { transform:rotate(-2deg); } }
 @keyframes slot-sway { 0%,55%,100% { transform:rotate(0deg); } 67% { transform:rotate(-2deg); } 79% { transform:rotate(2deg); } }
 @keyframes slot-heartbeat { 0%,65%,100% { opacity:.5; } 71%,79% { opacity:1; } 75%,83% { opacity:.65; } }
-@media (prefers-reduced-motion:reduce) { .slot-artwork :is(.slot-ambient,.slot-rim-glow,.slot-details) { animation:none!important; transform:none!important; } .slot-artwork .slot-ambient { opacity:0; } }
+/* 한번의 발광은 약 0.7초다. 긴 정지 시간을 두어 넓은 면의 번쩍임 대신 작은 반사광만 보인다. */
+@keyframes slot-badge-glint { 0%,65%,75%,100% { opacity:0; transform:scale(.1); } 68% { opacity:.95; transform:scale(1); } 71% { opacity:.55; transform:scale(.65); } }
+@media (prefers-reduced-motion:reduce) { .slot-artwork :is(.slot-ambient,.slot-rim-glow,.slot-details,.slot-glint) { animation:none!important; transform:none!important; } .slot-artwork :is(.slot-ambient,.slot-glint) { opacity:0!important; } }

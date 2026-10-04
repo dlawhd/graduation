@@ -35,6 +35,7 @@ function NoteDropPreview() {
   const [held, setHeld] = useState(false);
   const [flight, setFlight] = useState(null);
   const [composerRequest, setComposerRequest] = useState(0);
+  const [zoomOpened, setZoomOpened] = useState(false);
   const design = kind === "DEFAULT" ? null : { imageUrl, bodyStyle: kind === "LEGACY" ? null : kind,
     slotCenterX: x, slotCenterY: y, slotSizeRatio: 0.5, slotStyle };
   const jar = { jarId: 999, name: "내가 정한 입구로 쪽지 넣기", theme: "SPRING", myRole: "OWNER", isOpen: false, design };
@@ -58,8 +59,9 @@ function NoteDropPreview() {
       <button type="button" onClick={playFlight} className="rounded-xl bg-emerald-800 px-4 py-3 font-bold text-white">투입 애니메이션 재생</button>
     </div>
     <div className="mt-6 rounded-3xl border bg-white p-5" style={{ transform: "translate(11px, 7px)" }}>
-      <JarVisual jar={jar} jarRef={jarRef} />
-      <p className="text-center text-xs text-slate-500">저장된 입구: {design ? `${Math.round(x * 100)}% / ${Math.round(y * 100)}%` : "기본 뚜껑 입구"}</p>
+      <JarVisual jar={jar} jarRef={jarRef} interactive onClick={()=>setZoomOpened(true)}/>
+      <p className="mt-10 text-center text-xs text-slate-500">저장된 입구: {design ? `${Math.round(x * 100)}% / ${Math.round(y * 100)}%` : "기본 뚜껑 입구"}</p>
+      {zoomOpened && <p role="status">쪽지 확인 버튼의 확대 콜백이 호출되었습니다.</p>}
       <button type="button" onClick={() => { setFlight(null); setComposerRequest((value) => value + 1); }} className="mx-auto mt-5 block rounded-xl bg-violet-700 px-5 py-3 font-bold text-white">새 쪽지 쓰기</button>
       <NoteSection jar={jar} palette={palette} formatDate={(value) => value || ""} getJarDropTargetRect={() => measureJarDropTarget(jarRef.current)} createRequestId={composerRequest} showSearchControls={false} />
     </div>

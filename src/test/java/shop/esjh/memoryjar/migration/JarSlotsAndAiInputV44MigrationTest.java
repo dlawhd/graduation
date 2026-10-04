@@ -38,7 +38,8 @@ class JarSlotsAndAiInputV44MigrationTest {
                     assertThat(rows.next()).isTrue();assertThat(rows.getBigDecimal(1)).isEqualByComparingTo(".31");
                     assertThat(rows.getBigDecimal(2)).isEqualByComparingTo(".72");assertThat(rows.getBigDecimal(3)).isEqualByComparingTo(".3");
                 }
-                for(JarSlotStyle style:JarSlotStyle.values())
+                // V44 당시의 허용값만 검사한다. 이후 버전의 enum을 이전 DB 제약에 넣지 않는다.
+                for(JarSlotStyle style:java.util.Arrays.copyOf(JarSlotStyle.values(),120))
                     assertThat(sql.executeUpdate("UPDATE "+table+" SET slot_style='"+style.name()+"' WHERE slot_center_x IS NOT NULL")).isPositive();
                 sql.executeUpdate("UPDATE "+table+" SET slot_center_x=.5,slot_center_y=.5,slot_size_ratio=-.5 WHERE slot_center_x IS NOT NULL");
                 for(String invalid:new String[]{"-.50001","1.00001"})

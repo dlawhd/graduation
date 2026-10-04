@@ -1,6 +1,7 @@
 /** 입구의 이름·분류·재질·외곽선을 한 곳에서 관리한다. 좌표와 크기는 기존 슬롯 계약을 그대로 쓴다. */
 import { EXTRA_SLOT_CATALOG } from "./extraSlotCatalog.mjs";
-export const SLOT_COLLECTIONS = Object.freeze(["전체", "클래식 입구", "꽃과 자연", "상상의 문", "동물 친구들", "바다의 편지", "달과 우주", "달콤한 간식", "취미와 일상", "기하와 보석"]);
+import { CUTE_SLOT_CATALOG } from "./cuteSlotCatalog.mjs";
+export const SLOT_COLLECTIONS = Object.freeze(["전체", "클래식 입구", "꽃과 자연", "상상의 문", "동물 친구들", "바다의 편지", "달과 우주", "달콤한 간식", "취미와 일상", "포근한 소품", "작은 정원", "꿈꾸는 장난감"]);
 
 const capsule = "M30 4H180A26 26 0 0 1 180 56H30A26 26 0 0 1 30 4Z";
 const bevel = "M19 4H191L206 19V41L191 56H19L4 41V19Z";
@@ -60,13 +61,14 @@ const freeform = [
 export const V43_FREEFORM_SLOT_CATALOG = Object.freeze(freeform.map(([id,name,collection,description,path,colors,target=[.5,.5]]) =>
   Object.freeze({id,name,collection,description,path,colors:Object.freeze(colors),aspectRatio:1,freeform:true,
     target:Object.freeze({x:target[0],y:target[1],width:.12,height:.12})})));
-export const FREEFORM_SLOT_CATALOG = Object.freeze([...V43_FREEFORM_SLOT_CATALOG, ...EXTRA_SLOT_CATALOG]);
+export const FREEFORM_SLOT_CATALOG = Object.freeze([...V43_FREEFORM_SLOT_CATALOG, ...EXTRA_SLOT_CATALOG, ...CUTE_SLOT_CATALOG]);
 export const SLOT_CATALOG = Object.freeze([
   ...LEGACY_SLOT_CATALOG.slice(0,12).map(entry=>Object.freeze({...entry,collection:"클래식 입구"})),
-  ...FREEFORM_SLOT_CATALOG,
+  // 기하와 보석은 새 선택지만 숨긴다. 이전 저금통의 ID·모양·좌표는 아래 조회 Map에 그대로 남긴다.
+  ...FREEFORM_SLOT_CATALOG.filter(entry=>entry.collection !== "기하와 보석"),
 ]);
 export const SLOT_STYLES = Object.freeze(SLOT_CATALOG.map(({ id, name }) => Object.freeze([id, name])));
-const byId = new Map([...LEGACY_SLOT_CATALOG, ...SLOT_CATALOG].map(entry => [entry.id, entry]));
+const byId = new Map([...LEGACY_SLOT_CATALOG, ...FREEFORM_SLOT_CATALOG, ...SLOT_CATALOG].map(entry => [entry.id, entry]));
 export const getSlotAppearance = value => byId.get(value) || SLOT_CATALOG[0];
 export const filterSlotStyles = collection => SLOT_CATALOG.filter(entry => collection === "전체" || entry.collection === collection);
 
