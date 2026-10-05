@@ -6,87 +6,121 @@
 
 **소중한 사람들과 추억을 모으고 약속한 날 함께 열어보는 비공개 추억 공유 서비스**
 
+**개인 프로젝트 | 2026년 2월 ~ 개발 중**
+
 [🌿 서비스 둘러보기](https://www.esjh.shop)　|　[🧩 설계와 문제 해결](#주요-설계와-문제-해결)　|　[🧪 테스트와 검증](#테스트와-검증)　|　[🚀 로컬 실행 안내](#로컬-실행)
 
 </div>
 
-## 어떤 프로젝트인가요?
+## 프로젝트 탄생 배경
 
-함께 보낸 하루 중 오래 기억하고 싶은 순간들을 쪽지에 적어 저금통에 모았습니다. 약속한 날 쪽지를 하나씩 펼쳐 읽으며 그때의 웃음과 마음을 다시 나누었습니다.
+소중한 사람과 함께 1년 동안 기억하고 싶은 순간들을 종이에 적어 하나의 저금통에 모으는 활동에서 시작한 프로젝트입니다. 서로 떨어져 지내게 되면서 이전처럼 같은 저금통에 추억을 모으기 어려워졌고
 
-> **서로 멀리 떨어져 있어도 같은 곳에 추억을 모을 수 있다면 어떨까요?**
+> **“멀리 떨어져 있어도 함께 추억을 모을 수 있다면 어떨까?”**
 
-Memory Jar는 그 마음에서 시작했습니다. 연인, 가족, 친구가 어디에 있든 하나의 저금통을 함께 채우고 약속한 날 다시 열어보는 공간입니다. 기록을 저장하는 것에 그치지 않고 **모으는 설렘과 기다림.. 함께 꺼내 읽는 순간**을 담고 싶었습니다.
+라는 생각에서 Memory Jar를 만들게 되었습니다.
 
-**개인 프로젝트 | 2026년 2월 ~ 개발 중 |**
+실제 저금통을 온라인으로 옮겨 **장소에 관계없이 함께 추억을 기록하고 정해진 날에 모아둔 기억을 함께 열어볼 수 있는 서비스**를 목표로 합니다. 연인뿐만 아니라 가족, 친구, 동아리 등 소중한 관계를 맺고 있는 사람들도 함께 사용할 수 있도록 확장했습니다.
 
-백엔드와 프론트엔드 개발부터 DB 설계, 테스트, 배포 구성까지 직접 담당합니다.
+## 프로젝트 시나리오(사용 순서)
+
+**로그인 → 저금통 만들기 → 소중한 사람 초대 → 추억 모으기 → 약속한 날 열기 → 함께 돌아보기**
+
+1. **로그인하고 시작하기**
+
+   회원가입 또는 소셜 로그인으로 나만의 추억 공간에 들어옵니다.
+
+2. **우리만의 저금통 만들기**
+
+   기본 테마를 고르거나 원하는 외형에 그림과 사진을 담아 직접 꾸밉니다. AI 스타일 변환은 선택 사항이며, 이름과 참여 인원, 함께 열어볼 날짜와 공개 방식을 정합니다.
+
+3. **소중한 사람 초대하기**
+
+   초대 링크나 코드를 전달합니다. 초대받은 사람은 로그인한 뒤 같은 저금통에 참여합니다.
+
+4. **일상의 작은 순간 모으기**
+
+   기억하고 싶은 일을 쪽지에 적고 사진이나 영상을 함께 남깁니다. 정해둔 공개 범위에 따라 오픈 전 추억은 잠겨 있고, 저금통 채팅으로 이야기를 나눌 수 있습니다.
+
+5. **약속한 날 함께 열기**
+
+   오픈 시간이 되면 저금통이 열리고, 그동안 차곡차곡 담아둔 추억을 꺼내 읽을 수 있습니다.
+
+6. **추억을 다시 우리의 이야기로 만들기**
+
+   쪽지를 찾아 읽고 댓글과 리액션으로 마음을 나눕니다. ‘오늘의 추억 한 장’을 뽑아 잊고 있던 순간을 다시 만나볼 수도 있습니다.
 
 ## 주요 설계와 문제 해결
 
-### 1. 행 잠금으로 최초 리액션과 정원 변경의 동시 요청 정합성 보호
+**동시 요청, 권한 변경, 외부 서비스 실패, 데이터 증가**처럼 서비스 운영 중 생길 수 있는 문제를 중심으로 개선했습니다.
+각 항목은 해결한 문제와 핵심 접근을 먼저 설명하고, 상세 설계와 검증 근거는 펼쳐 볼 수 있도록 정리했습니다.
 
-리액션이 아직 없는 경우도 **부모 Note를 공통 잠금 기준**으로 사용합니다.
-초대 참여와 정원 변경은 같은 Jar를 잠그고 동시에 실행되어도 변경된 정원을 초과하지 않도록 처리했습니다.
+### 1. 동시 요청에도 데이터 규칙을 지키는 구조
+
+두 사람이 동시에 리액션을 누르거나, 정원을 줄이는 순간 다른 사람이 참여할 수 있습니다.
+**같은 데이터를 변경하는 요청이 공통 행 잠금을 사용하도록 맞춰**, 최초 리액션 충돌과 정원 초과를 방지했습니다.
 
 <details>
-<summary>문제 | 설계 선택 | MariaDB 검증 보기</summary>
+<summary>동시성 제어: 문제 상황, 잠금 기준, 실제 DB 검증</summary>
 
-- **문제:** 첫 리액션에는 잠글 행이 없고 초대 참여와 정원 변경을 따로 검사하면 인원 제한을 어길 수 있습니다.
-- **설계:** 부모 행 잠금과 `READ_COMMITTED`로 최신 상태를 확인합니다. 같은 이모지를 다시 누르면 취소되는 기존 토글 규칙은 유지합니다.
-- **검증:** 실제 MariaDB에서 최초 리액션 동시 토글과 정원 축소, 초대 참여의 경쟁을 확인했습니다. 정원 경쟁은 6회 실행했습니다.
-- **트레이드오프:** 같은 부모의 쓰기는 순차 처리하므로 높은 쓰기 부하에서는 잠금 대기를 관찰해야 합니다.
+- **문제 상황:** 첫 리액션은 아직 잠글 리액션 행이 없습니다. 정원 변경과 초대 참여가 서로 다른 기준으로 검사하면 허용 인원을 넘길 수도 있습니다.
+- **설계 선택:** 리액션은 부모 Note, 정원 변경과 참여는 같은 Jar를 먼저 잠급니다. `READ_COMMITTED`로 잠금 대기 후 최신 상태를 읽습니다.
+- **기존 동작 유지:** 같은 이모지를 두 번 누르면 취소되는 토글 규칙은 바꾸지 않았습니다.
+- **검증 근거:** MariaDB에서 최초 리액션 동시 토글과 정원 축소/초대 참여의 경쟁을 확인했습니다. 정원 경쟁은 6회 반복했습니다.
+- **고려할 점:** 같은 부모의 쓰기는 순차 처리합니다. 높은 쓰기 부하에서는 잠금 대기를 추가로 관찰해야 합니다.
 
 [리액션 구현](src/main/java/shop/esjh/memoryjar/service/note/NoteReactionService.java) | [정원 처리](src/main/java/shop/esjh/memoryjar/service/jar/JarService.java) | [동시성 테스트](src/test/java/shop/esjh/memoryjar/service/WriteSafetyIntegrationTest.java)
 
 </details>
 
-### 2. 실시간 메시지 전달 직전 권한과 세션 재검사
+### 2. 권한이 바뀌면 실시간 메시지 수신도 차단
 
-로그인이나 구독할 때만 확인하지 않고 **메시지를 전달하는 순간에도 현재 권한을 검사**합니다.
-강퇴 또는 탈퇴 이후의 수신과 비밀번호 재설정 이전 세션의 접근을 차단하도록 개선했습니다.
+로그인할 때 권한이 있었더라도, 이후 강퇴나 탈퇴로 접근 권한이 사라질 수 있습니다.
+**메시지 전달 직전에도 현재 권한과 세션을 다시 확인**하고, 비밀번호 재설정 전 세션의 접근도 차단하도록 개선했습니다.
 
 <details>
-<summary>인증 이후에도 권한을 확인하는 구조 보기</summary>
+<summary>보안 설계: 구독 이후 권한 변경과 세션 무효화</summary>
 
-- **문제:** 구독 당시 유효했던 권한도 이후 강퇴, 탈퇴, 비밀번호 재설정으로 달라질 수 있습니다.
-- **설계:** 전달 직전에 멤버 권한, 토큰 만료, DB 세션 버전을 확인합니다. 비밀번호 재설정은 Refresh Token 폐기와 세션 버전 변경을 함께 처리합니다.
-- **검증:** 전달 인터셉터와 세션 유효성은 단위 테스트로 세션 변경과 채팅 처리의 경쟁은 통합 테스트로 확인했습니다.
-- **범위:** 이후 검사에서 전달을 차단하고 연결 종료를 시도합니다. 이미 전달된 메시지의 회수나 권한 변경과 소켓 종료의 원자적 동시 처리를 보장하지는 않습니다.
+- **문제 상황:** WebSocket 연결과 구독이 유지되면, 처음에 통과한 인증만으로는 이후의 권한 변경을 반영하기 어렵습니다.
+- **설계 선택:** 전달 직전에 멤버 권한, 토큰 만료, DB 세션 버전을 검사합니다. 비밀번호 재설정 시 Refresh Token을 폐기하고 세션 버전도 변경합니다.
+- **검증 근거:** 전달 인터셉터와 세션 유효성은 단위 테스트로, 세션 변경과 채팅 처리의 경쟁은 통합 테스트로 확인했습니다.
+- **보장 범위:** 이후 검사에서 메시지 전달을 차단하고 연결 종료를 시도합니다. 이미 전달한 메시지의 회수나 권한 변경과 소켓 종료의 원자적 처리를 보장하지는 않습니다.
 
 [전달 권한 검사](src/main/java/shop/esjh/memoryjar/config/WebSocketDeliveryAuthorizationInterceptor.java) | [세션 검사](src/main/java/shop/esjh/memoryjar/jwt/SessionValidityService.java) | [통합 테스트](src/test/java/shop/esjh/memoryjar/service/SessionAndChatConcurrencyIntegrationTest.java)
 
 </details>
 
-### 3. DB와 S3 부분 실패에도 재시도 가능한 AI 파일 정리
+### 3. AI 생성 실패 뒤 남은 파일까지 다시 정리
 
-AI 이미지 업로드와 DB 저장이 서로 다른 시점에 실패할 수 있음을 고려했습니다.
-**업로드 예약 키와 삭제 완료 이력**을 남겨 보상 삭제가 실패해도 스케줄러가 다시 정리할 수 있도록 설계했습니다.
+이미지는 S3에 올라갔지만 DB 저장은 실패할 수 있고, 실패한 파일을 삭제하는 요청도 실패할 수 있습니다.
+**업로드할 파일의 키와 삭제 완료 이력을 DB에 남겨**, 즉시 삭제하지 못한 파일도 스케줄러가 다시 정리하도록 만들었습니다.
 
 <details>
-<summary>외부 서비스 실패와 복구 흐름 보기</summary>
+<summary>실패 복구: 업로드 예약, 보상 삭제, 정리 재시도</summary>
 
-- **문제:** DB와 S3를 하나의 트랜잭션으로 되돌릴 수 없어 업로드, DB 저장, 삭제 중 일부만 성공하면 파일이 남을 수 있습니다.
-- **설계:** V48에서 업로드 전 예약 키를 기록하고 삭제 성공 시각을 별도 관리합니다. 외부 I/O는 DB 트랜잭션 밖에서 수행합니다.
-- **보호:** 업로드 완료 여부가 모호하면 유예하고 삭제 직전 상태와 키를 재검사해 성공 후보를 보호합니다. S3 정리용 스케줄러를 분리해 자동 오픈과 세션 검사에 영향을 줄입니다.
-- **검증:** 보상 삭제, 재시도, 성공 후보 보호 테스트와 MariaDB V47→V48 업그레이드를 확인했습니다. V48 이전에 이미 잃어버린 키는 자동 복구하지 않습니다.
+- **문제 상황:** DB와 S3는 하나의 트랜잭션으로 되돌릴 수 없습니다. 업로드, DB 저장, 삭제 중 일부만 성공하면 사용하지 않는 파일이 남을 수 있습니다.
+- **설계 선택:** V48에서 업로드 전 예약 키와 삭제 성공 시각을 기록합니다. 느린 외부 I/O는 DB 트랜잭션 밖에서 수행합니다.
+- **성공 파일 보호:** 업로드 완료 여부가 불명확하면 삭제를 유예합니다. 삭제 직전에 실패 상태와 예약 키를 다시 확인합니다.
+- **작업 격리:** S3 정리 스케줄러를 분리해 느린 정리 작업이 자동 오픈과 세션 검사에 미치는 영향을 줄였습니다.
+- **검증 근거와 한계:** 보상 삭제, 재시도, 성공 후보 보호 테스트와 MariaDB V47→V48 업그레이드를 확인했습니다. V48 이전에 이미 잃어버린 파일 키는 자동 복구하지 않습니다.
 
 [생성 처리](src/main/java/shop/esjh/memoryjar/service/ai/JarAiGenerationService.java) | [정리 처리](src/main/java/shop/esjh/memoryjar/service/ai/AiDraftCleanupService.java) | [V48 검증 기록](docs/WRITE_SAFETY_V48.md)
 
 </details>
 
-### 4. 깊은 답글을 유지하면서 댓글 조회와 삭제 비용 개선
+### 4. 댓글이 많고 답글이 깊어져도 이어서 탐색
 
-댓글은 **작성자를 함께 읽는 커서 페이지 조회**, 깊은 답글은 **재귀 대신 반복 처리**로 변경했습니다.
-알림 대상의 조상 경로를 추가해도 페이지 커서가 건너뛰지 않도록 분리했습니다.
+댓글을 한 번에 모두 읽거나 깊은 답글을 재귀로 처리하면, 데이터가 늘수록 조회와 처리 비용이 커집니다.
+**커서 기반 페이지 조회와 반복 처리**를 적용해, 답글 깊이를 제한하지 않으면서 필요한 댓글을 이어서 읽도록 개선했습니다.
 
 <details>
-<summary>조회 최적화와 깊은 답글 검증 보기</summary>
+<summary>조회 최적화: 작성자 동시 조회, 커서 분리, 깊은 답글 처리</summary>
 
-- **문제:** 전체 댓글 조회, 작성자 지연 조회, 깊은 재귀 처리는 데이터가 늘수록 비용과 호출 스택 부담이 커집니다.
-- **설계:** ID 커서와 작성자 동시 조회를 사용합니다. 일반 페이지 커서는 알림 대상 경로와 분리하고 하위 답글 삭제는 최대 500 ID씩 반복 처리합니다.
-- **검증:** MariaDB에서 1,100단계 답글의 페이지 조회와 삭제, Node 테스트에서 10,000단계 트리 탐색을 확인했습니다.
-- **범위:** 답글 깊이에 새 제한을 두지 않습니다. 구 클라이언트용 전체 조회와 매우 깊은 화면 렌더링 비용은 남아 있습니다.
+- **문제 상황:** 전체 댓글 조회와 작성자별 추가 조회는 DB 부담을 늘립니다. 깊은 재귀 처리는 호출 스택에도 부담을 줍니다.
+- **설계 선택:** ID 커서로 댓글을 나눠 읽고 작성자도 함께 조회합니다. 하위 답글 삭제는 재귀 대신 최대 500 ID씩 반복 처리합니다.
+- **페이지 누락 방지:** 알림에서 찾은 댓글의 조상 경로를 추가하더라도, 다음 페이지 커서는 일반 조회 결과를 기준으로 계산합니다.
+- **검증 근거:** MariaDB에서 1,100단계 답글의 페이지 조회와 삭제, Node 테스트에서 10,000단계 트리 탐색을 확인했습니다.
+- **고려할 점:** 답글 깊이에 새 제한은 없습니다. 구 클라이언트용 전체 조회와 매우 깊은 트리의 화면 렌더링 비용은 남아 있습니다.
 
 [댓글 처리](src/main/java/shop/esjh/memoryjar/service/note/NoteCommentService.java) | [프론트 페이지와 트리 처리](frontend/src/features/jarDetail/utils/commentPaging.mjs) | [조회 테스트](src/test/java/shop/esjh/memoryjar/service/WriteSafetyQuerySmokeTest.java)
 
@@ -98,7 +132,7 @@ AI 이미지 업로드와 DB 저장이 서로 다른 시점에 실패할 수 있
 - **추억 기록과 다시 보기:** 300자 쪽지와 사진, 영상, 목록 조회와 검색, 자동 오픈, 오늘의 추억 한 장
 - **실시간 소통:** 채팅, 읽음 위치, 알림, 쪽지 리액션, 댓글, 답글
 - **나만의 외형:** 직접 그리기, 이미지 배치, 입구 편집, 6가지 AI 스타일 변환과 후보 비교
-- **계정 관리:** 이메일 인증, 자체 로그인, 네이버와 Google 및 카카오 소셜 로그인, 계정 복구.
+- **계정 관리:** 이메일 인증, 자체 로그인, 네이버와 Google 및 카카오 소셜 로그인, 계정 복구
 
 [서비스 기능과 정책 자세히 보기](docs/PROJECT_OVERVIEW.md)
 
@@ -157,64 +191,19 @@ AI 이미지 업로드와 DB 저장이 서로 다른 시점에 실패할 수 있
 사용자 요청은 Nginx를 거쳐 Spring Boot로 전달됩니다.
 파일 업로드는 Presigned URL로 S3에 직접 연결하고, 인증메일과 이미지 심사, AI 변환은 백엔드가 외부 서비스와 연동합니다.
 
-```mermaid
-flowchart TB
-    Browser["사용자<br/>PC / 모바일 브라우저"]
+![Memory Jar 시스템 구성: 브라우저, Vercel, EC2, DB와 외부 서비스](docs/images/system-architecture.svg)
 
-    subgraph Frontend["FRONTEND | Vercel"]
-        Web["React 19<br/>반응형 화면 / 그림판<br/>이미지 배치"]
-    end
+[🔎 시스템 구성도 크게 보기](docs/images/system-architecture.svg)
 
-    subgraph Server["BACKEND | AWS EC2"]
-        direction TB
-        Proxy["Nginx<br/>HTTPS / WebSocket 프록시"]
-        subgraph Runtime["Docker Compose"]
-            direction TB
-            Api["Spring Boot<br/>REST API / 인증 / 실시간 이벤트"]
-            Db[("MariaDB 10.11<br/>추억 / 멤버 / 디자인 상태")]
-        end
-    end
+| 구분 | 역할과 연결 방식 |
+| --- | --- |
+| **화면** | Vercel의 React 화면에서 HTTPS API와 WSS/STOMP로 백엔드에 연결 |
+| **요청 처리** | EC2의 Nginx가 Spring Boot로 요청 전달. Spring Boot와 MariaDB는 Docker Compose로 실행 |
+| **파일 저장** | 백엔드가 발급한 Presigned URL로 브라우저에서 S3에 직접 업로드. 백엔드도 디자인 파일을 저장하고 조회 |
+| **외부 기능** | SES로 인증메일 발송, Rekognition으로 이미지 심사, Cloudflare Workers AI로 스타일 변환 |
 
-    subgraph External["EXTERNAL SERVICES"]
-        direction TB
-        S3["AWS S3<br/>사진 / 영상 / 디자인 파일"]
-        Ses["AWS SES<br/>이메일 인증"]
-        Moderation["AWS Rekognition<br/>이미지 콘텐츠 심사"]
-        Ai["Cloudflare Workers AI<br/>6가지 스타일 변환"]
-        %% 외부 서비스는 세로로 배치한다. 투명 연결은 실제 호출 경로가 아니다.
-        S3 ~~~ Ses ~~~ Moderation ~~~ Ai
-    end
-
-    Browser -->|"서비스 접속"| Web
-    Web -->|"HTTPS REST<br/>WSS STOMP"| Proxy
-    Proxy -->|"요청 전달"| Api
-    Api -->|"JPA / JDBC"| Db
-    Api -->|"파일 저장 / 조회"| S3
-    Web -.->|"Presigned URL<br/>첨부파일 직접 업로드"| S3
-    Api -->|"인증메일 발송"| Ses
-    Api -->|"원본 / 후보 심사"| Moderation
-    Api -->|"이미지 변환 요청"| Ai
-
-    classDef user fill:#FAF8F4,stroke:#C9C2B8,color:#3E4945
-    classDef frontend fill:#EAF5F1,stroke:#27866D,color:#164D40
-    classDef backend fill:#E9F3F4,stroke:#327F84,color:#214F53
-    classDef database fill:#F0F3FA,stroke:#8594B0,color:#344760
-    classDef external fill:#FAF4E8,stroke:#BEA775,color:#665332
-
-    class Browser user
-    class Web frontend
-    class Proxy,Api backend
-    class Db database
-    class S3,Ses,Moderation,Ai external
-
-    style Frontend fill:#F6FBF9,stroke:#B6D8CD,color:#164D40
-    style Server fill:#F5F9FA,stroke:#B1CED1,color:#214F53
-    style Runtime fill:#FFFFFF,stroke:#C5DADB,color:#214F53
-    style External fill:#FFFCF6,stroke:#DED1B3,color:#665332
-```
-
-**실선은 일반 요청 경로, 점선은 브라우저의 직접 파일 업로드 경로**입니다.
-실시간 메시지는 현재 단일 Spring Boot 인스턴스의 Simple Broker를 사용합니다.
+실시간 메시지는 현재 **단일 Spring Boot 인스턴스의 Simple Broker**를 사용합니다.
+구성도에서 실선은 요청/서비스 연동, 점선은 브라우저의 직접 파일 업로드 경로입니다.
 
 <details>
 <summary>🚢 테스트부터 배포까지의 흐름 보기</summary>
@@ -222,52 +211,9 @@ flowchart TB
 **백엔드는 검증과 이미지 게시를 마친 뒤에만 운영 컨테이너를 갱신합니다.**
 하나의 흐름을 검증, 이미지 패키징, 운영 반영의 세 단계로 나누었습니다.
 
-```mermaid
-flowchart LR
-    subgraph CI["01 검증 | GitHub Actions"]
-        direction TB
-        Checkout["main push<br/>소스 checkout"]
-        Setup["Java 17 준비<br/>Gradle 캐시 / 실행 권한"]
-        Test["./gradlew test<br/>test 프로필 / JUnit"]
-        Checkout --> Setup --> Test
-    end
+![백엔드 배포 흐름: 테스트, 이미지 게시, 운영 컨테이너 갱신](docs/images/deployment-pipeline.svg)
 
-    subgraph Publish["02 빌드와 게시 | Docker / GHCR"]
-        direction TB
-        Login["Buildx 설정<br/>GHCR 로그인"]
-        Jar["빌드 단계: JDK 17<br/>clean bootJar"]
-        Runtime["실행 단계: JRE 17<br/>완성된 JAR만 복사"]
-        Registry["GHCR 이미지 게시<br/>graduation:latest"]
-        Login --> Jar --> Runtime --> Registry
-    end
-
-    subgraph Deploy["03 운영 갱신 | EC2"]
-        direction TB
-        Event["workflow_run 완료<br/>결과가 success일 때만 실행"]
-        Pull["self-hosted runner<br/>docker compose pull"]
-        Update["docker compose up -d<br/>변경된 컨테이너 갱신"]
-        Prune["docker image prune -f<br/>미사용 dangling 이미지<br/>정리"]
-        Event --> Pull --> Update --> Prune
-    end
-
-    CI -->|"테스트 통과"| Publish
-    Publish -->|"Publish 워크플로 성공"| Deploy
-    CI -.->|"검증 실패"| Stop["후속 게시 / 배포 중단"]
-    Publish -.->|"실패"| Stop
-
-    classDef verify fill:#EAF5F1,stroke:#27866D,color:#164D40
-    classDef package fill:#E9F3F4,stroke:#327F84,color:#214F53
-    classDef deploy fill:#FAF4E8,stroke:#BEA775,color:#665332
-    classDef stopped fill:#FFF1F0,stroke:#C98680,color:#7A3430
-    class Checkout,Setup,Test verify
-    class Login,Jar,Runtime,Registry package
-    class Event,Pull,Update,Prune deploy
-    class Stop stopped
-
-    style CI fill:#F6FBF9,stroke:#B6D8CD,color:#164D40
-    style Publish fill:#F5F9FA,stroke:#B1CED1,color:#214F53
-    style Deploy fill:#FFFCF6,stroke:#DED1B3,color:#665332
-```
+[🔎 배포 흐름도 크게 보기](docs/images/deployment-pipeline.svg)
 
 ### 1. 테스트를 통과한 변경만 이미지로 게시
 
@@ -321,27 +267,57 @@ Buildx를 설정하고 `GITHUB_TOKEN`으로 GHCR에 로그인합니다. Dockerfi
 
 ## 테스트와 검증
 
-**기능 구현뿐 아니라 실제 DB 동시성, 마이그레이션, PC/모바일 동작까지 검증했습니다.**
+테스트 수뿐 아니라 **어떤 문제를 어떤 환경에서 확인했는지**를 함께 기록했습니다.
+아래 결과는 기존 검증 기록이며, 로컬 자동 테스트와 운영 읽기 부하 시험을 구분합니다.
 
-| 검증 | 기록 |
-| --- | --- |
-| 백엔드 | 전체 테스트 **1,683개 통과**, `test bootJar` 성공 |
-| 실제 MariaDB | 쓰기 안전성 4개와 V47→V48 업그레이드 1개 통과 |
-| 프론트 | 유틸리티 테스트 **82개 통과**, PC 1440px / 모바일 390px 회귀 통과 |
-| 읽기 부하 | 최대 **300 VU**, 요청 실패율 **0%**, **p95 85.01ms** |
+### 🧪 기능과 데이터 안전성
+
+**2026-10-05 로컬 검증 기록**
+
+| 검증 영역 | 확인한 내용 | 결과 |
+| --- | --- | --- |
+| **백엔드 자동 테스트** | 비즈니스 규칙, 권한, 예외 처리와 기존 기능 회귀 | **1,683개 통과**, `test bootJar` 성공 |
+| **MariaDB 통합 테스트** | 동시 요청 정합성, 깊은 답글, 페이지 커서, V47→V48 업그레이드 | 쓰기 안전성 **4개** + 마이그레이션 **1개** 통과 |
+| **프론트 로직 테스트** | 유틸리티의 정상 동작과 예외 상황 | **82개 통과** |
+| **브라우저 회귀 테스트** | 댓글 이어보기, 실패 후 재시도, 답글 경로, 300자 제한, 타이머 전환 | **PC 1440px / 모바일 390px** 통과 |
 
 <details>
-<summary>측정 조건과 검증 범위 보기</summary>
+<summary>검증 환경, 실행 근거, 확인하지 않은 범위</summary>
 
-- **로컬 검증:** 2026-10-05 기준 커밋  백엔드 실패, 오류, 건너뜀 0개. MariaDB 10.11 Testcontainers를 사용했으며 운영 데이터와 설정을 그대로 재현한 것은 아닙니다.
-- **브라우저 검증:** 실제 React 화면에 시험용 REST와 WebSocket 응답을 연결했습니다. 이 검증에서는 운영 DB, 실제 S3, SES, 유료 AI를 호출하지 않았습니다.
-- **읽기 부하:** 2026-09-30 공유된 k6 콘솔 기록. 30초 상승 → 2분 유지 → 30초 하강, 요청 사이 2~5초 생각 시간. 12,813건, 전체 평균 69.92 req/s, 평균 43.03ms / p99 275.10ms.
-- **해석:** 300 VU는 300 RPS나 서로 다른 계정 300명이 아닙니다. 인증 쿠키를 공유하는 GET 시나리오이며 쓰기, AI, WebSocket 전체 처리량으로 일반화하지 않습니다. 원시 결과 파일은 저장소에 포함되어 있지 않습니다.
-- **빌드:** 프론트 Vite 빌드는 성공했지만 기존 대형 JavaScript 청크 경고는 남아 있습니다. 테스트 통과가 운영 환경의 무결함을 의미하지는 않습니다.
+- **DB 환경:** MariaDB 10.11 Testcontainers로 독립된 시험용 DB를 실행했습니다. 운영과 같은 DB 엔진/주 버전이지만 운영 데이터와 설정을 그대로 복제한 검증은 아닙니다.
+- **통합 테스트의 의미:** 단위 테스트의 모의 객체만으로는 확인하기 어려운 실제 DB 잠금과 Flyway 업그레이드를 별도로 검증했습니다. 위 5개 DB 테스트는 백엔드 전체 1,683개에 포함됩니다.
+- **백엔드 결과:** JUnit XML 기준 실패, 오류, 건너뜀은 모두 0개입니다.
+- **브라우저 환경:** 실제 React 화면에 시험용 REST와 WebSocket 응답을 연결했습니다. 운영 DB, 실제 S3, SES, 유료 AI는 호출하지 않았습니다.
+- **빌드 결과:** 프론트 Vite 빌드도 성공했습니다. 기존 대형 JavaScript 청크 경고는 남아 있으며, 페이지 단위 지연 로딩은 개선 과제입니다.
 
-[상세 검증 기록](docs/WRITE_SAFETY_V48.md) | [브라우저 테스트](frontend/tests/write-safety.browser.cjs) | [k6 시나리오](k6/user-journey-read.js)
+[📋 상세 검증 기록](docs/WRITE_SAFETY_V48.md) | [🖥️ 브라우저 테스트](frontend/tests/write-safety.browser.cjs) | [🧪 로컬 검증 방법](docs/LOCAL_DEVELOPMENT.md#먼저-코드-검증하기)
 
 </details>
+
+### 📈 운영 API 읽기 부하
+
+**2026-09-30 k6 콘솔 기록** 기준으로, 최대 300명의 가상 사용자가 읽기 요청을 반복하는 시나리오를 실행했습니다.
+
+| 최대 가상 사용자 | 전체 요청 | 요청 실패율 | 응답 시간 p95 |
+| --- | --- | --- | --- |
+| **300 VU** | **12,813건** | **0%** | **85.01ms** |
+
+**p95는 전체 요청의 95%가 해당 시간 이내에 응답했다는 뜻입니다.**
+300 VU는 테스트 안의 가상 사용자 수이며, 초당 300건의 요청이나 서로 다른 계정 300명을 의미하지 않습니다.
+
+<details>
+<summary>부하 조건, 추가 지표, 결과 해석</summary>
+
+- **부하 패턴:** 30초 상승 → 2분 유지 → 30초 하강. 요청 사이에는 2~5초의 생각 시간을 두었습니다.
+- **추가 지표:** 전체 평균 69.92 req/s, 평균 응답 43.03ms, p99 275.10ms입니다. 요청 속도는 상승/하강 구간을 포함한 전체 평균입니다.
+- **검증 범위:** 인증 쿠키를 공유하는 GET 시나리오입니다. 쓰기 요청, AI 생성, WebSocket 전체 처리량이나 장시간 혼합 부하로 일반화하지 않습니다.
+- **기록 범위:** 공유된 k6 콘솔 결과를 요약했으며 원시 결과 파일은 저장소에 포함되어 있지 않습니다.
+
+[📈 k6 읽기 시나리오](k6/user-journey-read.js)
+
+</details>
+
+> **테스트 통과와 운영 환경의 무결함은 구분합니다.** 운영 배포 후에는 API 응답, 컨테이너 상태, 기동 로그와 DB 마이그레이션 결과를 별도로 확인합니다.
 
 ## 로컬 실행
 

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="650" viewBox="0 0 1040 650" role="img" aria-labelledby="title desc">
+  <title id="title">Memory Jar 서비스 구성</title>
+  <desc id="desc">사용자는 Vercel의 React 화면에 접속합니다. HTTPS API와 WSS 연결은 EC2의 Nginx를 거쳐 Spring Boot로 전달됩니다. Docker Compose는 Spring Boot와 MariaDB를 실행합니다. 백엔드는 S3와 외부 서비스를 연동하며 브라우저는 발급받은 Presigned URL로 S3에 직접 업로드합니다.</desc>
+  <!-- 실제 요청 경로와 실행 경계를 구분한 README 전용 구성도다. -->
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#637a73"/></marker>
+    <marker id="uploadArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#27866d"/></marker>
+    <style>
+      text{font-family:Arial,'Noto Sans KR','Malgun Gothic',sans-serif}
+      .eyebrow{font-size:14px;font-weight:700;letter-spacing:2px;fill:#27866d}
+      .heading{font-size:28px;font-weight:700;fill:#243b35}
+      .name{font-size:23px;font-weight:700;fill:#243b35}
+      .body{font-size:18px;fill:#52665f}
+      .small{font-size:16px;fill:#52665f}
+      .label{font-size:15px;font-weight:700;fill:#52665f}
+      .link{fill:none;stroke:#637a73;stroke-width:2;marker-end:url(#arrow)}
+      .upload{fill:none;stroke:#27866d;stroke-width:2;stroke-dasharray:6 5;marker-end:url(#uploadArrow)}
+    </style>
+  </defs>
+  <rect x="1" y="1" width="1038" height="648" rx="22" fill="#fff" stroke="#dce6e1"/>
+  <text x="32" y="43" class="eyebrow">MEMORY JAR / ARCHITECTURE</text>
+  <text x="32" y="83" class="heading">화면, 요청 처리, 저장소의 역할을 분리했습니다.</text>
+
+  <rect x="642" y="108" width="366" height="478" rx="18" fill="#f3f8fa" stroke="#c7dce0"/>
+  <text x="664" y="136" class="label">AWS EC2</text>
+  <rect x="654" y="261" width="342" height="313" rx="12" fill="#fff" stroke="#d5e2e5"/>
+  <text x="670" y="284" class="small">Docker Compose</text>
+
+  <rect x="32" y="148" width="210" height="120" rx="14" fill="#faf9f6" stroke="#d9d6ce"/>
+  <text x="54" y="187" class="name">사용자</text>
+  <text x="54" y="218" class="body">PC / 모바일</text>
+  <text x="54" y="244" class="small">웹 브라우저</text>
+
+  <rect x="292" y="148" width="300" height="120" rx="14" fill="#edf7f2" stroke="#a7d1bf"/>
+  <text x="314" y="176" class="label">FRONTEND / Vercel</text>
+  <text x="314" y="208" class="name">React 19</text>
+  <text x="314" y="244" class="small">화면 / 그림판 / 이미지 배치</text>
+
+  <rect x="664" y="150" width="322" height="92" rx="12" fill="#e9f3f4" stroke="#9fc8cd"/>
+  <text x="686" y="185" class="name">Nginx</text>
+  <text x="686" y="217" class="body">HTTPS / WebSocket 프록시</text>
+
+  <rect x="670" y="299" width="310" height="101" rx="12" fill="#e9f3f4" stroke="#9fc8cd"/>
+  <text x="692" y="335" class="name">Spring Boot</text>
+  <text x="692" y="367" class="small">REST API / 인증 / 실시간 메시지</text>
+  <text x="692" y="389" class="small">파일 처리 / AI 생성 조율</text>
+
+  <rect x="670" y="462" width="310" height="100" rx="12" fill="#f0f3fa" stroke="#bcc6db"/>
+  <text x="692" y="501" class="name">MariaDB 10.11</text>
+  <text x="692" y="535" class="body">추억 / 멤버 / 디자인 상태</text>
+
+  <rect x="32" y="431" width="245" height="155" rx="14" fill="#faf5eb" stroke="#ddcba8"/>
+  <text x="54" y="462" class="label">FILE STORAGE</text>
+  <text x="54" y="497" class="name">AWS S3</text>
+  <text x="54" y="530" class="body">사진 / 영상 / 디자인 파일</text>
+  <text x="54" y="561" class="small">직접 업로드 + 백엔드 연동</text>
+
+  <rect x="320" y="431" width="280" height="155" rx="14" fill="#faf5eb" stroke="#ddcba8"/>
+  <text x="342" y="462" class="label">EXTERNAL SERVICES</text>
+  <text x="342" y="497" class="small">SES — 인증메일 발송</text>
+  <text x="342" y="529" class="small">Rekognition — 이미지 심사</text>
+  <text x="342" y="561" class="small">Cloudflare Workers AI — 변환</text>
+
+  <path d="M242 201H292" class="link"/>
+  <path d="M592 201H664" class="link"/>
+  <text x="601" y="182" class="label">API / WSS</text>
+  <path d="M825 242V299" class="link"/>
+  <path d="M825 400V462" class="link"/>
+  <text x="840" y="440" class="label">JPA / JDBC</text>
+
+  <path d="M670 349H624V383H155V431" class="link"/>
+  <path d="M460 383V431" class="link"/>
+  <text x="57" y="409" class="label">파일 저장 / 조회</text>
+  <text x="477" y="409" class="label">서비스 연동</text>
+  <path d="M442 268V316H115V431" class="upload"/>
+  <rect x="142" y="299" width="255" height="31" rx="6" fill="#fff"/>
+  <text x="154" y="321" class="label">Presigned URL로 직접 업로드</text>
+
+  <path d="M32 617H67" stroke="#637a73" stroke-width="2"/>
+  <text x="78" y="623" class="small">요청 / 서비스 연동</text>
+  <path d="M294 617H329" stroke="#27866d" stroke-width="2" stroke-dasharray="6 5"/>
+  <text x="340" y="623" class="small">브라우저 직접 업로드</text>
+  <text x="670" y="623" class="small">실시간 전달: 단일 인스턴스 Simple Broker</text>
+</svg>

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="580" viewBox="0 0 1040 580" role="img" aria-labelledby="title desc">
+  <title id="title">백엔드 테스트부터 운영 배포까지</title>
+  <desc id="desc">main push 후 GitHub Actions에서 백엔드를 테스트하고, 통과하면 Docker 다단계 이미지 빌드와 GHCR 게시를 수행합니다. Publish 워크플로 성공 시 EC2의 self-hosted runner가 Compose 이미지를 가져와 컨테이너를 갱신합니다. 테스트나 게시 실패 시 후속 배포는 실행하지 않습니다. 운영 기동 확인은 별도입니다.</desc>
+  <!-- 자동화된 세 단계와 아직 별도로 확인하는 운영 점검을 구분한다. -->
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#637a73"/></marker>
+    <style>
+      text{font-family:Arial,'Noto Sans KR','Malgun Gothic',sans-serif}
+      .eyebrow{font-size:14px;font-weight:700;letter-spacing:2px;fill:#27866d}
+      .heading{font-size:28px;font-weight:700;fill:#243b35}
+      .name{font-size:24px;font-weight:700;fill:#243b35}
+      .body{font-size:18px;fill:#52665f}
+      .small{font-size:16px;fill:#52665f}
+      .code{font-family:Consolas,monospace;font-size:17px;fill:#344f45}
+      .label{font-size:15px;font-weight:700;fill:#52665f}
+    </style>
+  </defs>
+  <rect x="1" y="1" width="1038" height="578" rx="22" fill="#fff" stroke="#dce6e1"/>
+  <text x="32" y="43" class="eyebrow">MEMORY JAR / BACKEND DELIVERY</text>
+  <text x="32" y="83" class="heading">검증을 통과한 변경을 이미지로 게시하고 운영에 반영합니다.</text>
+
+  <rect x="32" y="126" width="290" height="282" rx="16" fill="#edf7f2" stroke="#a7d1bf"/>
+  <circle cx="62" cy="160" r="17" fill="#27866d"/>
+  <text x="62" y="166" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">1</text>
+  <text x="90" y="167" class="name">테스트</text>
+  <text x="54" y="202" class="label">GitHub Actions / Ubuntu</text>
+  <path d="M54 221H300" stroke="#c7dfd2"/>
+  <text x="54" y="251" class="body">main push → 소스 가져오기</text>
+  <text x="54" y="283" class="body">Java 17 / Gradle 준비</text>
+  <rect x="52" y="305" width="250" height="42" rx="8" fill="#fff"/>
+  <text x="66" y="332" class="code">./gradlew test</text>
+  <text x="54" y="379" class="small">test 프로필 / JUnit / 시험용 DB</text>
+
+  <rect x="375" y="126" width="290" height="282" rx="16" fill="#edf5f7" stroke="#aacdd4"/>
+  <circle cx="405" cy="160" r="17" fill="#327f84"/>
+  <text x="405" y="166" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">2</text>
+  <text x="433" y="167" class="name">이미지 게시</text>
+  <text x="397" y="202" class="label">Docker Buildx / GHCR</text>
+  <path d="M397 221H643" stroke="#c8dfe3"/>
+  <text x="397" y="251" class="body">JDK 17에서 bootJar 빌드</text>
+  <text x="397" y="283" class="body">JRE 17에 JAR만 복사</text>
+  <rect x="395" y="305" width="250" height="42" rx="8" fill="#fff"/>
+  <text x="409" y="332" class="code">GHCR → :latest</text>
+  <text x="397" y="379" class="small">빌드 환경과 실행 환경 분리</text>
+
+  <rect x="718" y="126" width="290" height="282" rx="16" fill="#faf5eb" stroke="#ddcba8"/>
+  <circle cx="748" cy="160" r="17" fill="#9e8051"/>
+  <text x="748" y="166" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">3</text>
+  <text x="776" y="167" class="name">운영 반영</text>
+  <text x="740" y="202" class="label">EC2 / self-hosted runner</text>
+  <path d="M740 221H986" stroke="#e5d8bd"/>
+  <text x="740" y="251" class="body">Publish 성공 이벤트 수신</text>
+  <text x="740" y="285" class="code">docker compose pull</text>
+  <rect x="738" y="305" width="250" height="42" rx="8" fill="#fff"/>
+  <text x="752" y="332" class="code">docker compose up -d</text>
+  <text x="740" y="379" class="small">미사용 dangling 이미지 정리</text>
+
+  <path d="M322 267H375" fill="none" stroke="#637a73" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="349" y="249" text-anchor="middle" class="label">통과</text>
+  <path d="M665 267H718" fill="none" stroke="#637a73" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="692" y="249" text-anchor="middle" class="label">성공</text>
+
+  <rect x="32" y="440" width="976" height="52" rx="10" fill="#fcf3f1" stroke="#ebd1cc"/>
+  <text x="54" y="473" font-size="18" font-weight="700" fill="#875348">실패 시 중단</text>
+  <text x="215" y="473" class="body">테스트 또는 이미지 게시 실패 시, 후속 게시/운영 갱신을 실행하지 않습니다.</text>
+  <text x="32" y="528" class="label">운영 확인은 별도</text>
+  <text x="195" y="528" class="body">API 응답 / 컨테이너 상태 / 기동 로그 / Flyway 적용 결과</text>
+  <text x="32" y="558" class="small">프론트는 Vercel에 별도 배포합니다. 자동 건강 검사, 무중단 전환, 자동 롤백은 현재 구현 범위가 아닙니다.</text>
+</svg>
