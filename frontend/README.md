@@ -1,70 +1,40 @@
-# Getting Started with Create React App
+# Memory Jar — Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React 19 · Vite 8 · Tailwind CSS 4 기반의 반응형 웹 UI입니다.
+서비스 소개·설계·백엔드 설정·검증 결과는 [프로젝트 README](../README.md)를 확인합니다.
 
-## Available Scripts
+## 개발 서버
 
-In the project directory, you can run:
+Node.js 22.12 이상과 npm을 준비합니다. 명령은 `frontend`에서 실행합니다.
+백엔드는 별도로 구동해야 하며, API·WebSocket 주소를 프론트와 같은 로컬 호스트 기준으로 설정합니다.
 
-### `npm start`
+```powershell
+npm ci
+$env:VITE_API_BASE_URL = 'http://localhost:8080'
+$env:VITE_WS_BASE_URL = 'ws://localhost:8080/ws'
+npm run dev
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- 주소: `http://localhost:3000`. 포트가 사용 중이면 `strictPort` 설정에 따라 시작하지 않습니다.
+- 환경변수 대신 개인 `.env.local`을 사용할 수도 있습니다. 비밀값은 프론트 환경변수에 넣지 않습니다. `VITE_` 값은 브라우저에 공개됩니다.
+- 소셜 로그인·쿠키·CORS 설정은 [루트 실행 안내](../README.md#로컬-실행)를 함께 확인합니다.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 빌드와 미리보기
 
-### `npm test`
+```powershell
+npm run build
+npm run preview
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+출력 폴더는 `dist`입니다. 미리보기 주소는 터미널 출력으로 확인합니다.
+`npm start`, `npm test`, `npm run eject`는 현재 `package.json`에 정의되어 있지 않습니다.
 
-### `npm run build`
+## 유틸리티 테스트
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```powershell
+$testFiles = @(Get-ChildItem src -Recurse -Filter '*.test.mjs' | ForEach-Object { $_.FullName })
+node --test $testFiles
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Linux·macOS에서는 `node --test src/features/jarDesign/*.test.mjs src/features/jarDetail/utils/*.test.mjs`을 사용합니다.
+브라우저 회귀·디자인 미리보기 파일은 `tests`에 있습니다. Playwright 모듈·Chrome 등 별도 실행 조건과 검증 범위는 [루트 README](../README.md#테스트와-검증)에 설명합니다.
