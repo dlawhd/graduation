@@ -6,6 +6,8 @@ import {
   ONBOARDING_TUTORIAL_KEY,
 } from "../api/onboardingApi";
 import { getChatUnreadCount } from "../api/chatApi";
+import { getCommentPage } from "../api/noteApi";
+import { mergeCommentPages } from "../features/jarDetail/utils/commentPaging.mjs";
 import NoteSection from "./NoteSection";
 import InfoItem from "../features/jarDetail/components/InfoItem";
 import JarRoleGuide from "../features/jarDetail/components/JarRoleGuide";
@@ -36,7 +38,6 @@ import {
 import { measureJarDropTarget } from "../features/jarDetail/utils/noteFlightGeometry.mjs";
 import {
   normalizeCommentItems,
-  getTotalCommentCount,
   normalizeCommentContent,
   findCommentPath,
   normalizeJarZoomNotes,
@@ -325,6 +326,9 @@ export default function JarDetailPage() {
 
   // 현재 상세 모달에서 보고 있는 댓글 목록
   const [jarZoomComments, setJarZoomComments] = useState([]);
+  const commentPageRef = useRef({ noteId: null, rows: [], pages: 1, cursor: 0, focusId: null });
+  const commentRequestRef = useRef(0);
+  const [commentPageInfo, setCommentPageInfo] = useState({ hasMore: false, totalCount: 0 });
 
   // 댓글 로딩 / 에러
   const [jarZoomCommentsLoading, setJarZoomCommentsLoading] = useState(false);
@@ -2621,23 +2625,42 @@ async function loadJarZoomNotes(options = {}) {
   }
 }
 
-async function loadJarZoomComments(noteId) {
+async function loadJarZoomComments(noteId, options = {}) {
   if (!noteId) return [];
-
+  if (commentPageRef.current.noteId !== Number(noteId)) return [];
+  if (options.append && jarZoomCommentsLoading) return jarZoomComments;
+  const revision = ++commentRequestRef.current;
+  const cached = commentPageRef.current.noteId === Number(noteId) ? commentPageRef.current
+    : { noteId: Number(noteId), rows: [], pages: 1, cursor: 0, focusId: null };
+  const focusId = options.focusId ?? cached.focusId;
   setJarZoomCommentsLoading(true);
   setJarZoomCommentsError("");
 
   try {
-    const res = await apiClient.get(
-      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
-    );
-
-    const items = normalizeCommentItems(res.data?.data);
+    let rows = options.append ? cached.rows : [];
+    let cursor = options.append ? cached.cursor : 0;
+    let response;
+    let pages = options.append ? cached.pages : 0;
+    // 기본은 30개만 읽는다. 실시간 갱신 시에는 사용자가 이미 펼친 페이지 수만 유지한다.
+    const requests = options.append ? 1 : Math.max(1, cached.pages);
+    for (let index = 0; index < requests; index++) {
+      response = await getCommentPage(jarId, noteId, { cursor, size: 30, focusId: !options.append && index === 0 ? focusId : null });
+      if (revision !== commentRequestRef.current) return [];
+      rows = mergeCommentPages(rows, response?.items || []);
+      cursor = response?.nextCursor ?? cursor;
+      pages++;
+      if (!response?.hasMore) break;
+    }
+    commentPageRef.current = { noteId: Number(noteId), rows, pages, cursor, focusId };
+    const items = normalizeCommentItems({ flat: true, items: rows });
     setJarZoomComments(items);
+    setCommentPageInfo({ hasMore: !!response?.hasMore, totalCount: response?.totalCount ?? rows.length });
+    patchCommentCountEverywhere(noteId, response?.totalCount ?? rows.length);
 
     // WebSocket 이벤트 처리 쪽에서 댓글 개수 계산할 수 있게 반환
     return items;
   } catch (e) {
+    if (revision !== commentRequestRef.current) return [];
     const serverMessage =
       e?.response?.data?.error?.message ||
       e?.response?.data?.message ||
@@ -2645,11 +2668,12 @@ async function loadJarZoomComments(noteId) {
       "댓글을 불러오지 못했어요.";
 
     setJarZoomCommentsError(serverMessage);
-    setJarZoomComments([]);
+    // 더 읽기에 실패해도 이미 읽은 댓글은 보존한다.
+    if (!options.append) setJarZoomComments([]);
 
     return [];
   } finally {
-    setJarZoomCommentsLoading(false);
+    if (revision === commentRequestRef.current) setJarZoomCommentsLoading(false);
   }
 }
 
@@ -2672,6 +2696,8 @@ async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
   setJarZoomDetailNote(null);
 
   // 댓글 관련 상태도 초기화
+  commentPageRef.current = { noteId: Number(noteId), rows: [], pages: 1, cursor: 0, focusId: focusCommentId };
+  setCommentPageInfo({ hasMore: false, totalCount: 0 });
   setJarZoomComments([]);
   setJarZoomCommentsError("");
   setCommentDraft("");
@@ -2683,13 +2709,13 @@ async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
   setReplyExpandedMap({});
 
   try {
-    const [noteRes, commentRes] = await Promise.all([
+    const [noteRes] = await Promise.all([
       apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}`),
-      apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}/comments`),
+      loadJarZoomComments(noteId, { focusId: focusCommentId }),
     ]);
 
     setJarZoomDetailNote(noteRes.data?.data || null);
-    setJarZoomComments(normalizeCommentItems(commentRes.data?.data));
+    // 댓글은 독립적인 로딩/오류 상태와 페이지 정보를 loadJarZoomComments에서 반영한다.
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -2705,6 +2731,8 @@ async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
 }
 
 function handleCloseJarZoomNoteDetail() {
+  commentRequestRef.current++;
+  commentPageRef.current = { noteId: null, rows: [], pages: 1, cursor: 0, focusId: null };
   setJarZoomDetailOpen(false);
   setJarZoomDetailNoteId(null);
   setJarZoomDetailNote(null);
@@ -2964,8 +2992,8 @@ async function handleCreateReply(parentCommentId) {
 
     const createdCommentId = createRes.data?.data?.commentId;
 
-    // 댓글 전체를 다시 불러온다.
-    const refreshedComments = await loadJarZoomComments(noteId);
+    // 새 답글과 조상 경로만 추가로 포함하고 이미 읽은 페이지를 갱신한다.
+    const refreshedComments = await loadJarZoomComments(noteId, { focusId: createdCommentId });
 
     // 새로 만든 답글이 댓글 트리 어디에 있는지 찾는다.
     const createdPath = findCommentPath(refreshedComments, createdCommentId);
@@ -3007,7 +3035,7 @@ async function handleCreateReply(parentCommentId) {
     }));
 
     // 총 댓글 수 다시 계산
-    patchCommentCountEverywhere(noteId, getTotalCommentCount(refreshedComments));
+    // 전체 수는 페이지 응답의 totalCount를 사용한다. 읽은 댓글 수와 혼동하지 않는다.
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -3037,19 +3065,13 @@ async function handleCreateComment() {
   try {
     await fetchCsrf();
 
-    await apiClient.post(
+    const created = await apiClient.post(
       `/api/v1/jars/${jarId}/notes/${noteId}/comments`,
       { content }
     );
 
-    const commentRes = await apiClient.get(
-      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
-    );
-    const items = normalizeCommentItems(commentRes.data?.data);
-
-    setJarZoomComments(items);
+    await loadJarZoomComments(noteId, { focusId: created.data?.data?.commentId });
     setCommentDraft("");
-    patchCommentCountEverywhere(noteId, getTotalCommentCount(items));
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -3084,15 +3106,9 @@ async function handleUpdateComment(commentId) {
       { content }
     );
 
-    const commentRes = await apiClient.get(
-      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
-    );
-    const items = normalizeCommentItems(commentRes.data?.data);
-
-    setJarZoomComments(items);
+    await loadJarZoomComments(noteId, { focusId: commentId });
     setEditingCommentId(null);
     setEditingContent("");
-    patchCommentCountEverywhere(noteId, getTotalCommentCount(items));
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -3123,13 +3139,7 @@ async function handleDeleteComment(commentId) {
       `/api/v1/jars/${jarId}/notes/${noteId}/comments/${commentId}`
     );
 
-    const commentRes = await apiClient.get(
-      `/api/v1/jars/${jarId}/notes/${noteId}/comments`
-    );
-    const items = normalizeCommentItems(commentRes.data?.data);
-
-    setJarZoomComments(items);
-    patchCommentCountEverywhere(noteId, getTotalCommentCount(items));
+    await loadJarZoomComments(noteId);
 
     if (editingCommentId === commentId) {
       setEditingCommentId(null);
@@ -4410,6 +4420,8 @@ async function handleViewOpenedJarNotes() {
           onReact={(emoji) => handleReactInJarZoomDetail(jarZoomDetailNoteId, emoji)}
 
           comments={jarZoomComments}
+          commentPageInfo={commentPageInfo}
+          onLoadMoreComments={() => loadJarZoomComments(jarZoomDetailNoteId, { append: true })}
           commentsLoading={jarZoomCommentsLoading}
           commentsError={jarZoomCommentsError}
           currentUserId={me?.userId}

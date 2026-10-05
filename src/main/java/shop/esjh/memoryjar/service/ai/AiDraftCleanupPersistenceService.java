@@ -117,6 +117,31 @@ public class AiDraftCleanupPersistenceService {
         return true;
     }
 
+    /** 실패 후에도 보존된 업로드 예약 키를 읽어 삭제 재시도 대상을 찾는다. */
+    @Transactional(readOnly = true)
+    public List<JarAiGenerationRepository.FailedCandidateReference> findFailedCandidateReferences(
+            LocalDateTime cutoff, int batchSize) {
+        return generationRepository.findFailedCandidateCleanupReferences(cutoff,
+                org.springframework.data.domain.PageRequest.of(0, batchSize));
+    }
+
+    /** 삭제 직전 FAILED와 예약 키를 재검증한다. FAILED 상태는 다시 성공으로 바뀌지 않는다. */
+    @Transactional(readOnly = true)
+    public boolean canDeleteFailedCandidate(Long draftId, Long generationId, String key) {
+        return generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
+                .filter(g -> g.getStatus() == JarAiGenerationStatus.FAILED && g.getCandidateCleanupAt() == null
+                        && key.equals(g.getCandidateUploadS3Key())).isPresent();
+    }
+
+    @Transactional
+    public void markFailedCandidateDeleted(Long draftId, Long generationId, String key, LocalDateTime now) {
+        draftRepository.findByDraftIdForUpdate(draftId).orElseThrow();
+        generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
+                .filter(g -> g.getStatus() == JarAiGenerationStatus.FAILED && g.getCandidateCleanupAt() == null
+                        && key.equals(g.getCandidateUploadS3Key()))
+                .ifPresent(g -> g.markFailedCandidateCleaned(now));
+    }
+
     /** stale 후보의 DB ID와 소유 Draft 정보만 담아 S3 Key를 안전하게 재구성한다. */
     public record GenerationCleanupTarget(Long ownerId, Long draftId, Long generationId) {
     }

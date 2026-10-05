@@ -73,6 +73,11 @@ public class NoteService {
             NoteCreateRequest request
     ) {
 
+        // Controller 검증을 통하지 않는 내부 호출에서도 새 쪽지의 본문 제한을 지킨다.
+        if (request.content() != null && request.content().length() > 300) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "쪽지 본문은 300자까지 입력할 수 있어.");
+        }
+
         // 1. 현재 사용자 찾기
         User currentUser = getUserOrThrow(currentUserId);
 

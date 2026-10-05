@@ -92,6 +92,15 @@ class JarServiceTest {
         );
     }
 
+    private void arrangeOpenPolicy(Jar jar) {
+        org.mockito.Mockito.lenient().when(jarRepository.findOpenPolicy(jar.getJarId()))
+                .thenReturn(Optional.of(new JarRepository.OpenPolicyView() {
+                    public LocalDateTime getOpenAt() { return jar.getOpenAt(); }
+                    public JarOpenMode getOpenMode() { return jar.getOpenMode(); }
+                    public JarLockLevel getLockLevel() { return jar.getLockLevel(); }
+                }));
+    }
+
     @Test
     void createJar는_저금통과_OWNER멤버를_함께_생성한다() {
         // given
@@ -860,8 +869,9 @@ class JarServiceTest {
 
         when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
-        when(jarRepository.findByJarId(10L))
+        when(jarRepository.findByJarIdForUpdate(10L))
                 .thenReturn(Optional.of(jar));
+        arrangeOpenPolicy(jar);
         when(jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(10L))
                 .thenReturn(2L);
         when(jarRepository.save(any(Jar.class)))
@@ -871,6 +881,10 @@ class JarServiceTest {
         JarUpdateResponse response = jarService.updateJar(1L, 10L, request);
 
         // then
+        // REQUIRES_NEW 자동 오픈 보정이 외부 Jar 잠금보다 먼저 끝나야 자기 자신을 기다리지 않는다.
+        var lockOrder = org.mockito.Mockito.inOrder(jarOpenService, jarRepository);
+        lockOrder.verify(jarOpenService).ensureOpenedIfDue(10L);
+        lockOrder.verify(jarRepository).findByJarIdForUpdate(10L);
         assertThat(jar.getName()).isEqualTo("우리 저금통(수정)");
         assertThat(jar.getDescription()).isEqualTo("설명 바꿈");
         assertThat(jar.getTheme()).isEqualTo(JarTheme.WINTER);
@@ -941,8 +955,9 @@ class JarServiceTest {
                         .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)
         ).thenReturn(Optional.of(ownerMember));
 
-        when(jarRepository.findByJarId(10L))
+        when(jarRepository.findByJarIdForUpdate(10L))
                 .thenReturn(Optional.of(jar));
+        arrangeOpenPolicy(jar);
 
         when(
                 jarMemberRepository
@@ -1030,8 +1045,9 @@ class JarServiceTest {
                         .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)
         ).thenReturn(Optional.of(ownerMember));
 
-        when(jarRepository.findByJarId(10L))
+        when(jarRepository.findByJarIdForUpdate(10L))
                 .thenReturn(Optional.of(jar));
+        arrangeOpenPolicy(jar);
 
         /*
          * 이미 열린 저금통이라고 가정한다.
@@ -1085,8 +1101,9 @@ class JarServiceTest {
 
         when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
-        when(jarRepository.findByJarId(10L))
+        when(jarRepository.findByJarIdForUpdate(10L))
                 .thenReturn(Optional.of(jar));
+        arrangeOpenPolicy(jar);
         when(jarMemberRepository.countByJar_JarIdAndDeletedAtIsNull(10L))
                 .thenReturn(3L);
 

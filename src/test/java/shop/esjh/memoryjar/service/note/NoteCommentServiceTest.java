@@ -111,7 +111,7 @@ class NoteCommentServiceTest {
         ).thenReturn(true);
 
         // 요청한 쪽지가 현재 저금통에 존재하는 상황
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId))
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId))
                 .thenReturn(Optional.of(note));
 
         /*
@@ -297,7 +297,7 @@ class NoteCommentServiceTest {
                         )
         ).thenReturn(true);
 
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId))
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId))
                 .thenReturn(Optional.of(note));
 
         /*
@@ -487,7 +487,7 @@ class NoteCommentServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
         when(noteCommentRepository.findByCommentIdAndNote_NoteId(commentId, noteId)).thenReturn(Optional.of(comment));
 
         ResponseStatusException exception = catchThrowableOfType(
@@ -535,7 +535,7 @@ class NoteCommentServiceTest {
                         )
         ).thenReturn(true);
 
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId))
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId))
                 .thenReturn(Optional.of(note));
 
         when(
@@ -549,12 +549,7 @@ class NoteCommentServiceTest {
         /*
          * 삭제하려는 댓글 아래에 답글이 없는 상황이다.
          */
-        when(
-                noteCommentRepository
-                        .findByParentComment_CommentIdOrderByCreatedAtAscCommentIdAsc(
-                                commentId
-                        )
-        ).thenReturn(List.of());
+        when(noteCommentRepository.findChildIds(List.of(commentId))).thenReturn(List.of());
 
         /*
          * 댓글 삭제 후 남아 있는 댓글 개수가 0개라고 가정한다.
@@ -575,7 +570,7 @@ class NoteCommentServiceTest {
          * 실제 삭제 메서드가 호출됐는지 확인한다.
          */
         verify(noteCommentRepository)
-                .delete(comment);
+                .softDeleteIds(org.mockito.ArgumentMatchers.eq(List.of(commentId)), org.mockito.ArgumentMatchers.any());
 
         /*
          * 삭제 내용을 반영한 뒤 최신 댓글 개수를
@@ -639,6 +634,107 @@ class NoteCommentServiceTest {
         verify(noteCommentRepository).countCommentsByNoteIds(List.of(10L, 11L));
         verify(noteCommentRepository, never()).countByNote_NoteId(10L);
         verify(noteCommentRepository, never()).countByNote_NoteId(11L);
+    }
+
+    @Test
+    @DisplayName("댓글 페이지는 30개와 다음 커서, 전체 수를 구분한다")
+    void getCommentPageReturnsFlatBoundedRowsWithoutWholeTreeRead() {
+        var user = createUser(1L, "작성자");
+        var jar = createJar(10L);
+        var note = createNote(100L, jar, user);
+        arrangePageAccess(user, jar, note);
+        var rows = java.util.stream.LongStream.rangeClosed(1, 31)
+                .mapToObj(id -> createComment(id, note, user, "본문")).toList();
+        when(noteCommentRepository.findPageAfter(eq(100L), eq(0L), any())).thenReturn(rows);
+        when(noteCommentRepository.countByNote_NoteId(100L)).thenReturn(200L);
+
+        var page = noteCommentService.getCommentPage(1L, 10L, 100L, 0L, 30, null);
+
+        assertThat(page.items()).hasSize(30).allSatisfy(item -> assertThat(item.replies()).isEmpty());
+        assertThat(page.nextCursor()).isEqualTo(30L);
+        assertThat(page.totalCount()).isEqualTo(200L);
+        assertThat(page.hasMore()).isTrue();
+        var pageable = ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        verify(noteCommentRepository).findPageAfter(eq(100L), eq(0L), pageable.capture());
+        assertThat(pageable.getValue().getPageSize()).isEqualTo(31);
+        verify(noteCommentRepository, never()).findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(any());
+        verify(noteCommentRepository, never()).findCommentLinks(any());
+    }
+
+    @Test
+    @DisplayName("후반 답글의 조상 경로를 추가해도 커서는 앞 페이지에 남는다")
+    void getCommentPageFocusDoesNotSkipUnloadedComments() {
+        var user = createUser(1L, "작성자");
+        var jar = createJar(10L);
+        var note = createNote(100L, jar, user);
+        arrangePageAccess(user, jar, note);
+        var rows = java.util.stream.LongStream.rangeClosed(1, 31)
+                .mapToObj(id -> createComment(id, note, user, "본문")).toList();
+        var root = rows.get(9);
+        var parent = createReply(99L, note, user, "부모 답글", root);
+        var focus = createReply(101L, note, user, "대상 답글", parent);
+        when(noteCommentRepository.findPageAfter(eq(100L), eq(0L), any())).thenReturn(rows);
+        when(noteCommentRepository.findCommentLinks(100L)).thenReturn(List.of(
+                commentLink(10L, null), commentLink(99L, 10L), commentLink(101L, 99L)));
+        when(noteCommentRepository.findPathItems(eq(100L), any())).thenReturn(List.of(root, parent, focus));
+        when(noteCommentRepository.countByNote_NoteId(100L)).thenReturn(100L);
+
+        var page = noteCommentService.getCommentPage(1L, 10L, 100L, 0L, 30, 101L);
+
+        assertThat(page.items()).hasSize(32);
+        assertThat(page.items().get(31).commentId()).isEqualTo(101L);
+        assertThat(page.nextCursor()).isEqualTo(30L);
+        assertThat(page.hasMore()).isTrue();
+    }
+
+    @Test
+    void getCommentPageRejectsInvalidRangeBeforeReadingRepositories() {
+        assertThat(catchThrowableOfType(
+                () -> noteCommentService.getCommentPage(1L, 10L, 100L, -1L, 30, null),
+                ResponseStatusException.class).getStatusCode().value()).isEqualTo(400);
+        assertThat(catchThrowableOfType(
+                () -> noteCommentService.getCommentPage(1L, 10L, 100L, 0L, 101, null),
+                ResponseStatusException.class).getStatusCode().value()).isEqualTo(400);
+        org.mockito.Mockito.verifyNoInteractions(noteCommentRepository, noteRepository, userRepository);
+    }
+
+    @Test
+    @DisplayName("1100단계 답글도 재귀 호출 없이 ID로 삭제한다")
+    void deepReplyDeletionDoesNotUseEntityRecursion() {
+        var user = createUser(1L, "작성자");
+        var jar = createJar(10L);
+        var note = createNote(100L, jar, user);
+        var root = createComment(1L, note, user, "본문");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(10L, 100L)).thenReturn(Optional.of(note));
+        when(noteCommentRepository.findByCommentIdAndNote_NoteId(1L, 100L)).thenReturn(Optional.of(root));
+        when(noteCommentRepository.findChildIds(any())).thenAnswer(invocation -> {
+            List<Long> ids = invocation.getArgument(0);
+            long id = ids.get(0);
+            return id < 1100 ? List.of(id + 1) : List.of();
+        });
+
+        noteCommentService.deleteComment(1L, 10L, 100L, 1L);
+
+        verify(noteCommentRepository, org.mockito.Mockito.times(1100)).softDeleteIds(any(), any());
+        verify(noteCommentRepository, never()).delete(any());
+        verify(noteCommentRepository, never()).findByParentComment_CommentIdOrderByCreatedAtAscCommentIdAsc(any());
+    }
+
+    private void arrangePageAccess(User user, Jar jar, Note note) {
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(jarRepository.findByJarId(jar.getJarId())).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jar.getJarId(), user.getId())).thenReturn(true);
+        when(noteRepository.findByJarIdAndNoteId(jar.getJarId(), note.getNoteId())).thenReturn(Optional.of(note));
+    }
+
+    private NoteCommentRepository.CommentLink commentLink(Long id, Long parentId) {
+        return new NoteCommentRepository.CommentLink() {
+            public Long getId() { return id; }
+            public Long getParentId() { return parentId; }
+        };
     }
 
     private User createUser(Long id, String name) {

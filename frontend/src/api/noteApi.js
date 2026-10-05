@@ -45,6 +45,13 @@ function cleanParams(params = {}) {
   return result;
 }
 
+/** 작은 댓글 페이지와 선택적인 알림 대상 경로만 읽어 깊은 답글도 전체 본문 조회 없이 보여준다. */
+export async function getCommentPage(jarId, noteId, params = {}) {
+  return extractData(await apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}/comments/page`, {
+    params: cleanParams(params),
+  }));
+}
+
 /**
  * 쪽지 목록 조회
  *
@@ -150,6 +157,7 @@ export async function getNoteReactionSummary(jarId, noteId) {
  * 한 곳에서 가져다 쓰기 쉽게 묶어서 export
  */
 const noteApi = {
+  getCommentPage,
   getNotes,
   getNoteDetail,
   createNote,

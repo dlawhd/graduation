@@ -94,6 +94,7 @@ public class JarAiGenerationService {
         long processStartedAtNanos = System.nanoTime();
         String generatedS3Key = null;
         boolean completed = false;
+        boolean uploadFinished = false;
         String outcome = "INTERNAL_ERROR";
 
         try {
@@ -145,9 +146,15 @@ public class JarAiGenerationService {
             }
 
             generatedS3Key = s3KeyFactory.candidateKey(target.ownerId(), target.draftId(), target.generationId());
+            // 파일을 쓰기 전에 정리 기록부터 커밋한다. 프로세스가 종료돼도 키를 잃지 않는다.
+            if (!persistenceService.reserveCandidateUpload(target.draftId(), target.generationId(), generatedS3Key)) {
+                outcome = "STALE";
+                return;
+            }
             stageStartedAtNanos = System.nanoTime();
             try {
                 putCandidate(generatedS3Key, finalCandidate);
+                uploadFinished = true;
             } finally {
                 timings.s3PutMs = elapsedMillis(stageStartedAtNanos);
             }
@@ -189,9 +196,17 @@ public class JarAiGenerationService {
             outcome = recordFailure(target, style, JarAiGenerationErrorCode.INTERNAL_ERROR,
                     "AI 후보 생성 중 내부 오류가 발생했습니다.");
         } finally {
-            // 업로드 뒤 stale/종료 상태가 확인되면 DB에는 Key를 남기지 않고 객체만 즉시 보상 삭제한다.
-            if (generatedS3Key != null && !completed) {
-                deleteUncommittedCandidate(generatedS3Key);
+            // 업로드 뒤 stale/종료 상태가 확인되면 예약 기록으로 삭제를 추적한다. 성공 후보는 보호한다.
+            if (generatedS3Key != null && uploadFinished && !completed) {
+                try {
+                    if (persistenceService.canCleanupFailedCandidate(target.draftId(), target.generationId(), generatedS3Key)) {
+                        deleteUncommittedCandidate(generatedS3Key);
+                        persistenceService.markFailedCandidateCleaned(target.draftId(), target.generationId(), generatedS3Key);
+                    }
+                } catch (RuntimeException cleanupFailure) {
+                    // 원래 생성 결과는 유지하며 다음 스케줄러가 DB 예약 기록으로 재시도한다.
+                    log.warn("AI 후보 보상 정리를 재시도합니다. generationId={}", target.generationId());
+                }
             }
             logTiming(task, processStartedAtNanos, timings, outcome);
         }
@@ -290,8 +305,9 @@ public class JarAiGenerationService {
                     .bucket(s3Properties.getBucket())
                     .key(s3Key)
                     .build());
-        } catch (S3Exception | SdkClientException ignored) {
+        } catch (S3Exception | SdkClientException exception) {
             // 실패한 보상 삭제는 다음 stale/cleanup 단계에서 다시 점검할 대상이다.
+            throw exception;
         }
     }
 

@@ -1,12 +1,16 @@
 package shop.esjh.memoryjar.repository.note;
 
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import shop.esjh.memoryjar.entity.note.NoteComment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface NoteCommentRepository extends JpaRepository<NoteComment, Long> {
 
@@ -14,7 +18,39 @@ public interface NoteCommentRepository extends JpaRepository<NoteComment, Long> 
     Optional<NoteComment> findByCommentId(Long commentId);
 
     // 특정 쪽지(noteId)에 달린 댓글 목록을 오래된 순서대로 가져오는 메서드
+    @EntityGraph(attributePaths = "user")
     List<NoteComment> findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(Long noteId);
+
+    // 작성자만 함께 읽는다. 컬렉션 fetch join을 하지 않아 DB LIMIT가 실제로 적용된다.
+    @Query("""
+            select c from NoteComment c join fetch c.user
+            where c.note.noteId = :noteId and c.commentId > :cursor order by c.commentId asc
+            """)
+    List<NoteComment> findPageAfter(@Param("noteId") Long noteId, @Param("cursor") Long cursor,
+                                   Pageable pageable);
+
+    // 알림 대상의 조상 경로만 찾기 위한 가벼운 관계 정보다. 본문과 작성자는 가져오지 않는다.
+    @Query("select c.commentId as id, c.parentComment.commentId as parentId from NoteComment c where c.note.noteId = :noteId")
+    List<CommentLink> findCommentLinks(@Param("noteId") Long noteId);
+
+    @Query("select c from NoteComment c join fetch c.user where c.note.noteId = :noteId and c.commentId in :ids")
+    List<NoteComment> findPathItems(@Param("noteId") Long noteId, @Param("ids") List<Long> ids);
+
+    interface CommentLink {
+        Long getId();
+        Long getParentId();
+    }
+
+    // 삭제할 하위 댓글은 본문·작성자를 읽지 않고 ID만 작은 묶음으로 탐색한다.
+    @Query("select c.commentId from NoteComment c where c.parentComment.commentId in :parents")
+    List<Long> findChildIds(@Param("parents") List<Long> parents);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            update NoteComment c set c.deletedAt = :now, c.updatedAt = :now
+            where c.commentId in :ids and c.deletedAt is null
+            """)
+    int softDeleteIds(@Param("ids") List<Long> ids, @Param("now") LocalDateTime now);
 
     // 특정 저금통의 특정 쪽지 안에, 특정 댓글이 실제로 속해 있는지 안전하게 확인할 때 쓰는 메서드
     Optional<NoteComment> findByCommentIdAndNote_NoteId(Long commentId, Long noteId);

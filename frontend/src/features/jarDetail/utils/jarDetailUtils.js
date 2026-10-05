@@ -16,6 +16,8 @@
  *
  * 백엔드 응답이 userId일 수도 있고 id일 수도 있으니 둘 다 대응해.
  */
+import { buildCommentTree, countCommentTree, commentPath } from "./commentPaging.mjs";
+
 export function getCurrentUserIdFromMe(me) {
   const value = me?.userId ?? me?.id;
 
@@ -66,7 +68,7 @@ export function normalizeCommentItems(payload) {
     ? payload.items
     : [];
 
-  return rawItems.map(normalizeCommentNode);
+  return payload?.flat ? buildCommentTree(rawItems) : rawItems.map(normalizeCommentNode);
 }
 
 /*
@@ -76,9 +78,7 @@ export function normalizeCommentItems(payload) {
 export function getTotalCommentCount(comments) {
   if (!Array.isArray(comments) || comments.length === 0) return 0;
 
-  return comments.reduce((total, comment) => {
-    return total + 1 + getTotalCommentCount(comment.replies || []);
-  }, 0);
+  return countCommentTree(comments);
 }
 
 // 댓글 내용을 안전하게 정리하는 함수
@@ -92,26 +92,7 @@ export function normalizeCommentContent(value) {
 export function findCommentPath(comments, targetCommentId, parents = []) {
   if (!Array.isArray(comments) || !targetCommentId) return null;
 
-  for (const comment of comments) {
-    const currentId = Number(comment?.commentId);
-    const nextPath = [...parents, currentId];
-
-    if (currentId === Number(targetCommentId)) {
-      return nextPath;
-    }
-
-    const childPath = findCommentPath(
-      Array.isArray(comment?.replies) ? comment.replies : [],
-      targetCommentId,
-      nextPath
-    );
-
-    if (childPath) {
-      return childPath;
-    }
-  }
-
-  return null;
+  return commentPath(comments, targetCommentId, parents);
 }
 
 // 쪽지 목록 응답이 배열일 수도 있고, items 형태일 수도 있어서 맞춰주는 함수

@@ -68,6 +68,23 @@ public interface JarAiGenerationRepository extends JpaRepository<JarAiGeneration
         Long getDraftId();
     }
 
+    // FAILED의 업로드 예약만 조회한다. 성공 후보와 영구 이미지는 이 정리 대상에 포함하지 않는다.
+    @Query("""
+            select g.generationId as generationId, g.draft.draftId as draftId,
+                   g.candidateUploadS3Key as candidateKey
+            from JarAiGeneration g
+            where g.status = shop.esjh.memoryjar.enums.ai.JarAiGenerationStatus.FAILED
+              and g.candidateUploadS3Key is not null and g.candidateCleanupAt is null
+              and g.completedAt <= :cutoff
+            order by g.completedAt asc, g.generationId asc
+            """)
+    List<FailedCandidateReference> findFailedCandidateCleanupReferences(
+            @Param("cutoff") LocalDateTime cutoff, org.springframework.data.domain.Pageable pageable);
+
+    interface FailedCandidateReference extends GenerationReference {
+        String getCandidateKey();
+    }
+
     interface GenerationS3Reference extends GenerationReference {
         String getGeneratedS3Key();
     }

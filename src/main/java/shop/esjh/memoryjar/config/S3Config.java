@@ -27,6 +27,9 @@ public class S3Config {
     @Bean
     public S3Client s3Client(S3Properties s3Properties) {
         return S3Client.builder()
+                // 늦은 업로드가 정리 유예 기간을 넘어 계속 실행되지 않도록 재시도 포함 시간을 제한한다.
+                .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(120))
+                        .apiCallAttemptTimeout(java.time.Duration.ofSeconds(30)))
                 .region(Region.of(s3Properties.getRegion()))
                 .credentialsProvider(DefaultCredentialsProvider.create())
                 .build();

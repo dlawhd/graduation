@@ -107,8 +107,8 @@ class NoteReactionServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteReactionRepository.findByNote_NoteIdAndUser_Id(noteId, currentUserId))
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteReactionRepository.findForUpdate(noteId, currentUserId))
                 .thenReturn(Optional.empty());
         when(noteReactionRepository.countGroupedByNoteId(noteId))
                 .thenReturn(List.of(reactionCountRow(noteId, NoteReactionEmoji.LOVE, 1L)));
@@ -162,8 +162,8 @@ class NoteReactionServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteReactionRepository.findByNote_NoteIdAndUser_Id(noteId, currentUserId))
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteReactionRepository.findForUpdate(noteId, currentUserId))
                 .thenReturn(Optional.of(existingReaction));
         when(noteReactionRepository.countGroupedByNoteId(noteId)).thenReturn(List.of());
 
@@ -207,8 +207,8 @@ class NoteReactionServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteReactionRepository.findByNote_NoteIdAndUser_Id(noteId, currentUserId))
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteReactionRepository.findForUpdate(noteId, currentUserId))
                 .thenReturn(Optional.of(existingReaction));
         when(noteReactionRepository.countGroupedByNoteId(noteId))
                 .thenReturn(List.of(reactionCountRow(noteId, NoteReactionEmoji.SMILE, 1L)));
@@ -282,8 +282,8 @@ class NoteReactionServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteReactionRepository.findByNote_NoteIdAndUser_Id(noteId, currentUserId))
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteReactionRepository.findForUpdate(noteId, currentUserId))
                 .thenReturn(Optional.empty());
         when(noteReactionRepository.countGroupedByNoteId(noteId)).thenReturn(List.of());
 

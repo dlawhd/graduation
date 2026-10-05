@@ -78,7 +78,7 @@ function CommentItem({
       className={
         depth === 0
           ? "space-y-3"
-          : "ml-6 space-y-3 border-l-2 border-slate-200 pl-4"
+          : depth > 3 ? "space-y-3" : "ml-2 space-y-3 border-l-2 border-slate-200 pl-2 sm:ml-3 sm:pl-3"
       }
     >
       <div
@@ -269,6 +269,8 @@ function CommentItem({
 export default function CommentSection({
   palette,
   comments,
+  pageInfo,
+  onLoadMore,
   loading,
   error,
   currentUserId,
@@ -306,7 +308,7 @@ export default function CommentSection({
         <span
           className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}
         >
-          {totalCommentCount}개
+          {pageInfo?.totalCount ?? totalCommentCount}개
         </span>
       </div>
 
@@ -362,7 +364,7 @@ export default function CommentSection({
         </div>
       )}
 
-      {!loading && !error && safeComments.length > 0 && (
+      {safeComments.length > 0 && (
         <div className="mt-4 space-y-4">
           {safeComments.map((comment) => (
             <CommentItem
@@ -391,6 +393,12 @@ export default function CommentSection({
             />
           ))}
         </div>
+      )}
+      {pageInfo?.hasMore && (
+        <button type="button" onClick={onLoadMore} disabled={loading}
+          className={`mt-4 w-full rounded-2xl border px-4 py-3 text-sm font-bold disabled:opacity-50 ${palette.outlineBtn}`}>
+          {loading ? "댓글 불러오는 중…" : "댓글 더 보기"}
+        </button>
       )}
     </div>
   );

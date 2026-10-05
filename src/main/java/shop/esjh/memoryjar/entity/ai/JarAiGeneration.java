@@ -79,6 +79,28 @@ public class JarAiGeneration {
     @Column(name = "s3_deleted_at")
     private LocalDateTime s3DeletedAt;
 
+    // 업로드 전에 커밋하는 재삭제 기록이다. FAILED의 generatedS3Key=NULL 계약은 유지한다.
+    @Column(name = "candidate_upload_s3_key", length = 512)
+    private String candidateUploadS3Key;
+
+    @Column(name = "candidate_cleanup_at")
+    private LocalDateTime candidateCleanupAt;
+
+    public void reserveCandidateUpload(String key) {
+        if (status != JarAiGenerationStatus.PROCESSING || candidateUploadS3Key != null || key == null || key.isBlank()) {
+            throw new IllegalStateException("진행 중인 후보의 업로드는 한 번만 예약할 수 있습니다.");
+        }
+        candidateUploadS3Key = key;
+    }
+
+    /** 실제 삭제 성공 뒤에만 기록하며 성공 후보는 이 실패 정리 경로로 삭제하지 않는다. */
+    public void markFailedCandidateCleaned(LocalDateTime now) {
+        if (status != JarAiGenerationStatus.FAILED || candidateUploadS3Key == null) {
+            throw new IllegalStateException("예약된 실패 후보만 정리 완료 처리할 수 있습니다.");
+        }
+        candidateCleanupAt = now;
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(name = "error_code", length = 50)
     private JarAiGenerationErrorCode errorCode;

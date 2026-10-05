@@ -1,5 +1,7 @@
 # Memory Jar ERD — Markdown 문서판
 
+> 2026-10-05 V48 증분: `jar_ai_generations`에 nullable `candidate_upload_s3_key VARCHAR(512)`, `candidate_cleanup_at DATETIME(6)`과 실패 정리 조회 인덱스를 추가한다. 기존 상태 CHECK·데이터는 유지한다. [예약·재시도 계약](WRITE_SAFETY_V48.md)을 확인한다.
+
 > 2026-10-05 V46·V47 증분: `users.session_version BIGINT NOT NULL DEFAULT 0`은 JWT·WebSocket 인증 폐기용 버전이다. `chat_messages.client_request_id VARCHAR(64) NULL`과 UNIQUE `(jar_id, sender_id, client_request_id)`는 재전송의 중복 저장을 막는다. NULL은 기존 요청·SYSTEM 메시지 호환용이다. 새 테이블은 없고 이전 마이그레이션은 수정하지 않는다.
 
 > 2026-10-04 V45 증분: 기하와 보석은 새 선택 화면에서만 제외하고, 귀여운 컬렉션 3개×12종을 추가한다. 화면 11개×12종=132종, 기존 저장 호환 포함 서버 156종이다. V45는 두 slot_style CHECK만 확장하며 기존 좌표·사진·AI 입력·API 필드는 보존한다. [색상·반짝임·크기 변경 및 검증](ai/AI_SLOT_FINISHES_V45.md)을 확인한다. 아래 V44 이전 설명은 당시 기록이다.

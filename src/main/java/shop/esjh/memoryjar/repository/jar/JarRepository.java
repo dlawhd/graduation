@@ -15,6 +15,16 @@ import java.util.Optional;
 
 public interface JarRepository extends JpaRepository<Jar, Long> {
 
+    // Entity를 미리 로딩하지 않아 잠금 조회 때 오래된 1차 캐시 값을 재사용하지 않게 한다.
+    @Query("select j.openAt as openAt, j.openMode as openMode, j.lockLevel as lockLevel from Jar j where j.jarId = :jarId")
+    Optional<OpenPolicyView> findOpenPolicy(@Param("jarId") Long jarId);
+
+    interface OpenPolicyView {
+        LocalDateTime getOpenAt();
+        shop.esjh.memoryjar.enums.jar.JarOpenMode getOpenMode();
+        shop.esjh.memoryjar.enums.jar.JarLockLevel getLockLevel();
+    }
+
     // 삭제되지 않은 저금통 1개 찾기
     // Jar 엔티티에 @SQLRestriction("deleted_at IS NULL")가 붙어 있으면 soft delete 된 데이터는 자동으로 제외.
     Optional<Jar> findByJarId(Long jarId);

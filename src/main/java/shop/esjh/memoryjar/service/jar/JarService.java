@@ -23,6 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -380,7 +381,7 @@ public class JarService {
 
     // 초대코드로 저금통에 참여하는 메서드
     // 초대코드 검사, 이미 멤버인지 검사, 정원 초과 검사, 멤버 추가 또는 재활성화, usedCount 증가
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public JarInviteJoinResponse joinByInvite(Long currentUserId, JarInviteJoinRequest request) {
         LocalDateTime now = LocalDateTime.now(KST);
 
@@ -779,7 +780,7 @@ public class JarService {
     // 저금통 기본 설정을 수정하는 기능
     // OWNER / ADMIN 만 수정 가능, PATCH 방식이라서 들어온 값만 바꾸고 나머지는 그대로 둠
     // maxMembers는 현재 active 멤버 수보다 작게 줄일 수 없음
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public JarUpdateResponse updateJar(Long currentUserId, Long jarId, JarUpdateRequest request) {
 
         // 1. 현재 사용자가 이 저금통에서 OWNER / ADMIN 인지 확인
@@ -791,12 +792,20 @@ public class JarService {
             );
         }
 
-        // 2. 저금통 찾기
-        Jar jar = jarRepository.findByJarId(jarId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "저금통을 찾을 수 없어."
-                ));
+        // 보정 오픈은 REQUIRES_NEW에서 같은 Jar를 잠그므로 외부 트랜잭션이 잠그기 전에 실행한다.
+        boolean alreadyOpenedBeforeLock = false;
+        if (request.openAt() != null || request.openMode() != null || request.lockLevel() != null) {
+            var policy = jarRepository.findOpenPolicy(jarId).orElseThrow(() ->
+                    new ResponseStatusException(HttpStatus.NOT_FOUND, "저금통을 찾을 수 없어."));
+            boolean changed = (request.openAt() != null && !Objects.equals(request.openAt(), policy.getOpenAt()))
+                    || (request.openMode() != null && request.openMode() != policy.getOpenMode())
+                    || (request.lockLevel() != null && request.lockLevel() != policy.getLockLevel());
+            if (changed) alreadyOpenedBeforeLock = jarOpenService.ensureOpenedIfDue(jarId);
+        }
+
+        // 2. 초대 참여와 같은 잠금을 잡은 뒤 최신 정원과 오픈 정책을 확인한다.
+        Jar jar = jarRepository.findByJarIdForUpdate(jarId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "저금통을 찾을 수 없어."));
 
         /*
          * 오픈 정책 변경 여부를 확인하는 부분
@@ -833,7 +842,9 @@ public class JarService {
 
         // 실제로 오픈 정책을 바꾸는 경우에만 이미 열린 저금통인지 검사
         if (wantsToChangeOpenPolicy) {
-            boolean alreadyOpened = jarOpenService.ensureOpenedIfDue(jarId);
+            // 잠금 대기 중 오픈되거나 오픈 시각이 지난 경우도 확인한다. 이 조회는 새 잠금을 잡지 않는다.
+            boolean alreadyOpened = alreadyOpenedBeforeLock || !jar.getOpenAt().isAfter(LocalDateTime.now(KST))
+                    || jarOpenService.findOpenedJarIdSet(List.of(jarId)).contains(jarId);
 
             if (alreadyOpened) {
                 throw new ResponseStatusException(

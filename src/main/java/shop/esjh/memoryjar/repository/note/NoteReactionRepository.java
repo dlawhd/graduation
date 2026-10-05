@@ -15,6 +15,11 @@ public interface NoteReactionRepository extends JpaRepository<NoteReaction, Long
     // 특정 사용자가 특정 쪽지에 이미 남긴 리액션이 있는지 찾는 메서드
     Optional<NoteReaction> findByNote_NoteIdAndUser_Id(Long noteId, Long userId);
 
+    // 잠금을 기다리는 동안 다른 요청이 저장한 리액션도 현재 읽기로 확인한다.
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from NoteReaction r where r.note.noteId = :noteId and r.user.id = :userId")
+    Optional<NoteReaction> findForUpdate(@Param("noteId") Long noteId, @Param("userId") Long userId);
+
     // 특정 쪽지에 달린 전체 리액션 개수를 구하는 메서드
     // 이 값은 필요하면 상세 화면에서 "총 5명이 반응했어요" 같은 문구를 보여줄 때 씀
     long countByNote_NoteId(Long noteId);

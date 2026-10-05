@@ -18,6 +18,7 @@ public record NoteCreateRequest(
 
         // 내용도 필수
         @NotBlank
+        @Size(max = 300, message = "쪽지 본문은 300자까지 입력할 수 있어.")
         String content,
 
         // 추억 날짜는 선택

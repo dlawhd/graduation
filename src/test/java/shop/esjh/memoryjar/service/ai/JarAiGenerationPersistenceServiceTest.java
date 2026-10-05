@@ -139,6 +139,40 @@ class JarAiGenerationPersistenceServiceTest {
         return new JarAiGenerationPersistenceService(draftService, draftRepository, generationRepository, properties);
     }
 
+    @Test
+    void uploadReservationSurvivesFailureAndKeepsExistingStatusContract() {
+        var draft = mock(JarDesignDraft.class);
+        var generation = JarAiGeneration.builder().draft(draft).aiStyle(JarAiStyle.CUTE_2D)
+                .aiProvider(shop.esjh.memoryjar.enums.ai.JarAiProvider.CLOUDFLARE)
+                .aiModel("fixture").promptVersion("fixture").build();
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(generationRepository.findByGenerationIdAndDraft_DraftId(100L, 10L)).thenReturn(Optional.of(generation));
+        var persistence = service();
+        assertThat(persistence.reserveCandidateUpload(10L, 100L, "candidate.png")).isTrue();
+        assertThat(persistence.canCleanupFailedCandidate(10L, 100L, "candidate.png")).isFalse();
+        generation.markFailed(shop.esjh.memoryjar.enums.ai.JarAiGenerationErrorCode.S3_UPLOAD_FAILED,
+                "정제된 설명", java.time.LocalDateTime.now());
+        assertThat(generation.getGeneratedS3Key()).isNull();
+        assertThat(generation.getS3DeletedAt()).isNull();
+        assertThat(generation.getCandidateUploadS3Key()).isEqualTo("candidate.png");
+        assertThat(persistence.canCleanupFailedCandidate(10L, 100L, "candidate.png")).isTrue();
+        assertThat(persistence.canCleanupFailedCandidate(10L, 100L, "other.png")).isFalse();
+        persistence.markFailedCandidateCleaned(10L, 100L, "candidate.png");
+        assertThat(generation.getCandidateCleanupAt()).isNotNull();
+        assertThat(persistence.canCleanupFailedCandidate(10L, 100L, "candidate.png")).isFalse();
+    }
+
+    @Test
+    void committedSuccessIsNeverCompensatedEvenIfCallerLostCommitResponse() {
+        var generation = JarAiGeneration.builder().draft(mock(JarDesignDraft.class)).aiStyle(JarAiStyle.CUTE_2D)
+                .aiProvider(shop.esjh.memoryjar.enums.ai.JarAiProvider.CLOUDFLARE)
+                .aiModel("fixture").promptVersion("fixture").build();
+        generation.reserveCandidateUpload("candidate.png");
+        generation.markSucceeded("candidate.png", java.time.LocalDateTime.now());
+        when(generationRepository.findByGenerationIdAndDraft_DraftId(100L, 10L)).thenReturn(Optional.of(generation));
+        assertThat(service().canCleanupFailedCandidate(10L, 100L, "candidate.png")).isFalse();
+    }
+
     private AiPromptCatalog.AiPromptDefinition definition() {
         return new AiPromptCatalog.AiPromptDefinition("prompt", "BASE_V1+CUTE_2D_V1", null, null, null);
     }

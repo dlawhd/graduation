@@ -11,6 +11,11 @@ import java.util.Optional;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
+    /** 없는 리액션 행 대신 항상 존재하는 쪽지를 잠가 첫 등록도 순서대로 처리한다. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select n from Note n where n.noteId = :noteId and n.jar.jarId = :jarId")
+    Optional<Note> findByJarIdAndNoteIdForUpdate(@Param("jarId") Long jarId, @Param("noteId") Long noteId);
+
     // 삭제되지 않은 쪽지 1개 찾기
     Optional<Note> findByNoteId(Long noteId);
 

@@ -4,6 +4,7 @@ import shop.esjh.memoryjar.dto.note.request.NoteCommentCreateRequest;
 import shop.esjh.memoryjar.dto.note.request.NoteCommentUpdateRequest;
 import shop.esjh.memoryjar.dto.note.response.NoteCommentItem;
 import shop.esjh.memoryjar.dto.note.response.NoteCommentListResponse;
+import shop.esjh.memoryjar.dto.note.response.NoteCommentPageResponse;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.note.NoteCommentService;
 import jakarta.validation.Valid;
@@ -55,7 +56,16 @@ public class NoteCommentController {
                 .body(ApiResponse.of(response));
     }
 
-    // 댓글 목록 조회 API
+    // 새 화면은 작은 평탄 페이지로 읽어 깊은 답글의 중첩 JSON 비용을 줄인다.
+    @GetMapping("/page")
+    public ResponseEntity<ApiResponse<NoteCommentPageResponse>> getCommentPage(
+            Authentication authentication, @PathVariable Long jarId, @PathVariable Long noteId,
+            @RequestParam(defaultValue = "0") Long cursor, @RequestParam(defaultValue = "30") int size,
+            @RequestParam(required = false) Long focusId) {
+        return ResponseEntity.ok(ApiResponse.of(noteCommentService.getCommentPage(
+                getCurrentUserId(authentication), jarId, noteId, cursor, size, focusId)));
+    }
+
     // 컨트롤러는 현재 사용자와 어느 쪽지의 댓글인지만 전달
     @GetMapping
     public ResponseEntity<ApiResponse<NoteCommentListResponse>> getCommentList(

@@ -27,25 +27,23 @@ import static org.mockito.Mockito.*;
 class AiDraftCleanupServiceTest {
 
     @Mock private AiDraftCleanupPersistenceService persistenceService;
-    @Mock private AiDraftS3KeyFactory s3KeyFactory;
     @Mock private S3Client s3Client;
 
     @Test
-    void runCleanup_timesOutOnlyStillProcessingGenerationAndDeletesDeterministicKey() {
+    void runCleanup_timesOutOnlyStillProcessingGenerationWithoutImmediateDeletion() {
         JarAiGenerationRepository.GenerationReference reference = mock(JarAiGenerationRepository.GenerationReference.class);
         when(reference.getDraftId()).thenReturn(10L);
         when(reference.getGenerationId()).thenReturn(100L);
         when(persistenceService.findStaleGenerationReferences(any(), anyInt())).thenReturn(List.of(reference));
         when(persistenceService.timeoutIfStillStale(eq(10L), eq(100L), any(), any()))
                 .thenReturn(Optional.of(new AiDraftCleanupPersistenceService.GenerationCleanupTarget(1L, 10L, 100L)));
-        when(s3KeyFactory.candidateKey(1L, 10L, 100L)).thenReturn("generations/1/10/100.png");
         arrangeNoOtherWork();
 
         AiDraftCleanupService.CleanupResult result = service().runCleanup();
 
         assertThat(result.timedOut()).isEqualTo(1);
-        verify(s3Client).deleteObject(argThat((DeleteObjectRequest request) ->
-                request.bucket().equals("test-bucket") && request.key().equals("generations/1/10/100.png")));
+        // timeout 직후 늦은 업로드를 지우지 않고 실패 후보 유예 기간 뒤 삭제한다.
+        verifyNoInteractions(s3Client);
     }
 
     @Test
@@ -94,7 +92,35 @@ class AiDraftCleanupServiceTest {
         S3Properties s3Properties = new S3Properties();
         s3Properties.setBucket("test-bucket");
         AiCleanupProperties cleanupProperties = new AiCleanupProperties();
-        return new AiDraftCleanupService(persistenceService, s3KeyFactory, s3Client, s3Properties, cleanupProperties);
+        return new AiDraftCleanupService(persistenceService, s3Client, s3Properties, cleanupProperties);
+    }
+
+    @Test
+    void failedCandidateDeletionIsRetriedAndMarkedOnlyAfterSuccess() {
+        var failed = mock(JarAiGenerationRepository.FailedCandidateReference.class);
+        when(failed.getDraftId()).thenReturn(10L);
+        when(failed.getGenerationId()).thenReturn(100L);
+        when(failed.getCandidateKey()).thenReturn("candidate.png");
+        when(persistenceService.findFailedCandidateReferences(any(), anyInt())).thenReturn(List.of(failed));
+        when(persistenceService.canDeleteFailedCandidate(10L, 100L, "candidate.png")).thenReturn(true);
+        when(s3Client.deleteObject(any(DeleteObjectRequest.class)))
+                .thenThrow(S3Exception.builder().statusCode(503).build())
+                .thenReturn(software.amazon.awssdk.services.s3.model.DeleteObjectResponse.builder().build());
+        assertThat(service().runCleanup().candidatesDeleted()).isZero();
+        verify(persistenceService, never()).markFailedCandidateDeleted(any(), any(), any(), any());
+        assertThat(service().runCleanup().candidatesDeleted()).isEqualTo(1);
+        verify(persistenceService).markFailedCandidateDeleted(eq(10L), eq(100L), eq("candidate.png"), any());
+    }
+
+    @Test
+    void changedOrSucceededCandidateIsProtectedDuringRetry() {
+        var reference = mock(JarAiGenerationRepository.FailedCandidateReference.class);
+        when(reference.getDraftId()).thenReturn(10L);
+        when(reference.getGenerationId()).thenReturn(100L);
+        when(reference.getCandidateKey()).thenReturn("candidate.png");
+        when(persistenceService.findFailedCandidateReferences(any(), anyInt())).thenReturn(List.of(reference));
+        assertThat(service().runCleanup().candidatesDeleted()).isZero();
+        verifyNoInteractions(s3Client);
     }
 
     private void arrangeNoOtherWork() {

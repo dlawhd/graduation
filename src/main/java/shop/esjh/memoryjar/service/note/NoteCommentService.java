@@ -4,6 +4,7 @@ import shop.esjh.memoryjar.dto.note.request.NoteCommentCreateRequest;
 import shop.esjh.memoryjar.dto.note.request.NoteCommentUpdateRequest;
 import shop.esjh.memoryjar.dto.note.response.NoteCommentItem;
 import shop.esjh.memoryjar.dto.note.response.NoteCommentListResponse;
+import shop.esjh.memoryjar.dto.note.response.NoteCommentPageResponse;
 import shop.esjh.memoryjar.dto.note.response.NoteRealtimeEventResponse;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.jar.Jar;
@@ -17,15 +18,25 @@ import shop.esjh.memoryjar.repository.note.NoteCommentRepository;
 import shop.esjh.memoryjar.repository.note.NoteRepository;
 import shop.esjh.memoryjar.service.notification.NotificationService;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /*
@@ -70,7 +81,7 @@ public class NoteCommentService {
     }
 
     // 댓글 작성
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public NoteCommentItem createComment(
             Long currentUserId,
             Long jarId,
@@ -87,7 +98,8 @@ public class NoteCommentService {
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 작성할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
-        Note note = getNoteOrThrow(jarId, noteId);
+        // 삭제와 작성이 같은 쪽지에서 겹치면 순서대로 처리해 삭제된 부모 아래 답글이 남지 않게 한다.
+        Note note = getNoteForUpdate(jarId, noteId);
 
         // 5. 입력값 정리
         String normalizedContent = normalizeContent(request.content());
@@ -204,6 +216,41 @@ public class NoteCommentService {
     }
 
     // 댓글 목록 조회
+    /** 화면에서는 이 작은 평탄 페이지를 이어 붙이며 답글을 원하는 깊이까지 계속 작성한다. */
+    public NoteCommentPageResponse getCommentPage(
+            Long currentUserId, Long jarId, Long noteId, Long cursor, int size, Long focusId) {
+        if (cursor == null || cursor < 0 || size < 1 || size > 100 || (focusId != null && focusId < 1)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "댓글 페이지 범위가 올바르지 않아.");
+        }
+        getUserOrThrow(currentUserId);
+        getJarOrThrow(jarId);
+        validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글 목록을 볼 수 있어.");
+        getNoteOrThrow(jarId, noteId);
+        List<NoteComment> rows = noteCommentRepository.findPageAfter(noteId, cursor,
+                PageRequest.of(0, size + 1));
+        boolean hasMore = rows.size() > size;
+        List<NoteCommentItem> items = new ArrayList<>(rows.stream().limit(size).map(c -> toItem(c, List.of())).toList());
+        Long next = items.isEmpty() ? cursor : items.get(items.size() - 1).commentId();
+        if (focusId != null) {
+            // 알림/방금 쓴 답글로 이동할 때만 조상 경로를 덧붙인다. 앞선 모든 본문을 읽지 않는다.
+            Map<Long, Long> parents = new HashMap<>();
+            noteCommentRepository.findCommentLinks(noteId).forEach(link -> parents.put(link.getId(), link.getParentId()));
+            Set<Long> path = new LinkedHashSet<>();
+            Long id = focusId;
+            while (id != null && parents.containsKey(id) && path.add(id)) id = parents.get(id);
+            List<Long> ids = new ArrayList<>(path);
+            for (int offset = 0; offset < ids.size(); offset += 100) {
+                noteCommentRepository.findPathItems(noteId, ids.subList(offset, Math.min(offset + 100, ids.size())))
+                        .stream().map(c -> toItem(c, List.of())).forEach(items::add);
+            }
+            items = items.stream().collect(Collectors.toMap(NoteCommentItem::commentId, c -> c, (a, b) -> a))
+                    .values().stream().sorted(Comparator.comparing(NoteCommentItem::commentId)).toList();
+        }
+        return new NoteCommentPageResponse(items, hasMore, next,
+                noteCommentRepository.countByNote_NoteId(noteId), true);
+    }
+
+    // 기존 클라이언트의 트리 응답은 호환용으로 유지한다.
     public NoteCommentListResponse getCommentList(
             Long currentUserId,
             Long jarId,
@@ -315,7 +362,7 @@ public class NoteCommentService {
      * 댓글 A를 삭제하면 A, B, C가 모두 삭제된다.
      * 답글 B를 삭제하면 B, C가 삭제되고 A는 남는다.
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void deleteComment(
             Long currentUserId,
             Long jarId,
@@ -332,7 +379,7 @@ public class NoteCommentService {
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 삭제할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
-        getNoteOrThrow(jarId, noteId);
+        getNoteForUpdate(jarId, noteId);
 
         // 5. 삭제하려는 댓글이 이 쪽지 안에 있는 댓글인지 확인
         NoteComment comment = getCommentOrThrow(noteId, commentId);
@@ -433,6 +480,12 @@ public class NoteCommentService {
                         HttpStatus.NOT_FOUND,
                         "쪽지를 찾을 수 없어."
                 ));
+    }
+
+    /** 댓글 작성·하위 답글 삭제가 경합할 때 사용할 안정적인 잠금 기준은 부모 쪽지다. */
+    private Note getNoteForUpdate(Long jarId, Long noteId) {
+        return noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "쪽지를 찾을 수 없어."));
     }
 
     /*
@@ -562,36 +615,37 @@ public class NoteCommentService {
                 ));
 
         // 2. 부모가 없는 최상위 댓글부터 시작한다.
-        return comments.stream()
-                .filter(NoteComment::isRootComment)
-                .map(rootComment -> toItemWithChildren(rootComment, childrenMap))
-                .toList();
+        return comments.stream().filter(NoteComment::isRootComment)
+                .map(root -> toItemWithChildren(root, childrenMap)).toList();
     }
 
     /*
      * 댓글 1개를 DTO로 바꾸면서,
      * 그 댓글 아래 답글들도 계속 붙여주는 함수다.
      *
-     * 이 함수가 자기 자신을 다시 부르기 때문에
-     * 답글의 답글까지 계속 내려갈 수 있다.
+     * 반복형 트리 조립으로 깊은 답글도 호출 스택 제한 없이 내려갈 수 있다.
      */
     private NoteCommentItem toItemWithChildren(
             NoteComment comment,
             Map<Long, List<NoteComment>> childrenMap
     ) {
-        // 1. 현재 댓글 바로 아래에 달린 답글들을 찾는다.
-        List<NoteComment> children = childrenMap.getOrDefault(
-                comment.getCommentId(),
-                List.of()
-        );
-
-        // 2. 자식 답글들도 다시 같은 방식으로 변환한다.
-        List<NoteCommentItem> replies = children.stream()
-                .map(child -> toItemWithChildren(child, childrenMap))
-                .toList();
-
-        // 3. 현재 댓글 + 그 아래 답글 목록을 응답 DTO로 만든다.
-        return toItem(comment, replies);
+        // 자기 자신을 호출하지 않고, 자식 DTO부터 조립해 호출 스택이 답글 깊이에 비례하지 않게 한다.
+        List<NoteComment> subtree = new ArrayList<>();
+        ArrayDeque<NoteComment> queue = new ArrayDeque<>();
+        queue.add(comment);
+        while (!queue.isEmpty()) {
+            NoteComment current = queue.removeFirst();
+            subtree.add(current);
+            queue.addAll(childrenMap.getOrDefault(current.getCommentId(), List.of()));
+        }
+        Map<Long, NoteCommentItem> converted = new HashMap<>();
+        for (int index = subtree.size() - 1; index >= 0; index--) {
+            NoteComment current = subtree.get(index);
+            converted.put(current.getCommentId(), toItem(current, childrenMap
+                    .getOrDefault(current.getCommentId(), List.of()).stream()
+                    .map(child -> converted.get(child.getCommentId())).toList()));
+        }
+        return converted.get(comment.getCommentId());
     }
 
 
@@ -616,19 +670,22 @@ public class NoteCommentService {
      * A 아래의 B, C, D까지 모두 화면에서 사라진다.
      */
     private void deleteCommentWithChildren(NoteComment comment) {
-        // 1. 현재 댓글 바로 아래에 달린 답글들을 찾는다.
-        List<NoteComment> childComments =
-                noteCommentRepository.findByParentComment_CommentIdOrderByCreatedAtAscCommentIdAsc(
-                        comment.getCommentId()
-                );
-
-        // 2. 자식 답글들도 같은 방식으로 먼저 삭제한다.
-        for (NoteComment childComment : childComments) {
-            deleteCommentWithChildren(childComment);
+        // 1. 재귀 대신 작업 큐에서 ID만 읽는다. 한 SQL의 IN 크기는 최대 500개다.
+        ArrayDeque<Long> pending = new ArrayDeque<>();
+        Set<Long> visited = new HashSet<>();
+        pending.add(comment.getCommentId());
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        while (!pending.isEmpty()) {
+            List<Long> batch = new ArrayList<>();
+            while (!pending.isEmpty() && batch.size() < 500) {
+                Long id = pending.removeFirst();
+                if (visited.add(id)) batch.add(id);
+            }
+            if (batch.isEmpty()) continue;
+            // 2. 부모를 지우기 전에 바로 아래 자식 ID를 확보한다.
+            pending.addAll(noteCommentRepository.findChildIds(batch));
+            // 3. Entity별 DELETE 대신 묶음 soft delete한다. 기존 삭제 정책과 이벤트는 유지한다.
+            noteCommentRepository.softDeleteIds(batch, now);
         }
-
-        // 3. 자식들을 모두 지운 뒤 현재 댓글을 삭제한다.
-        // NoteComment 엔티티에 soft delete가 적용되어 있다면 deleted_at이 찍힌다.
-        noteCommentRepository.delete(comment);
     }
 }

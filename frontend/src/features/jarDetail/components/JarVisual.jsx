@@ -57,7 +57,7 @@ export default function JarVisual({
   const snowballIntervalRef = useRef(null);
 
   // 각 파티클을 나중에 지우는 타이머들을 모아두는 저장소
-  const particleRemoveTimerRefs = useRef([]);
+  const particleRemoveTimerRefs = useRef(new Set());
 
   /*
    * playSnowballEffect 역할
@@ -84,12 +84,14 @@ export default function JarVisual({
     // 각 파티클은 자기 수명이 끝나면 혼자 사라지게 한다.
     nextParticles.forEach((particle) => {
       const timerId = window.setTimeout(() => {
+        // 실행이 끝난 타이머는 즉시 제거해 오래 열린 화면에서도 목록이 커지지 않는다.
+        particleRemoveTimerRefs.current.delete(timerId);
         setParticles((prev) =>
           prev.filter((item) => item.id !== particle.id)
         );
       }, particle.lifetime * 1000);
 
-      particleRemoveTimerRefs.current.push(timerId);
+      particleRemoveTimerRefs.current.add(timerId);
     });
   }
 
@@ -102,7 +104,9 @@ export default function JarVisual({
    * - 각 파티클이 자기 애니메이션이 끝나면 알아서 사라짐
    */
   useEffect(() => {
-    if (!interactive) return;
+    setParticles([]);
+    // 커스텀 저금통은 별도의 외형 애니메이션을 사용하며 기본 입자를 표시하지 않는다.
+    if (!interactive || hasCustomDesign) return;
 
     // 처음 들어왔을 때 너무 비어 보이지 않게 바로 한 번 실행
     playSnowballEffect();
@@ -116,6 +120,7 @@ export default function JarVisual({
       // 자동 추가 interval 정리
       if (snowballIntervalRef.current) {
         window.clearInterval(snowballIntervalRef.current);
+        snowballIntervalRef.current = null;
       }
 
       // 파티클 삭제 예약 타이머들 정리
@@ -123,9 +128,9 @@ export default function JarVisual({
         window.clearTimeout(timerId);
       });
 
-      particleRemoveTimerRefs.current = [];
+      particleRemoveTimerRefs.current.clear();
     };
-  }, [interactive, jar?.theme]);
+  }, [interactive, jar?.theme, hasCustomDesign]);
 
   /*
    * 기존 "저금통 크게 보기" 기능

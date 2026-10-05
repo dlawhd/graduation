@@ -604,6 +604,7 @@ function PaperComposeModal({
                   </span>
                   <textarea
                     rows="7"
+                    maxLength={300}
                     value={form.content}
                     onChange={(e) => {
                       const nextValue = e.target.value;
@@ -618,6 +619,9 @@ function PaperComposeModal({
                     required
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
+                  <p className="mt-1 text-right text-xs text-slate-400" aria-live="polite">
+                    {(form.content || "").length} / 300자
+                  </p>
                   {formError?.content && (
                     <p className="mt-2 text-sm font-semibold text-rose-500">
                       {formError.content}
@@ -1272,6 +1276,9 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
     if (!content) {
       nextError.content =
         "내용을 꼭 입력해 주세요.";
+    }
+    if ((form.content || "").length > 300) {
+      nextError.content = "쪽지 본문은 300자까지 입력할 수 있어요.";
     }
 
     if (tags.length > NOTE_TAG_LIMIT) {

@@ -17,7 +17,7 @@ public class AiDraftCleanupScheduler {
         this.cleanupService = cleanupService;
     }
 
-    @Scheduled(fixedDelayString = "${app.ai-cleanup.scheduler-fixed-delay-ms:300000}",
+    @Scheduled(scheduler = "aiCleanupTaskScheduler", fixedDelayString = "${app.ai-cleanup.scheduler-fixed-delay-ms:300000}",
             initialDelayString = "${app.ai-cleanup.scheduler-initial-delay-ms:60000}")
     public void cleanupExpiredAiDraftAssets() {
         AiDraftCleanupService.CleanupResult result = cleanupService.runCleanup();

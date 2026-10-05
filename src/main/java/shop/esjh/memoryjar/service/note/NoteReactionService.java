@@ -19,6 +19,7 @@ import shop.esjh.memoryjar.service.notification.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
@@ -81,7 +82,7 @@ public class NoteReactionService {
      * - 같은 리액션을 다시 누르면 삭제
      * - 다른 리액션을 누르면 기존 값을 변경
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public NoteReactionSummaryResponse react(
             Long currentUserId,
             Long jarId,
@@ -102,7 +103,9 @@ public class NoteReactionService {
         validateJarOpen(jar);
 
         // 5. 이 저금통 안의 쪽지인지 확인
-        Note note = getNoteOrThrow(jarId, noteId);
+        // 아직 리액션 행이 없어도 같은 쪽지 잠금으로 최초 INSERT를 순서대로 처리한다.
+        Note note = noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "쪽지를 찾을 수 없어."));
 
         // 5-1. 알림에 담아둘 추가 정보 만들기
         NotificationPayload payload = new NotificationPayload(
@@ -116,7 +119,7 @@ public class NoteReactionService {
 
         // 6. 내가 이미 이 쪽지에 남긴 리액션이 있는지 확인
         NoteReaction existingReaction = noteReactionRepository
-                .findByNote_NoteIdAndUser_Id(noteId, currentUserId)
+                .findForUpdate(noteId, currentUserId)
                 .orElse(null);
 
         // 7. 기존 리액션이 없으면 새로 저장
@@ -217,7 +220,7 @@ public class NoteReactionService {
      * DELETE API에서 사용할 수 있음.
      * 이미 리액션이 없어도 에러를 내지 않고 현재 상태를 그대로 돌려준다.
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public NoteReactionSummaryResponse deleteMyReaction(
             Long currentUserId,
             Long jarId,
@@ -236,11 +239,13 @@ public class NoteReactionService {
         validateJarOpen(jar);
 
         // 5. 이 저금통 안의 쪽지인지 확인
-        getNoteOrThrow(jarId, noteId);
+        // 토글과 명시적 삭제도 같은 잠금 순서를 사용해 서로 경합하지 않게 한다.
+        noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "쪽지를 찾을 수 없어."));
 
         // 6. 내가 누른 리액션 조회
         NoteReaction existingReaction = noteReactionRepository
-                .findByNote_NoteIdAndUser_Id(noteId, currentUserId)
+                .findForUpdate(noteId, currentUserId)
                 .orElse(null);
 
         // 7. 리액션이 있으면 삭제

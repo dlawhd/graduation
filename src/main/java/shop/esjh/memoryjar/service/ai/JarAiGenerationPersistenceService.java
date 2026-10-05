@@ -97,6 +97,34 @@ public class JarAiGenerationPersistenceService {
         return true;
     }
 
+    /** 업로드 전에 키를 기록해 강제 종료나 보상 삭제 실패 뒤에도 다시 정리할 수 있게 한다. */
+    @Transactional
+    public boolean reserveCandidateUpload(Long draftId, Long generationId, String key) {
+        draftRepository.findByDraftIdForUpdate(draftId).orElseThrow();
+        JarAiGeneration generation = generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
+                .orElseThrow();
+        if (generation.getStatus() != JarAiGenerationStatus.PROCESSING) return false;
+        generation.reserveCandidateUpload(key);
+        return true;
+    }
+
+    /** FAILED는 다시 성공할 수 없으므로 상태 검사 뒤 트랜잭션 밖에서 안전하게 삭제한다. */
+    @Transactional(readOnly = true)
+    public boolean canCleanupFailedCandidate(Long draftId, Long generationId, String key) {
+        return generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
+                .filter(g -> g.getStatus() == JarAiGenerationStatus.FAILED && g.getCandidateCleanupAt() == null
+                        && key.equals(g.getCandidateUploadS3Key())).isPresent();
+    }
+
+    @Transactional
+    public void markFailedCandidateCleaned(Long draftId, Long generationId, String key) {
+        draftRepository.findByDraftIdForUpdate(draftId).orElseThrow();
+        generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
+                .filter(g -> g.getStatus() == JarAiGenerationStatus.FAILED && g.getCandidateCleanupAt() == null
+                        && key.equals(g.getCandidateUploadS3Key()))
+                .ifPresent(g -> g.markFailedCandidateCleaned(LocalDateTime.now(KST)));
+    }
+
     /** 외부 작업 실패를 아직 PROCESSING인 Generation에만 기록한다. */
     @Transactional
     public boolean completeFailed(Long draftId, Long generationId,

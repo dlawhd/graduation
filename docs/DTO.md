@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-10-05 V48 증분: `NoteCreateRequest.content`는 최대 300자로 검증한다. 새 `NoteCommentPageResponse`는 `items/hasMore/nextCursor/totalCount/flat`이며 items의 replies는 빈 목록이다. 기존 댓글 DTO/API는 유지한다. [현재 계약](WRITE_SAFETY_V48.md)을 확인한다.
+
 > 2026-10-05 V46·V47 증분: 쪽지 목록 응답의 `items/page/size/totalElements/totalPages`, `previewContent`는 유지하고 요청에 선택 `q`·`tag`를 추가한다. 채팅 전송은 `content`에 선택 `requestId`(영숫자·`_`·`-`, 1~64자)를 추가한다. JWT 내부 `sessionVersion`은 `/me` 응답을 변경하지 않는다. 아래 초기 DTO 예시는 이전 시점 기록이다.
 
 > 2026-10-04 V45 증분: 기하와 보석은 새 선택 화면에서만 제외하고, 귀여운 컬렉션 3개×12종을 추가한다. 화면 11개×12종=132종, 기존 저장 호환 포함 서버 156종이다. V45는 두 slot_style CHECK만 확장하며 기존 좌표·사진·AI 입력·API 필드는 보존한다. [색상·반짝임·크기 변경 및 검증](ai/AI_SLOT_FINISHES_V45.md)을 확인한다. 아래 V44 이전 설명은 당시 기록이다.

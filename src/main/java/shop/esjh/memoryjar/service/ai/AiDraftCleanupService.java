@@ -26,18 +26,15 @@ public class AiDraftCleanupService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final AiDraftCleanupPersistenceService persistenceService;
-    private final AiDraftS3KeyFactory s3KeyFactory;
     private final S3Client s3Client;
     private final S3Properties s3Properties;
     private final AiCleanupProperties properties;
 
     public AiDraftCleanupService(AiDraftCleanupPersistenceService persistenceService,
-                                 AiDraftS3KeyFactory s3KeyFactory,
                                  S3Client s3Client,
                                  S3Properties s3Properties,
                                  AiCleanupProperties properties) {
         this.persistenceService = persistenceService;
-        this.s3KeyFactory = s3KeyFactory;
         this.s3Client = s3Client;
         this.s3Properties = s3Properties;
         this.properties = properties;
@@ -50,7 +47,9 @@ public class AiDraftCleanupService {
         int timedOut = timeoutStaleGenerations(now.minusSeconds(properties.getGenerationTimeoutSeconds()), now);
         int expired = expireDueDrafts(now);
         LocalDateTime terminalCutoff = now.minusSeconds(properties.getTerminalDraftGraceSeconds());
-        int candidatesDeleted = cleanupTerminalCandidates(terminalCutoff, now);
+        // S3 전체 호출 제한(120초)보다 긴 유예를 둬 timeout 직후 늦은 업로드와 삭제가 겹치지 않는다.
+        int candidatesDeleted = cleanupFailedCandidates(now.minusSeconds(Math.max(180,
+                properties.getTerminalDraftGraceSeconds())), now) + cleanupTerminalCandidates(terminalCutoff, now);
         int originalsDeleted = cleanupTerminalOriginals(terminalCutoff, now);
         return new CleanupResult(timedOut, expired, candidatesDeleted, originalsDeleted);
     }
@@ -61,11 +60,7 @@ public class AiDraftCleanupService {
                 : persistenceService.findStaleGenerationReferences(cutoff, properties.getBatchSize())) {
             var target = persistenceService.timeoutIfStillStale(reference.getDraftId(), reference.getGenerationId(), cutoff, now);
             if (target.isPresent()) {
-                // DB에 Key를 기록하기 전 서버가 죽은 업로드도 Generation ID 경로로 찾아 정리한다.
-                var cleanupTarget = target.get();
-                deleteQuietly(s3KeyFactory.candidateKey(cleanupTarget.ownerId(), cleanupTarget.draftId(),
-                                cleanupTarget.generationId()),
-                        "stale AI 후보", cleanupTarget.generationId());
+                // 업로드 전 예약은 DB에 남아 있다. 늦은 PUT을 보호하는 유예 뒤 실패 후보 경로에서 정리한다.
                 timedOut++;
             }
         }
@@ -81,6 +76,20 @@ public class AiDraftCleanupService {
             }
         }
         return expired;
+    }
+
+    private int cleanupFailedCandidates(LocalDateTime cutoff, LocalDateTime now) {
+        int deleted = 0;
+        for (var reference : persistenceService.findFailedCandidateReferences(cutoff, properties.getBatchSize())) {
+            if (persistenceService.canDeleteFailedCandidate(reference.getDraftId(), reference.getGenerationId(),
+                    reference.getCandidateKey()) && deleteQuietly(reference.getCandidateKey(), "실패 AI 후보",
+                    reference.getGenerationId())) {
+                persistenceService.markFailedCandidateDeleted(reference.getDraftId(), reference.getGenerationId(),
+                        reference.getCandidateKey(), now);
+                deleted++;
+            }
+        }
+        return deleted;
     }
 
     private int cleanupTerminalCandidates(LocalDateTime terminalCutoff, LocalDateTime now) {

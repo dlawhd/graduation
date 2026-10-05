@@ -41,6 +41,8 @@ export default function JarZoomNoteDetailModal({
   onReact,
   reacting,
   comments,
+  commentPageInfo,
+  onLoadMoreComments,
   commentsLoading,
   commentsError,
   currentUserId,
@@ -531,6 +533,8 @@ export default function JarZoomNoteDetailModal({
               <CommentSection
                 palette={palette}
                 comments={comments}
+                pageInfo={commentPageInfo}
+                onLoadMore={onLoadMoreComments}
                 loading={commentsLoading}
                 error={commentsError}
                 currentUserId={currentUserId}

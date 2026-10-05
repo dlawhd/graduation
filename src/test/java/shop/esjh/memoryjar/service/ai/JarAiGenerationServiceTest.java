@@ -206,6 +206,7 @@ class JarAiGenerationServiceTest {
         when(cloudflareClient.generateImage(any())).thenReturn("provider".getBytes(StandardCharsets.UTF_8));
         when(generatedImageValidator.validateAndNormalize(any())).thenReturn("normalized".getBytes(StandardCharsets.UTF_8));
         when(persistenceService.completeSucceeded(eq(10L), eq(100L), anyString())).thenReturn(false);
+        when(persistenceService.canCleanupFailedCandidate(10L, 100L, "candidate.png")).thenReturn(true);
 
         startAndProcess(service, JarAiStyle.CUTE_2D, null);
 
@@ -231,7 +232,7 @@ class JarAiGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("후보 S3 업로드 실패는 성공 처리 없이 S3_UPLOAD_FAILED로 기록하고 같은 Key 삭제를 시도한다")
+    @DisplayName("후보 S3 업로드 실패는 예약 키를 보존하고 즉시 삭제하지 않는다")
     void generate_recordsCandidateUploadFailure() throws Exception {
         JarAiGenerationService service = service();
         arrangeStart(JarAiStyle.CUTE_2D);
@@ -247,8 +248,61 @@ class JarAiGenerationServiceTest {
         verify(persistenceService).completeFailed(10L, 100L,
                 JarAiGenerationErrorCode.S3_UPLOAD_FAILED, "AI 후보 이미지를 저장하지 못했습니다.");
         verify(persistenceService, never()).completeSucceeded(anyLong(), anyLong(), anyString());
-        // S3는 저장 성공 후 응답만 실패할 수 있으므로, 모호한 업로드 실패에도 이 요청의 결정적 Key를 보상 삭제한다.
-        verify(s3Client).deleteObject(argThat((DeleteObjectRequest request) -> request.key().equals("candidate.png")));
+        // 응답이 유실된 PUT과 경합하지 않게 모호한 실패는 예약 기록을 남기고 유예 뒤 재시도한다.
+        verify(persistenceService).reserveCandidateUpload(10L, 100L, "candidate.png");
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
+    void uploadReservationIsCommittedBeforePutAndFailedCompensationRemainsRetryable() throws Exception {
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeCandidateKey();
+        arrangeOriginalRead(new byte[]{1});
+        when(cloudflareClient.generateImage(any())).thenReturn(new byte[]{2});
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn(new byte[]{3});
+        when(persistenceService.canCleanupFailedCandidate(10L, 100L, "candidate.png")).thenReturn(true);
+        doThrow(SdkClientException.create("delete unavailable")).when(s3Client).deleteObject(any(DeleteObjectRequest.class));
+
+        startAndProcess(service(), JarAiStyle.CUTE_2D, null);
+
+        var order = inOrder(persistenceService, s3Client);
+        order.verify(persistenceService).reserveCandidateUpload(10L, 100L, "candidate.png");
+        order.verify(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        verify(persistenceService, never()).markFailedCandidateCleaned(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
+    void staleReservationPreventsPut() throws Exception {
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeCandidateKey();
+        arrangeOriginalRead(new byte[]{1});
+        when(cloudflareClient.generateImage(any())).thenReturn(new byte[]{2});
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn(new byte[]{3});
+        when(persistenceService.reserveCandidateUpload(10L, 100L, "candidate.png")).thenReturn(false);
+
+        startAndProcess(service(), JarAiStyle.CUTE_2D, null);
+
+        verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
+        verify(persistenceService, never()).completeSucceeded(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
+    void lostSuccessResponseDoesNotDeleteCommittedSuccessfulCandidate() throws Exception {
+        arrangeStart(JarAiStyle.CUTE_2D);
+        arrangeCandidateKey();
+        arrangeOriginalRead(new byte[]{1});
+        when(cloudflareClient.generateImage(any())).thenReturn(new byte[]{2});
+        when(generatedImageValidator.validateAndNormalize(any())).thenReturn(new byte[]{3});
+        // DB는 성공했으나 호출자가 완료 응답을 받지 못한 경우를 모의한다.
+        when(persistenceService.completeSucceeded(10L, 100L, "candidate.png"))
+                .thenThrow(new IllegalStateException("commit response lost"));
+
+        startAndProcess(service(), JarAiStyle.CUTE_2D, null);
+
+        verify(persistenceService).canCleanupFailedCandidate(10L, 100L, "candidate.png");
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
+        verify(persistenceService, never()).markFailedCandidateCleaned(anyLong(), anyLong(), anyString());
     }
 
     private JarAiGenerationService service() {
@@ -340,6 +394,8 @@ class JarAiGenerationServiceTest {
 
     private void arrangeCandidateKey() {
         when(s3KeyFactory.candidateKey(1L, 10L, 100L)).thenReturn("candidate.png");
+        org.mockito.Mockito.lenient().when(persistenceService.reserveCandidateUpload(10L, 100L, "candidate.png"))
+                .thenReturn(true);
     }
 
     private void arrangeOriginalRead(byte[] bytes) throws Exception {
