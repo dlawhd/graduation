@@ -273,6 +273,7 @@ class CloudflareWorkersAiClientTest {
             var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
             assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
             assertThat(failure.getCloudflareErrorCodes()).isEmpty();
+            assertThat(failure.getSafeDiagnostics()).contains("body=TOO_LARGE");
         });
     }
 
@@ -322,5 +323,98 @@ class CloudflareWorkersAiClientTest {
         });
         completed.get(5, TimeUnit.SECONDS);
         return output.toString(StandardCharsets.UTF_8);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {400, 200})
+    void diagnosticsNeverRetainRawErrorFieldsPromptImageOrCredentials(int status) throws Exception {
+        Logger logger = (Logger) LoggerFactory.getLogger(CloudflareWorkersAiClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            when(response.statusCode()).thenReturn(status);
+            when(response.body()).thenReturn(new ByteArrayInputStream("""
+                    {"success":false,"PRIVATE_FIELD":"PRIVATE_VALUE",
+                     "errors":[{"code":3030,"message":"AiError: PRIVATE_PROVIDER_DETAIL\\nFAKE_LOG_ENTRY",
+                     "detail":"Bearer PRIVATE_TOKEN https://private.invalid/image?token=PRIVATE_URL_TOKEN"}]}
+                    """.getBytes(StandardCharsets.UTF_8)));
+            when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                    .thenReturn(response);
+            var privateRequest = new CloudflareWorkersAiClient.CloudflareImageGenerationRequest(
+                    "PRIVATE_PROMPT", List.of(new CloudflareWorkersAiClient.CloudflareImageInput(
+                    "PRIVATE_FILENAME", "PRIVATE_IMAGE".getBytes(StandardCharsets.UTF_8))), null);
+
+            assertThatThrownBy(() -> client.generateImage(privateRequest)).satisfies(error -> {
+                var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+                assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
+                assertThat(failure.getSafeDiagnostics()).contains("body=JSON", "errorCount=1", "AI_ERROR_UNRECOGNIZED")
+                        .doesNotContain("PRIVATE", "FAKE_LOG_ENTRY", "Bearer", "https://");
+                assertThat(failure.toString()).doesNotContain("PRIVATE", "FAKE_LOG_ENTRY");
+                assertThat(failure.getCause()).isNull();
+            });
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.get(0).getFormattedMessage())
+                    .contains("diagnosticVersion=CF_ERROR_V1", "inputImageCount=1", "seedProvided=false", "body=JSON")
+                    .doesNotContain("PRIVATE", "FAKE_LOG_ENTRY", "draw a cat", "test-token", "account_123", "Bearer", "https://");
+            assertThat(appender.list.get(0).getArgumentArray()).allSatisfy(argument ->
+                    assertThat(String.valueOf(argument)).doesNotContain("PRIVATE", "test-token", "account_123"));
+            assertThat(appender.list.get(0).getThrowableProxy()).isNull();
+            // HTTP 400은 자동 재시도하지 않는다. 진단 추가가 유료 호출 수를 늘리지 않아야 한다.
+            verify(httpClient).send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any());
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "'<html>PRIVATE_DETAIL</html>', NON_JSON",
+            "'{broken PRIVATE_DETAIL', NON_JSON",
+            "' ', EMPTY",
+            "'[]', JSON",
+            "'null', JSON"
+    })
+    void diagnosesBodyFormatWithoutRetainingParsingExceptions(String body, String bodyState) throws Exception {
+        when(response.statusCode()).thenReturn(400);
+        when(response.body()).thenReturn(new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+        assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+            var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+            assertThat(failure.getSafeDiagnostics()).contains("body=" + bodyState).doesNotContain("PRIVATE_DETAIL");
+            assertThat(failure.getCause()).isNull();
+        });
+    }
+
+    @Test
+    void malformedHttp200JsonDoesNotKeepRawParsingCause() throws Exception {
+        when(response.statusCode()).thenReturn(200);
+        when(response.body()).thenReturn(new ByteArrayInputStream("{PRIVATE_DETAIL".getBytes(StandardCharsets.UTF_8)));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+        assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+            var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+            assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.INVALID_RESPONSE);
+            assertThat(failure.getHttpStatus()).isEqualTo(200);
+            assertThat(failure.getCause()).isNull();
+            assertThat(failure.toString()).doesNotContain("PRIVATE_DETAIL");
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "[]", "null"})
+    void emptyOrNonObjectHttp200IsAnInvalidResponseRatherThanAnInternalError(String body) throws Exception {
+        when(response.statusCode()).thenReturn(200);
+        when(response.body()).thenReturn(new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                .thenReturn(response);
+        assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+            var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+            assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.INVALID_RESPONSE);
+            assertThat(failure.getHttpStatus()).isEqualTo(200);
+            assertThat(failure.getCause()).isNull();
+        });
     }
 }

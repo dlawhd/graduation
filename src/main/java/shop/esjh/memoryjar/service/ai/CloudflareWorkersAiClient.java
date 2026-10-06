@@ -104,11 +104,18 @@ public class CloudflareWorkersAiClient {
             // Token·Account ID·prompt·Cloudflare 오류 메시지는 로그에 남기지 않는다.
             // 운영자는 status와 오류 코드만으로 권한·요청 규격·할당량 문제를 안전하게 구분할 수 있다.
             // 원문 대신 유한한 enum만 추가해 3030의 서로 다른 사유도 안전하게 구분한다.
-            log.warn("Cloudflare AI 요청이 실패했습니다. reason={} status={} cloudflareErrorCodes={} cfRay={}",
+            log.warn("Cloudflare AI 요청이 실패했습니다. reason={} status={} cloudflareErrorCodes={} cfRay={} "
+                            + "diagnosticVersion=CF_ERROR_V1 model={} outputWidth={} outputHeight={} "
+                            + "inputImageCount={} promptChars={} seedProvided={} {}",
                     exception.getFailureType(),
                     exception.getHttpStatus() == null ? "unknown" : exception.getHttpStatus(),
                     exception.getCloudflareErrorCodes().isEmpty() ? "none" : exception.getCloudflareErrorCodes(),
-                    exception.getCfRay() == null ? "none" : exception.getCfRay());
+                    exception.getCfRay() == null ? "none" : exception.getCfRay(),
+                    properties.getModel().length() <= 128 ? properties.getModel() : "MODEL_NAME_TOO_LONG",
+                    generationImageProperties.getRequiredGeneratedImageWidth(),
+                    generationImageProperties.getRequiredGeneratedImageHeight(),
+                    request.images().size(), request.prompt().length(), request.seed() != null,
+                    exception.getSafeDiagnostics());
             throw exception;
         } catch (java.net.http.HttpTimeoutException exception) {
             throw new CloudflareAiClientException(
@@ -229,7 +236,8 @@ public class CloudflareWorkersAiClient {
         return part;
     }
 
-    private CloudflareAiClientException providerHttpFailure(int statusCode, String cfRay, JsonNode envelope) {
+    private CloudflareAiClientException providerHttpFailure(int statusCode, String cfRay, ErrorEnvelope parsed) {
+        JsonNode envelope = parsed.envelope();
         FailureType failureType = CloudflareAiFailureClassifier.classify(statusCode, envelope);
         return new CloudflareAiClientException(
                 failureType,
@@ -238,7 +246,8 @@ public class CloudflareWorkersAiClient {
                         : "Cloudflare AI 요청에 실패했습니다.",
                 statusCode,
                 cfRay,
-                envelope == null ? List.of() : extractCloudflareErrorCodes(envelope)
+                envelope == null ? List.of() : extractCloudflareErrorCodes(envelope),
+                "body=" + parsed.bodyState() + " " + CloudflareAiErrorDiagnostics.describe(envelope)
         );
     }
 
@@ -247,13 +256,19 @@ public class CloudflareWorkersAiClient {
     private byte[] extractImageBytes(String responseBody, int statusCode, String cfRay) {
         try {
             JsonNode root = objectMapper.readTree(responseBody);
+            if (root == null || !root.isObject()) {
+                throw new CloudflareAiClientException(FailureType.INVALID_RESPONSE,
+                        "Cloudflare AI 이미지 응답 형식이 올바르지 않습니다.", statusCode, cfRay, List.of(),
+                        "body=" + (root == null ? "EMPTY" : "JSON") + " " + CloudflareAiErrorDiagnostics.describe(root));
+            }
             if (!root.path("success").asBoolean(false)) {
                 throw new CloudflareAiClientException(
                         CloudflareAiFailureClassifier.classify(statusCode, root),
                         "Cloudflare AI가 생성 요청을 거절했습니다.",
                         statusCode,
                         cfRay,
-                        extractCloudflareErrorCodes(root)
+                        extractCloudflareErrorCodes(root),
+                        "body=JSON " + CloudflareAiErrorDiagnostics.describe(root)
                 );
             }
 
@@ -283,7 +298,7 @@ public class CloudflareWorkersAiClient {
             throw new CloudflareAiClientException(
                     FailureType.INVALID_RESPONSE,
                     "Cloudflare AI 이미지 응답 형식이 올바르지 않습니다.",
-                    exception
+                    statusCode, cfRay, List.of(), "body=INVALID_IMAGE_RESPONSE"
             );
         }
     }
@@ -311,28 +326,29 @@ public class CloudflareWorkersAiClient {
     }
 
     /** 오류 본문은 이미지 본문보다 훨씬 작은 별도 제한으로 읽어, 진단 때문에 메모리를 낭비하지 않는다. */
-    private String readBoundedErrorResponseBody(InputStream responseBody) throws IOException {
+    private ErrorEnvelope readErrorEnvelope(InputStream responseBody) throws IOException {
         byte[] body = responseBody.readNBytes(MAX_ERROR_RESPONSE_BYTES + 1);
         if (body.length > MAX_ERROR_RESPONSE_BYTES) {
-            return "";
+            return new ErrorEnvelope(null, CloudflareAiErrorDiagnostics.BodyState.TOO_LARGE);
         }
-        return new String(body, StandardCharsets.UTF_8);
-    }
-
-    /** HTML·손상된 JSON·상한 초과는 일반 실패로 처리하고, 파싱 예외에 제공자 원문을 보관하지 않는다. */
-    private JsonNode readErrorEnvelope(InputStream responseBody) throws IOException {
-        String body = readBoundedErrorResponseBody(responseBody);
+        String text = new String(body, StandardCharsets.UTF_8);
+        if (text.isBlank()) return new ErrorEnvelope(null, CloudflareAiErrorDiagnostics.BodyState.EMPTY);
+        // HTML·손상된 JSON은 일반 실패로 처리한다. 파싱 예외에는 원문이 포함될 수 있어 보관하지 않는다.
         try {
-            return objectMapper.readTree(body);
+            return new ErrorEnvelope(objectMapper.readTree(text), CloudflareAiErrorDiagnostics.BodyState.JSON);
         } catch (IOException exception) {
-            return null;
+            return new ErrorEnvelope(null, CloudflareAiErrorDiagnostics.BodyState.NON_JSON);
         }
     }
 
     /** Cloudflare의 errors[].code만 제한적으로 추출한다. 오류 메시지·본문은 절대 로그에 남기지 않는다. */
     private List<String> extractCloudflareErrorCodes(JsonNode root) {
         List<String> errorCodes = new ArrayList<>();
-        for (JsonNode error : root.path("errors")) {
+        JsonNode errors = root.path("errors");
+        if (!errors.isArray()) return List.of();
+        int inspected = 0;
+        for (JsonNode error : errors) {
+            if (inspected++ >= CloudflareAiErrorDiagnostics.MAX_ERRORS) break;
             String code = error.path("code").asText("");
             if (SAFE_ERROR_CODE.matcher(code).matches() && !errorCodes.contains(code)) {
                 errorCodes.add(code);
@@ -371,12 +387,16 @@ public class CloudflareWorkersAiClient {
     ) {
     }
 
+    /** 읽은 오류 JSON은 분류 직후 폐기하고, 예외에는 구조 요약만 전달한다. */
+    private record ErrorEnvelope(JsonNode envelope, CloudflareAiErrorDiagnostics.BodyState bodyState) { }
+
     /** Generation Service가 DB 오류 코드로 변환할 수 있는 외부 호출 실패다. */
     public static class CloudflareAiClientException extends RuntimeException {
         private final FailureType failureType;
         private final Integer httpStatus;
         private final String cfRay;
         private final List<String> cloudflareErrorCodes;
+        private final String safeDiagnostics;
 
         public CloudflareAiClientException(FailureType failureType, String message) {
             super(message);
@@ -384,6 +404,7 @@ public class CloudflareWorkersAiClient {
             this.httpStatus = null;
             this.cfRay = null;
             this.cloudflareErrorCodes = List.of();
+            this.safeDiagnostics = "body=NOT_INSPECTED";
         }
 
         public CloudflareAiClientException(FailureType failureType, String message, Throwable cause) {
@@ -392,16 +413,18 @@ public class CloudflareWorkersAiClient {
             this.httpStatus = null;
             this.cfRay = null;
             this.cloudflareErrorCodes = List.of();
+            this.safeDiagnostics = "body=NOT_INSPECTED";
         }
 
         private CloudflareAiClientException(FailureType failureType, String message,
                                             int httpStatus, String cfRay,
-                                            List<String> cloudflareErrorCodes) {
+                                            List<String> cloudflareErrorCodes, String safeDiagnostics) {
             super(message);
             this.failureType = failureType;
             this.httpStatus = httpStatus;
             this.cfRay = cfRay;
             this.cloudflareErrorCodes = List.copyOf(cloudflareErrorCodes);
+            this.safeDiagnostics = safeDiagnostics;
         }
 
         public FailureType getFailureType() {
@@ -418,6 +441,10 @@ public class CloudflareWorkersAiClient {
 
         public List<String> getCloudflareErrorCodes() {
             return cloudflareErrorCodes;
+        }
+
+        public String getSafeDiagnostics() {
+            return safeDiagnostics;
         }
     }
 

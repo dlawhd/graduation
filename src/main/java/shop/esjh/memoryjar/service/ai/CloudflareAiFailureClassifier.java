@@ -3,7 +3,6 @@ package shop.esjh.memoryjar.service.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -11,8 +10,6 @@ import java.util.Set;
  * 제공자 메시지는 메모리에서만 확인하고 반환·로그·DB에 원문을 보관하지 않는다.
  */
 final class CloudflareAiFailureClassifier {
-    private static final int MAX_ERRORS = 20;
-    private static final int MAX_MESSAGE_LENGTH = 2048;
 
     private CloudflareAiFailureClassifier() { }
 
@@ -25,16 +22,17 @@ final class CloudflareAiFailureClassifier {
         if (errors != null && errors.isArray()) {
             int inspected = 0;
             for (JsonNode error : errors) {
-                if (inspected++ >= MAX_ERRORS) break;
+                if (inspected++ >= CloudflareAiErrorDiagnostics.MAX_ERRORS) break;
                 String code = error.path("code").asText("");
                 codes.add(code);
                 // 3030 설명 중 확인된 문장만 허용한다. 단순 NSFW 단어·사용자 프롬프트 인용은 근거가 아니다.
                 if ("3030".equals(code)) {
-                    String message = normalizedMessage(error.path("message"));
-                    contentRejected |= startsWithReason(message, "input prompt contains nsfw content")
-                            || startsWithReason(message, "input image contains nsfw content")
-                            || startsWithReason(message, "output image contains nsfw content");
-                    inputInvalid |= message.startsWith("model input is not valid:");
+                    Set<CloudflareAiErrorDiagnostics.ReasonSignal> signals =
+                            CloudflareAiErrorDiagnostics.reasonSignals(error.path("message"));
+                    contentRejected |= signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.INPUT_PROMPT_POLICY)
+                            || signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.INPUT_IMAGE_POLICY)
+                            || signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.OUTPUT_IMAGE_POLICY);
+                    inputInvalid |= signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.MODEL_INPUT_INVALID);
                 }
             }
         }
@@ -57,17 +55,4 @@ final class CloudflareAiFailureClassifier {
         return CloudflareWorkersAiClient.FailureType.REQUEST_FAILED;
     }
 
-    private static String normalizedMessage(JsonNode value) {
-        if (!value.isTextual() || value.textValue().length() > MAX_MESSAGE_LENGTH) return "";
-        String message = value.textValue().strip().toLowerCase(Locale.ROOT);
-        while (message.startsWith("aierror:")) message = message.substring("aierror:".length()).stripLeading();
-        return message;
-    }
-
-    private static boolean startsWithReason(String message, String reason) {
-        if (!message.startsWith(reason)) return false;
-        if (message.length() == reason.length()) return true;
-        char next = message.charAt(reason.length());
-        return Character.isWhitespace(next) || next == '.' || next == ':' || next == '(';
-    }
 }
