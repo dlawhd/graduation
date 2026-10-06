@@ -294,6 +294,45 @@ class CloudflareWorkersAiClientTest {
         });
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {400, 200})
+    void outputFlaggedReturnsPolicyGuidanceWithoutRawTextUuidOrRetries(int status) throws Exception {
+        Logger logger = (Logger) LoggerFactory.getLogger(CloudflareWorkersAiClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            when(response.statusCode()).thenReturn(status);
+            when(response.body()).thenReturn(new ByteArrayInputStream("""
+                    {"success":false,"errors":[{"code":3030,
+                      "message":"AiError: AiError: Your output has been flagged. Please choose another prompt / input image combination (00000000-0000-4000-8000-000000000001)",
+                      "detail":"PRIVATE_DETAIL Bearer PRIVATE_TOKEN"}],"result":{},"messages":[]}
+                    """.getBytes(StandardCharsets.UTF_8)));
+            when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any()))
+                    .thenReturn(response);
+
+            assertThatThrownBy(() -> client.generateImage(request(null))).satisfies(error -> {
+                var failure = (CloudflareWorkersAiClient.CloudflareAiClientException) error;
+                assertThat(failure.getFailureType()).isEqualTo(CloudflareWorkersAiClient.FailureType.CONTENT_POLICY_REJECTED);
+                assertThat(failure.getHttpStatus()).isEqualTo(status);
+                assertThat(failure.getCloudflareErrorCodes()).containsExactly("3030");
+                assertThat(failure.getSafeDiagnostics()).contains("OUTPUT_IMAGE_FLAGGED")
+                        .doesNotContain("Your output", "00000000-0000-4000-8000-000000000001", "PRIVATE", "NSFW");
+                assertThat(failure.toString()).doesNotContain("Your output", "00000000-0000-4000-8000-000000000001", "PRIVATE");
+                assertThat(failure.getCause()).isNull();
+            });
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.get(0).getFormattedMessage())
+                    .contains("reason=CONTENT_POLICY_REJECTED", "signals=[OUTPUT_IMAGE_FLAGGED]")
+                    .doesNotContain("Your output", "00000000-0000-4000-8000-000000000001", "PRIVATE", "test-token", "account_123");
+            assertThat(appender.list.get(0).getThrowableProxy()).isNull();
+            verify(httpClient).send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any());
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
     private String readBody(HttpRequest request) throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CompletableFuture<Void> completed = new CompletableFuture<>();

@@ -1,0 +1,7 @@
+Use input image 0 as the authoritative visual reference. Restyle the same artwork as a natural colored-pencil illustration with fine directional strokes, softly grainy pigment and gentle pressure variation. Apply the pencil texture within the existing colored regions and along the existing outlines.
+
+Preserve every source subject, its identity, relative size, position, pose, viewing direction, silhouette and relationships. Keep existing facial features, expressions and small identifying markings in place. Existing anatomy stays unchanged; abstract or unfinished marks remain abstract or unfinished.
+
+Keep each original hue attached to its original region, including small accents and colored outlines. Keep monochrome artwork in neutral graphite tones and intentional white regions white. Preserve open strokes, gaps and separate parts.
+
+Use flat, readable pencil shading with subtle paper grain within the artwork. Show the complete source composition, centered and uncropped, on a plain white background in one square 1024 by 1024 image. The canvas contains only the original subjects and white space, without added text, props, drawing tools, framing or a coin slot. Source identity and completeness take priority over the pencil texture.

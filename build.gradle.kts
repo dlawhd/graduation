@@ -96,3 +96,35 @@ tasks.withType<Test> {
 	// GitHub Actions, 로컬 Gradle 테스트에서 OAuth2/JWT 테스트용 설정이 빠지지 않도록 한다.
 	systemProperty("spring.profiles.active", "test")
 }
+
+// 운영 프롬프트를 바꾸지 않고 서버에서만 수동 비교할 작은 도구다.
+// Spring을 시작하지 않으며, API Token이나 실제 사진은 이 산출물에 포함하지 않는다.
+val aiPromptComparisonJar by tasks.registering(Jar::class) {
+	dependsOn(tasks.testClasses)
+	archiveFileName.set("memoryjar-ai-prompt-compare.jar")
+	from(sourceSets.test.get().output.classesDirs) {
+		include("shop/esjh/memoryjar/service/ai/AiPromptComparisonTool.class",
+			"shop/esjh/memoryjar/service/ai/AiPromptComparisonTool\$*.class")
+	}
+	from("src/test/resources") { include("ai/prompt-candidates/*.txt") }
+	// 배포된 기존 Catalog와 비교 기준이 다르면 외부 호출 전에 멈춘다.
+	from("src/main/resources/ai/prompts") {
+		include("base-v2.txt", "cute-2d-v2.txt", "hand-drawn-v1.txt")
+		into("ai/comparison-baseline")
+	}
+}
+
+tasks.processTestResources {
+	from("src/main/resources/ai/prompts") {
+		include("base-v2.txt", "cute-2d-v2.txt", "hand-drawn-v1.txt")
+		into("ai/comparison-baseline")
+	}
+}
+
+tasks.register<Zip>("aiPromptComparisonBundle") {
+	dependsOn(aiPromptComparisonJar)
+	archiveFileName.set("memoryjar-ai-prompt-compare.zip")
+	destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+	from(aiPromptComparisonJar.flatMap { it.archiveFile })
+	from("tools/ai-prompt-compare") { include("run.sh", "README.md") }
+}

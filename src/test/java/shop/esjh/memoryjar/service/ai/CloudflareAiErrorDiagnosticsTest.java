@@ -72,4 +72,23 @@ class CloudflareAiErrorDiagnosticsTest {
                         "MESSAGE_EMPTY", "MESSAGE_TOO_LONG")
                 .doesNotContain("PRIVATE_DETAIL", "INPUT_IMAGE_POLICY");
     }
+
+    @ParameterizedTest
+    @CsvSource({
+            "AiError: AiError: Your output has been flagged. Please choose another prompt / input image combination (00000000-0000-4000-8000-000000000001), OUTPUT_IMAGE_FLAGGED",
+            "Your output has been flagged. Please choose another prompt / input image combination, OUTPUT_IMAGE_FLAGGED",
+            "AIERROR: YOUR OUTPUT HAS BEEN FLAGGED. PLEASE CHOOSE ANOTHER PROMPT / INPUT IMAGE COMBINATION, OUTPUT_IMAGE_FLAGGED",
+            "AiError: Your output has been flagged. Please choose another prompt / input image combination PRIVATE_DETAIL, AI_ERROR_UNRECOGNIZED",
+            "AiError: Your output has been flagged. Please choose another prompt / input image combination (PRIVATE_DETAIL), AI_ERROR_UNRECOGNIZED",
+            "AiError: Your output has been flagged. Please choose another prompt, AI_ERROR_UNRECOGNIZED",
+            "PRIVATE_DETAIL quotes Your output has been flagged. Please choose another prompt / input image combination, MESSAGE_UNRECOGNIZED"
+    })
+    void outputFlaggedKeepsOnlyFixedSignalWithoutInferringInputOrNsfw(String message, String expected) {
+        var envelope = mapper.createObjectNode();
+        envelope.putArray("errors").addObject().put("code", 3030).put("message", message);
+        assertThat(CloudflareAiErrorDiagnostics.describe(envelope))
+                .contains("signals=[" + expected + "]")
+                .doesNotContain(message, "PRIVATE_DETAIL", "00000000-0000-4000-8000-000000000001",
+                        "INPUT_IMAGE_POLICY", "INPUT_PROMPT_POLICY", "OUTPUT_IMAGE_POLICY");
+    }
 }

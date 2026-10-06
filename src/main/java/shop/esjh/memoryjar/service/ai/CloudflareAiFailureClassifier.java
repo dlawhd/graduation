@@ -31,7 +31,9 @@ final class CloudflareAiFailureClassifier {
                             CloudflareAiErrorDiagnostics.reasonSignals(error.path("message"));
                     contentRejected |= signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.INPUT_PROMPT_POLICY)
                             || signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.INPUT_IMAGE_POLICY)
-                            || signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.OUTPUT_IMAGE_POLICY);
+                            || signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.OUTPUT_IMAGE_POLICY)
+                            // 출력 차단은 기존 제공자 거절 안내를 재사용하되 입력/NSFW 판정으로 기록하지 않는다.
+                            || signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.OUTPUT_IMAGE_FLAGGED);
                     inputInvalid |= signals.contains(CloudflareAiErrorDiagnostics.ReasonSignal.MODEL_INPUT_INVALID);
                 }
             }

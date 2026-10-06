@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * 제공자 오류의 구조와 확인된 문장 종류만 진단한다.
@@ -13,6 +14,11 @@ import java.util.Set;
 final class CloudflareAiErrorDiagnostics {
     static final int MAX_ERRORS = 20;
     private static final int MAX_MESSAGE_LENGTH = 2048;
+    // 실제 비교 응답에서 확인한 전체 문장만 허용한다. UUID는 형식만 검사하며 보관하지 않는다.
+    // 'flagged'만으로 NSFW나 입력 이미지 문제를 추측하지 않는다.
+    private static final Pattern OUTPUT_FLAGGED_MESSAGE = Pattern.compile(
+            "your output has been flagged\\. please choose another prompt / input image combination"
+                    + "(?: \\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\))?");
 
     private CloudflareAiErrorDiagnostics() { }
 
@@ -52,6 +58,7 @@ final class CloudflareAiErrorDiagnostics {
         if (message.isEmpty()) return Set.of(ReasonSignal.MESSAGE_EMPTY);
         boolean aiErrorPrefix = message.startsWith("aierror:");
         while (message.startsWith("aierror:")) message = message.substring("aierror:".length()).stripLeading();
+        if (OUTPUT_FLAGGED_MESSAGE.matcher(message).matches()) return Set.of(ReasonSignal.OUTPUT_IMAGE_FLAGGED);
         if (startsWithReason(message, "input prompt contains nsfw content")) return Set.of(ReasonSignal.INPUT_PROMPT_POLICY);
         if (startsWithReason(message, "input image contains nsfw content")) return Set.of(ReasonSignal.INPUT_IMAGE_POLICY);
         if (startsWithReason(message, "output image contains nsfw content")) return Set.of(ReasonSignal.OUTPUT_IMAGE_POLICY);
@@ -85,7 +92,7 @@ final class CloudflareAiErrorDiagnostics {
 
     enum BodyState { JSON, EMPTY, NON_JSON, TOO_LARGE }
     enum ReasonSignal {
-        INPUT_PROMPT_POLICY, INPUT_IMAGE_POLICY, OUTPUT_IMAGE_POLICY, MODEL_INPUT_INVALID,
+        INPUT_PROMPT_POLICY, INPUT_IMAGE_POLICY, OUTPUT_IMAGE_POLICY, OUTPUT_IMAGE_FLAGGED, MODEL_INPUT_INVALID,
         MESSAGE_ABSENT, MESSAGE_NOT_TEXT, MESSAGE_EMPTY, MESSAGE_TOO_LONG,
         AI_ERROR_UNRECOGNIZED, MESSAGE_UNRECOGNIZED
     }

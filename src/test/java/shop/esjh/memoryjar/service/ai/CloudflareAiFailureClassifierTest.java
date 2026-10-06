@@ -17,6 +17,14 @@ class CloudflareAiFailureClassifierTest {
             "200, 3030, AiError: AiError: Input prompt contains NSFW content, CONTENT_POLICY_REJECTED",
             "400, 3030, AiError: Input image contains NSFW content., CONTENT_POLICY_REJECTED",
             "400, 3030, AiError: Output image contains NSFW content (request-id), CONTENT_POLICY_REJECTED",
+            "400, 3030, AiError: AiError: Your output has been flagged. Please choose another prompt / input image combination (00000000-0000-4000-8000-000000000001), CONTENT_POLICY_REJECTED",
+            "200, 3030, Your output has been flagged. Please choose another prompt / input image combination, CONTENT_POLICY_REJECTED",
+            "403, 3030, Your output has been flagged. Please choose another prompt / input image combination, REQUEST_FAILED",
+            "400, 9999, Your output has been flagged. Please choose another prompt / input image combination, REQUEST_FAILED",
+            "400, 3030, AiError: Your output has been flagged, REQUEST_FAILED",
+            "400, 3030, Provider failed for prompt: Your output has been flagged. Please choose another prompt / input image combination, REQUEST_FAILED",
+            "400, 3030, Your output has been flagged. Please choose another prompt / input image combination PRIVATE_DETAIL, REQUEST_FAILED",
+            "400, 3030, Your output has been flagged. Please choose another prompt / input image combination (PRIVATE_DETAIL), REQUEST_FAILED",
             "400, 3030, AiError: Model input is not valid: missing required input mask_image, INPUT_INVALID",
             "400, 3030, unknown model execution failure, REQUEST_FAILED",
             "400, 3030, Provider failed for prompt: No NSFW content, REQUEST_FAILED",
@@ -58,6 +66,16 @@ class CloudflareAiFailureClassifierTest {
         errors.addObject().put("code", "3030").put("message", "Input prompt contains NSFW content " + "x".repeat(2048));
         for (int index = 1; index < 20; index++) errors.addObject().put("code", "3030");
         errors.addObject().put("code", "3030").put("message", "Input prompt contains NSFW content");
+        assertThat(CloudflareAiFailureClassifier.classify(400, envelope))
+                .isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
+    }
+
+    @Test
+    void outputFlaggedWithConflictingInputReasonIsNotGuessed() throws Exception {
+        var envelope = mapper.readTree("""
+                {"errors":[{"code":3030,"message":"Your output has been flagged. Please choose another prompt / input image combination"},
+                  {"code":3030,"message":"Model input is not valid: PRIVATE_DETAIL"}]}
+                """);
         assertThat(CloudflareAiFailureClassifier.classify(400, envelope))
                 .isEqualTo(CloudflareWorkersAiClient.FailureType.REQUEST_FAILED);
     }
