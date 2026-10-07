@@ -41,3 +41,12 @@ test("문의 답변 알림만 유효한 번호로 내 문의 상세에 이동", 
   assert.equal(supportNotificationPath({ type: "NOTE_COMMENTED", inquiryId: 11 }), null);
   assert.equal(SUPPORT_STATUS.ANSWERED, "답변 완료");
 });
+
+test("새 문의 알림은 운영 문의 상세에만 연결하고 잘못된 번호는 거부", () => {
+  assert.equal(supportNotificationPath({ type: "SUPPORT_INQUIRY_RECEIVED", inquiryId: 12 }), "/admin/support/inquiries/12");
+  for (const inquiryId of [undefined, null, -1, 0, "../../admin", "12", 1.5, NaN, Infinity]) {
+    assert.equal(supportNotificationPath({ type: "SUPPORT_INQUIRY_RECEIVED", inquiryId }), null);
+  }
+  assert.equal(supportNotificationPath(null), null);
+  assert.equal(supportNotificationPath({ type: "UNKNOWN", inquiryId: 12 }), null);
+});

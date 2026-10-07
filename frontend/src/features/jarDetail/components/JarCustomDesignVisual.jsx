@@ -89,6 +89,7 @@ export default function JarCustomDesignVisual({
         key={`${design.imageUrl}-${reloadAttempt}`}
         imageUrl={design.imageUrl}
         bodyStyle={design.bodyStyle}
+        customBody={design.customBody}
         photoFrame={design.photoFrame}
         alt={alt}
         className={imageClassName}

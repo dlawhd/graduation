@@ -20,7 +20,7 @@ import static org.mockito.Mockito.*;
 /** 본체를 선택한 Draft의 저장·조회와 예전 NULL 계약을 외부 서비스 없이 검증한다. */
 class JarBodyPersistenceTest {
     @ParameterizedTest
-    @EnumSource(JarBodyStyle.class)
+    @EnumSource(value=JarBodyStyle.class, names="CUSTOM", mode=EnumSource.Mode.EXCLUDE)
     @NullSource
     void persistsAndReturnsBodyWithoutChangingOriginal(JarBodyStyle body) {
         UserRepository users = mock(UserRepository.class);

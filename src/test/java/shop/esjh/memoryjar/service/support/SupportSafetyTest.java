@@ -95,6 +95,18 @@ class SupportSafetyTest {
         var props = new SupportProperties(); props.setOperatorUserIds(Set.of(2L));
         assertThat(new SupportAuthorization(props, users).isOperator(2L)).isFalse();
     }
+    @Test void inquiryRecipientsUseOnlyConfiguredExistingOperatorsInOneQuery() {
+        var props = new SupportProperties();
+        var auth = new SupportAuthorization(props, users);
+        assertThat(auth.operatorsToNotify()).isEmpty();
+        verifyNoInteractions(users);
+        props.setOperatorUserIds(Set.of(2L, 3L));
+        var active = mock(shop.esjh.memoryjar.entity.User.class);
+        when(users.findAllById(Set.of(2L, 3L))).thenReturn(List.of(active));
+        assertThat(auth.operatorsToNotify()).containsExactly(active);
+        verify(users, times(1)).findAllById(Set.of(2L, 3L));
+        verify(users, never()).existsById(any());
+    }
     @Test void anonymousAndMalformedPrincipalsAreDenied() {
         assertThatThrownBy(() -> SupportAuthorization.currentUserId(null)).isInstanceOf(ResponseStatusException.class);
         for (String value : List.of("not-a-number", "-1", "0")) {

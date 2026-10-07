@@ -59,6 +59,10 @@ public class JarDesign {
     @Column(name = "body_style", length = 30, updatable = false)
     private JarBodyStyle bodyStyle;
 
+    @jakarta.persistence.Convert(converter = CustomJarBodyConverter.class)
+    @Column(name = "custom_body_json", columnDefinition = "TEXT", updatable = false)
+    private shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody;
+
     @Embedded
     private JarPhotoFrame photoFrame;
 
@@ -87,7 +91,7 @@ public class JarDesign {
     private JarDesign(Jar jar, JarDesignType designType, String finalS3Key,
                       JarAiGeneration selectedGeneration, BigDecimal slotCenterX,
                       BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarSlotStyle slotStyle, JarBodyStyle bodyStyle,
-                      JarPhotoFrame photoFrame) {
+                      JarPhotoFrame photoFrame, shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
         this.jar = jar;
         this.designType = designType;
         this.finalS3Key = finalS3Key;
@@ -98,5 +102,6 @@ public class JarDesign {
         this.slotStyle = JarSlotStyle.orDefault(slotStyle);
         this.bodyStyle = bodyStyle;
         this.photoFrame = photoFrame;
+        this.customBody = customBody;
     }
 }

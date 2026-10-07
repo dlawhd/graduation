@@ -12,7 +12,7 @@ function unwrap(response) {
 }
 
 /** Canvas PNG 또는 사용자가 선택한 PNG/JPEG/WebP 원본으로 새 Draft를 만든다. */
-export async function createJarDesignDraft(imageFile, bodyStyle) {
+export async function createJarDesignDraft(imageFile, bodyStyle, customBody) {
   if (!(imageFile instanceof Blob)) {
     throw new Error("디자인 원본 이미지를 먼저 준비해 주세요.");
   }
@@ -26,6 +26,7 @@ export async function createJarDesignDraft(imageFile, bodyStyle) {
   );
   // 본체는 이미지에 합성하지 않는다. 원본은 AI 입력으로 유지하고 서버에는 선택 코드만 함께 저장한다.
   if (bodyStyle) formData.append("bodyStyle", bodyStyle);
+  if (bodyStyle === "CUSTOM" && customBody) formData.append("customBody", new Blob([JSON.stringify(customBody)], {type:"application/json"}));
 
   await ensureCsrf();
   const response = await apiClient.post(DRAFT_BASE_URL, formData, { timeout: 90_000 });

@@ -1,8 +1,10 @@
 import JarBodyArtwork from "./JarBodyArtwork";
 import { getJarBody } from "../jarBodies.mjs";
+import CustomJarBodyArtwork from "./CustomJarBodyArtwork";
 
 /** 선택한 본체 안에 그림을 담고, 본체가 없는 이전 디자인은 원래 이미지 그대로 표시한다. */
-export default function JarDesignImage({ bodyStyle, imageUrl, photoFrame, alt, className = "h-full w-full", imageRendering = "auto", imageStyle, onImageLoad, onImageError, showDefaultSlot = false }) {
+export default function JarDesignImage({ bodyStyle, customBody, imageUrl, photoFrame, alt, className = "h-full w-full", imageRendering = "auto", imageStyle, onImageLoad, onImageError, showDefaultSlot = false }) {
+  if (bodyStyle === "CUSTOM") return <CustomJarBodyArtwork {...{customBody,imageUrl,photoFrame,alt,className,imageRendering,imageStyle,onImageLoad,onImageError,showDefaultSlot}}/>;
   if (getJarBody(bodyStyle)) {
     return <JarBodyArtwork bodyStyle={bodyStyle} imageUrl={imageUrl} photoFrame={photoFrame} alt={alt} className={className}
       imageRendering={imageRendering} imageStyle={imageStyle} onImageLoad={onImageLoad}

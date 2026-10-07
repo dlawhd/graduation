@@ -63,7 +63,7 @@ class JarDesignDraftControllerTest {
   mockMvc.perform(patch("/api/v1/design-drafts/10/composition").contentType("application/json").content("{\"expectedDesignType\":\"ORIGINAL\"}"))
       .andExpect(status().isUnauthorized()); verifyNoInteractions(draftService);
  }
- @ParameterizedTest @EnumSource(JarBodyStyle.class)
+ @ParameterizedTest @EnumSource(value=JarBodyStyle.class,names="CUSTOM",mode=EnumSource.Mode.EXCLUDE)
  void upload_acceptsSelectedBody(JarBodyStyle body) throws Exception {
   mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", body.name()).principal(auth()))
           .andExpect(status().isCreated());
@@ -77,6 +77,20 @@ class JarDesignDraftControllerTest {
  @Test void upload_unknownBodyRejectedBeforeExternalCalls() throws Exception {
   mockMvc.perform(multipart("/api/v1/design-drafts").file("image", new byte[]{1}).param("bodyStyle", "UNKNOWN").principal(auth()))
           .andExpect(status().isBadRequest());
+  verifyNoInteractions(uploadService);
+ }
+ @Test void upload_acceptsValidatedCustomBodyJsonPart() throws Exception {
+  var outline=new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue(java.util.List.of(
+      new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.1,.1),new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.9,.1),
+      new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.9,.9),new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.1,.9)),"#abcdef");
+  var part=new org.springframework.mock.web.MockMultipartFile("customBody","","application/json",objectMapper.writeValueAsBytes(outline));
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image",new byte[]{1}).file(part).param("bodyStyle","CUSTOM").principal(auth())).andExpect(status().isCreated());
+  verify(uploadService).uploadOriginalAndCreateDraft(eq(1L),any(),eq(JarBodyStyle.CUSTOM),eq(outline));
+ }
+ @Test void upload_rejectsMissingOrCrossingCustomBodyBeforeService() throws Exception {
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image",new byte[]{1}).param("bodyStyle","CUSTOM").principal(auth())).andExpect(status().isBadRequest());
+  var part=new org.springframework.mock.web.MockMultipartFile("customBody","","application/json","{\"points\":[{\"x\":0.1,\"y\":0.1},{\"x\":0.9,\"y\":0.9},{\"x\":0.1,\"y\":0.9},{\"x\":0.9,\"y\":0.1}],\"color\":\"#abcdef\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image",new byte[]{1}).file(part).param("bodyStyle","CUSTOM").principal(auth())).andExpect(status().isBadRequest());
   verifyNoInteractions(uploadService);
  }
  @Test void upload_requiresAuthentication() throws Exception {

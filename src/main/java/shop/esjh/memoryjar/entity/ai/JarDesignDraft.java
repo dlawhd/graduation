@@ -60,6 +60,10 @@ public class JarDesignDraft {
     @Column(name = "body_style", length = 30)
     private JarBodyStyle bodyStyle;
 
+    @jakarta.persistence.Convert(converter = CustomJarBodyConverter.class)
+    @Column(name = "custom_body_json", columnDefinition = "TEXT")
+    private shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody;
+
     @Embedded
     private JarPhotoFrame photoFrame;
 
@@ -201,6 +205,9 @@ public class JarDesignDraft {
     }
 
     public void setOriginalContentFrame(JarPhotoFrame frame) { this.originalContentFrame = frame; }
+
+    /** 원본/AI 후보 선택과 무관하게 직접 만든 틀을 유지한다. */
+    public void setCustomBody(shop.esjh.memoryjar.dto.ai.CustomJarBodyValue value) { this.customBody = value; }
 
     /** 의미 있는 사용자 편집이 끝났을 때만 Draft의 유효 기간을 새로 계산한다. */
     public void extendExpiration(LocalDateTime expiresAt) {

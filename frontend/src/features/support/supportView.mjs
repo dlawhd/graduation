@@ -23,6 +23,9 @@ export function supportTime(value) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("ko-KR");
 }
 export function supportNotificationPath(item) {
-  return item?.type === "SUPPORT_REPLIED" && Number.isSafeInteger(item.inquiryId) && item.inquiryId > 0
-    ? `/support/inquiries/${item.inquiryId}` : null;
+  if (!Number.isSafeInteger(item?.inquiryId) || item.inquiryId <= 0) return null;
+  if (item.type === "SUPPORT_REPLIED") return `/support/inquiries/${item.inquiryId}`;
+  // 운영자 알림은 별도 운영 화면으로 연결한다. 실제 접근 권한은 서버에서 다시 검사한다.
+  if (item.type === "SUPPORT_INQUIRY_RECEIVED") return `/admin/support/inquiries/${item.inquiryId}`;
+  return null;
 }

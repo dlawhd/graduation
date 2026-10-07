@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.service.support;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -53,6 +54,18 @@ class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
     @MockitoBean S3Properties storage;
     @MockitoBean SimpMessagingTemplate messages;
 
+    @BeforeEach void resetOperatorConfiguration() {
+        operators.setOperatorUserIds(Set.of());
+    }
+
+    /** 특정 문의의 운영자 알림 수만 확인하여 다른 테스트의 데이터와 섞이지 않게 한다. */
+    int receivedNotificationCount(Long inquiryId) {
+        var count = new TransactionTemplate(transactions).execute(tx -> entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM notifications WHERE type='SUPPORT_INQUIRY_RECEIVED' AND JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.inquiryId'))=:id")
+                .setParameter("id", String.valueOf(inquiryId)).getSingleResult());
+        return ((Number) count).intValue();
+    }
+
     record Fixture(Long owner, Long draft, Long generation) {
         SupportCreateRequest request() { return new SupportCreateRequest(draft, generation, "변환에 실패했어요.", true); }
     }
@@ -79,6 +92,7 @@ class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
 
     @Test void simultaneousSubmissionCopiesOnlyOnceAndDoesNotHoldDatabaseTransactionDuringS3() throws Exception {
         var f = fixture(); when(storage.getBucket()).thenReturn("fixture-bucket");
+        var operator = fixture(); operators.setOperatorUserIds(Set.of(operator.owner));
         var copying = new CountDownLatch(1); var release = new CountDownLatch(1);
         when(s3.copyObject(any(CopyObjectRequest.class))).thenAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
@@ -95,7 +109,59 @@ class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
             assertThat(service.create(f.owner, f.request()).inquiryId()).isEqualTo(receipt.inquiryId());
             assertThat(receipt.status()).isEqualTo(SupportInquiryStatus.OPEN);
             verify(s3, times(1)).copyObject(any(CopyObjectRequest.class));
+            assertThat(receivedNotificationCount(receipt.inquiryId())).isEqualTo(1);
+            verify(messages, times(1)).convertAndSend(eq("/topic/users/" + operator.owner + "/notifications"),
+                    argThat((Object value) -> value instanceof shop.esjh.memoryjar.dto.notification.response.NotificationItemResponse response
+                            && response.type() == shop.esjh.memoryjar.enums.notification.NotificationType.SUPPORT_INQUIRY_RECEIVED
+                            && response.inquiryId().equals(receipt.inquiryId())));
         } finally { release.countDown(); executor.shutdownNow(); }
+    }
+
+    @Test void completedInquiryNotifiesOnlyExistingActiveOperatorsIncludingOperatorOwner() {
+        var f = fixture(); var other = fixture(); var deleted = fixture(); var ordinary = fixture();
+        users.deleteById(deleted.owner);
+        operators.setOperatorUserIds(Set.of(f.owner, other.owner, deleted.owner, Long.MAX_VALUE));
+        var target = persistence.reserve(f.owner, f.request());
+        assertThat(receivedNotificationCount(target.inquiryId())).isZero();
+        persistence.completeCopy(f.owner, target);
+        assertThat(receivedNotificationCount(target.inquiryId())).isEqualTo(2);
+        verify(messages).convertAndSend(eq("/topic/users/" + f.owner + "/notifications"), any(Object.class));
+        verify(messages).convertAndSend(eq("/topic/users/" + other.owner + "/notifications"), any(Object.class));
+        verify(messages, never()).convertAndSend(eq("/topic/users/" + deleted.owner + "/notifications"), any(Object.class));
+        verify(messages, never()).convertAndSend(eq("/topic/users/" + ordinary.owner + "/notifications"), any(Object.class));
+    }
+
+    @Test void copyFailureDoesNotNotifyOperators() {
+        var f = fixture(); var operator = fixture(); operators.setOperatorUserIds(Set.of(operator.owner));
+        when(storage.getBucket()).thenReturn("fixture-bucket");
+        when(s3.copyObject(any(CopyObjectRequest.class))).thenThrow(S3Exception.builder().statusCode(503).build());
+        assertThatThrownBy(() -> service.create(f.owner, f.request())).isInstanceOf(ResponseStatusException.class);
+        var ticket = inquiries.findByGenerationId(f.generation).orElseThrow();
+        assertThat(ticket.getStatus()).isEqualTo(SupportInquiryStatus.COPY_FAILED);
+        assertThat(receivedNotificationCount(ticket.getInquiryId())).isZero();
+        verifyNoInteractions(messages);
+    }
+
+    @Test void rolledBackCompletionDoesNotLeaveOrSendOperatorNotification() {
+        var f = fixture(); var operator = fixture(); operators.setOperatorUserIds(Set.of(operator.owner));
+        var target = persistence.reserve(f.owner, f.request());
+        new TransactionTemplate(transactions).executeWithoutResult(tx -> {
+            persistence.completeCopy(f.owner, target);
+            assertThat(receivedNotificationCount(target.inquiryId())).isEqualTo(1);
+            verifyNoInteractions(messages);
+            tx.setRollbackOnly();
+        });
+        assertThat(receivedNotificationCount(target.inquiryId())).isZero();
+        assertThat(inquiries.findById(target.inquiryId()).orElseThrow().getStatus()).isEqualTo(SupportInquiryStatus.COPYING);
+        verifyNoInteractions(messages);
+    }
+
+    @Test void inquiryCanCompleteWithoutConfiguredOperators() {
+        var f = fixture(); var target = persistence.reserve(f.owner, f.request());
+        persistence.completeCopy(f.owner, target);
+        assertThat(receivedNotificationCount(target.inquiryId())).isZero();
+        assertThat(persistence.detail(f.owner, target.inquiryId(), false).status()).isEqualTo(SupportInquiryStatus.OPEN);
+        verifyNoInteractions(messages);
     }
 
     @Test void hourlyLimitIsSerializedAcrossDifferentCandidates() throws Exception {

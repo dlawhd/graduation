@@ -56,7 +56,7 @@ public class JarDesignDraftService {
                 draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), legacyCutoutPoints, cutoutRegions,
                 draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations,
                 draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()),
-                JarPhotoFrame.valueOf(draft.getOriginalContentFrame()), JarPhotoFrame.valueOf(draft.getAiInputPhotoFrame()));
+                JarPhotoFrame.valueOf(draft.getOriginalContentFrame()), JarPhotoFrame.valueOf(draft.getAiInputPhotoFrame()), draft.getCustomBody());
     }
 
     /**
@@ -210,6 +210,8 @@ public class JarDesignDraftService {
         if (!request.isCompositionConsistent())
             throw new ApiException(AiDraftErrorCode.DRAFT_PHOTO_FRAME_INVALID);
         if (request.photoFrame() != null) request.photoFrame().validate();
+        if (request.bodyStyle() == shop.esjh.memoryjar.enums.ai.JarBodyStyle.CUSTOM)
+            shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(request.bodyStyle(), draft.getCustomBody());
         // 변경 없는 반복 적용은 투입구/이미지 단독 외곽선을 지우지 않는 멱등 요청이다.
         if (request.bodyStyle() == draft.getBodyStyle()
                 && Objects.equals(request.photoFrame(), JarPhotoFrame.valueOf(draft.getPhotoFrame()))) return;

@@ -150,10 +150,15 @@ public class JarDesignDraftController {
     public ResponseEntity<ApiResponse<JarDesignDraftCreateResponse>> createDraft(
             Authentication authentication,
             @RequestParam("image") MultipartFile image,
-            @RequestParam(value = "bodyStyle", required = false) JarBodyStyle bodyStyle
+            @RequestParam(value = "bodyStyle", required = false) JarBodyStyle bodyStyle,
+            @org.springframework.web.bind.annotation.RequestPart(value = "customBody", required = false)
+            @Valid shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody
     ) {
         Long currentUserId = extractCurrentUserId(authentication);
-        JarDesignDraftCreateResponse response = uploadService.uploadOriginalAndCreateDraft(currentUserId, image, bodyStyle);
+        shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
+        JarDesignDraftCreateResponse response = customBody == null
+                ? uploadService.uploadOriginalAndCreateDraft(currentUserId, image, bodyStyle)
+                : uploadService.uploadOriginalAndCreateDraft(currentUserId, image, bodyStyle, customBody);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(response));
     }
 

@@ -23,8 +23,14 @@ public record JarDesignResponse(
         JarAiStyle aiStyle,
         JarSlotStyle slotStyle,
         JarBodyStyle bodyStyle,
-        JarPhotoFrameValue photoFrame
+        JarPhotoFrameValue photoFrame,
+        shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody
 ) {
+    public JarDesignResponse(JarDesignType designType, String imageUrl, OffsetDateTime imageExpiresAt,
+                             BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
+                             JarAiStyle aiStyle, JarSlotStyle slotStyle, JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame) {
+        this(designType, imageUrl, imageExpiresAt, slotCenterX, slotCenterY, slotSizeRatio, aiStyle, slotStyle, bodyStyle, photoFrame, null);
+    }
     public JarDesignResponse(JarDesignType designType, String imageUrl, OffsetDateTime imageExpiresAt,
                              BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
                              JarAiStyle aiStyle, JarSlotStyle slotStyle, JarBodyStyle bodyStyle) {

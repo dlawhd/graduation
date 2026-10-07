@@ -1,4 +1,5 @@
 import { ANIMAL_BODY_CATALOG } from "./animalBodyCatalog.mjs";
+import { customJarBody } from "./customJarBody.mjs";
 
 /** 저금통의 고정 ID와 480×480 도면이다. 사진과 AI 이미지는 도면 안의 창에만 표시한다. */
 const palettes = {
@@ -56,7 +57,7 @@ function body(id, name, description, collection, palette, path, window, slotY, e
     stage: Object.freeze({ light: stageLight, shade: stageShade }) });
 }
 
-export const JAR_BODY_COLLECTIONS = ["유리와 도자기", "작은 보석", "꿈꾸는 오브제", "다정한 친구", "숲속의 선물"];
+export const JAR_BODY_COLLECTIONS = ["다정한 친구", "숲속의 선물"];
 
 /** 저장된 ID의 의미가 바뀌지 않도록 순서와 무관하게 ID로 조회한다. 각 창은 몸통 안의 안전 영역이다. */
 export const JAR_BODIES = Object.freeze([
@@ -125,12 +126,16 @@ export const JAR_BODIES = Object.freeze([
 ]);
 
 const byId = new Map(JAR_BODIES.map((entry) => [entry.id, entry]));
-export function getJarBody(id) { return byId.get(id) || null; }
+export function getJarBody(id, customBody) { return id === "CUSTOM" ? customJarBody(customBody) : byId.get(id) || null; }
+
+// 삭제 요청은 새 선택 목록에만 적용한다. 저장된 저금통의 ID/도면은 호환용으로 보존한다.
+export const SELECTABLE_JAR_BODIES = Object.freeze(JAR_BODIES.filter(b =>
+  JAR_BODY_COLLECTIONS.includes(b.collection) && !["MUSHROOM","FLOWER"].includes(b.id)));
 
 /** 검색은 로컬 도면만 필터링한다. 선택한 본체는 검색 결과에서 숨겨져도 그대로 유지한다. */
 export function filterJarBodies(collection = "전체", query = "") {
   const needle = query.trim().replace(/\s+/g, "").toLocaleLowerCase();
-  return JAR_BODIES.filter((body) =>
+  return SELECTABLE_JAR_BODIES.filter((body) =>
     (collection === "전체" || (collection === "새 동물 친구" ? body.newAnimal : body.collection === collection)) &&
     (!needle || [body.name, body.description, body.detail, body.material, body.keywords, body.id].join("").replace(/\s+/g, "").toLocaleLowerCase().includes(needle)));
 }

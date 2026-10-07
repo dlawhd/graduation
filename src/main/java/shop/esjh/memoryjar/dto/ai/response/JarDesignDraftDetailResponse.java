@@ -13,7 +13,7 @@ public record JarDesignDraftDetailResponse(Long draftId, JarDraftStatus status, 
         List<JarDesignCutoutPoint> cutoutPoints, List<List<JarDesignCutoutPoint>> cutoutRegions,
         LocalDateTime expiresAt, Long finalizedJarId, List<GenerationItem> generations, JarSlotStyle slotStyle,
         JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame, JarPhotoFrameValue originalContentFrame,
-        JarPhotoFrameValue aiInputPhotoFrame) {
+        JarPhotoFrameValue aiInputPhotoFrame, shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
     public record GenerationItem(Long generationId, JarAiStyle style, JarAiGenerationStatus status,
                                  JarAiGenerationErrorCode errorCode, LocalDateTime completedAt) { }
 }

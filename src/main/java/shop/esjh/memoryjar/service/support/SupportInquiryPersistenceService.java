@@ -77,6 +77,9 @@ public class SupportInquiryPersistenceService {
             throw problem(HttpStatus.CONFLICT, "접수 상태가 변경되어 사진 보관을 확정하지 못했습니다.");
         i.finishCopy(now());
         audits.save(new SupportInquiryAudit(i.getInquiryId(), userId, "CREATED", now()));
+        // 원본 보관과 접수 확정이 성공할 때만 같은 트랜잭션에 알림을 저장한다.
+        // 이미 접수된 후보는 completeCopy를 다시 호출하지 않으므로 중복 알림도 만들지 않는다.
+        notifications.notifySupportInquiryReceived(authorization.operatorsToNotify(), i.getInquiryId());
     }
 
     @Transactional

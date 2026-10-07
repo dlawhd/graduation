@@ -147,6 +147,14 @@ public class NotificationService {
                 new NotificationPayload(null, null, null, null, "운영자", null, inquiryId));
     }
 
+    /** 접수 완료된 문의를 지정된 운영자에게만 알린다. 사진/본문/연락처는 전달하지 않는다. */
+    @Transactional
+    public void notifySupportInquiryReceived(Collection<User> operators, Long inquiryId) {
+        // 문의자가 운영자인 경우도 접수 확인은 필요하므로 actorUserId는 지정하지 않는다.
+        createNotificationsForMany(operators, null, NotificationType.SUPPORT_INQUIRY_RECEIVED,
+                new NotificationPayload(null, null, null, null, "문의 접수", null, inquiryId));
+    }
+
     // 저금통에 새 멤버가 들어왔을 때 알림을 만드는 메서드
     @Transactional
     public void notifyJarMemberJoined(
@@ -317,6 +325,7 @@ public class NotificationService {
             case JAR_MEMBER_JOINED ->
                     safeActorName + "님이 저금통에 참여했어요.";
             case SUPPORT_REPLIED -> "문의에 운영자 답변이 도착했어요.";
+            case SUPPORT_INQUIRY_RECEIVED -> "새 AI 생성 문의가 접수됐어요.";
         };
     }
 }

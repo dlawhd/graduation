@@ -48,6 +48,14 @@ public class JarDesignDraftPersistenceService {
     /** 정규화 여백 정보는 추가 이미지 디코딩이나 네트워크 호출 없이 같은 INSERT에 기록한다. */
     @Transactional
     public JarDesignDraft createDraft(Long userId, String originalS3Key, JarBodyStyle bodyStyle, JarPhotoFrameValue contentFrame) {
+        return createDraft(userId, originalS3Key, bodyStyle, contentFrame, null);
+    }
+
+    /** 사용자 틀도 원본 메타데이터와 같은 INSERT에 저장한다. */
+    @Transactional
+    public JarDesignDraft createDraft(Long userId, String originalS3Key, JarBodyStyle bodyStyle, JarPhotoFrameValue contentFrame,
+                                     shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+        shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
@@ -60,6 +68,7 @@ public class JarDesignDraftPersistenceService {
                 .build();
 
         if (contentFrame != null) draft.setOriginalContentFrame(new JarPhotoFrame(contentFrame));
+        draft.setCustomBody(customBody);
         return draftRepository.save(draft);
     }
 }

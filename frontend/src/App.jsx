@@ -98,6 +98,8 @@ function getNotificationEmoji(type) {
       return "🎉";
     case "SUPPORT_REPLIED":
       return "✉️";
+    case "SUPPORT_INQUIRY_RECEIVED":
+      return "📨";
     default:
       return "🔔";
   }
@@ -118,6 +120,8 @@ function buildNotificationFallbackMessage(item) {
       return `${actorName}님이 저금통에 새로 들어왔어요.`;
     case "SUPPORT_REPLIED":
       return "문의에 운영자 답변이 도착했어요.";
+    case "SUPPORT_INQUIRY_RECEIVED":
+      return "새 AI 생성 문의가 접수됐어요.";
     default:
       return "새 알림이 도착했어요.";
   }

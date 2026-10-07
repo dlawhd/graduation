@@ -52,7 +52,8 @@ apiClient.defaults.adapter = async (config) => {
   else if (url === "/api/v1/design-drafts" && method === "post") {
     if(uploadFailsOnce) {uploadFailsOnce=false;const error=new Error("Network Error");error.code="ERR_NETWORK";throw error;}
     const uploaded=input.get("image");uploadProbe={...(uploadProbe || {}),sentBytes:uploaded.size,sentType:uploaded.type,timeout:config.timeout};
-    draft = { ...draft, bodyStyle: input.get("bodyStyle"),photoFrame:null,aiInputPhotoFrame:null }; data = { draftId: 999 };
+    const customPart=input.get("customBody");
+    draft = { ...draft, bodyStyle: input.get("bodyStyle"),customBody:customPart?JSON.parse(await customPart.text()):null,photoFrame:null,aiInputPhotoFrame:null }; data = { draftId: 999 };
   }
   else if (url.endsWith("/preview")) data = { previewUrl: activeSample };
   else if (url.endsWith("/selection")) { draft = { ...draft, selectedDesignType: input.designType, selectedGenerationId: input.generationId, photoFrame:input.designType === "ORIGINAL" ? draft.aiInputPhotoFrame || null : null, slotCenterX: null, slotCenterY: null, slotSizeRatio: null, cutoutRegions:[] }; }
@@ -69,7 +70,7 @@ apiClient.defaults.adapter = async (config) => {
   else throw new Error(`검증하지 않은 요청 차단: ${method} ${url}`);
   return { data: { data }, status: 200, statusText: "OK", headers: {}, config };
 };
-function Result() { return <main className="mx-auto max-w-lg p-6"><h1 className="text-2xl font-bold">로컬 생성 완료 · {finalForm.name}</h1><JarCustomDesignVisual design={{ ...draft, imageUrl: activeSample }}/><p>저장한 본체: {draft.bodyStyle || "이미지 단독"}</p><p>저장한 입구: {draft.slotStyle || "CAPSULE"}</p><p data-saved-photo-frame>{JSON.stringify(draft.photoFrame)}</p><p>사진 배치 저장 요청: {requests.filter((r) => r.url.endsWith("/composition")).length}</p></main>; }
+function Result() { return <main className="mx-auto max-w-lg p-6"><h1 className="break-keep text-2xl font-bold">로컬 생성 완료 · {finalForm.name}</h1><JarCustomDesignVisual design={{ ...draft, imageUrl: activeSample }}/><p>저장한 본체: {draft.bodyStyle || "이미지 단독"}</p><p>저장한 입구: {draft.slotStyle || "CAPSULE"}</p><p className="break-all" data-saved-photo-frame>{JSON.stringify(draft.photoFrame)}</p><p>사진 배치 저장 요청: {requests.filter((r) => r.url.endsWith("/composition")).length}</p></main>; }
 /** 실제 공용 렌더러의 새 입구와 이전 저장 입구를 밝은/어두운 바탕에서 비교한다. */
 function SlotSheet() {
   const [checks,setChecks]=useState([]);

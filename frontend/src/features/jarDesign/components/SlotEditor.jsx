@@ -13,7 +13,7 @@ import { hasSlotEdits } from "../designWorkflow.mjs";
 /** 선택한 원본/AI 이미지 위에 투입구를 배치하고 Draft에 위치·크기·모양을 저장하는 편집기다. */
 export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled, onSaved, onBusyChange, onDirtyChange }) {
   const [savedSlot, setSavedSlot] = useState(() => storedSlot(draft));
-  const body = getJarBody(draft.bodyStyle);
+  const body = getJarBody(draft.bodyStyle, draft.customBody);
   const [initialSlot] = useState(() => normalizeSlot(storedSlot(draft) || body?.slot || DEFAULT_SLOT));
   const [slot, setSlot] = useState(initialSlot);
   const [collection, setCollection] = useState(() => {
@@ -128,7 +128,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
             onPointerUp={(event) => { if (pointerId.current === event.pointerId) pointerId.current = null; }}
             onPointerCancel={() => { pointerId.current = null; }}
             onLostPointerCapture={() => { pointerId.current = null; }}>
-            {url && <JarDesignImage key={`${url}-${retrying}`} bodyStyle={draft.bodyStyle} photoFrame={draft.photoFrame} imageUrl={url} alt="투입구를 배치할 선택 디자인"
+            {url && <JarDesignImage key={`${url}-${retrying}`} bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={url} alt="투입구를 배치할 선택 디자인"
               className="h-full w-full select-none object-contain"
               imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)}
               onImageLoad={(event) => {

@@ -4,7 +4,9 @@ import JarDesignCanvas from "../features/jarDesign/components/JarDesignCanvas";
 import AiCandidateGallery from "../features/jarDesign/components/AiCandidateGallery";
 import JarBodyPicker from "../features/jarDesign/components/JarBodyPicker";
 import JarDesignImage from "../features/jarDesign/components/JarDesignImage";
-import { getJarBody, JAR_BODIES } from "../features/jarDesign/jarBodies.mjs";
+import { getJarBody } from "../features/jarDesign/jarBodies.mjs";
+import JarBodyWorkshop from "../features/jarDesign/components/JarBodyWorkshop";
+import { BODY_DRAFT_KEY, readBodyDraft } from "../features/jarDesign/customJarBody.mjs";
 import { prepareSourceImage, SOURCE_IMAGE_ACCEPT } from "../features/jarDesign/sourceImageFile.mjs";
 import {
   createJarDesignDraft,
@@ -18,9 +20,11 @@ export default function JarDesignNewPage() {
   const [inputMode, setInputMode] = useState("DRAW");
   const [sourceImage, setSourceImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [customBody, setCustomBody] = useState(() => { try { return readBodyDraft(window.sessionStorage); } catch { return null; } });
+  const [catalogOpen, setCatalogOpen] = useState(false);
   // URL에서 단계를 읽어 새로고침과 브라우저 뒤로 가기도 같은 선택으로 복원한다. 파일은 메모리에만 둔다.
   const draftId = parseDraftId(searchParams.get("draft"));
-  const body = getJarBody(searchParams.get("body"));
+  const body = getJarBody(searchParams.get("body"), customBody);
   const imageOnly = searchParams.get("mode") === "image-only";
   const imageStep = Boolean((body || imageOnly) && searchParams.get("step") === "image");
   const [saving, setSaving] = useState(false);
@@ -31,6 +35,10 @@ export default function JarDesignNewPage() {
   const [readingSource, setReadingSource] = useState(false);
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
+  useEffect(() => {
+    try { if (customBody) window.sessionStorage.setItem(BODY_DRAFT_KEY, JSON.stringify(customBody)); }
+    catch { /* 저장 공간이 막혀도 현재 탭의 편집과 업로드는 계속할 수 있다. */ }
+  }, [customBody]);
   const stepKey = draftId ? `draft:${draftId}` : imageStep ? "image" : "body";
   // 같은 경로의 query만 바뀌어도 새 단계의 첫 제목부터 보여준다. 사진 교체·모양 탐색에는 이동하지 않는다.
   useLayoutEffect(() => {
@@ -86,7 +94,7 @@ export default function JarDesignNewPage() {
     setSaving(true);
     setError("");
     try {
-      const draft = await createJarDesignDraft(sourceImage, body?.id);
+      const draft = await createJarDesignDraft(sourceImage, body?.id, body?.id === "CUSTOM" ? customBody : undefined);
       // 본체를 쓸 때 먼저 원본으로 배치 화면을 연다. 배치는 비파괴 메타데이터이며 이후 AI 후보도 선택 가능하다.
       if (body) {
         try { await selectJarDesign(draft.draftId, "ORIGINAL"); }
@@ -107,15 +115,18 @@ export default function JarDesignNewPage() {
         <Link to="/jars/new" className="text-sm font-bold text-violet-700 hover:text-violet-900">← 만들기 방식 다시 선택</Link>
         <section className="mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8">
           <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black tracking-wide text-emerald-800">MEMORY JAR · 작은 저금통 공방</span>
-          <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{draftId ? "우리의 그림에 분위기를 더해요" : imageStep ? "이 저금통에 어떤 추억을 담을까요?" : "추억을 담을, 나만의 작은 오브제"}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{JAR_BODIES.length}가지 저금통 중 마음에 드는 모양을 고르고, 그 안에 나만의 그림이나 사진을 담아보세요. 원본 그대로도, AI로 꾸며도 좋아요.</p>
-          <ol className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500" aria-label="디자인 제작 순서">{["저금통 또는 이미지 단독", "그림 담기", "사진 배치 · AI 꾸미기", "투입구와 배경", "이름 붙이기"].map((label, i) => <li key={label} aria-current={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "step" : undefined} className={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "text-emerald-800" : ""}><span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{i + 1}</span>{label}</li>)}</ol>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{draftId ? "우리의 그림에 분위기를 더해요" : imageStep ? "이 저금통에 어떤 추억을 담을까요?" : "추억을 담을 모양도, 직접 만들어봐요"}</h1>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">나만의 틀을 만들고 그 안에 그림이나 사진을 담아보세요. 기본 틀을 쓰거나 준비된 저금통으로 바꿔도 좋아요. AI 변환은 선택 사항이에요.</p>
+          <ol className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500" aria-label="디자인 제작 순서">{["틀 만들기 또는 선택", "그림 담기", "사진 배치 · AI 꾸미기", "투입구와 배경", "이름 붙이기"].map((label, i) => <li key={label} aria-current={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "step" : undefined} className={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "text-emerald-800" : ""}><span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{i + 1}</span>{label}</li>)}</ol>
         </section>
 
-        {!draftId && !imageStep && <JarBodyPicker value={body?.id} previewUrl={previewUrl}
+        {!draftId && !imageStep && !catalogOpen && <JarBodyWorkshop value={customBody} onChange={setCustomBody} previewUrl={previewUrl} disabled={saving}
+          onOpenCatalog={() => setCatalogOpen(true)} onImageOnly={() => setSearchParams({ mode:"image-only", step:"image" })}
+          onContinue={() => { if (getJarBody("CUSTOM",customBody)) setSearchParams({body:"CUSTOM",step:"image"}); }}/>}
+        {!draftId && !imageStep && catalogOpen && <><button type="button" onClick={() => setCatalogOpen(false)} className="mt-5 min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-emerald-800">← 내 틀 만들기로 돌아가기</button><JarBodyPicker value={body?.id} previewUrl={previewUrl}
           onChange={(id) => { if (getJarBody(id)) setSearchParams({ body: id }, { replace: true }); }}
           onImageOnly={() => setSearchParams({ mode:"image-only", step:"image" })}
-          onContinue={() => { if (body) setSearchParams({ body: body.id, step: "image" }); }} disabled={saving} />}
+          onContinue={() => { if (body) setSearchParams({ body: body.id, step: "image" }); }} disabled={saving} /></>}
 
         {/* 모양을 다시 고르는 동안에도 그림판을 숨겨 유지하여 작성 중인 그림을 잃지 않는다. */}
         {!draftId && (
@@ -160,7 +171,7 @@ export default function JarDesignNewPage() {
               <aside className="h-fit rounded-[22px] border border-violet-100 bg-gradient-to-b from-white to-violet-50/50 p-4 shadow-sm lg:sticky lg:top-24">
                 <h2 className="text-sm font-black text-slate-800">저금통에 담긴 모습</h2>
                 <p className="mt-2 text-xs leading-5 text-slate-500">그림을 수정했다면 ‘이 그림 사용하기’를 다시 눌러 미리보기에 반영해 주세요.</p>
-                <div className="mt-3 aspect-square rounded-2xl bg-[#f7f4ee]">{(body || previewUrl) && <JarDesignImage key={previewUrl} bodyStyle={body?.id} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" showDefaultSlot
+                <div className="mt-3 aspect-square rounded-2xl bg-[#f7f4ee]">{(body || previewUrl) && <JarDesignImage key={previewUrl} bodyStyle={body?.id} customBody={customBody} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" showDefaultSlot
                   onImageLoad={() => setLoadedPreviewUrl(previewUrl)} onImageError={() => { setLoadedPreviewUrl(""); setError("이 사진의 미리보기를 읽지 못했어요. JPEG 또는 PNG로 다시 저장한 사진을 선택해 주세요."); }} />}</div>
                 {!previewUrl && <p className="mt-2 text-center text-xs leading-5 text-slate-500">그림을 확정하거나 이미지를 골라<br />저금통 안을 채워주세요.</p>}
                 {sourceDirty && sourceImage && inputMode === "DRAW" && <p role="status" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">그림이 바뀌었어요. ‘이 그림 사용하기’를 눌러 최신 그림을 반영해 주세요.</p>}

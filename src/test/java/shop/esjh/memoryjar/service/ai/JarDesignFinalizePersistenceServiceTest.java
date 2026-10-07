@@ -264,6 +264,21 @@ class JarDesignFinalizePersistenceServiceTest {
         return draft;
     }
 
+    @Test void customBodyIsCopiedToPermanentDesignAndIncludedInSnapshotConflictCheck() {
+        var draft=activeDraft(JarDraftDesignType.ORIGINAL);stubSlot(draft);
+        when(draft.getOriginalS3Key()).thenReturn("original.png");when(draft.getBodyStyle()).thenReturn(JarBodyStyle.CUSTOM);
+        var body=CustomJarBodyTest.outline();when(draft.getCustomBody()).thenReturn(body);
+        var target=service().prepare(1L,10L);assertThat(target.customBody()).isEqualTo(body);
+        var jar=mock(Jar.class);when(jar.getJarId()).thenReturn(101L);when(jarService.createJarForDesignFinalize(eq(1L),any())).thenReturn(jar);
+        service().finalizeCustom(1L,10L,request(),target,"final.png");
+        var captor=org.mockito.ArgumentCaptor.forClass(JarDesign.class);verify(designRepository).save(captor.capture());
+        assertThat(captor.getValue().getCustomBody()).isEqualTo(body);
+        when(draft.getCustomBody()).thenReturn(new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue(body.points(),"#abcdef"));
+        assertThatThrownBy(()->service().finalizeCustom(1L,10L,request(),target,"other.png")).isInstanceOf(ApiException.class)
+                .extracting(e->((ApiException)e).getErrorCode()).isEqualTo(AiDraftErrorCode.FINALIZE_TARGET_CHANGED);
+        verify(jarService,times(1)).createJarForDesignFinalize(eq(1L),any());
+    }
+
     private void stubSlot(JarDesignDraft draft) {
         when(draft.getSlotCenterX()).thenReturn(new BigDecimal("0.50000"));
         when(draft.getSlotCenterY()).thenReturn(new BigDecimal("0.40000"));

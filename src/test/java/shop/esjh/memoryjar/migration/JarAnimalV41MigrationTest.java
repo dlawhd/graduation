@@ -40,6 +40,8 @@ class JarAnimalV41MigrationTest {
                     assertThat(rows.getBigDecimal(6)).isEqualByComparingTo("0.2");
                 }
                 for (JarBodyStyle body : JarBodyStyle.values())
+                    // V41은 당시 고정 50종만 검증한다. CUSTOM은 V51에서 별도 검증한다.
+                    if (body != JarBodyStyle.CUSTOM)
                     assertThat(sql.executeUpdate("UPDATE " + table + " SET body_style='" + body.name() + "'" + where)).isEqualTo(1);
                 for (String unknown : new String[]{"UNKNOWN","DOGG", ""})
                     assertThatThrownBy(() -> sql.executeUpdate("UPDATE " + table + " SET body_style='" + unknown + "'" + where)).isInstanceOf(SQLException.class);

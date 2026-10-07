@@ -27,6 +27,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -292,6 +293,54 @@ class NotificationServiceTest {
 
         // then
         verifyNoInteractions(notificationRepository);
+    }
+
+    @Test
+    @DisplayName("새 문의 알림은 중복 운영자를 제외하고 문의 번호만 전달한다")
+    void notifySupportInquiryReceived_sendsOncePerOperatorWithoutPrivateContent() {
+        User one = createUser(3L, "운영자1");
+        User two = createUser(4L, "운영자2");
+        mockSaveAndFlush();
+        notificationService.notifySupportInquiryReceived(List.of(one, two, one, createUser(null, "미저장")), 12L);
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, times(2)).saveAndFlush(captor.capture());
+        assertThat(captor.getAllValues()).extracting(Notification::getUser).containsExactly(one, two);
+        for (Notification notification : captor.getAllValues()) {
+            assertThat(notification.getType()).isEqualTo(NotificationType.SUPPORT_INQUIRY_RECEIVED);
+            assertThat(notification.getJar()).isNull();
+            assertThat(notification.isRead()).isFalse();
+            assertThat(notification.getPayload()).isEqualTo(
+                    new NotificationPayload(null, null, null, null, "문의 접수", null, 12L));
+        }
+        verify(messagingTemplate).convertAndSend(eq("/topic/users/3/notifications"),
+                org.mockito.ArgumentMatchers.argThat((Object value) -> value instanceof
+                        shop.esjh.memoryjar.dto.notification.response.NotificationItemResponse response
+                        && response.inquiryId().equals(12L) && response.message().equals("새 AI 생성 문의가 접수됐어요.")));
+    }
+
+    @Test
+    @DisplayName("운영자가 없으면 문의 알림을 저장하거나 전송하지 않는다")
+    void notifySupportInquiryReceived_skipsEmptyOperators() {
+        notificationService.notifySupportInquiryReceived(List.of(), 12L);
+        notificationService.notifySupportInquiryReceived(null, 12L);
+        verifyNoInteractions(notificationRepository, messagingTemplate);
+    }
+
+    @Test
+    @DisplayName("운영자 문의 알림도 DB 커밋 전에는 실시간 전송하지 않는다")
+    void notifySupportInquiryReceived_waitsForCommit() {
+        mockSaveAndFlush();
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            notificationService.notifySupportInquiryReceived(List.of(createUser(3L, "운영자")), 12L);
+            verifyNoInteractions(messagingTemplate);
+            var callbacks = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(callbacks).hasSize(1);
+            callbacks.forEach(callback -> callback.afterCommit());
+            verify(messagingTemplate).convertAndSend(eq("/topic/users/3/notifications"), any(Object.class));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private Notification createNotification(

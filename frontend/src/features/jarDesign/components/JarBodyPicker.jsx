@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { JAR_BODIES, JAR_BODY_COLLECTIONS, getJarBody, filterJarBodies } from "../jarBodies.mjs";
+import { SELECTABLE_JAR_BODIES as JAR_BODIES, JAR_BODY_COLLECTIONS, getJarBody, filterJarBodies } from "../jarBodies.mjs";
 import JarBodyStage from "./JarBodyStage";
 import "../jarBodyPicker.css";
 
@@ -9,7 +9,7 @@ export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly
   const [query, setQuery] = useState("");
   const searchId = useId();
   const selected = getJarBody(value);
-  const previewBody = selected || getJarBody("CLASSIC");
+  const previewBody = selected || JAR_BODIES[0];
   const bodies = filterJarBodies(collection, query);
   return <section aria-label="저금통 모양 선택" className="mt-7 grid grid-cols-1 items-start gap-6 pb-20 lg:grid-cols-[minmax(0,1fr)_300px] lg:pb-0">
     <div className="min-w-0">
@@ -36,7 +36,7 @@ export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly
     </div>
     <aside aria-label="선택한 저금통 미리보기" className="jar-body-choice-preview rounded-[28px] border border-white bg-[#fffdf8] p-4 shadow-[0_12px_40px_rgba(68,60,44,0.07)] lg:sticky lg:top-24">
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[10px] font-bold tracking-[.2em] text-emerald-800">YOUR LITTLE TREASURE</p><span className="text-[10px] text-stone-400">480 × 480</span></div>
-      <JarBodyStage body={previewBody} imageUrl={previewUrl} alt={selected?.name || "클래식 저금통 예시"} className="jar-body-choice-stage mx-auto mt-3 rounded-t-[100px] rounded-b-[22px] border border-stone-200/70"/>
+      <JarBodyStage body={previewBody} imageUrl={previewUrl} alt={previewBody.name} className="jar-body-choice-stage mx-auto mt-3 rounded-t-[100px] rounded-b-[22px] border border-stone-200/70"/>
       <div className="mt-3" aria-live="polite"><p className="text-xs text-stone-500">{selected?.collection || `${JAR_BODIES.length}가지 모양, 하나뿐인 추억`}</p><h3 className="mt-1 text-xl font-black text-slate-800">{selected?.name || "마음에 드는 모양을 골라요"}</h3><p className="mt-2 text-xs leading-5 text-stone-600">{selected?.description || "모양을 누르면 크게 볼 수 있어요. 다음 단계에서 나만의 사진이나 그림을 담아주세요."}</p></div>
       {selected && <div className="mt-3 border-t border-stone-200 pt-3"><p className="text-[10px] font-bold tracking-widest text-stone-400">FINISH & DETAILS</p><p className="mt-1 text-xs leading-5 text-stone-600">{selected.material}</p></div>}
       <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">작은 일러스트는 예시예요. 다음 단계에서 내 사진·그림을 담고, AI로 꾸밀 수 있어요.</p>

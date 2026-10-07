@@ -98,7 +98,7 @@ export default function AiCandidateGallery({ draftId }) {
     .filter((generation) => generation.status === "SUCCEEDED")
     .map((generation) => generation.generationId));
   const draftStatus = draft?.status;
-  const body = getJarBody(draft?.bodyStyle);
+  const body = getJarBody(draft?.bodyStyle, draft?.customBody);
   useEffect(() => {
     if (!loading && scrollToEditorRef.current && draft?.selectedDesignType) {
       scrollToEditorRef.current = false;
@@ -443,7 +443,7 @@ export default function AiCandidateGallery({ draftId }) {
           <article className={`overflow-hidden rounded-[22px] border bg-white ${draft?.selectedDesignType === "ORIGINAL" ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}>
             <div className="aspect-square bg-slate-100">
               {originalPreviewUrl ? (
-                <JarDesignImage bodyStyle={draft?.bodyStyle} photoFrame={body ? (draft.aiInputPhotoFrame || (draft.selectedDesignType === "ORIGINAL" ? draft.photoFrame : null) || coverPhotoFrame(body.window, draft.originalContentFrame || WHOLE_PHOTO)) : null} imageUrl={originalPreviewUrl} alt="정규화한 원본 디자인" showDefaultSlot
+                <JarDesignImage bodyStyle={draft?.bodyStyle} customBody={draft?.customBody} photoFrame={body ? (draft.aiInputPhotoFrame || (draft.selectedDesignType === "ORIGINAL" ? draft.photoFrame : null) || coverPhotoFrame(body.window, draft.originalContentFrame || WHOLE_PHOTO)) : null} imageUrl={originalPreviewUrl} alt="정규화한 원본 디자인" showDefaultSlot
                   onImageError={() => handlePreviewError(originalPreviewUrl, refreshOriginalPreview)} />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold leading-6 text-slate-500">
@@ -476,7 +476,7 @@ export default function AiCandidateGallery({ draftId }) {
                 className={`overflow-hidden rounded-[22px] border bg-white ${isSelected ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}>
                 <div className="aspect-square bg-slate-100">
                   {isSucceeded && previewUrl ? (
-                    <JarDesignImage bodyStyle={draft?.bodyStyle} photoFrame={body ? (isSelected && draft.photoFrame ? draft.photoFrame : coverPhotoFrame(body.window)) : null} imageUrl={previewUrl} alt={`${styleLabel(generation.style)} AI 후보`} showDefaultSlot
+                    <JarDesignImage bodyStyle={draft?.bodyStyle} customBody={draft?.customBody} photoFrame={body ? (isSelected && draft.photoFrame ? draft.photoFrame : coverPhotoFrame(body.window)) : null} imageUrl={previewUrl} alt={`${styleLabel(generation.style)} AI 후보`} showDefaultSlot
                       imageRendering={designImageRendering(generation.style)}
                       onImageError={() => handlePreviewError(
                         previewUrl,
@@ -517,7 +517,7 @@ export default function AiCandidateGallery({ draftId }) {
         </div>
       )}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 p-4"><p className="text-xs leading-5 text-slate-500">직접 그린 디자인 대신, 기본 테마 저금통을 써도 좋아요.</p><button type="button" onClick={() => void handleSelectDefault()} disabled={loading || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "DEFAULT"} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 disabled:opacity-50">{draft?.selectedDesignType === "DEFAULT" ? "기본 저금통 선택됨 ✓" : "기본 저금통으로 계속하기 →"}</button></div>
-      {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison bodyStyle={draft?.bodyStyle} photoFit={draft?.photoFrame?.fit} originalContentFrame={draft?.originalContentFrame} originalPhotoFrame={draft?.aiInputPhotoFrame} originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
+      {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison bodyStyle={draft?.bodyStyle} customBody={draft?.customBody} photoFit={draft?.photoFrame?.fit} originalContentFrame={draft?.originalContentFrame} originalPhotoFrame={draft?.aiInputPhotoFrame} originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
         onClose={() => setComparisonId(null)} onSelect={() => { setComparisonId(null); void handleSelect(comparisonId); }} />; })()}
       <div ref={editorRef} className="scroll-mt-24" />
       {!loading && draft?.status === "ACTIVE" && customSelected && !detailsReady && <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">

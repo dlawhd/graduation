@@ -63,6 +63,13 @@ public class JarDesignDraftUploadService {
 
     /** 본체 정보는 DB에만 기록하고 심사·S3·AI 입력에는 검증된 원본 바이트를 그대로 사용한다. */
     public JarDesignDraftCreateResponse uploadOriginalAndCreateDraft(Long userId, MultipartFile image, JarBodyStyle bodyStyle) {
+        return uploadOriginalAndCreateDraft(userId, image, bodyStyle, null);
+    }
+
+    /** 틀은 외부 심사/S3 호출 전에 검증하며 사진이나 AI 입력에 합성하지 않는다. */
+    public JarDesignDraftCreateResponse uploadOriginalAndCreateDraft(Long userId, MultipartFile image, JarBodyStyle bodyStyle,
+                                                                  shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+        shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
         // 존재하지 않는 사용자의 요청으로 외부 심사·S3 비용이 발생하지 않게 먼저 확인한다.
         if (!userRepository.existsById(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
@@ -78,7 +85,9 @@ public class JarDesignDraftUploadService {
         putPrivateOriginal(originalS3Key, normalizedPngBytes);
 
         try {
-            JarDesignDraft draft = persistenceService.createDraft(userId, originalS3Key, bodyStyle, normalized.contentFrame());
+            JarDesignDraft draft = customBody == null
+                    ? persistenceService.createDraft(userId, originalS3Key, bodyStyle, normalized.contentFrame())
+                    : persistenceService.createDraft(userId, originalS3Key, bodyStyle, normalized.contentFrame(), customBody);
             return new JarDesignDraftCreateResponse(draft.getDraftId(), draft.getExpiresAt());
         } catch (RuntimeException exception) {
             // S3 저장만 성공하고 DB Draft 생성이 실패하면 이 요청의 고유 객체만 보상 삭제한다.

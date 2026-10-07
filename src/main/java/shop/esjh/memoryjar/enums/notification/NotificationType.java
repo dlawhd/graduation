@@ -21,5 +21,8 @@ public enum NotificationType {
     JAR_MEMBER_JOINED,
 
     // 문의 답변이 등록되었을 때. 저금통에 참여하지 않아도 본인에게 전달한다.
-    SUPPORT_REPLIED
+    SUPPORT_REPLIED,
+
+    // 원본 보관이 완료되어 새 문의가 접수되었을 때 지정된 운영자에게 전달한다.
+    SUPPORT_INQUIRY_RECEIVED
 }

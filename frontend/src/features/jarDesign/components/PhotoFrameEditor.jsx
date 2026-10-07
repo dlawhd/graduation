@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { JAR_BODIES, getJarBody } from "../jarBodies.mjs";
+import { SELECTABLE_JAR_BODIES as JAR_BODIES, getJarBody } from "../jarBodies.mjs";
 import { WHOLE_PHOTO, coverPhotoFrame, containPhotoFrame, normalizePhotoFrame, photoFrameControls, samePhotoFrame } from "../photoFraming.mjs";
 import { draftImageRendering } from "../imageRendering.mjs";
 import { createPreviewImageKey, resolvePreviewImageState } from "../previewImageState.mjs";
@@ -9,7 +9,7 @@ import JarDesignImage from "./JarDesignImage";
 /** 선택 사진의 표시 영역만 조절하는 단계다. 드래그는 로컬에서 처리하고 적용할 때 한 번 저장한다. */
 export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved, onCancel, onBusyChange, onDirtyChange, onRetry, onRefresh }) {
   const [bodyId, setBodyId] = useState(draft.bodyStyle || "CLASSIC");
-  const body = getJarBody(bodyId);
+  const body = getJarBody(bodyId, draft.customBody);
   const source = draft.selectedDesignType === "ORIGINAL" ? draft.originalContentFrame || WHOLE_PHOTO : WHOLE_PHOTO;
   const [fit, setFit] = useState(draft.photoFrame?.fit || "COVER");
   // 모드만 전환할 때 사용자가 조절한 확대·위치는 잃지 않는다. 전체 보기는 원본 영역을 별도로 표시한다.
@@ -36,7 +36,7 @@ export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved,
     const c = { ...controls, ...next };
     setFrame(coverPhotoFrame(body.window, source, c.zoom, c.x, c.y));
   }
-  function changeBody(id) { setBodyId(id); setFrame(coverPhotoFrame(getJarBody(id).window, source)); }
+  function changeBody(id) { setBodyId(id); setFrame(coverPhotoFrame(getJarBody(id, draft.customBody).window, source)); }
   function startDrag(event) {
     if (locked || whole || (event.pointerType === "mouse" && event.button !== 0)) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -108,7 +108,7 @@ export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved,
       <div className="min-w-0 rounded-3xl border border-stone-200 bg-gradient-to-b from-[#e7eee5] to-[#f6ead8] p-4">
         <div className="flex items-center justify-between gap-3"><p className="text-xs font-black tracking-wide text-emerald-900">적용하면 이렇게 보여요</p><span className="text-xs text-stone-600">{body.name}</span></div>
         <div className="relative mx-auto mt-3 max-w-[420px]">
-          <JarDesignImage key={imageKey} bodyStyle={bodyId} imageUrl={previewUrl} photoFrame={displayedFrame} alt="사진 배치 적용 미리보기" imageRendering={draftImageRendering(draft)} onImageError={() => setFailedKey(imageKey)} showDefaultSlot/>
+          <JarDesignImage key={imageKey} bodyStyle={bodyId} customBody={draft.customBody} imageUrl={previewUrl} photoFrame={displayedFrame} alt="사진 배치 적용 미리보기" imageRendering={draftImageRendering(draft)} onImageError={() => setFailedKey(imageKey)} showDefaultSlot/>
           {!whole && <div role="application" aria-label="저금통 사진 위치 조절" aria-describedby="photo-drag-help" tabIndex={locked ? -1 : 0}
             className={`absolute rounded-xl outline-offset-4 focus-visible:outline-2 focus-visible:outline-emerald-700 ${locked ? "" : "cursor-grab touch-none active:cursor-grabbing"}`}
             style={{ left:`${body.window.x/4.8}%`,top:`${body.window.y/4.8}%`,width:`${body.window.width/4.8}%`,height:`${body.window.height/4.8}%` }}
@@ -119,12 +119,12 @@ export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved,
     </div>
     {!ready && <div role="status" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{imageState === "failed" ? "사진을 불러오지 못했어요." : "사진을 준비하고 있어요."}{onRetry && <button type="button" disabled={saving || retrying || disabled} onClick={() => void retryPreview()} className="ml-3 min-h-11 font-bold underline">이미지 다시 불러오기</button>}</div>}
     <div className="mt-6 grid gap-4 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2">
-      <label className="text-sm font-bold text-stone-700">저금통 모양<select aria-label="사진 배치 저금통 모양" value={bodyId} disabled={locked} onChange={(e) => changeBody(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 bg-white px-3">{JAR_BODIES.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+      <label className="text-sm font-bold text-stone-700">저금통 모양<select aria-label="사진 배치 저금통 모양" value={bodyId} disabled={locked} onChange={(e) => changeBody(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 bg-white px-3">{draft.customBody && <option value="CUSTOM">내가 만든 틀</option>}{bodyId !== "CUSTOM" && !JAR_BODIES.some(b=>b.id===bodyId) && <option value={bodyId}>{body.name} (기존 선택)</option>}{JAR_BODIES.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
       <label className="text-sm font-bold text-stone-700">사진 확대 <span className="float-right text-emerald-800">{whole ? "전체 보기" : `${controls.zoom.toFixed(2)}배`}</span><input aria-label="사진 확대" type="range" min="1" max="4" step=".01" value={controls.zoom} disabled={locked || whole} onChange={(e) => adjust({ zoom:Number(e.target.value) })} className="mt-3 h-8 w-full accent-emerald-700 disabled:opacity-35"/></label>
       <label className="text-sm font-bold text-stone-700">가로 위치<input aria-label="사진 가로 위치" type="range" min="0" max="1" step=".005" value={controls.x} disabled={locked || whole} onChange={(e) => adjust({ x:Number(e.target.value) })} className="mt-2 h-8 w-full accent-emerald-700 disabled:opacity-35"/></label>
       <label className="text-sm font-bold text-stone-700">세로 위치<input aria-label="사진 세로 위치" type="range" min="0" max="1" step=".005" value={controls.y} disabled={locked || whole} onChange={(e) => adjust({ y:Number(e.target.value) })} className="mt-2 h-8 w-full accent-emerald-700 disabled:opacity-35"/></label>
     </div>
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">{!whole && <button type="button" disabled={locked} onClick={() => setFrame(coverPhotoFrame(body.window, source))} className="min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-stone-600">빈틈없이 채우기 · 초기화</button>}<p className="text-xs text-stone-500">사진 창 비율 {body.window.width} : {body.window.height} · 사진이 찌그러지지 않아요</p></div>
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">{!whole && <button type="button" disabled={locked} onClick={() => setFrame(coverPhotoFrame(body.window, source))} className="min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-stone-600">빈틈없이 채우기 · 초기화</button>}<p className="text-xs text-stone-500">사진 창 비율 {Math.round(body.window.width)} : {Math.round(body.window.height)} · 사진이 찌그러지지 않아요</p></div>
     {error && <div role="alert" className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-700"><p>{error}</p>
       {blocked && onRefresh && <button type="button" disabled={saving || disabled} onClick={onRefresh} className="mt-2 min-h-11 font-bold underline">최신 상태 다시 불러오기</button>}</div>}
     <div className="mt-6 grid gap-3 sm:grid-cols-2"><button type="button" disabled={locked} onClick={() => void save(true)} className="min-h-12 rounded-xl border border-stone-300 bg-white px-4 text-sm font-bold text-stone-700">저금통 없이 이미지만 사용하기</button><button type="button" disabled={locked} onClick={() => void save()} className="min-h-12 rounded-xl bg-emerald-800 px-4 text-sm font-black text-white disabled:opacity-50">{saving ? "배치를 저장하고 있어요…" : "이 모습으로 적용하고 계속하기 →"}</button></div>

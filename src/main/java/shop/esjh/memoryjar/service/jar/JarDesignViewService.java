@@ -96,7 +96,7 @@ public class JarDesignViewService {
                 design.getSlotSizeRatio(),
                 design.getSelectedGeneration() == null ? null : design.getSelectedGeneration().getAiStyle(),
                 design.getSlotStyle(),
-                design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame())
+                design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame()), design.getCustomBody()
         );
     }
 
