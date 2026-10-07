@@ -1,6 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canSubmitInquiry, inquiryButtonLabel, supportNotificationPath, SUPPORT_STATUS } from "./supportView.mjs";
+import { canSubmitInquiry, inquiryButtonLabel, supportNotificationPath, SUPPORT_STATUS, canViewSupportInquiries } from "./supportView.mjs";
+
+test("로그인과 운영 권한 확인 전에는 예외 없이 기본 차단", () => {
+  for (const userId of [undefined, null, 3]) {
+    for (const permission of [undefined, null, {}]) {
+      assert.equal(canViewSupportInquiries(true, userId, permission), false);
+    }
+  }
+  assert.equal(canViewSupportInquiries(true, undefined, { operator: true }), false);
+  assert.equal(canViewSupportInquiries(false, undefined, null), true);
+});
+
+test("현재 로그인 계정의 명시적인 운영 권한만 허용", () => {
+  assert.equal(canViewSupportInquiries(true, 3, { userId: 3, operator: true }), true);
+  for (const permission of [{ userId: 4, operator: true }, { userId: 3, operator: false },
+    { userId: 3 }, { userId: 3, operator: "true" }]) {
+    assert.equal(canViewSupportInquiries(true, 3, permission), false);
+  }
+  assert.equal(canViewSupportInquiries(true, 4, { userId: 3, operator: true }), false);
+});
 
 test("원본 공유 동의와 미리보기가 모두 있어야 문의 접수 가능", () => {
   assert.equal(canSubmitInquiry("문의", false, true, false), false);

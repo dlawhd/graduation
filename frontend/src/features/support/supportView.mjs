@@ -5,6 +5,11 @@ export const SUPPORT_STATUS = {
 export const SUPPORT_STYLE = {
   CUTE_2D: "귀여운 2D", SOFT_25D: "부드러운 3D", WATERCOLOR: "수채화", HAND_DRAWN: "손그림", WEIRDO: "기괴", PIXEL: "픽셀",
 };
+/** 로그인 전이나 계정 전환 중에는 이전 계정의 운영 권한을 재사용하지 않는다. 서버 권한 검사도 별도로 유지한다. */
+export function canViewSupportInquiries(operator, userId, permission) {
+  if (!operator) return true;
+  return Boolean(userId != null && permission?.userId === userId && permission?.operator === true);
+}
 export function canSubmitInquiry(description, agreed, imageReady, busy) {
   return Boolean(!busy && agreed && imageReady && description.trim().length > 0 && description.length <= 1000);
 }

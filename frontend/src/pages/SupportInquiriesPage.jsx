@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getSupportInquiries, getSupportPermissions, supportError } from "../api/supportApi";
-import { SUPPORT_STATUS, SUPPORT_STYLE, supportTime } from "../features/support/supportView.mjs";
+import { SUPPORT_STATUS, SUPPORT_STYLE, supportTime, canViewSupportInquiries } from "../features/support/supportView.mjs";
 import SupportInquiryDetail from "../features/support/SupportInquiryDetail";
 
 /** 내 문의와 운영 문의함을 표시한다. 목록은 커서로 나누고 권한은 서버에서 다시 검사한다. */
@@ -16,7 +16,7 @@ export default function SupportInquiriesPage({ me, checkingAuth, operator = fals
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
-  const allowed = !operator || (permission?.userId === userId && permission.operator);
+  const allowed = canViewSupportInquiries(operator, userId, permission);
   useEffect(() => {
     if (!operator || !userId) return;
     const controller = new AbortController(); setPermission(null); setError("");
