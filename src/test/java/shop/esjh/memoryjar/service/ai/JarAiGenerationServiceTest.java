@@ -49,7 +49,7 @@ class JarAiGenerationServiceTest {
     @Mock private JarAiGenerationRealtimeService realtimeService;
 
     @ParameterizedTest
-    @EnumSource(value = JarAiStyle.class, names = {"CUTE_2D", "WEIRDO"})
+    @EnumSource(value = JarAiStyle.class, names = {"CUTE_2D", "SOFT_25D", "WATERCOLOR", "HAND_DRAWN", "WEIRDO"})
     @DisplayName("일반 스타일은 검증된 후보를 S3에 저장한 뒤에만 성공 처리한다")
     void generate_savesNormalCandidateThenMarksSucceeded(JarAiStyle style) throws Exception {
         JarAiGenerationService service = service();
@@ -73,7 +73,11 @@ class JarAiGenerationServiceTest {
         verify(persistenceService, never()).completeFailed(anyLong(), anyLong(), any(), anyString());
         assertThat(task.target().generationId()).isEqualTo(100L);
         assertThat(request.getValue().images()).hasSize(1);
+        assertThat(request.getValue().images().get(0).bytes()).isEqualTo("original".getBytes(StandardCharsets.UTF_8));
         assertThat(request.getValue().prompt()).isEqualTo(new AiPromptCatalog().resolve(style).prompt());
+        assertThat(request.getValue().prompt()).contains("preserve and restyle that background together with the subjects");
+        assertThat(task.definition().promptVersion()).isEqualTo(new AiPromptCatalog().resolve(style).promptVersion());
+        verify(persistenceService).start(eq(1L), eq(10L), eq(style), eq(task.definition()), eq(7L));
         assertThat(request.getValue().seed()).isEqualTo(7L);
         verify(promptCatalog, never()).loadReferenceImage(any());
         verifyNoInteractions(pixelPostProcessor);
@@ -84,7 +88,7 @@ class JarAiGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("PIXEL_V6는 원본 하나만 전송하고 기존 Java 후처리 결과만 후보로 저장한다")
+    @DisplayName("배경 보존 PIXEL_V7은 원본 하나만 전송하고 기존 Java 후처리 결과만 후보로 저장한다")
     void generate_pixelUsesOnlyOriginalAndPostProcessor() throws Exception {
         JarAiGenerationService service = service();
         arrangeStart(JarAiStyle.PIXEL);
@@ -107,6 +111,7 @@ class JarAiGenerationServiceTest {
         assertThat(request.getValue().images().get(0).fileName()).isEqualTo("draft-original.png");
         assertThat(request.getValue().images().get(0).bytes()).isEqualTo("original".getBytes(StandardCharsets.UTF_8));
         assertThat(request.getValue().prompt()).isEqualTo(new AiPromptCatalog().resolve(JarAiStyle.PIXEL).prompt());
+        assertThat(request.getValue().prompt()).contains("preserve and restyle that background together with the subjects");
         verify(promptCatalog, never()).loadReferenceImage(any());
         // Java 후처리 규격이 늘어도 AI 생성 호출과 후보 저장은 각각 한 번만 수행한다.
         verifyNoMoreInteractions(cloudflareClient);

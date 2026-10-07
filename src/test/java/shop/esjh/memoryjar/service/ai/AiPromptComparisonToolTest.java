@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import shop.esjh.memoryjar.config.properties.AiGenerationImageProperties;
+import shop.esjh.memoryjar.enums.ai.JarAiStyle;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -28,15 +30,35 @@ import static org.mockito.Mockito.when;
 class AiPromptComparisonToolTest {
     @Test
     void trialsContainOnlyTwoStylesAndKeepProductionBaseline() throws Exception {
-        var trials = AiPromptComparisonTool.trials(new AiPromptCatalog());
+        // 이 도구는 10월 6일 비교 전용이다. 당시 Catalog를 재현해서 기존 보호 조건을 검사한다.
+        var legacyCatalog = mock(AiPromptCatalog.class);
+        String base = legacyPrompt("base-v2.txt");
+        String cute = base + System.lineSeparator() + System.lineSeparator() + legacyPrompt("cute-2d-v2.txt");
+        String hand = base + System.lineSeparator() + System.lineSeparator() + legacyPrompt("hand-drawn-v1.txt");
+        when(legacyCatalog.resolve(JarAiStyle.CUTE_2D)).thenReturn(new AiPromptCatalog.AiPromptDefinition(
+                cute, "BASE_V2+CUTE_2D_V2", null, null, null));
+        when(legacyCatalog.resolve(JarAiStyle.HAND_DRAWN)).thenReturn(new AiPromptCatalog.AiPromptDefinition(
+                hand, "BASE_V2+HAND_DRAWN_V1", null, null, null));
+        var trials = AiPromptComparisonTool.trials(legacyCatalog);
         assertThat(trials).extracting(AiPromptComparisonTool.Trial::id)
                 .containsExactly("CUTE_2D_OLD", "CUTE_2D_NEW", "HAND_DRAWN_OLD", "HAND_DRAWN_NEW");
-        assertThat(trials.get(0).prompt()).isEqualTo(new AiPromptCatalog()
-                .resolve(shop.esjh.memoryjar.enums.ai.JarAiStyle.CUTE_2D).prompt());
-        assertThat(trials.get(2).prompt()).isEqualTo(new AiPromptCatalog()
-                .resolve(shop.esjh.memoryjar.enums.ai.JarAiStyle.HAND_DRAWN).prompt());
+        assertThat(trials.get(0).prompt()).isEqualTo(cute);
+        assertThat(trials.get(2).prompt()).isEqualTo(hand);
         assertThat(trials.get(1).prompt().length()).isLessThan(trials.get(0).prompt().length());
         assertThat(trials.get(3).prompt().length()).isLessThan(trials.get(2).prompt().length());
+    }
+
+    /** 새 배경 정책을 예전 비교로 잘못 시험하거나 4회 재호출하지 않도록 사전 차단한다. */
+    @Test
+    void oldComparisonStopsBeforeCallsWhenBackgroundPolicyHasChanged() {
+        assertThatThrownBy(() -> AiPromptComparisonTool.trials(new AiPromptCatalog()))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    private String legacyPrompt(String file) throws Exception {
+        try (var stream = new ClassPathResource("ai/prompts/" + file).getInputStream()) {
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8).trim();
+        }
     }
 
     @Test

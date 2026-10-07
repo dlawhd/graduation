@@ -61,7 +61,7 @@ class JarAiGenerationPersistenceServiceTest {
     @Mock private JarAiGenerationRepository generationRepository;
 
     @ParameterizedTest
-    @EnumSource(value = JarAiStyle.class, names = {"PIXEL", "WEIRDO"})
+    @EnumSource(JarAiStyle.class)
     void start_recordsNewPromptVersionsWithoutInventingReferenceMetadata(JarAiStyle style) {
         JarDesignDraft draft = mock(JarDesignDraft.class);
         User owner = mock(User.class);

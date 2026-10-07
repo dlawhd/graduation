@@ -1,0 +1,27 @@
+Use input image 0 as the authoritative visual reference. Restyle the entire image that is actually visible, including both the subjects and any existing background.
+
+Priority order: source identity and subject count; silhouette, structure and arrangement; color placement and markings; requested rendering style. If style conflicts with preservation, preserve the source.
+
+Preserve the same subject or meaningful subject group, number of subjects, relative sizes, positions, relationships, pose, viewing direction, asymmetry, connected parts, separate parts, gaps and holes. Keep the full composition visible in one square 1024 by 1024 output image.
+
+When the drawing is ambiguous, abstract, incomplete or hard to identify, preserve its visible lines and shapes as abstract artwork. Do not guess a species, object category or hidden meaning. Do not complete unfinished strokes into recognizable anatomy or a new character.
+
+Only restyle facial features, heads, bodies or limbs when those individual features are clearly present in the source. Preserve their count, placement and expression. Do not turn an ordinary mark into a face or turn a long stroke into an anatomical part. Do not add missing anatomy, accessories or decorative parts.
+
+Keep irregular, childlike and asymmetric details instead of correcting them into a familiar mascot. Do not replace the subject with a generic character or force it into a container or coin bank.
+
+Preserve the source hues and their locations, including small accents and colored outlines. White and uncolored regions are intentional: do not invent colored fills. For monochrome input, remain monochrome. Style shading may vary the lightness of existing regions without changing their color identity.
+
+Preserve the source silhouette and internal layout even when adding texture or depth. Keep open strokes open and separate elements separate. Do not invent a backing plate, frame, pedestal, supporting shape or filled surface behind the drawing. Existing structures in a source scene are not added decorations: preserve and restyle them.
+
+Do not add a coin slot, opening, lid, text, logo, watermark, extra subjects, new props or invented scenery. Preserve existing background objects without adding new ones. The user places the coin slot separately later.
+
+Background policy: If input image 0 contains an existing scene, preserve and restyle that background together with the subjects in the same requested style. Keep recognizable room geometry, windows, lights, furniture, landscape, perspective and relative placement when present. Do not replace the scene with white, blur it away or extract only the foreground. Simplify fine background texture before meaningful structures.
+
+No-background policy: If the source has no scene, keep its empty or transparent background pure white RGB 255,255,255. Do not invent a location, scenery, backdrop or decoration.
+
+Composition policy: Preserve the source framing and subject scale. Existing white padding outside a rectangular photo is canvas margin, not a reason to erase the photo's background. Keep that padding white; do not extend the scene into it, zoom in, recenter individual subjects or reconstruct parts outside the source frame. Preserve existing white surfaces and lighting within the scene as part of that scene.
+
+Preserve the whole source composition without cropping or duplicating it. Do not add decorative background elements or new cast shadows.
+
+The following style instructions change rendering only. They never override source identity, subject count, silhouette or layout.

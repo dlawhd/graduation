@@ -31,6 +31,17 @@ class JarAiInputImageProcessorTest {
         var result=decode(JarAiInputImageProcessor.prepare(twoColors(),frame(".999999",".999999",".000001",".000001")));
         assertThat(result.getRGB(240,240)&0xffffff).isEqualTo(0x0000ff);
     }
+    /** 가로 사진을 정사각형에 넣어도 장면의 양쪽 색은 남고 사진 바깥 여백만 흰색이다. */
+    @Test void rectangularSceneKeepsBothSidesAndOnlyPadsOutsideWithWhite() throws Exception {
+        byte[] original = twoColors();
+        var output = decode(JarAiInputImageProcessor.prepare(original, frame("0", ".25", "1", ".5")));
+        assertThat(output.getRGB(20, 240) & 0xffffff).isEqualTo(0xff0000);
+        assertThat(output.getRGB(460, 240) & 0xffffff).isEqualTo(0x0000ff);
+        assertThat(output.getRGB(240, 119) & 0xffffff).isEqualTo(0xffffff);
+        assertThat(output.getRGB(240, 360) & 0xffffff).isEqualTo(0xffffff);
+        assertThat(decode(original).getRGB(20, 20) & 0xffffff).isEqualTo(0xff0000);
+        assertThat(decode(original).getRGB(460, 460) & 0xffffff).isEqualTo(0x0000ff);
+    }
     @Test void rejectsMalformedAndOutOfBoundsInput() throws Exception {
         assertThatThrownBy(()->JarAiInputImageProcessor.prepare(new byte[]{1},frame("0","0","1","1")))
             .isInstanceOf(IllegalArgumentException.class);
