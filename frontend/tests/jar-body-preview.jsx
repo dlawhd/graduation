@@ -23,14 +23,22 @@ const sample = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://ww
 let draft = { draftId: 999, status: "ACTIVE", bodyStyle: "CAT", selectedDesignType: null, photoFrame:null, originalContentFrame:{x:0,y:0,width:1,height:1}, generations: [{ generationId: 1, style: "WATERCOLOR", status: "SUCCEEDED" }], cutoutRegions: [] };
 let finalForm = {};
 const landscape = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480"><defs><linearGradient id="s" x2="0" y2="1"><stop stop-color="#f6ac81"/><stop offset="1" stop-color="#f4d7aa"/></linearGradient></defs><rect width="480" height="480" fill="white"/><svg y="105" width="480" height="270" viewBox="0 0 800 450"><rect width="800" height="450" fill="url(#s)"/><circle cx="575" cy="107" r="64" fill="#ffe8a7"/><path d="M0 232L137 117L280 232L389 159L575 265L720 142L800 241V450H0" fill="#769d95"/><path d="M0 297Q120 234 245 298T500 298T800 303V450H0" fill="#397d82"/><path d="M0 353Q131 318 288 365T800 348V450H0" fill="#aad7cf"/><path d="M0 427Q123 374 211 450H0" fill="#e5c09b"/><g fill="#fff4e4"><rect x="325" y="268" width="122" height="73" rx="4"/><path d="M303 270L387 206L465 270" fill="#b75d52"/><rect x="372" y="301" width="24" height="40" fill="#496b60"/><rect x="337" y="286" width="25" height="21" fill="#b0d3c4"/><rect x="407" y="286" width="25" height="21" fill="#b0d3c4"/></g></svg></svg>');
-let activeSample = sample, saveFailsOnce = false, uploadFailsOnce=false;
+let activeSample = sample, saveFailsOnce = false, uploadFailsOnce=false, generationFailsOnce=false;
 let uploadProbe = null;
 // 주소로 같은 검증 장면을 다시 열 수 있게 한다. 운영 진입점에는 포함되지 않는다.
 const landscapeFixture = new URLSearchParams(window.location.search).get("fixture") === "landscape";
+const storedSlotFixture = new URLSearchParams(window.location.search).get("fixture") === "stored-slot";
+const confirmationFixture = new URLSearchParams(window.location.search).get("confirm") === "fixture";
 if (landscapeFixture) {
   activeSample = landscape;
   draft = { ...draft, selectedDesignType:"ORIGINAL", selectedGenerationId:null,
     originalContentFrame:{x:0,y:.21875,width:1,height:.5625} };
+}
+if (storedSlotFixture) {
+  // 서버에 입구까지 저장한 이전 Draft의 복원을 재현한다. 새로고침마다 같은 스냅샷으로 시작한다.
+  draft = { ...draft, selectedDesignType:"AI", selectedGenerationId:1,
+    photoFrame:coverPhotoFrame(JAR_BODIES.find(body => body.id === "CAT").window),
+    slotCenterX:.5, slotCenterY:.25, slotSizeRatio:.4, slotStyle:"CAPSULE" };
 }
 const requests = [];
 apiClient.defaults.adapter = async (config) => {
@@ -39,6 +47,7 @@ apiClient.defaults.adapter = async (config) => {
   const input = typeof config.data === "string" ? JSON.parse(config.data) : config.data;
   requests.push({method,url});
   if (url.endsWith("/composition") && saveFailsOnce) { saveFailsOnce = false; throw new Error("로컬 저장 실패 검증: 편집은 보존돼요."); }
+  if (url.endsWith("/generations") && generationFailsOnce) { generationFailsOnce = false; throw new Error("로컬 AI 요청 실패 검증"); }
   if (url.endsWith("/csrf")) data = { token: "local-fixture", headerName: "X-XSRF-TOKEN" };
   else if (url === "/api/v1/design-drafts" && method === "post") {
     if(uploadFailsOnce) {uploadFailsOnce=false;const error=new Error("Network Error");error.code="ERR_NETWORK";throw error;}
@@ -173,6 +182,19 @@ if (import.meta.hot) import.meta.hot.data.root = previewRoot;
 function FixtureApp() {
   const [version,setVersion] = useState(0);
   const [uploadResult,setUploadResult]=useState("");
+  const [allowDiscard,setAllowDiscard]=useState(false);
+  const [confirmation,setConfirmation]=useState({count:0,message:""});
+  // 브라우저 네이티브 창에 의존하지 않고 경고 발생과 취소/확인 분기를 로컬에서 재현한다.
+  // 명시적인 검증 query에서만 사용하며 운영 코드와 일반 검증 화면에는 적용하지 않는다.
+  useEffect(() => {
+    if (!confirmationFixture) return undefined;
+    const previousConfirm = window.confirm;
+    window.confirm = (message) => {
+      setConfirmation(current => ({count:current.count+1,message}));
+      return allowDiscard;
+    };
+    return () => { window.confirm = previousConfirm; };
+  }, [allowDiscard]);
   /** 합성 노이즈 사진을 실제 File 입력에 전달해 큰 모바일 사진의 준비·업로드 경로를 검증한다. */
   async function syntheticUpload(type="image/jpeg") {
     const canvas=document.createElement("canvas");canvas.width=2000;canvas.height=1400;
@@ -203,7 +225,9 @@ function FixtureApp() {
       originalContentFrame: source === "landscape" ? {x:0,y:.21875,width:1,height:.5625} : {x:0,y:0,width:1,height:1} };
     setVersion((v) => v+1);
   }
-  return <><div className="flex flex-wrap gap-2 bg-amber-50 p-3 text-xs"><button onClick={() => reset("landscape")} className="min-h-11 rounded-xl bg-white px-3">가로 사진 배치 검증</button><button onClick={() => reset("square")} className="min-h-11 rounded-xl bg-white px-3">정사각 그림 배치 검증</button><button onClick={() => { saveFailsOnce=true; }} className="min-h-11 rounded-xl bg-white px-3">다음 저장 실패 검증</button><button onClick={()=>void syntheticUpload()}>대용량 JPEG 입력 검증</button><button onClick={()=>void syntheticUpload("image/png")}>투명 PNG 입력 검증</button><button onClick={()=>{uploadFailsOnce=true;}}>다음 전송 Network Error</button><p data-upload-probe className="w-full min-w-0 break-all">{uploadResult}</p></div>
-  <MemoryRouter key={version} initialEntries={[version || landscapeFixture ? "/?draft=999" : "/"]}><OnboardingProvider userId={1} checkingAuth={false}><StompClientProvider><header className="flex flex-wrap justify-between gap-3 bg-white px-6 py-4 text-sm font-bold text-emerald-800"><Link to="/">MEMORY JAR · 로컬 검증 (서버 요청 없음)</Link><nav className="flex flex-wrap gap-4"><Link to="/contact-sheet">{JAR_BODIES.length}종 한눈에</Link><Link to="/slot-sheet">입구 {SLOT_CATALOG.length}종</Link><Link to="/?draft=999">후보·편집 검증</Link></nav></header><Routes><Route path="/jars/new" element={<JarsNewPage/>}/><Route path="/jars/999" element={<Result/>}/><Route path="/contact-sheet" element={<ContactSheet/>}/><Route path="/slot-sheet" element={<SlotSheet/>}/><Route path="*" element={<JarDesignNewPage/>}/></Routes></StompClientProvider></OnboardingProvider></MemoryRouter></>;
+  return <><div className="flex flex-wrap gap-2 bg-amber-50 p-3 text-xs"><button onClick={() => reset("landscape")} className="min-h-11 rounded-xl bg-white px-3">가로 사진 배치 검증</button><button onClick={() => reset("square")} className="min-h-11 rounded-xl bg-white px-3">정사각 그림 배치 검증</button><button onClick={() => { saveFailsOnce=true; }} className="min-h-11 rounded-xl bg-white px-3">다음 저장 실패 검증</button><button onClick={()=>void syntheticUpload()}>대용량 JPEG 입력 검증</button><button onClick={()=>void syntheticUpload("image/png")}>투명 PNG 입력 검증</button><button onClick={()=>{uploadFailsOnce=true;}}>다음 전송 Network Error</button><p data-upload-probe className="w-full min-w-0 break-all">{uploadResult}</p>
+    {confirmationFixture && <><label><input type="checkbox" checked={allowDiscard} onChange={event=>setAllowDiscard(event.target.checked)}/>편집 버리기 확인 응답</label><button onClick={()=>{generationFailsOnce=true;}}>다음 AI 요청 실패 검증</button><p role="status" data-edit-confirmation className="w-full">편집 확인 횟수: {confirmation.count}{confirmation.message && ` / ${confirmation.message}`}</p></>}
+  </div>
+  <MemoryRouter key={version} initialEntries={[version || landscapeFixture || storedSlotFixture ? "/?draft=999" : "/"]}><OnboardingProvider userId={1} checkingAuth={false}><StompClientProvider><header className="flex flex-wrap justify-between gap-3 bg-white px-6 py-4 text-sm font-bold text-emerald-800"><Link to="/">MEMORY JAR · 로컬 검증 (서버 요청 없음)</Link><nav className="flex flex-wrap gap-4"><Link to="/contact-sheet">{JAR_BODIES.length}종 한눈에</Link><Link to="/slot-sheet">입구 {SLOT_CATALOG.length}종</Link><Link to="/?draft=999">후보·편집 검증</Link></nav></header><Routes><Route path="/jars/new" element={<JarsNewPage/>}/><Route path="/jars/999" element={<Result/>}/><Route path="/contact-sheet" element={<ContactSheet/>}/><Route path="/slot-sheet" element={<SlotSheet/>}/><Route path="*" element={<JarDesignNewPage/>}/></Routes></StompClientProvider></OnboardingProvider></MemoryRouter></>;
 }
 previewRoot.render(<FixtureApp/>);

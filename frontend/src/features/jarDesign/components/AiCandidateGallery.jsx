@@ -12,6 +12,10 @@ import JarDesignImage from "./JarDesignImage";
 import PhotoFrameEditor from "./PhotoFrameEditor";
 import { coverPhotoFrame, WHOLE_PHOTO, samePhotoFrame } from "../photoFraming.mjs";
 import { getJarBody } from "../jarBodies.mjs";
+import { designSelectionKey, canEditDesignDetails } from "../designWorkflow.mjs";
+import { getDraftInquiries } from "../../../api/supportApi";
+import { inquiryButtonLabel } from "../../support/supportView.mjs";
+import SupportInquiryModal from "../../support/SupportInquiryModal";
 import {
   createJarDesignGeneration,
   getJarDesignDraft,
@@ -59,10 +63,24 @@ export default function AiCandidateGallery({ draftId }) {
   const [chosenStyle, setChosenStyle] = useState("CUTE_2D");
   const [styleFilter, setStyleFilter] = useState("ALL");
   const [comparisonId, setComparisonId] = useState(null);
+  const [inquiryGeneration, setInquiryGeneration] = useState(null);
+  const [inquiries, setInquiries] = useState({});
+  const failedCandidateIds = JSON.stringify((draft?.generations || []).filter((g) => g.status === "FAILED").map((g) => g.generationId));
+  // 후보마다 조회하지 않고 실패 목록이 바뀔 때 한 번만 기존 접수를 읽는다. 중복 접수는 서버에서도 막는다.
+  useEffect(() => {
+    setInquiries({});
+    if (failedCandidateIds === "[]") return;
+    const controller = new AbortController();
+    getDraftInquiries(draftId, { signal: controller.signal }).then((rows) => {
+      if (!controller.signal.aborted) setInquiries(Object.fromEntries((rows || []).map((i) => [i.generationId, i])));
+    }).catch(() => { /* 조회 실패로 AI 화면을 막지 않는다. 접수 시 서버가 중복 여부를 재검사한다. */ });
+    return () => controller.abort();
+  }, [draftId, failedCandidateIds]);
   const [finalizing, setFinalizing] = useState(false);
   const [editingComposition, setEditingComposition] = useState(false);
   const [compositionSaving, setCompositionSaving] = useState(false);
   const [compositionDirty, setCompositionDirty] = useState(false);
+  const [confirmedSelectionKey, setConfirmedSelectionKey] = useState(null);
   const actionInFlight = useRef(false);
   const editorRef = useRef(null);
   const scrollToEditorRef = useRef(false);
@@ -86,7 +104,7 @@ export default function AiCandidateGallery({ draftId }) {
       scrollToEditorRef.current = false;
       editorRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     }
-  }, [loading, draft]);
+  }, [loading, draft, confirmedSelectionKey]);
 
   function confirmDiscardEdits() {
     if (!slotDirty && !cutoutDirty && !compositionDirty) return true;
@@ -107,6 +125,7 @@ export default function AiCandidateGallery({ draftId }) {
 
   useEffect(() => {
     setDraft(null);
+    setConfirmedSelectionKey(null);
     previewUrlsRef.current = {};
     originalPreviewUrlRef.current = "";
     retriedPreviewUrlsRef.current.clear();
@@ -264,7 +283,8 @@ export default function AiCandidateGallery({ draftId }) {
 
   /** 같은 Draft의 PROCESSING 중복 규칙은 서버가 보장하며, 화면도 요청 중 버튼을 잠근다. */
   async function handleGenerate(style) {
-    if (actionInFlight.current || finalizing || hasProcessingGeneration || generatingStyle || slotSaving || cutoutSaving || !confirmDiscardEdits()) return;
+    // 후보 추가는 현재 선택·배치·입구·배경을 바꾸지 않는다. 기존 편집을 버리거나 확인창을 띄울 이유가 없다.
+    if (actionInFlight.current || finalizing || hasProcessingGeneration || generatingStyle || slotSaving || cutoutSaving || compositionSaving) return;
     actionInFlight.current = true;
     setGeneratingStyle(style);
     setError("");
@@ -287,6 +307,7 @@ export default function AiCandidateGallery({ draftId }) {
     setError("");
     try {
       await selectJarDesign(draftId, "AI", generationId);
+      setConfirmedSelectionKey(`AI:${generationId}`);
       scrollToEditorRef.current = true;
       await loadDraft();
     } catch (requestError) {
@@ -304,7 +325,9 @@ export default function AiCandidateGallery({ draftId }) {
     setSelectingGenerationId("original");
     setError("");
     try {
-      await selectJarDesign(draftId, "ORIGINAL");
+      // 사진 배치를 위해 자동 선택한 원본을 다시 PATCH하면 저장한 배치/입구를 불필요하게 초기화할 수 있다.
+      if (draft?.selectedDesignType !== "ORIGINAL") await selectJarDesign(draftId, "ORIGINAL");
+      setConfirmedSelectionKey("ORIGINAL");
       scrollToEditorRef.current = true;
       await loadDraft();
     } catch (requestError) {
@@ -334,11 +357,13 @@ export default function AiCandidateGallery({ draftId }) {
   }
 
   const customSelected = ["ORIGINAL", "AI"].includes(draft?.selectedDesignType);
+  const detailsReady = canEditDesignDetails(draft, confirmedSelectionKey);
   const selectedPreview = draft?.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft?.selectedGenerationId];
   const needsComposition = Boolean(draft?.status === "ACTIVE" && customSelected && (editingComposition || (body && !draft.photoFrame)));
   // 사진 배치 단계가 열리거나 적용되어 AI 단계로 돌아오면 아래 슬롯 편집기가 아닌 첫 제목부터 읽는다.
   useLayoutEffect(() => {
     if (loading) return;
+    if (!needsComposition && scrollToEditorRef.current) return;
     scrollToEditorRef.current = false;
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [needsComposition, loading]);
@@ -348,7 +373,8 @@ export default function AiCandidateGallery({ draftId }) {
         slotCenterX:null, slotCenterY:null, slotSizeRatio:null, slotStyle:"CAPSULE", cutoutRegions:[], cutoutPoints:[] }));
     setEditingComposition(false);
     setCompositionDirty(false);
-    scrollToEditorRef.current = false;
+    // 원본의 첫 배치는 AI 선택으로, 이미 확정한 후보의 배치는 다음 입구 단계로 이어진다.
+    scrollToEditorRef.current = detailsReady;
   }
   if (!loading && needsComposition) return <div className="mt-8" ref={editorRef}>
     <PhotoFrameEditor key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${draft.bodyStyle}:${JSON.stringify(draft.photoFrame)}`}
@@ -361,6 +387,10 @@ export default function AiCandidateGallery({ draftId }) {
 
   return (
     <section inert={finalizing || undefined} className="mt-8 rounded-[28px] border border-violet-100 bg-white p-4 shadow-[0_12px_32px_rgba(76,29,149,0.08)] sm:p-8">
+      {inquiryGeneration && <SupportInquiryModal key={`${draftId}:${inquiryGeneration.generationId}`} draftId={draftId}
+        generation={inquiryGeneration} existing={inquiries[inquiryGeneration.generationId]} originalUrl={originalPreviewUrl}
+        onClose={() => setInquiryGeneration(null)}
+        onSubmitted={(ticket) => setInquiries((current) => ({ ...current, [ticket.generationId]: ticket }))} />}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="inline-flex rounded-full bg-violet-100 px-3 py-1.5 text-xs font-black text-violet-700">{body ? "03" : "01"} · 디자인 고르기</div>
@@ -428,9 +458,9 @@ export default function AiCandidateGallery({ draftId }) {
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">서버에서 480×480 PNG로 정규화한 원본이에요.</p>
               <button type="button" onClick={() => void handleSelectOriginal()}
-                disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "ORIGINAL"}
+                disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || hasProcessingGeneration || (draft?.selectedDesignType === "ORIGINAL" && detailsReady)}
                 className="mt-4 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45">
-                {draft?.selectedDesignType === "ORIGINAL" ? "선택됨" : selectingGenerationId === "original" ? "선택 저장 중..." : "원본 그대로 선택"}
+                {draft?.selectedDesignType === "ORIGINAL" && detailsReady ? "선택됨" : selectingGenerationId === "original" ? "선택 저장 중..." : "원본 그대로 선택"}
               </button>
             </div>
           </article>
@@ -469,6 +499,7 @@ export default function AiCandidateGallery({ draftId }) {
                     <p className="text-xs font-semibold leading-5 text-rose-700">{failure.message}</p>
                     <p className="mt-2 break-words text-[11px] leading-4 text-slate-500">확인 코드: {failure.diagnosticCode} · 후보 #{generation.generationId}</p>
                   </div>}
+                  {isFailed && <button type="button" onClick={() => setInquiryGeneration(generation)} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-800">{inquiryButtonLabel(inquiries[generation.generationId])}</button>}
                   {isSucceeded && previewUrl && originalPreviewUrl && <button type="button" onClick={() => setComparisonId(generation.generationId)} className="mt-3 w-full rounded-xl border border-violet-200 px-3 py-2.5 text-sm font-bold text-violet-700">확대 · 원본과 비교</button>}
                   {failure?.canRetry ? <button type="button" onClick={() => void handleGenerate(generation.style)}
                     disabled={loading || hasProcessingGeneration || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.status !== "ACTIVE"}
@@ -489,12 +520,18 @@ export default function AiCandidateGallery({ draftId }) {
       {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison bodyStyle={draft?.bodyStyle} photoFit={draft?.photoFrame?.fit} originalContentFrame={draft?.originalContentFrame} originalPhotoFrame={draft?.aiInputPhotoFrame} originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
         onClose={() => setComparisonId(null)} onSelect={() => { setComparisonId(null); void handleSelect(comparisonId); }} />; })()}
       <div ref={editorRef} className="scroll-mt-24" />
+      {!loading && draft?.status === "ACTIVE" && customSelected && !detailsReady && <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+        원본 또는 마음에 드는 AI 후보를 선택하면 다음으로 입구와 배경을 설정해요.
+        {draft.selectedDesignType === "AI" && <button type="button" disabled={Boolean(generatingStyle) || hasProcessingGeneration || selectingGenerationId !== null}
+          onClick={() => { setConfirmedSelectionKey(designSelectionKey(draft)); scrollToEditorRef.current = true; }}
+          className="mt-3 block min-h-11 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">선택한 후보로 입구 설정하기 →</button>}
+      </div>}
       {!loading && draft?.status === "ACTIVE" && customSelected && <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
         <p className="text-sm text-emerald-900">{body ? `${body.name} · 사진 배치를 적용했어요. 투입구를 정하기 전에 다시 조절해도 좋아요.` : "이미지만 사용하는 중이에요. 아래에서 기존 배경 지우기·외곽선 자르기를 이용하세요."}</p>
         <button type="button" disabled={slotSaving || cutoutSaving || compositionSaving || Boolean(generatingStyle) || selectingGenerationId !== null || hasProcessingGeneration}
           onClick={() => { if (confirmDiscardEdits()) setEditingComposition(true); }} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-900 disabled:opacity-50">{body ? "사진 배치 · 모양 다시 조절" : "저금통 모양을 사용하기"}</button>
       </div>}
-      {!loading && draft?.status === "ACTIVE" && ["ORIGINAL", "AI"].includes(draft.selectedDesignType) && (
+      {!loading && detailsReady && (
         <SlotEditor
           key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${draft.slotCenterX}:${draft.slotCenterY}:${draft.slotSizeRatio}:${draft.slotStyle}`}
           draft={draft}
@@ -507,7 +544,7 @@ export default function AiCandidateGallery({ draftId }) {
             slotCenterX: slot.centerX, slotCenterY: slot.centerY, slotSizeRatio: slot.sizeRatio, slotStyle: slot.slotStyle || "CAPSULE" }))}
         />
       )}
-      {!loading && !body && draft?.status === "ACTIVE" && ["ORIGINAL", "AI"].includes(draft.selectedDesignType) && (
+      {!loading && !body && detailsReady && (
         <div>
         <CutoutEditor
           key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${JSON.stringify(draft.cutoutRegions || draft.cutoutPoints || [])}`}
@@ -521,7 +558,7 @@ export default function AiCandidateGallery({ draftId }) {
         />
         </div>
       )}
-      {!loading && draft && (draft.status === "FINALIZED" || (draft.status === "ACTIVE" && ["ORIGINAL", "AI", "DEFAULT"].includes(draft.selectedDesignType))) && (
+      {!loading && draft && (draft.status === "FINALIZED" || detailsReady || (draft.status === "ACTIVE" && draft.selectedDesignType === "DEFAULT")) && (
         <JarDesignFinalizePanel
           draft={draft}
           previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}

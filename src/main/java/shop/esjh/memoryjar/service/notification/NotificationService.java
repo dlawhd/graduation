@@ -140,6 +140,13 @@ public class NotificationService {
         createNotificationIfNeeded(receiver, jar, NotificationType.NOTE_REACTED, payload);
     }
 
+    /** 답변 본문과 사진 주소는 알림에 넣지 않고, 권한 검사된 문의 화면에서만 읽게 한다. */
+    @Transactional
+    public void notifySupportReplied(User receiver, Long inquiryId) {
+        createNotificationIfNeeded(receiver, null, NotificationType.SUPPORT_REPLIED,
+                new NotificationPayload(null, null, null, null, "운영자", null, inquiryId));
+    }
+
     // 저금통에 새 멤버가 들어왔을 때 알림을 만드는 메서드
     @Transactional
     public void notifyJarMemberJoined(
@@ -285,7 +292,8 @@ public class NotificationService {
                 commentId,
                 actorUserId,
                 actorName,
-                emoji
+                emoji,
+                payload != null ? payload.inquiryId() : null
         );
     }
 
@@ -308,6 +316,7 @@ public class NotificationService {
 
             case JAR_MEMBER_JOINED ->
                     safeActorName + "님이 저금통에 참여했어요.";
+            case SUPPORT_REPLIED -> "문의에 운영자 답변이 도착했어요.";
         };
     }
 }

@@ -1,5 +1,7 @@
 # Memory Jar ERD — Markdown 문서판
 
+> 2026-10-07 V49 증분: 문의/감사 테이블과 후보별 UNIQUE, 정리 인덱스를 추가하고 알림 CHECK에 `SUPPORT_REPLIED`를 추가한다. 기존 마이그레이션은 유지한다. [AI 실패 문의 계약](AI_SUPPORT_V49.md)을 확인한다.
+
 > 2026-10-05 V48 증분: `jar_ai_generations`에 nullable `candidate_upload_s3_key VARCHAR(512)`, `candidate_cleanup_at DATETIME(6)`과 실패 정리 조회 인덱스를 추가한다. 기존 상태 CHECK·데이터는 유지한다. [예약·재시도 계약](WRITE_SAFETY_V48.md)을 확인한다.
 
 > 2026-10-05 V46·V47 증분: `users.session_version BIGINT NOT NULL DEFAULT 0`은 JWT·WebSocket 인증 폐기용 버전이다. `chat_messages.client_request_id VARCHAR(64) NULL`과 UNIQUE `(jar_id, sender_id, client_request_id)`는 재전송의 중복 저장을 막는다. NULL은 기존 요청·SYSTEM 메시지 호환용이다. 새 테이블은 없고 이전 마이그레이션은 수정하지 않는다.

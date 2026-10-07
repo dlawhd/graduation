@@ -143,6 +143,18 @@ export default function JarDesignNewPage() {
                   </label>
                   <p role="status" className="mt-3 break-words text-xs leading-5 text-emerald-800">{readingSource ? "선택한 사진을 확인하고 있어요…" : sourceImage ? `${sourceImage.name || "선택한 그림"} · ${previewReady ? "사진 준비 완료. 다음 단계로 계속해 주세요." : "미리보기를 확인하고 있어요…"}` : "사진을 고르면 여기에서 바로 확인할 수 있어요."}</p>
                   {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+                  <section aria-label="저작권과 AI 변환 안내" className="mt-5 rounded-2xl border border-stone-200/80 bg-[#faf8f4] p-4 sm:p-5">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-emerald-800" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.5v.5" /></svg>
+                      </span>
+                      <div className="min-w-0">
+                        <h2 className="text-sm font-bold text-stone-800">저작권과 AI 변환 안내</h2>
+                        <p className="mt-2 text-sm leading-6 text-stone-600">유명한 만화나 게임 캐릭터 이미지는 AI 제공자 정책에 따라 변환이 제한될 수 있어요.</p>
+                        <p className="mt-2 text-xs leading-5 text-stone-500">직접 찍은 사진이나 직접 그린 그림 등 사용 권한이 있는 이미지를 준비해 주세요. AI 변환은 선택 사항이에요.</p>
+                      </div>
+                    </div>
+                  </section>
                 </div>
               )}
               <aside className="h-fit rounded-[22px] border border-violet-100 bg-gradient-to-b from-white to-violet-50/50 p-4 shadow-sm lg:sticky lg:top-24">

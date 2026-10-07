@@ -47,6 +47,13 @@ public record NotificationPayload(
 
         // 리액션 알림일 때 사용
         // 예: "❤️", "😂"
-        String emoji
+        String emoji,
+
+        // 저금통이 아닌 내 문의 상세로 이동할 때만 사용한다.
+        Long inquiryId
 ) {
+    /** 기존 댓글/리액션 호출은 여섯 필드 계약을 유지한다. 과거 JSON의 inquiryId는 null로 읽는다. */
+    public NotificationPayload(Long jarId, Long noteId, Long commentId, Long actorUserId, String actorName, String emoji) {
+        this(jarId, noteId, commentId, actorUserId, actorName, emoji, null);
+    }
 }

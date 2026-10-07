@@ -9,7 +9,7 @@
 // - 라우팅
 // ------------------------------------------------------------
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./pages/Home";
 import LoginSuccess from "./pages/LoginSuccess";
@@ -58,6 +58,9 @@ import MemoryJarLogoIcon from "./components/icons/MemoryJarLogoIcon";
  * 오른쪽에서 열리는 전용 메뉴 컴포넌트
  */
 import MobileHeaderMenu from "./components/layout/MobileHeaderMenu";
+import { getSupportPermissions } from "./api/supportApi";
+import { supportNotificationPath } from "./features/support/supportView.mjs";
+const SupportInquiriesPage = lazy(() => import("./pages/SupportInquiriesPage"));
 // 작은 enum 한글화
 const ROLE_LABEL = {
   OWNER: "방장",
@@ -93,6 +96,8 @@ function getNotificationEmoji(type) {
       return "❤️";
     case "JAR_MEMBER_JOINED":
       return "🎉";
+    case "SUPPORT_REPLIED":
+      return "✉️";
     default:
       return "🔔";
   }
@@ -111,6 +116,8 @@ function buildNotificationFallbackMessage(item) {
       return `${actorName}님이 내 쪽지에 ${item?.emoji || "❤️"} 반응을 남겼어요.`;
     case "JAR_MEMBER_JOINED":
       return `${actorName}님이 저금통에 새로 들어왔어요.`;
+    case "SUPPORT_REPLIED":
+      return "문의에 운영자 답변이 도착했어요.";
     default:
       return "새 알림이 도착했어요.";
   }
@@ -168,6 +175,19 @@ export default function App() {
 
   // 현재 로그인한 사용자 정보
   const [me, setMe] = useState(null);
+  const [supportPermission, setSupportPermission] = useState(null);
+  const supportUserId = getCurrentUserId(me);
+  const isSupportOperator = supportPermission?.userId === supportUserId && supportPermission?.operator === true;
+  // 계정이 바뀌면 이전 계정의 운영 메뉴를 숨기고 서버 설정을 다시 확인한다.
+  useEffect(() => {
+    setSupportPermission(null);
+    if (!supportUserId) return;
+    const controller = new AbortController();
+    getSupportPermissions({ signal: controller.signal }).then((data) => {
+      if (!controller.signal.aborted) setSupportPermission({ ...data, userId: supportUserId });
+    }).catch(() => { /* 운영 메뉴는 권한을 확인하지 못하면 숨긴다. 일반 로그인 흐름은 유지한다. */ });
+    return () => controller.abort();
+  }, [supportUserId]);
 
   // 로그인 확인 중인지
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -734,6 +754,11 @@ useEffect(() => {
 
         setNotificationOpen(false);
 
+        const inquiryPath = supportNotificationPath(item);
+        if (inquiryPath) {
+          navigate(inquiryPath);
+          return;
+        }
         if (item.jarId) {
           navigate(`/jars/${item.jarId}`, {
             state: {
@@ -1152,6 +1177,10 @@ useEffect(() => {
                                   </div>
 
                                   {/* 내가 참여한 저금통 */}
+                                  <div className="space-y-2 border-b border-slate-100 px-5 py-4">
+                                    <Link to="/support/inquiries" onClick={() => setProfileOpen(false)} className="block rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">내 문의 <span className="ml-2 text-xs font-normal text-slate-500">접수 상태와 답변 확인</span></Link>
+                                    {isSupportOperator && <Link to="/admin/support/inquiries" onClick={() => setProfileOpen(false)} className="block rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">운영 문의함</Link>}
+                                  </div>
                                   <div className="px-5 py-5">
                                     <div className="mb-3 flex items-center justify-between">
                                       <p className="text-sm font-black text-slate-800">
@@ -1278,6 +1307,8 @@ useEffect(() => {
 
           // 현재 로그인 사용자 정보
           me={me}
+
+          isSupportOperator={isSupportOperator}
 
           // 로그아웃 요청 중인지 전달
           loggingOut={loggingOut}
@@ -1414,6 +1445,10 @@ useEffect(() => {
           <Route path="/jars/new" element={<JarsNewPage />} />
           <Route path="/jars/design/new" element={<JarDesignNewPage />} />
           <Route path="/jars/:jarId" element={<JarDetailPage />} />
+          <Route path="/support/inquiries" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
+          <Route path="/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
+          <Route path="/admin/support/inquiries" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator /></Suspense>} />
+          <Route path="/admin/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator /></Suspense>} />
           {/*
            * 초대 페이지에 App이 이미 확인한 로그인 사용자 정보를 전달한다.
            * InvitePage에서 /api/v1/me를 다시 호출하지 않아 중복 요청을 줄인다.

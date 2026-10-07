@@ -8,12 +8,14 @@ import JarSlotOverlay, { SlotSwatch } from "./JarSlotOverlay";
 import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 import JarDesignImage from "./JarDesignImage";
 import { getJarBody } from "../jarBodies.mjs";
+import { hasSlotEdits } from "../designWorkflow.mjs";
 
 /** 선택한 원본/AI 이미지 위에 투입구를 배치하고 Draft에 위치·크기·모양을 저장하는 편집기다. */
 export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled, onSaved, onBusyChange, onDirtyChange }) {
   const [savedSlot, setSavedSlot] = useState(() => storedSlot(draft));
   const body = getJarBody(draft.bodyStyle);
-  const [slot, setSlot] = useState(() => normalizeSlot(storedSlot(draft) || body?.slot || DEFAULT_SLOT));
+  const [initialSlot] = useState(() => normalizeSlot(storedSlot(draft) || body?.slot || DEFAULT_SLOT));
+  const [slot, setSlot] = useState(initialSlot);
   const [collection, setCollection] = useState(() => {
     const storedCollection = storedSlot(draft) && getSlotAppearance(draft.slotStyle).collection;
     return SLOT_COLLECTIONS.includes(storedCollection) ? storedCollection : "꽃과 자연";
@@ -32,7 +34,9 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
   const pointerId = useRef(null);
   const url = retryUrl || previewUrl || "";
   const imageReady = Boolean(url && loadedUrl === url && failedUrl !== url);
-  const dirty = !sameSlot(slot, savedSlot);
+  // 저장 필요 여부와 사용자가 실제로 수정했는지는 다르다. 기본 입구도 한 번 저장해야 확정된다.
+  const needsSave = !sameSlot(slot, savedSlot);
+  const dirty = hasSlotEdits(slot, savedSlot, initialSlot);
   const cutoutMaskStyle = toCutoutMaskStyle(cutoutRegions);
   const locked = disabled || saving || blocked || !imageReady;
 
@@ -77,7 +81,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
 
   /** 현재 선택 Snapshot을 함께 전송해 다른 후보로 바뀐 Draft에 잘못 저장하는 것을 막는다. */
   async function saveSlot() {
-    if (locked || !dirty || requestInFlight.current) return;
+    if (locked || !needsSave || requestInFlight.current) return;
     requestInFlight.current = true;
     setSaving(true);
     onBusyChange(true);
@@ -186,8 +190,8 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
               className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">{body ? "저금통 추천 위치로" : "가운데로 초기화"}</button>
           </fieldset>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-          <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : dirty ? "모양·위치·크기를 정한 뒤 저장해 주세요." : "투입구 모양과 위치가 저장됐어요."}</p>
-          <button type="button" onClick={() => void saveSlot()} disabled={locked || !dirty}
+          <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : needsSave ? "모양·위치·크기를 정한 뒤 저장해 주세요." : "투입구 모양과 위치가 저장됐어요."}</p>
+          <button type="button" onClick={() => void saveSlot()} disabled={locked || !needsSave}
             className="min-h-12 w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "저장 중..." : "투입구 저장"}</button>
           <p className="text-xs leading-5 text-slate-500">투입구는 그림 위에 따로 표시돼요. 디자인을 바꾸면 투입구 위치도 다시 정해 주세요.</p>
         </div>

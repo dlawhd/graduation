@@ -628,6 +628,22 @@ class SecurityConfigTest {
                 );
     }
 
+    /** 문의 API도 기존 로그인/CSRF 보호에서 빠지지 않으며 저금통 ADMIN만으로 운영 화면을 열 수 없다. */
+    @Test
+    void supportEndpointsRequireLoginAndCsrf() throws Exception {
+        mockMvc.perform(get("/api/v1/support/inquiries")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/admin/support/inquiries")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/support/inquiries").with(user("fixture"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"draftId\":1,\"generationId\":1,\"description\":\"문의\",\"shareOriginal\":true}"))
+                .andExpect(status().isForbidden());
+        var jarAdmin = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                java.util.Map.of("userId", 1L), "", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+        mockMvc.perform(get("/api/v1/admin/support/inquiries")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication(jarAdmin)))
+                .andExpect(status().isForbidden());
+    }
+
     @TestConfiguration
     static class TestEndpointConfig {
         @Bean

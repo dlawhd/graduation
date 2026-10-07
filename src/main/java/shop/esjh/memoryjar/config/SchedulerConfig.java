@@ -17,6 +17,12 @@ public class SchedulerConfig {
         return scheduler("ai-cleanup-");
     }
 
+    /** 문의 사진 삭제가 느려져도 자동 오픈이나 AI 후보 정리를 지연시키지 않는다. */
+    @Bean
+    public ThreadPoolTaskScheduler supportCleanupTaskScheduler() {
+        return scheduler("support-cleanup-");
+    }
+
     private ThreadPoolTaskScheduler scheduler(String prefix) {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1);

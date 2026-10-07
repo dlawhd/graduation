@@ -18,5 +18,8 @@ public enum NotificationType {
     NOTE_REACTED,
 
     // 내 저금통에 새로운 멤버가 들어왔을 때
-    JAR_MEMBER_JOINED
+    JAR_MEMBER_JOINED,
+
+    // 문의 답변이 등록되었을 때. 저금통에 참여하지 않아도 본인에게 전달한다.
+    SUPPORT_REPLIED
 }

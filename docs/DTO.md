@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-10-07 V49 증분: 문의 요청은 `draftId/generationId/description/shareOriginal=true`, 응답은 안전한 실패 정보와 처리 상태를 사용한다. 알림에 nullable `inquiryId`를 추가하며 기존 호출을 유지한다. [AI 실패 문의 계약](AI_SUPPORT_V49.md)을 확인한다.
+
 > 2026-10-05 V48 증분: `NoteCreateRequest.content`는 최대 300자로 검증한다. 새 `NoteCommentPageResponse`는 `items/hasMore/nextCursor/totalCount/flat`이며 items의 replies는 빈 목록이다. 기존 댓글 DTO/API는 유지한다. [현재 계약](WRITE_SAFETY_V48.md)을 확인한다.
 
 > 2026-10-05 V46·V47 증분: 쪽지 목록 응답의 `items/page/size/totalElements/totalPages`, `previewContent`는 유지하고 요청에 선택 `q`·`tag`를 추가한다. 채팅 전송은 `content`에 선택 `requestId`(영숫자·`_`·`-`, 1~64자)를 추가한다. JWT 내부 `sessionVersion`은 `/me` 응답을 변경하지 않는다. 아래 초기 DTO 예시는 이전 시점 기록이다.
