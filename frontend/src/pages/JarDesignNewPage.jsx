@@ -120,9 +120,10 @@ export default function JarDesignNewPage() {
           <ol className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500" aria-label="디자인 제작 순서">{["틀 만들기 또는 선택", "그림 담기", "사진 배치 · AI 꾸미기", "투입구와 배경", "이름 붙이기"].map((label, i) => <li key={label} aria-current={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "step" : undefined} className={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "text-emerald-800" : ""}><span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{i + 1}</span>{label}</li>)}</ol>
         </section>
 
-        {!draftId && !imageStep && !catalogOpen && <JarBodyWorkshop value={customBody} onChange={setCustomBody} previewUrl={previewUrl} disabled={saving}
+        {/* 선택 목록이나 그림 담기로 이동해도 틀 그림판을 유지해 미완성 획과 실행 취소 이력을 보존한다. */}
+        {!draftId && <div hidden={imageStep || catalogOpen}><JarBodyWorkshop value={customBody} onChange={setCustomBody} previewUrl={previewUrl} disabled={saving || imageStep || catalogOpen}
           onOpenCatalog={() => setCatalogOpen(true)} onImageOnly={() => setSearchParams({ mode:"image-only", step:"image" })}
-          onContinue={() => { if (getJarBody("CUSTOM",customBody)) setSearchParams({body:"CUSTOM",step:"image"}); }}/>}
+          onContinue={() => { if (getJarBody("CUSTOM",customBody)) setSearchParams({body:"CUSTOM",step:"image"}); }}/></div>}
         {!draftId && !imageStep && catalogOpen && <><button type="button" onClick={() => setCatalogOpen(false)} className="mt-5 min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-emerald-800">← 내 틀 만들기로 돌아가기</button><JarBodyPicker value={body?.id} previewUrl={previewUrl}
           onChange={(id) => { if (getJarBody(id)) setSearchParams({ body: id }, { replace: true }); }}
           onImageOnly={() => setSearchParams({ mode:"image-only", step:"image" })}

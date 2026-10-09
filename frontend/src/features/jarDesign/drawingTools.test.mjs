@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { drawingPoint, drawShape, hasDrawingPixels, SHAPES, BRUSHES, constrainShape, drawBrushStroke, floodFill, sampledColor } from "./drawingTools.mjs";
+import { drawingPoint, drawShape, hasDrawingPixels, SHAPES, BRUSHES, BODY_BRUSHES, constrainShape, drawBrushStroke, floodFill, sampledColor } from "./drawingTools.mjs";
+import { CHARACTER_SHAPES, drawCharacterShape } from "./characterShapes.mjs";
 
 test("축소된 캔버스 좌표와 바깥 입력을 480px 원본에 매핑한다", () => {
   const rect = { left: 10, top: 20, width: 240, height: 240 };
@@ -57,8 +58,8 @@ test("Shift 보정은 정사각 비율을 유지하면서 캔버스 경계를 �
   assert.deepEqual(constrainShape({ x: 100, y: 100 }, { x: 70, y: 50 }), { x: 50, y: 50 });
 });
 
-test("6종 펜은 클릭과 긴 획을 그리고 투명도 설정을 격리한다", () => {
-  assert.equal(BRUSHES.length, 6);
+test("10종 펜은 클릭과 긴 획을 그리고 투명도 설정을 격리한다", () => {
+  assert.equal(BRUSHES.length, 10);
   for (const [brush] of BRUSHES) for (const points of [[{ x: 10, y: 20 }], [{ x: 10, y: 20 }, { x: 100, y: 200 }]]) {
     const { ctx, calls } = recordingContext();
     drawBrushStroke(ctx, points, { brush, color: "#ef4444", size: 12, opacity: .5 });
@@ -66,6 +67,57 @@ test("6종 펜은 클릭과 긴 획을 그리고 투명도 설정을 격리한�
     assert.ok(calls.some(([name]) => ["fill", "fillRect", "stroke"].includes(name)));
     assert.ok(ctx.globalAlpha > 0 && ctx.globalAlpha <= .5);
   }
+});
+
+test("12종 캐릭터는 역방향과 크기 0에서도 닫힌 유한 경로를 만든다", () => {
+  assert.equal(CHARACTER_SHAPES.length, 12);
+  assert.equal(new Set(CHARACTER_SHAPES.map(([id]) => id)).size, 12);
+  for (const [shape] of CHARACTER_SHAPES) for (const end of [{ x: 20, y: 30 }, { x: 90, y: 90 }]) {
+    const { ctx, calls } = recordingContext();
+    drawShape(ctx, shape, { x: 90, y: 90 }, end, true);
+    assert.ok(calls.some(([name]) => name === "bezierCurveTo"), shape);
+    assert.deepEqual(calls.slice(-3), [["closePath"], ["fill"], ["stroke"]], shape);
+    for (const [, ...coords] of calls) coords.forEach((n, i) => {
+      assert.ok(Number.isFinite(n) && n >= (i % 2 ? end.y : end.x) && n <= 90, shape);
+    });
+  }
+});
+
+test("미등록 캐릭터와 객체 내장 이름은 그림 경로로 사용하지 않는다", () => {
+  const { ctx, calls } = recordingContext();
+  for (const id of ["unknown", "__proto__", "toString", "constructor"]) {
+    assert.equal(drawCharacterShape(ctx, id, 0, 0, 100, 100), false);
+  }
+  assert.deepEqual(calls, []);
+});
+
+test("틀용 펜 8종은 불투명한 연결 획이며 분리 입자 펜은 제외한다", () => {
+  assert.equal(BODY_BRUSHES.length, 8);
+  assert.ok(BODY_BRUSHES.every(([id]) => !["crayon", "spray"].includes(id)));
+  for (const [brush] of BODY_BRUSHES) {
+    const { ctx, calls } = recordingContext(), alphas = [];
+    Object.defineProperty(ctx, "globalAlpha", { set: value => alphas.push(value) });
+    drawBrushStroke(ctx, [{ x: 10, y: 20 }, { x: 100, y: 200 }], { brush, color: "#123456", size: 20, silhouette: true });
+    assert.ok(alphas.every(alpha => alpha === 1), brush);
+    assert.ok(calls.some(([name]) => ["stroke", "fill"].includes(name)), brush);
+  }
+});
+
+test("몽글 펜의 장식 간격은 같은 경로의 포인터 분할과 무관하다", () => {
+  const arcs = points => {
+    const { ctx, calls } = recordingContext();
+    drawBrushStroke(ctx, points, { brush: "scallop", color: "#123456", size: 10 });
+    return calls.filter(([name]) => name === "arc");
+  };
+  assert.deepEqual(arcs([{ x: 0, y: 0 }, { x: 65, y: 0 }]), arcs([{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 65, y: 0 }]));
+});
+
+test("새 펜은 빈 획을 무시하고 몽글 펜의 장식 개수를 제한한다", () => {
+  const { ctx, calls } = recordingContext();
+  drawBrushStroke(ctx, [], { brush: "ribbon", color: "#123456", size: 20 });
+  assert.equal(calls.length, 0);
+  drawBrushStroke(ctx, [{ x: 0, y: 0 }, { x: 1e6, y: 0 }], { brush: "scallop", color: "#123456", size: 1 });
+  assert.equal(calls.filter(([name]) => name === "arc").length, 4096);
 });
 
 test("채우기는 경계로 분리된 영역만 변경하고 이미 같은 색이면 이력을 늘리지 않는다", () => {

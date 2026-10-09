@@ -1,3 +1,5 @@
+import { drawCharacterShape } from "./characterShapes.mjs";
+
 // CSS 크기와 무관한 원본 좌표를 구하고 캔버스 밖 입력을 제한한다.
 export function drawingPoint(clientX, clientY, rect, size) {
   const clamp = (value) => Math.max(0, Math.min(size, value));
@@ -9,6 +11,7 @@ export function drawShape(ctx, tool, start, end, fill) {
   const x = Math.min(start.x, end.x), y = Math.min(start.y, end.y);
   const w = Math.abs(end.x - start.x), h = Math.abs(end.y - start.y);
   ctx.beginPath();
+  drawCharacterShape(ctx, tool, x, y, w, h);
   if (tool === "line") { ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); }
   if (tool === "rectangle") ctx.rect(x, y, w, h);
   if (tool === "ellipse") ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
@@ -59,7 +62,14 @@ export function drawShape(ctx, tool, start, end, fill) {
 export const BRUSHES = [
   ["pen", "둥근 펜"], ["pencil", "연필"], ["marker", "마커"],
   ["fountain", "캘리그래피"], ["crayon", "크레용"], ["spray", "스프레이"],
+  ["flat", "납작 펜"], ["ribbon", "리본 붓"], ["soft", "부드러운 붓"], ["scallop", "몽글 펜"],
 ];
+export const BODY_BRUSHES = BRUSHES.filter(([id]) => !["crayon", "spray"].includes(id));
+export const BRUSH_DESCRIPTIONS = {
+  pen:"매끈한 둥근 선", pencil:"가늘고 섬세한 선", marker:"넓고 부드러운 선", fountain:"방향에 따라 달라지는 사선 펜촉",
+  crayon:"알갱이가 살아 있는 질감", spray:"가볍게 흩뿌리는 점", flat:"각진 끝의 넓은 선", ribbon:"굵어졌다 가늘어지는 선",
+  soft:"포근하게 번지는 붓", scallop:"동그란 볼록무늬가 이어지는 선",
+};
 export const SHAPES = [
   ["line", "직선"], ["rectangle", "사각형"], ["rounded", "둥근 사각형"], ["ellipse", "원 · 타원"],
   ["triangle", "삼각형"], ["rightTriangle", "직각 삼각형"], ["diamond", "마름모"],
@@ -76,12 +86,49 @@ export function constrainShape(start, end) {
 }
 
 /** 한 획의 원본 위에 다시 그려 마커 투명도가 포인터 이벤트 수에 따라 진해지는 것을 막는다. */
-export function drawBrushStroke(ctx, points, { brush, color, size, opacity = 1 }) {
+export function drawBrushStroke(ctx, points, { brush, color, size, opacity = 1, silhouette = false }) {
+  if (!points.length) return;
   ctx.save();
   ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.globalAlpha = opacity * (brush === "marker" ? .35 : brush === "pencil" ? .72 : 1);
+  ctx.globalAlpha = opacity * (silhouette ? 1 : brush === "marker" ? .35 : brush === "pencil" ? .72 : 1);
   ctx.lineWidth = brush === "pencil" ? Math.max(1, size * .35) : size;
-  if (brush === "fountain") {
+  if (["flat", "ribbon", "soft", "scallop"].includes(brush)) {
+    const stroke = width => {
+      ctx.lineWidth = width; ctx.beginPath();
+      if (points.length === 1) {
+        if (brush === "flat") ctx.rect(points[0].x-width/2, points[0].y-width/2, width, width);
+        else ctx.arc(points[0].x, points[0].y, width/2, 0, Math.PI*2);
+        ctx.fill();
+      } else { ctx.moveTo(points[0].x,points[0].y); points.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke(); }
+    };
+    if (brush === "flat") { ctx.lineCap="square"; ctx.lineJoin="bevel"; stroke(size*.85); }
+    if (brush === "soft") {
+      // 틀에서는 흐린 조각 대신 연속된 외곽선을 만든다. 사진 그림판의 번짐은 그대로 표현한다.
+      ctx.globalAlpha=opacity*(silhouette?1:.2); stroke(size*1.4);
+      ctx.globalAlpha=opacity; stroke(size*.8);
+    }
+    if (brush === "ribbon") {
+      if (points.length===1) stroke(size*.65);
+      else for(let i=1;i<points.length;i++) {
+        ctx.lineWidth=Math.max(1,size*(.3+.7*Math.sin(Math.PI*i/points.length)));
+        ctx.beginPath(); ctx.moveTo(points[i-1].x,points[i-1].y); ctx.lineTo(points[i].x,points[i].y); ctx.stroke();
+      }
+    }
+    if (brush === "scallop") {
+      // 중심 획으로 연결을 보장하고 같은 거리 간격의 작은 원을 더한다. 긴 획의 장식 수는 제한한다.
+      stroke(size*.7);
+      const spacing = Math.max(2, size * .95);
+      let remaining=spacing, stamps=1;
+      const stamp=p=>{ctx.beginPath();ctx.arc(p.x,p.y,size*.55,0,Math.PI*2);ctx.fill();};
+      stamp(points[0]);
+      for(let i=1;i<points.length && stamps<4096;i++) {
+        const a=points[i-1], b=points[i], distance=Math.hypot(b.x-a.x,b.y-a.y);
+        if(!distance) continue;
+        while(remaining<=distance && stamps<4096) { const t=remaining/distance;stamp({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});remaining+=spacing;stamps++; }
+        remaining-=distance;
+      }
+    }
+  } else if (brush === "fountain") {
     // 고정된 사선 펜촉의 양쪽 가장자리를 이어 방향에 따라 굵기가 달라지는 획을 만든다.
     const dx = size * .35, dy = -size * .35;
     ctx.beginPath();
