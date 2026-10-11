@@ -194,6 +194,7 @@ export default function JarDesignFinalizePanel({
             {isCustom && imageUrl && (
               <JarDesignImage key={imageKey} bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={imageUrl} alt="최종 저금통 디자인 미리보기"
                 imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)}
+                allow3D slot={previewState === "ready" ? slot : null} viewDisabled={previewState !== "ready" || formLocked}
                 onImageLoad={(event) => {
                   if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) {
                     setLoadedImageKey(imageKey);
@@ -204,7 +205,7 @@ export default function JarDesignFinalizePanel({
                 }}
                 onImageError={() => setFailedImageKey(imageKey)} />
             )}
-            {isCustom && previewState === "ready" && slot && <JarSlotOverlay slot={slot} />}
+            {isCustom && draft.bodyStyle !== "CUSTOM" && previewState === "ready" && slot && <JarSlotOverlay slot={slot} />}
             {isCustom && previewState !== "ready" && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-sm font-semibold leading-6 text-slate-500">
                 {previewState === "loading" ? "최종 이미지를 불러오는 중이에요." : "최종 이미지를 불러오지 못했어요."}

@@ -5,7 +5,8 @@ import { floodFill } from "./drawingTools.mjs";
 export function fillPaintedBody(image, x, y, color) {
   const { width, height, data } = image;
   const start = Math.max(0, Math.min(height - 1, Math.floor(y))) * width + Math.max(0, Math.min(width - 1, Math.floor(x)));
-  if (data[start * 4 + 3] >= 48) return false;
+  // 이미 칠한 곳은 같은 색의 연결 영역만 바꾼다. 다른 색의 도형/획에는 영향을 주지 않는다.
+  if (data[start * 4 + 3] >= 48) return floodFill(image, x, y, color, 0);
   // 기존 반복식 채우기를 흑백 마스크에 재사용한다. 실제 그림의 가장자리와 나머지 픽셀은 보존한다.
   const mask = { width, height, data: new Uint8ClampedArray(data.length) };
   for (let i = 0; i < data.length; i += 4) mask.data.set(data[i + 3] >= 48 ? [0, 0, 0, 255] : [255, 255, 255, 255], i);
@@ -16,7 +17,7 @@ export function fillPaintedBody(image, x, y, color) {
 }
 
 /** 그림판의 색칠 영역을 기존 V51 좌표 계약으로 바꾼다. 픽셀/PNG를 서버에 추가로 저장하지 않는다. */
-export function paintedBodyOutline(image, fallbackColor = "#d7e9df") {
+export function paintedBodyOutline(image, fallbackColor = "#d7e9df", { encloseInterior = false } = {}) {
   const { width, height, data } = image || {};
   const fail = error => ({ value: { points: [], color: fallbackColor }, error });
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 8 || height < 8
@@ -45,6 +46,11 @@ export function paintedBodyOutline(image, fallbackColor = "#d7e9df") {
     const p = queue[head++], neighbors = [p - width, p + width];
     if (p % width) neighbors.push(p - 1);
     if (p % width < width - 1) neighbors.push(p + 1);
+    // 1px 곡선/대각선은 모서리끼리 이어진 픽셀이다. 테두리 모드에서만 8방향 연결을 인정한다.
+    if (encloseInterior) {
+      if (p % width) neighbors.push(p - width - 1, p + width - 1);
+      if (p % width < width - 1) neighbors.push(p - width + 1, p + width + 1);
+    }
     for (const n of neighbors) if (n >= 0 && n < mask.length && mask[n] && !visited[n]) {
       visited[n] = 1; queue[tail++] = n;
     }
@@ -52,6 +58,7 @@ export function paintedBodyOutline(image, fallbackColor = "#d7e9df") {
   if (tail !== count) return failed("떨어진 조각은 펜으로 이어주세요. 하나로 연결된 틀을 사용할 수 있어요.");
 
   // 바깥 빈 공간을 먼저 방문한다. 내부 구멍은 현재 단일 외곽선 계약으로 표현할 수 없으므로 안내한다.
+  // 테두리 편집에서는 닫힌 선 안쪽을 사진 공간으로 취급한다. 계산용 마스크만 메우고 원본 픽셀은 보존한다.
   visited.fill(0); head = 0; tail = 1; queue[0] = 0; visited[0] = 1;
   while (head < tail) {
     const p = queue[head++], neighbors = [p - width, p + width];
@@ -61,7 +68,10 @@ export function paintedBodyOutline(image, fallbackColor = "#d7e9df") {
       visited[n] = 1; queue[tail++] = n;
     }
   }
-  if (count + tail !== mask.length) return failed("틀 안쪽의 빈 곳을 채우기로 메워주세요. 사진 창은 다음 단계에서 만들어져요.");
+  if (count + tail !== mask.length) {
+    if (!encloseInterior) return failed("틀 안쪽의 빈 곳을 채우기로 메워주세요. 사진 창은 다음 단계에서 만들어져요.");
+    for (let i = 0; i < mask.length; i++) if (!mask[i] && !visited[i]) { mask[i] = 1; count++; }
+  }
 
   const stride = width + 1, edges = new Map();
   let ambiguous = false;

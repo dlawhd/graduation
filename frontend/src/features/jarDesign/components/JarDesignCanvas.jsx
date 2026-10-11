@@ -18,7 +18,7 @@ const controlClass = "inline-flex min-h-10 items-center justify-center gap-1.5 r
  * 사용자가 Jar 원본을 직접 그리는 480×480 Canvas다.
  * 완료 버튼을 누를 때만 PNG Blob을 부모에게 전달해 불필요한 변환·업로드를 막는다.
  * 도형은 드래그 중 미리보기하고 완료된 작업만 최대 25단계로 보관한다.
- * BODY 모드는 같은 도구로 틀의 실루엣을 칠하고 완료된 작업만 기존 좌표 계약으로 변환한다.
+ * BODY 모드는 닫힌 테두리 안쪽을 사진 공간으로 읽고 완료된 작업만 기존 좌표 계약으로 변환한다.
  */
 export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, purpose = "IMAGE", bodyValue, onBodyChange, onWorkingChange }) {
   const isBody = purpose === "BODY";
@@ -60,12 +60,13 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
 
   useEffect(() => () => onWorkingChange?.(false), [onWorkingChange]);
 
-  /** 틀은 투명 배경에 칠한 영역이 외형이다. 기존 사진 그림판의 흰 배경과 구분한다. */
+  /** 저장된 기본 틀도 테두리만 그려 사용자가 원할 때 내부를 채울 수 있게 한다. */
   function renderBody(context, value) {
     context.clearRect(0, 0, 480, 480);
     if (!value?.points?.length) return;
     context.beginPath(); value.points.forEach((p, i) => i ? context.lineTo(p.x * 480, p.y * 480) : context.moveTo(p.x * 480, p.y * 480));
-    context.closePath(); context.fillStyle = value.color; context.fill();
+    context.closePath(); context.strokeStyle = value.color; context.lineWidth = 8;
+    context.lineJoin = "round"; context.stroke();
   }
 
   function publishBody(value) { publishedBody.current = value; onBodyChange?.(value); }
@@ -76,7 +77,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
     if (isBody) {
       setHasDrawing(snapshot.data.some((n, i) => i % 4 === 3 && n >= 48));
       // 외곽선 계산은 완료한 획/실행 취소에서만 한다. 움직이는 동안에는 픽셀 미리보기만 갱신한다.
-      if (publish) { const result = paintedBodyOutline(snapshot, brushColor); setError(result.error); setBrushColor(result.value.color); publishBody(result.value); }
+      if (publish) { const result = paintedBodyOutline(snapshot, brushColor, { encloseInterior: true }); setError(result.error); publishBody(result.value); }
       return;
     }
     setHasDrawing(hasDrawingPixels(snapshot.data));
@@ -102,18 +103,9 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
     ctx.clearRect(0, 24, 24, 432); ctx.clearRect(456, 24, 24, 432);
   }
 
-  /** 틀은 하나의 바탕색을 사용한다. 팔레트를 바꿔도 이미 그린 모양은 그대로 유지한다. */
+  /** 도구 색 선택은 다음 획에만 적용한다. 기존 픽셀/대표 틀 색/실행 취소 이력은 변경하지 않는다. */
   function chooseColor(color) {
     setBrushColor(color);
-    if (!isBody) return;
-    const ctx = canvasRef.current.getContext("2d"), image = ctx.getImageData(0, 0, 480, 480);
-    const rgb = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16));
-    let changed = false;
-    for (let i = 0; i < image.data.length; i += 4) if (image.data[i + 3]) {
-      rgb.forEach((n, channel) => { if (image.data[i + channel] !== n) changed = true; image.data[i + channel] = n; });
-    }
-    if (changed) { ctx.putImageData(image, 0, 0); saveHistory(); }
-    else publishBody({ ...(publishedBody.current || { points: [] }), color });
   }
 
   function clearSelection() { selectionRef.current = null; setSelection(null); }
@@ -192,7 +184,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
       context.putImageData(gesture.base, 0, 0); context.save();
       context.strokeStyle = brushColor; context.fillStyle = isBody ? brushColor : fillColor; context.lineWidth = brushSize;
       context.lineCap = "round"; context.lineJoin = "round"; context.globalAlpha = isBody ? 1 : opacity / 100;
-      drawShape(context, shape, gesture.start, event.shiftKey ? constrainShape(gesture.start, point) : point, isBody || fill); context.restore();
+      drawShape(context, shape, gesture.start, event.shiftKey ? constrainShape(gesture.start, point) : point, !isBody && fill); context.restore();
       if (isBody) clearBodyMargins();
     } else if (tool === "select") {
       if (gesture.moving) {
@@ -283,7 +275,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
     }, "image/png");
   }
 
-  const help = isBody ? { pen: "펜으로 바깥 모양을 그리고 안쪽을 채워보세요. 서로 떨어진 부분은 이어주세요.", eraser: "드래그해서 외형을 다듬어요. 안쪽에 구멍이 생기면 채우기로 메워주세요.", shapes: "캐릭터나 기본 도형을 고르고 드래그하세요. 겹쳐 그리거나 펜으로 이어 나만의 모양을 만들 수 있어요.", fill: "닫힌 선의 안쪽을 눌러 채워주세요. 바깥을 누르면 작업 영역 전체가 채워져요." }[tool]
+  const help = isBody ? { pen: "펜으로 닫힌 테두리를 그려주세요. 색을 바꿔도 이미 그린 부분은 그대로예요.", eraser: "드래그해서 외형을 다듬어요. 테두리가 끊어지면 펜으로 다시 이어주세요.", shapes: "캐릭터나 기본 도형을 고르고 드래그하세요. 속이 빈 테두리로 만들며, 원하면 채우기로 색을 넣을 수 있어요.", fill: "선택한 색으로 누른 공간만 채워요. 이미 칠한 곳도 같은 색의 연결된 부분만 바뀌어요." }[tool]
     : { pen: `자유롭게 그려보세요. 펜 버튼을 누르면 ${BRUSHES.length}가지 질감을 고를 수 있어요.`, eraser: "드래그해서 지워요. 굵기로 지우개 크기를 조절하세요.", shapes: "누르고 드래그해 그려요. Shift를 누르면 가로·세로가 같아져요.", fill: "색칠할 닫힌 영역을 누르세요. 현재 펜 색으로 채워요.", eyedropper: "그림에서 가져올 색을 누르세요. 펜으로 자동 전환돼요.", text: "글자를 입력하고 그림 위에서 놓을 곳을 누르세요.", select: "영역을 선택하고 안쪽을 끌어 이동해요. Delete로 삭제, Esc로 선택 해제." }[tool];
   const helpId = isBody ? "body-drawing-help" : "drawing-help";
   return (
@@ -308,7 +300,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
           <div className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto overscroll-contain sm:max-h-none sm:grid-cols-6">{availableShapes.map(([value, label]) => <button key={value} type="button" aria-pressed={shape === value} onClick={() => { setShape(value); setPicker(""); }} className={controlClass + " flex-col px-1 " + (shape === value ? "ring-2 ring-violet-400" : "")}><ShapeSwatch shape={value} />{label}</button>)}</div>
         </div>}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-600">{isBody ? "틀 색" : "펜 색"}<input aria-label="사용자 지정 색상" type="color" value={brushColor} onChange={(event) => chooseColor(event.target.value)} className="h-9 w-10 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" /></label>
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-600">{isBody ? "도구 색" : "펜 색"}<input aria-label="사용자 지정 색상" type="color" value={brushColor} onChange={(event) => chooseColor(event.target.value)} className="h-9 w-10 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" /></label>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="색상 팔레트">{COLORS.map((color) => <button key={color} type="button" aria-label={"색상 " + color} aria-pressed={brushColor === color} onClick={() => chooseColor(color)} className={"h-7 w-7 rounded-full border border-slate-300 " + (brushColor === color ? "ring-2 ring-violet-500 ring-offset-2" : "")} style={{ backgroundColor: color }} />)}</div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -338,7 +330,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="max-w-sm"><p id={helpId} className="text-xs leading-5 text-slate-600">{help}</p><p className="mt-1 text-[10px] text-slate-400">{isBody ? "한 가지 색의 연결된 모양 / 점선 안쪽에 그려주세요" : "480 × 480 PNG"} · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z</p></div>
+        <div className="max-w-sm"><p id={helpId} className="text-xs leading-5 text-slate-600">{help}</p><p className="mt-1 text-[10px] text-slate-400">{isBody ? "닫힌 테두리로 연결된 틀 / 점선 안쪽에 그려주세요" : "480 × 480 PNG"} · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z</p>{isBody && <p className="mt-1 text-[10px] text-slate-400">그림판의 색은 각각 유지해요. 다음 단계에는 외곽선과 대표 틀 색 하나가 적용돼요.</p>}</div>
         <button type="button" onClick={() => isBody ? onConfirm() : exportDrawing()} disabled={locked || !hasDrawing || (isBody && !customJarBody(bodyValue))} className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">{isBody ? "이 틀 사용하기 →" : exporting ? "그림 변환 중..." : "이 그림 사용하기 →"}</button>
       </div>
       {error && <p role="alert" className="px-4 pb-4 text-sm text-rose-600">{error}</p>}

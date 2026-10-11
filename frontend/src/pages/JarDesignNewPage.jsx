@@ -172,7 +172,7 @@ export default function JarDesignNewPage() {
               <aside className="h-fit rounded-[22px] border border-violet-100 bg-gradient-to-b from-white to-violet-50/50 p-4 shadow-sm lg:sticky lg:top-24">
                 <h2 className="text-sm font-black text-slate-800">저금통에 담긴 모습</h2>
                 <p className="mt-2 text-xs leading-5 text-slate-500">그림을 수정했다면 ‘이 그림 사용하기’를 다시 눌러 미리보기에 반영해 주세요.</p>
-                <div className="mt-3 aspect-square rounded-2xl bg-[#f7f4ee]">{(body || previewUrl) && <JarDesignImage key={previewUrl} bodyStyle={body?.id} customBody={customBody} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" showDefaultSlot
+                <div className="mt-3 aspect-square rounded-2xl bg-[#f7f4ee]">{(body || previewUrl) && <JarDesignImage key={previewUrl} bodyStyle={body?.id} customBody={customBody} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" showDefaultSlot allow3D viewDisabled={readingSource || saving}
                   onImageLoad={() => setLoadedPreviewUrl(previewUrl)} onImageError={() => { setLoadedPreviewUrl(""); setError("이 사진의 미리보기를 읽지 못했어요. JPEG 또는 PNG로 다시 저장한 사진을 선택해 주세요."); }} />}</div>
                 {!previewUrl && <p className="mt-2 text-center text-xs leading-5 text-slate-500">그림을 확정하거나 이미지를 골라<br />저금통 안을 채워주세요.</p>}
                 {sourceDirty && sourceImage && inputMode === "DRAW" && <p role="status" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">그림이 바뀌었어요. ‘이 그림 사용하기’를 눌러 최신 그림을 반영해 주세요.</p>}

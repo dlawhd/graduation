@@ -3994,6 +3994,7 @@ async function handleViewOpenedJarNotes() {
                 <JarVisual
                   jar={jar}
                   jarRef={jarVisualRef}
+                  frontViewRequest={noteCreateRequestId}
                   onReloadDesignImage={reloadJarDesignImage}
 
                   /*

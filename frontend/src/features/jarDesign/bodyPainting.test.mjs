@@ -103,3 +103,52 @@ test("잘못된 픽셀 길이와 과도한 이미지 크기는 계산 전에 거
   for (const image of [null, {}, { width: 480, height: 480, data: [] }, { width: 481, height: 480, data: [] }, { width: NaN, height: 480 }])
     assert.match(paintedBodyOutline(image).error, /읽지 못/);
 });
+
+test("닫힌 테두리는 속을 실제로 칠하지 않아도 사진 공간의 외곽선으로 저장된다", () => {
+  const image = painting((x, y) => rectangle(x, y) && !(x >= 110 && x < 370 && y >= 110 && y < 370));
+  const before = image.data.slice();
+  const result = paintedBodyOutline(image, "#d7e9df", { encloseInterior: true });
+  assertValid(result); assert.equal(result.value.points.length, 4);
+  assert.deepEqual(image.data, before); assert.equal(image.data[(240 * 480 + 240) * 4 + 3], 0);
+});
+
+test("1px 대각선 테두리도 연결된 닫힌 외곽선으로 읽고 원본 내부는 비워둔다", () => {
+  const image = painting((x, y) => Math.abs(x - 240) + Math.abs(y - 240) === 150);
+  assertValid(paintedBodyOutline(image, "#d7e9df", { encloseInterior: true }));
+  assert.equal(image.data[(240 * 480 + 240) * 4 + 3], 0);
+});
+
+test("테두리 모드에서도 분리된 조각과 끊어진 작은 선을 유효한 틀로 바꾸지 않는다", () => {
+  const options = { encloseInterior: true };
+  const disconnected = painting((x, y) => rectangle(x, y) || (x >= 30 && x < 50 && y >= 30 && y < 50));
+  assert.match(paintedBodyOutline(disconnected, "#d7e9df", options).error, /떨어진 조각/);
+  const open = painting((x, y) => rectangle(x, y) && (x < 110 || y < 110 || y >= 370));
+  assert.notEqual(paintedBodyOutline(open, "#d7e9df", options).error, "");
+});
+
+test("내부에 다른 색을 채워도 테두리의 픽셀과 대표 색은 유지한다", () => {
+  const image = painting((x, y) => rectangle(x, y) && !(x >= 110 && x < 370 && y >= 110 && y < 370));
+  assert.equal(fillPaintedBody(image, 240, 240, "#3b82f6"), true);
+  assert.deepEqual([...image.data.slice((240 * 480 + 240) * 4, (240 * 480 + 240) * 4 + 4)], [59, 130, 246, 255]);
+  assert.deepEqual([...image.data.slice((100 * 480 + 100) * 4, (100 * 480 + 100) * 4 + 4)], [215, 233, 223, 255]);
+  assert.equal(paintedBodyOutline(image, "#d7e9df", { encloseInterior: true }).value.color, "#d7e9df");
+  assert.equal(fillPaintedBody(image, 240, 240, "#ef4444"), true);
+  assert.equal(image.data[(100 * 480 + 100) * 4], 215);
+  assert.equal(fillPaintedBody(image, 240, 240, "#ef4444"), false);
+});
+
+test("영역 채우기는 이웃한 다른 색과 떨어져 있는 같은 색을 변경하지 않는다", () => {
+  const image = painting((x, y) => rectangle(x, y));
+  for (let y = 100; y < 380; y++) for (let x = 200; x < 280; x++) image.data.set([239, 68, 68, 255], (y * 480 + x) * 4);
+  assert.equal(fillPaintedBody(image, 150, 240, "#3b82f6"), true);
+  assert.equal(image.data[(240 * 480 + 150) * 4], 59);
+  assert.equal(image.data[(240 * 480 + 240) * 4], 239);
+  assert.equal(image.data[(240 * 480 + 320) * 4], 215);
+});
+
+test("채우기는 비슷한 RGB의 다른 색까지 한꺼번에 바꾸지 않는다", () => {
+  const image = painting(rectangle);
+  for (let y = 100; y < 380; y++) for (let x = 240; x < 380; x++) image.data.set([216, 234, 224, 255], (y * 480 + x) * 4);
+  assert.equal(fillPaintedBody(image, 150, 240, "#3b82f6"), true);
+  assert.deepEqual([...image.data.slice((240 * 480 + 300) * 4, (240 * 480 + 300) * 4 + 4)], [216, 234, 224, 255]);
+});

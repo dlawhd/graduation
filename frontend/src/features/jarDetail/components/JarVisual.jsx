@@ -24,6 +24,7 @@ export default function JarVisual({
   jarRef,
   onClick,
   interactive = false,
+  frontViewRequest = 0,
 
   /*
    * 저금통 상세 온보딩에서
@@ -215,6 +216,8 @@ export default function JarVisual({
             alt={`${jar?.name || "저금통"} 최종 디자인`}
             className="relative z-10 h-full w-full"
             onReload={onReloadDesignImage}
+            allow3D={interactive}
+            frontViewRequest={frontViewRequest}
           />
         ) : (
           <>

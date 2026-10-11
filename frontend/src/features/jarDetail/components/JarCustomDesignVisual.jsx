@@ -14,6 +14,8 @@ export default function JarCustomDesignVisual({
   className = "",
   imageClassName = "h-full w-full object-contain",
   onReload = null,
+  allow3D = false,
+  frontViewRequest = 0,
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
@@ -95,8 +97,11 @@ export default function JarCustomDesignVisual({
         className={imageClassName}
         imageRendering={designImageRendering(design.aiStyle)}
         onImageError={() => setImageFailed(true)}
+        allow3D={allow3D}
+        slot={slot}
+        frontViewRequest={frontViewRequest}
       />
-      {slot && <JarSlotOverlay slot={slot} />}
+      {slot && !(allow3D && design.bodyStyle === "CUSTOM") && <JarSlotOverlay slot={slot} />}
     </div>
   );
 }

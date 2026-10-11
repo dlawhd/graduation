@@ -311,6 +311,7 @@ export default function JarZoomModal({
                       alt={`${jar?.name || "저금통"} 확대 디자인`}
                       className="h-[360px] w-[360px] max-w-full"
                       onReload={onReloadDesignImage}
+                      allow3D
                     />
                     <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow">
                       {isJarOpen ? `쪽지 ${pagination?.totalElements ?? safeNotes.length}개` : "오픈 전까지 비밀이에요!"}

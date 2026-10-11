@@ -17,25 +17,25 @@ function ShapeProbe({ id, label, report }) {
   useEffect(() => {
     const context = canvas.current.getContext("2d", { willReadFrequently: true });
     let error = "";
-    // 정방향/역방향과 보통/굵은 테두리를 모두 확인한다. 실제 저장에는 펜 굵기도 포함된다.
-    for (const reverse of [false, true]) for (const size of [1, 24, 64]) {
+    // 기존 채움과 빈 테두리, 정/역방향, 굵기를 함께 검사한다. 원본 빈 내부는 계산 뒤에도 보존한다.
+    for (const filled of [false, true]) for (const reverse of [false, true]) for (const size of [1, 24, 64]) {
       context.clearRect(0, 0, 480, 480);
       context.fillStyle = "#d7e9df"; context.strokeStyle = "#d7e9df"; context.lineWidth = size; context.lineJoin = "round";
       const start = { x: 80, y: 60 }, end = { x: 400, y: 420 };
-      drawShape(context, id, reverse ? end : start, reverse ? start : end, true);
-      const check = paintedBodyOutline(context.getImageData(0, 0, 480, 480));
-      if (check.error) error += `${reverse ? "역방향" : "정방향"}/${size}px: ${check.error} `;
+      drawShape(context, id, reverse ? end : start, reverse ? start : end, filled);
+      const check = paintedBodyOutline(context.getImageData(0, 0, 480, 480), "#d7e9df", { encloseInterior: !filled });
+      if (check.error) error += `${filled ? "채움" : "테두리"}/${reverse ? "역방향" : "정방향"}/${size}px: ${check.error} `;
     }
     // 비교 화면은 보통 굵기와 실제 좌표 렌더러를 함께 표시한다.
     context.clearRect(0, 0, 480, 480); context.lineWidth = 24;
-    drawShape(context, id, { x: 80, y: 60 }, { x: 400, y: 420 }, true);
-    const firstResult = paintedBodyOutline(context.getImageData(0, 0, 480, 480));
+    drawShape(context, id, { x: 80, y: 60 }, { x: 400, y: 420 }, false);
+    const firstResult = paintedBodyOutline(context.getImageData(0, 0, 480, 480), "#d7e9df", { encloseInterior: true });
     setResult({ ...firstResult, error }); report(id, !error);
   }, [id, report]);
   return <article className="rounded-2xl border border-violet-100 bg-white p-4" data-character-check={result ? (!result.error ? "PASS" : "FAIL") : "WAIT"}>
     <h2 className="font-bold text-slate-700">{label}</h2>
     <div className="grid grid-cols-2 gap-2"><canvas ref={canvas} width="480" height="480" className="w-full" aria-label={label + " 원본 실루엣"}/>{result?.value.points.length > 0 && <CustomJarBodyArtwork customBody={result.value} outlineOnly/>}</div>
-    <p className="text-xs text-slate-500">{result ? result.error || `저장 가능 / ${result.value.points.length}점 / 6조건 통과` : "검사 중"}</p>
+    <p className="text-xs text-slate-500">{result ? result.error || `저장 가능 / ${result.value.points.length}점 / 12조건 통과` : "검사 중"}</p>
   </article>;
 }
 
@@ -56,12 +56,28 @@ function BrushProbe({ id, label }) {
 /** 기존 두 그림판의 도구를 직접 조작하는 개발 전용 검증 화면이다. 네트워크 요청을 만들지 않는다. */
 function Preview() {
   const [value, setValue] = useState({ points: [], color: "#d7e9df" });
+  const [pixels, setPixels] = useState("");
   const [checks, setChecks] = useState({}), [confirmed, setConfirmed] = useState("");
   const [report] = useState(() => (id, passed) => setChecks(current => ({ ...current, [id]: passed })));
+  // 개발 화면에서만 실제 Canvas 픽셀의 요약을 표시한다. 사용자 사진/픽셀 원문은 출력하지 않는다.
+  function inspectPixels() {
+    const canvas = document.querySelector('canvas[aria-label="저금통 틀 캔버스"]');
+    const data = canvas.getContext("2d").getImageData(0, 0, 480, 480).data;
+    let hash = 2166136261, pink = 0, blue = 0;
+    for (let i = 0; i < data.length; i++) {
+      hash = Math.imul(hash ^ data[i], 16777619);
+      if (i % 4 === 0 && data[i + 3] === 255) {
+        if (data[i] === 251 && data[i + 1] === 113 && data[i + 2] === 133) pink++;
+        if (data[i] === 59 && data[i + 1] === 130 && data[i + 2] === 246) blue++;
+      }
+    }
+    setPixels(`hash=${hash >>> 0} pink=${pink} blue=${blue} centerAlpha=${data[(240 * 480 + 240) * 4 + 3]}`);
+  }
   return <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
     <h1 className="text-2xl font-black text-slate-800">캐릭터 친구들과 손끝의 질감</h1>
     <p className="text-sm text-slate-600">로컬 전용. 원본 실루엣과 저장된 틀을 나란히 비교합니다. 서버 요청 없음.</p>
     <section className="grid items-start gap-5 lg:grid-cols-[2fr_1fr]"><JarDesignCanvas purpose="BODY" bodyValue={value} onBodyChange={setValue} onConfirm={() => setConfirmed("틀 확정 완료")}/><aside className="rounded-2xl border bg-white p-4"><h2 className="font-bold">저장 좌표 미리보기</h2><CustomJarBodyArtwork customBody={value} outlineOnly/><p role="status">{confirmed}</p></aside></section>
+    <section className="rounded-xl border p-3"><button type="button" onClick={inspectPixels} className="rounded-lg bg-violet-100 px-3 py-2 text-sm">픽셀 상태 확인</button><output className="ml-3 break-all text-xs" data-pixel-summary>{pixels}</output></section>
     <section className="rounded-2xl bg-emerald-50 p-4"><h2 className="font-bold">빈 틀과 사진 합성 비교</h2><div className="grid grid-cols-3 gap-3">{[[true, "", "빈 내부 테두리"], [true, previewPhoto, "사진이 있으면 기존 합성"], [false, "", "기존 기본 렌더링"]].map(([outlineOnly, imageUrl, label]) => <div key={label}><CustomJarBodyArtwork customBody={basicBodyOutline("JAR", "#ffffff")} {...{outlineOnly, imageUrl}} alt={label}/><p className="text-xs">{label}</p></div>)}</div></section>
     <h2 className="text-xl font-black">캐릭터 12종 저장 검사</h2><p data-character-summary>{Object.values(checks).filter(Boolean).length}/12 통과</p>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{CHARACTER_SHAPES.map(([id, label]) => <ShapeProbe key={id} id={id} label={label} report={report}/>)}</div>
@@ -69,4 +85,6 @@ function Preview() {
     <h2 className="text-xl font-black">기존 사진 그림판</h2><JarDesignCanvas onConfirm={file => setConfirmed(`PNG 확정: ${file.type}`)}/>
   </main>;
 }
-createRoot(document.getElementById("root")).render(<Preview/>);
+const previewRoot = import.meta.hot?.data.root || createRoot(document.getElementById("root"));
+if (import.meta.hot) import.meta.hot.data.root = previewRoot;
+previewRoot.render(<Preview/>);
