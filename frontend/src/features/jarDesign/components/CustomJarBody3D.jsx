@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Color, DirectionalLight, ExtrudeGeometry, Group, HemisphereLight, Mesh,
-  MeshStandardMaterial, OrthographicCamera, Path, Scene, Shape, Vector3, WebGLRenderer } from "three";
+import { DirectionalLight, Group, HemisphereLight, Mesh,
+  MeshStandardMaterial, OrthographicCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { customJarBody } from "../customJarBody.mjs";
-import { body3DOutline, bodyRotation, bodyPhotoSurface, bodyWorldPoint, projectedSurfaceMatrix,
-  canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_VIEW } from "../body3DGeometry.mjs";
+import { body3DOutline, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
+  canExtrudeHollowBody, BODY_3D_VIEW } from "../body3DGeometry.mjs";
+import { roundedBodyGeometry } from "../body3DMesh.mjs";
 import CustomJarBodyArtwork from "./CustomJarBodyArtwork";
 import JarSlotOverlay from "./JarSlotOverlay";
 
@@ -15,7 +16,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
   useEffect(() => {
     const stage=stageRef.current, surface=surfaceRef.current;
     const body=customJarBody(customBody), points=body3DOutline(customBody);
-    let renderer, geometry, faceMaterial, sideMaterial, observer, frame=0, disposed=false;
+    let renderer, geometry, faceMaterial, observer, frame=0, disposed=false;
     let gesture=null, yaw=.35, pitch=-.12;
     const cleanup = () => {
       if (disposed) return;
@@ -29,7 +30,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       stage.removeEventListener("lostpointercapture",finish);
       stage.removeEventListener("keydown",keyDown);
       renderer?.domElement.removeEventListener("webglcontextlost",lostContext);
-      geometry?.dispose(); faceMaterial?.dispose(); sideMaterial?.dispose();
+      geometry?.dispose(); faceMaterial?.dispose();
       renderer?.dispose(); renderer?.forceContextLoss(); renderer?.domElement.remove();
       controllerRef.current=null;
     };
@@ -67,6 +68,12 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       try {
         group.rotation.set(pitch,yaw,0);
         group.updateMatrixWorld(true);
+        const aspect=stage.clientWidth/Math.max(stage.clientHeight,1);
+        const view=bodyViewExtent(points,yaw,pitch,aspect);
+        if (camera.top!==view || camera.right!==view*aspect) {
+          camera.top=view;camera.bottom=-view;camera.left=-view*aspect;camera.right=view*aspect;
+          camera.updateProjectionMatrix();
+        }
         renderer.render(scene,camera);
         const photoSurface=bodyPhotoSurface(yaw,pitch);
         const project=(x,y) => {
@@ -107,17 +114,12 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       scene=new Scene(); group=new Group(); scene.add(group);
       camera=new OrthographicCamera(-BODY_3D_VIEW,BODY_3D_VIEW,BODY_3D_VIEW,-BODY_3D_VIEW,.1,20);
       camera.position.set(0,0,5);
-      const shape=new Shape(points.map(p=>({x:p.x,y:p.y})));
       // 빈 틀에는 실제 구멍을 낸다. 사진이 있으면 앞뒤 표면 위에 같은 사진을 투영하고 옆면 두께는 유지한다.
-      if (outlineOnly && !imageUrl) shape.holes.push(new Path(body.photoOutline.map(p=>bodyWorldPoint({x:p.x/480,y:p.y/480}))));
-      geometry=new ExtrudeGeometry(shape,{depth:BODY_3D_DEPTH,steps:1,bevelEnabled:true,
-        bevelSegments:2,bevelSize:.003,bevelThickness:.003,curveSegments:1});
-      if (![...geometry.attributes.position.array].every(Number.isFinite)) throw new Error("Invalid geometry");
-      geometry.translate(0,0,-BODY_3D_DEPTH/2);
-      faceMaterial=new MeshStandardMaterial({color:customBody.color,roughness:.68,metalness:.06});
-      sideMaterial=new MeshStandardMaterial({color:new Color(customBody.color).multiplyScalar(.85),roughness:.42,metalness:.12});
-      group.add(new Mesh(geometry,[faceMaterial,sideMaterial]));
-      scene.add(new HemisphereLight(0xffffff,0x71847b,2));
+      geometry=roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl));
+      faceMaterial=new MeshStandardMaterial({color:customBody.color,roughness:.8,metalness:0});
+      group.add(new Mesh(geometry,faceMaterial));
+      // 따뜻한 반사광으로 밝은 틀도 아래쪽이 검게 변하지 않게 하면서 곡면의 명암은 남긴다.
+      scene.add(new HemisphereLight(0xffffff,0xd8ccc8,2));
       const key=new DirectionalLight(0xffffff,2.6);key.position.set(-3,4,5);scene.add(key);
       const fill=new DirectionalLight(0xe0e8ff,1.2);fill.position.set(3,-1,-4);scene.add(fill);
       const resize=() => {
@@ -125,8 +127,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         const width=stage.clientWidth,height=stage.clientHeight;
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1,2,840/Math.max(width,height)));
         renderer.setSize(width,height,false);
-        camera.left=-BODY_3D_VIEW*width/height;camera.right=BODY_3D_VIEW*width/height;
-        camera.updateProjectionMatrix();schedule();
+        schedule();
       };
       observer=new ResizeObserver(resize);observer.observe(stage);resize();
       stage.addEventListener("pointerdown",start);
@@ -147,7 +148,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
     className="relative h-full w-full touch-none overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
     <div ref={surfaceRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0"
       style={{width:480,height:480,transformOrigin:"0 0",visibility:"hidden"}}>
-      <CustomJarBodyArtwork {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly}} suppressShadow />
+      <CustomJarBodyArtwork {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly}} suppressShadow photoOnly />
       {slot && <div ref={slotRef} data-3d-front-slot className="absolute inset-0" style={{visibility:"hidden"}}><JarSlotOverlay slot={slot}/></div>}
     </div>
     {!ready && <p role="status" className="absolute inset-x-0 bottom-16 text-center text-xs text-stone-500">3D를 준비하고 있어요.</p>}

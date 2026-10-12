@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ExtrudeGeometry, Shape, Path, Group, OrthographicCamera, Vector3 } from "three";
+import { Group, OrthographicCamera, Vector3 } from "three";
+import { roundedBodyGeometry } from "./body3DMesh.mjs";
 import { basicBodyOutline, customJarBody } from "./customJarBody.mjs";
-import { bodyWorldPoint, body3DOutline, bodyRotation, bodyPhotoSurface, projectedSurfaceMatrix,
+import { bodyWorldPoint, body3DOutline, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
   canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_SURFACE, BODY_3D_VIEW } from "./body3DGeometry.mjs";
 
 test("그림판 좌표를 위아래 뒤집힘 없이 3D 좌표로 변환한다",()=>{
@@ -22,6 +23,32 @@ test("회전은 앞뒤와 제한된 기울기만 허용하며 비정상 입력�
   assert.deepEqual(bodyRotation(Infinity,NaN),{yaw:0,pitch:0});
   assert.deepEqual(bodyRotation(9,-4),{yaw:Math.PI,pitch:-.55});
   assert.deepEqual(bodyRotation(-9,4),{yaw:-Math.PI,pitch:.55});
+});
+test("앞뒤 볼륨을 키워도 사진은 표면 바깥에 있고 정면 크기는 유지한다",()=>{
+  assert.equal(BODY_3D_DEPTH,.72);
+  assert.ok(BODY_3D_DEPTH/.18>2.6);
+  assert.ok(BODY_3D_SURFACE>BODY_3D_DEPTH/2+.003);
+  for(const kind of ["ROUND","JAR","SQUARE"]) {
+    const points=body3DOutline(basicBodyOutline(kind));
+    assert.equal(bodyViewExtent(points,0,0),BODY_3D_VIEW);
+    assert.equal(bodyViewExtent(points,Math.PI,0),BODY_3D_VIEW);
+  }
+});
+test("가장 넓은 틀도 회전과 기울기에서 사진/옆면이 카메라 밖으로 잘리지 않는다",()=>{
+  const points=body3DOutline({color:"#123456",points:[{x:.05,y:.05},{x:.95,y:.05},{x:.95,y:.95},{x:.05,y:.95}]});
+  const snapshot=structuredClone(points),group=new Group();
+  for(const aspect of [.75,1,1.5]) for(let i=0;i<=24;i++) for(const pitch of [-.55,0,.55]) {
+    const yaw=-Math.PI+i*Math.PI/12,view=bodyViewExtent(points,yaw,pitch,aspect);
+    const camera=new OrthographicCamera(-view*aspect,view*aspect,view,-view,.1,20);
+    camera.position.set(0,0,5);camera.updateMatrixWorld(true);
+    group.rotation.set(pitch,yaw,0);group.updateMatrixWorld(true);
+    for(const p of points) for(const z of [-BODY_3D_SURFACE,BODY_3D_SURFACE]) {
+      const projected=group.localToWorld(new Vector3(p.x,p.y,z)).project(camera);
+      assert.ok(Math.abs(projected.x)<1);assert.ok(Math.abs(projected.y)<1);
+    }
+  }
+  assert.deepEqual(points,snapshot);
+  assert.equal(bodyViewExtent(points,0,0,NaN),BODY_3D_VIEW);
 });
 test("앞뒤 사진은 각각 바깥 표면에 놓고 옆면에서는 가느다란 사진 띠를 숨긴다",()=>{
   assert.deepEqual(bodyPhotoSurface(0,0),{side:"front",depth:BODY_3D_SURFACE,visible:true});
@@ -74,17 +101,15 @@ for(const kind of ["ROUND","JAR","SQUARE"]) {
   test(`${kind} 기본 틀의 실제 입체 앞뒤 두께와 빈 구멍`,()=>{
     const outline=basicBodyOutline(kind),body=customJarBody(outline);
     assert.equal(canExtrudeHollowBody(body),true);
-    const shape=new Shape(body3DOutline(outline));
-    shape.holes.push(new Path(body.photoOutline.map(p=>bodyWorldPoint({x:p.x/480,y:p.y/480}))));
-    const geometry=new ExtrudeGeometry(shape,{depth:BODY_3D_DEPTH,steps:1,bevelEnabled:false});
-    geometry.computeBoundingBox();
+    const geometry=roundedBodyGeometry(outline,true);
     assert.ok(Math.abs(geometry.boundingBox.max.z-geometry.boundingBox.min.z-BODY_3D_DEPTH)<1e-6);
     assert.ok([...geometry.attributes.position.array].every(Number.isFinite));
     // 정면 삼각형은 구멍 가운데를 덮지 않는다. 외형/구멍이 모두 삼각분할에 반영되는지 검증한다.
-    const flat=geometry.groups[0],pos=geometry.attributes.position;
-    for(let i=flat.start;i<flat.start+flat.count;i+=3) {
-      const x=(pos.getX(i)+pos.getX(i+1)+pos.getX(i+2))/3;
-      const y=(pos.getY(i)+pos.getY(i+1)+pos.getY(i+2))/3;
+    const pos=geometry.attributes.position,index=geometry.index;
+    for(let i=0;i<index.count;i+=3) {
+      const [a,b,c]=[index.getX(i),index.getX(i+1),index.getX(i+2)];
+      const x=(pos.getX(a)+pos.getX(b)+pos.getX(c))/3;
+      const y=(pos.getY(a)+pos.getY(b)+pos.getY(c))/3;
       assert.ok(Math.hypot(x,y)>.15);
     }
     geometry.dispose();

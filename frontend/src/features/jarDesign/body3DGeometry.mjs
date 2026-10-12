@@ -1,7 +1,9 @@
 import { customJarBody } from "./customJarBody.mjs";
 
 // 480px 그림판 좌표와 3D 좌표의 변환 기준이다. 사진/입구는 기존 2D 렌더러를 그대로 투영한다.
-export const BODY_3D_DEPTH = .18;
+// 얇은 동전 대신 두툼한 저금통 느낌을 주되, 정면 사진 크기는 바꾸지 않는다.
+// 앞뒤 곡면의 최대 깊이다. 바깥 테두리에서 0으로 모이고 사진 자리는 ±절반 깊이에 평평하게 남긴다.
+export const BODY_3D_DEPTH = .72;
 export const BODY_3D_VIEW = 1.02;
 export const BODY_3D_SURFACE = BODY_3D_DEPTH / 2 + .007;
 export const BODY_3D_FAILURE = "이 환경에서는 3D를 표시하지 못했어요. 기존 2D로 계속 이용할 수 있어요.";
@@ -30,6 +32,22 @@ export function bodyPhotoSurface(yaw, pitch) {
   const side = facing >= 0 ? "front" : "back";
   return { side, depth: side === "front" ? BODY_3D_SURFACE : -BODY_3D_SURFACE,
     visible: Math.abs(facing) > .02 };
+}
+
+/** 두꺼운 틀을 기울여도 잘리지 않게 필요한 경우에만 카메라 범위를 넓힌다. 정면은 기존 크기를 유지한다. */
+export function bodyViewExtent(points, yaw, pitch, aspect = 1) {
+  const rotation = bodyRotation(yaw, pitch);
+  const cy = Math.cos(rotation.yaw), sy = Math.sin(rotation.yaw);
+  const cp = Math.cos(rotation.pitch), sp = Math.sin(rotation.pitch);
+  const ratio = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  let extent = BODY_3D_VIEW;
+  // 저장 외곽선은 최대 96점이다. GPU 전체 geometry 대신 앞뒤 경계만 확인한다.
+  for (const z of [-BODY_3D_SURFACE, BODY_3D_SURFACE]) for (const p of points) {
+    const x = cy * p.x + sy * z;
+    const y = sp * sy * p.x + cp * p.y - sp * cy * z;
+    extent = Math.max(extent, (Math.abs(x) + .02) / ratio, Math.abs(y) + .02);
+  }
+  return extent;
 }
 
 /** 정사영 카메라에서는 평면의 투영이 affine 변환이다. WebGL과 DOM 사진이 같은 좌표를 쓴다. */
