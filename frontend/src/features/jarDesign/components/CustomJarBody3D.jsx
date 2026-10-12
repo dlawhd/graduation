@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DirectionalLight, Group, HemisphereLight, Mesh,
   MeshStandardMaterial, OrthographicCamera, Scene, Vector3, WebGLRenderer } from "three";
-import { body3DOutline, body3DProfile, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
+import { bodyWorldPoint, body3DProfile, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
   canExtrudeHollowBody, BODY_3D_VIEW } from "../body3DGeometry.mjs";
 import { roundedBodyGeometry } from "../body3DMesh.mjs";
 import CustomJarBodyArtwork from "./CustomJarBodyArtwork";
@@ -11,10 +11,12 @@ import JarSlotOverlay from "./JarSlotOverlay";
 export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imageStyle, imageRendering,
   outlineOnly, slot, resetKey, onFailure }) {
   const stageRef=useRef(null), surfaceRef=useRef(null), slotRef=useRef(null), controllerRef=useRef(null);
+  // 곡선과 안전한 사진 창 탐색은 틀이 바뀔 때만 수행한다. 회전/사진 배치 변경에서는 재사용한다.
+  const renderProfile=useMemo(()=>body3DProfile(customBody),[customBody]);
   const [ready,setReady]=useState(false);
   useEffect(() => {
     const stage=stageRef.current, surface=surfaceRef.current;
-    const body=body3DProfile(customBody), points=body3DOutline(customBody);
+    const body=renderProfile, points=body?.renderOutline.map(bodyWorldPoint);
     let renderer, geometry, faceMaterial, observer, frame=0, disposed=false;
     let gesture=null, yaw=.35, pitch=-.12;
     const cleanup = () => {
@@ -98,6 +100,10 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
     try {
       setReady(false);
       if (!body || !points) throw new Error("Unsupported outline");
+      if (!body.photoSafe) {
+        fail("이 틀은 안전한 사진 공간이 작아 2D로 보여드려요. 원본과 사진 배치는 그대로 유지돼요.");
+        return cleanup;
+      }
       if (outlineOnly && !imageUrl && !canExtrudeHollowBody(body)) {
         fail("이 빈 틀은 굴곡이 깊어 2D로 보여드려요. 사진을 담은 뒤에는 3D로 돌려볼 수 있어요.");
         return cleanup;
@@ -114,7 +120,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       camera=new OrthographicCamera(-BODY_3D_VIEW,BODY_3D_VIEW,BODY_3D_VIEW,-BODY_3D_VIEW,.1,20);
       camera.position.set(0,0,5);
       // 빈 틀에는 실제 구멍을 낸다. 사진이 있으면 앞뒤 표면 위에 같은 사진을 투영하고 옆면 두께는 유지한다.
-      geometry=roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl));
+      geometry=roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl),renderProfile);
       faceMaterial=new MeshStandardMaterial({color:customBody.color,roughness:.8,metalness:0});
       group.add(new Mesh(geometry,faceMaterial));
       // 따뜻한 반사광으로 밝은 틀도 아래쪽이 검게 변하지 않게 하면서 곡면의 명암은 남긴다.
@@ -139,7 +145,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       setReady(true);
     } catch { fail(); }
     return cleanup;
-  },[customBody,Boolean(imageUrl),outlineOnly,onFailure]);
+  },[customBody,renderProfile,Boolean(imageUrl),outlineOnly,onFailure]);
   useEffect(()=>{if(resetKey)controllerRef.current?.reset();},[resetKey]);
   // 회전 중 입구 prop이 바뀌어도 새 DOM의 앞/뒤 표시를 한 프레임 안에 맞춘다.
   useEffect(()=>{controllerRef.current?.refresh();},[slot]);
@@ -147,7 +153,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
     className="relative h-full w-full touch-none overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
     <div ref={surfaceRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0"
       style={{width:480,height:480,transformOrigin:"0 0",visibility:"hidden"}}>
-      <CustomJarBodyArtwork {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly}} suppressShadow photoOnly />
+      <CustomJarBodyArtwork {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,renderProfile}} suppressShadow photoOnly />
       {slot && <div ref={slotRef} data-3d-front-slot className="absolute inset-0" style={{visibility:"hidden"}}><JarSlotOverlay slot={slot}/></div>}
     </div>
     {!ready && <p role="status" className="absolute inset-x-0 bottom-16 text-center text-xs text-stone-500">3D를 준비하고 있어요.</p>}

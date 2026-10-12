@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Mesh, MeshBasicMaterial, Raycaster, Vector3, Group, OrthographicCamera } from "three";
-import { roundedBodyGeometry } from "./body3DMesh.mjs";
+import { roundedBodyGeometry, smoothedDomeField } from "./body3DMesh.mjs";
 import { basicBodyOutline, outlineError } from "./customJarBody.mjs";
 import { CHARACTER_SHAPES, drawCharacterShape } from "./characterShapes.mjs";
-import { BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH, BODY_3D_SURFACE, body3DOutline, bodyViewExtent } from "./body3DGeometry.mjs";
+import { BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH, BODY_3D_SURFACE, BODY_3D_PHOTO_SCALE, bodyDomeDepth, body3DProfile, body3DContainWindow, body3DOutline, bodyViewExtent, canExtrudeHollowBody } from "./body3DGeometry.mjs";
+import { DEEP_BODY_FIXTURE, narrowBodyFixture } from "../../../tests/fixtures/body3DShapes.mjs";
 
 /** 실제 캐릭터 경로를 좌표로 샘플링해 귀/골짜기가 있는 외곽도 브라우저 없이 검증한다. */
 function characterOutline(id) {
@@ -106,14 +107,93 @@ test("사진 자리의 앞뒤 판은 평평하고 빈 틀에는 실제 통과하
   material.dispose();
 });
 
-test("오목한 골짜기 바깥을 삼각형으로 덮지 않고 깊은 빈 틀은 안전하게 거절한다",()=>{
+test("오목한 골짜기 바깥을 덮지 않고 깊은 틀의 사진 창도 안쪽으로 보정한다",()=>{
   const geometry=roundedBodyGeometry(deep),material=new MeshBasicMaterial(),mesh=new Mesh(geometry,material);
   mesh.updateMatrixWorld();
   assert.equal(new Raycaster(new Vector3(0,-.5,3),new Vector3(0,0,-1)).intersectObject(mesh).length,0);
   assert.ok(new Raycaster(new Vector3(-.65,-.5,3),new Vector3(0,0,-1)).intersectObject(mesh).length>0);
-  assert.throws(()=>roundedBodyGeometry(deep,true),/Unsupported outline/);
+  const safe=body3DProfile(deep),hollow=roundedBodyGeometry(deep,true);
+  assert.equal(safe.photoMode,"SAFE_WINDOW");assert.equal(canExtrudeHollowBody(safe),true);
+  hollow.dispose();
   assert.throws(()=>roundedBodyGeometry({points:[],color:"#ffffff"}),/Unsupported outline/);
   material.dispose();geometry.dispose();
+});
+
+test("가는 팔다리와 깊은 굴곡의 원본을 보존하고 사진 창을 실제 몸통 안에 둔다",()=>{
+  for(const value of [narrowBodyFixture(),DEEP_BODY_FIXTURE]) {
+    const snapshot=structuredClone(value),profile=body3DProfile(value),geometry=roundedBodyGeometry(value);
+    assert.equal(profile.photoSafe,true);assert.equal(canExtrudeHollowBody(profile),true);
+    assert.ok(profile.renderOutline.length<=384);assert.ok(geometry.index.count/3<40000);
+    assert.ok([...geometry.attributes.position.array,...geometry.attributes.normal.array].every(Number.isFinite));
+    assert.deepEqual(value,snapshot);geometry.dispose();
+  }
+});
+
+test("3D 곡선은 원래 경계에서 3px 이내이며 원본 좌표를 움직이지 않는다",()=>{
+  for(const value of [basicBodyOutline("SQUARE"),narrowBodyFixture(),DEEP_BODY_FIXTURE]) {
+    const snapshot=structuredClone(value),render=body3DProfile(value).renderOutline;
+    for(const p of render) {
+      let nearest=Infinity;
+      for(let i=0;i<value.points.length;i++) {
+        const a=value.points[i],b=value.points[(i+1)%value.points.length],dx=b.x-a.x,dy=b.y-a.y;
+        const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+        nearest=Math.min(nearest,Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy));
+      }
+      assert.ok(nearest<=3/480+1e-8);
+    }
+    assert.deepEqual(value,snapshot);
+  }
+});
+
+test("전체 보기 사진은 가로/세로 비율을 유지하며 보정된 3D 창 안에 모두 들어간다",()=>{
+  for(const value of [narrowBodyFixture(),DEEP_BODY_FIXTURE]) for(const ratio of [.5,1,2]) {
+    const profile=body3DProfile(value),frame={width:ratio,height:1},snapshot=structuredClone([value,frame]);
+    const fitted=body3DContainWindow(profile,frame),w=profile.window,cx=w.x+w.width/2,cy=w.y+w.height/2;
+    assert.ok(fitted.width>0);assert.ok(Math.abs(fitted.width/fitted.height-ratio)<1e-8);
+    const corners=[{x:fitted.x,y:fitted.y},{x:fitted.x+fitted.width,y:fitted.y},
+      {x:fitted.x+fitted.width,y:fitted.y+fitted.height},{x:fitted.x,y:fitted.y+fitted.height}];
+    assert.equal(canExtrudeHollowBody({...profile,renderOutline:profile.photoOutline.map(p=>({x:p.x/480,y:p.y/480})),
+      photoOutline:corners.map(p=>({x:cx+(p.x-cx)*BODY_3D_PHOTO_SCALE,y:cy+(p.y-cy)*BODY_3D_PHOTO_SCALE}))}),true);
+    assert.deepEqual([value,frame],snapshot);
+  }
+});
+
+test("균일 높이 보정은 거리 변화의 주름을 줄이고 사진 판/테두리 높이를 보존한다",()=>{
+  const square=size=>[{x:-size,y:-size},{x:size,y:-size},{x:size,y:size},{x:-size,y:size}];
+  const outer=square(.8),inner=square(.4),snapshot=structuredClone([outer,inner]);
+  const distance=(p,polygon)=>Math.min(...polygon.map((a,i)=>{
+    const b=polygon[(i+1)%polygon.length],dx=b.x-a.x,dy=b.y-a.y;
+    const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+    return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
+  }));
+  const height=smoothedDomeField(outer,inner,distance);
+  for(const p of outer) assert.equal(height(p),BODY_3D_EDGE_DEPTH/2);
+  for(const p of inner) assert.equal(height(p),BODY_3D_DEPTH/2);
+  const before=[.58,.6,.62].map(y=>{
+    const p={x:.6,y},edge=distance(p,outer);return bodyDomeDepth(edge/(edge+distance(p,inner)));
+  }),after=[.58,.6,.62].map(y=>height({x:.6,y}));
+  const bend=levels=>Math.abs(levels[0]-2*levels[1]+levels[2]);
+  assert.ok(bend(after)<bend(before));
+  assert.deepEqual([outer,inner],snapshot);
+});
+
+test("안전한 사진 창의 실물 판과 빈 구멍은 앞뒤에서 일치하고 복잡한 곡면도 대칭이다",()=>{
+  for(const value of [narrowBodyFixture(),DEEP_BODY_FIXTURE]) {
+    const profile=body3DProfile(value),full=roundedBodyGeometry(value),hollow=roundedBodyGeometry(value,true);
+    const material=new MeshBasicMaterial(),solid=new Mesh(full,material),empty=new Mesh(hollow,material);
+    solid.updateMatrixWorld();empty.updateMatrixWorld();
+    const center=profile.photoOutline.reduce((sum,p)=>({x:sum.x+p.x/profile.photoOutline.length,y:sum.y+p.y/profile.photoOutline.length}),{x:0,y:0});
+    for(const sign of [1,-1]) {
+      const ray=new Raycaster(new Vector3((center.x/480-.5)*2,(.5-center.y/480)*2,sign*3),new Vector3(0,0,-sign));
+      const hits=ray.intersectObject(solid);
+      assert.ok(hits.length>0);assert.ok(Math.abs(hits[0].point.z-sign*BODY_3D_DEPTH/2)<1e-6);
+      assert.equal(ray.intersectObject(empty).length,0);
+    }
+    const p=full.attributes.position,coordinates=new Set();
+    for(let i=0;i<p.count;i++) coordinates.add(`${p.getX(i).toFixed(6)},${p.getY(i).toFixed(6)},${p.getZ(i).toFixed(6)}`);
+    for(let i=0;i<p.count;i++) assert.ok(coordinates.has(`${p.getX(i).toFixed(6)},${p.getY(i).toFixed(6)},${(-p.getZ(i)).toFixed(6)}`));
+    full.dispose();hollow.dispose();material.dispose();
+  }
 });
 
 test("새 곡면의 실제 정점도 회전/기울기/세로 화면에서 카메라 범위 안에 들어간다",()=>{

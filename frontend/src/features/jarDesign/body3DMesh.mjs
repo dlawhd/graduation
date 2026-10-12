@@ -2,16 +2,16 @@ import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2 } from "thr
 import { bodyWorldPoint, body3DProfile, bodyDomeDepth, canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH } from "./body3DGeometry.mjs";
 
 /** 저장 외곽선 안에서만 앞뒤를 부풀린다. 사진 자리는 평평하게 남기고 외곽에서 양쪽 곡면을 연결한다. */
-export function roundedBodyGeometry(value, hollow = false) {
-  const body = body3DProfile(value);
-  if (!body) throw new Error("Unsupported outline");
+export function roundedBodyGeometry(value, hollow = false, profile = body3DProfile(value)) {
+  const body = profile;
+  if (!body || !body.photoSafe) throw new Error("Unsupported outline");
   const insetFits = canExtrudeHollowBody(body);
   if (hollow && !insetFits) throw new Error("Unsupported outline");
-  const outer = value.points.map(bodyWorldPoint).map(p => new Vector2(p.x, p.y));
+  const outer = body.renderOutline.map(bodyWorldPoint).map(p => new Vector2(p.x, p.y));
   const inner = body.photoOutline.map(p => bodyWorldPoint({x:p.x/480,y:p.y/480})).map(p => new Vector2(p.x, p.y));
   const halfDepth = BODY_3D_DEPTH / 2;
   const positions = [], indices = [], vertices = new Map();
-  // 사진 배치만 바뀔 때는 다시 만들지 않는다. 최대 96점, 12개 곡면 링 또는 3단계 분할로 부담을 제한한다.
+  // 사진 배치만 바뀔 때는 다시 만들지 않는다. 저장 96점/3D 곡선 384점, 12개 링 또는 제한된 내부 분할만 사용한다.
   const distance = (p, polygon) => {
     let best = Infinity;
     for (let i=0;i<polygon.length;i++) {
@@ -21,13 +21,8 @@ export function roundedBodyGeometry(value, hollow = false) {
     }
     return best;
   };
-  const rimWidth = Math.min(body.window.width,body.window.height)/480*.12;
-  const height = p => {
-    const outside=distance(p,outer);
-    // 안쪽 윤곽이 외곽을 벗어나는 깊은 오목한 틀은 외곽까지의 거리로 안전하게 부푼다.
-    const t=insetFits ? outside/Math.max(outside+distance(p,inner),1e-12) : Math.min(1,outside/rimWidth);
-    return bodyDomeDepth(t);
-  };
+  let smoothHeight=null;
+  const height = p => smoothHeight(p);
   const vertex = (p,z) => {
     const key=`${p.x.toFixed(8)},${p.y.toFixed(8)},${z.toFixed(8)}`;
     if (!vertices.has(key)) {
@@ -37,6 +32,7 @@ export function roundedBodyGeometry(value, hollow = false) {
   };
   const finish = () => {
     if (!positions.every(Number.isFinite)) throw new Error("Invalid geometry");
+    if(indices.length/3>40000) throw new Error("Surface budget exceeded");
     const geometry=new BufferGeometry();
     geometry.setAttribute("position",new Float32BufferAttribute(positions,3));geometry.setIndex(indices);
     geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();
@@ -56,11 +52,14 @@ export function roundedBodyGeometry(value, hollow = false) {
     }
   };
   // 중심을 향해 줄여도 선이 접히지 않는 틀은 일정한 곡률의 링으로 만든다. 귀/볼이 매끈하게 이어진다.
-  const ringSafe=insetFits && outer.every((a,i)=>direction*cross(a,outer[(i+1)%outer.length],center)>1e-10);
+  const ringSafe=body.photoMode==="OUTLINE" && outer.length===inner.length && insetFits
+    && outer.every((a,i)=>direction*cross(a,outer[(i+1)%outer.length],center)>1e-10
+      && direction*cross(a,outer[(i+1)%outer.length],inner[i])>0
+      && direction*cross(outer[(i+1)%outer.length],inner[(i+1)%inner.length],inner[i])>0);
   if (ringSafe) {
     const contour=[],photoContour=[];
     for (let i=0;i<outer.length;i++) {
-      const a=outer[i],b=outer[(i+1)%outer.length],steps=Math.min(4,Math.max(1,Math.ceil(a.distanceTo(b)/.04)));
+      const a=outer[i],b=outer[(i+1)%outer.length],steps=Math.min(2,Math.max(1,Math.ceil(a.distanceTo(b)/.04)));
       for (let step=0;step<steps;step++) {
         contour.push(a.clone().lerp(b,step/steps));
         photoContour.push(inner[i].clone().lerp(inner[(i+1)%inner.length],step/steps));
@@ -119,35 +118,141 @@ export function roundedBodyGeometry(value, hollow = false) {
     indices.push(...(ccw?front:[front[0],front[2],front[1]]));
     indices.push(...(ccw?[back[0],back[2],back[1]]:back));
   };
-  const subdivide = (a,b,c,level,flat=false) => {
-    if (!level) { face(a,b,c,flat);return; }
-    const ab=new Vector2((a.x+b.x)/2,(a.y+b.y)/2),bc=new Vector2((b.x+c.x)/2,(b.y+c.y)/2),ca=new Vector2((c.x+a.x)/2,(c.y+a.y)/2);
-    subdivide(a,ab,ca,level-1,flat);subdivide(ab,b,bc,level-1,flat);
-    subdivide(ca,bc,c,level-1,flat);subdivide(ab,bc,ca,level-1,flat);
-  };
   // Earcut으로 먼저 나눠 귀/골짜기를 보존한다. 중심점 팬 방식은 오목한 틀 밖을 덮을 수 있어 쓰지 않는다.
   const rimPoints=insetFits?[...outer,...inner]:outer;
-  for (const triangle of ShapeUtils.triangulateShape(outer,insetFits?[inner]:[])) {
-    subdivide(...triangle.map(i=>rimPoints[i]),3);
-  }
+  const rimTriangles=ShapeUtils.triangulateShape(outer,insetFits?[inner]:[]);
+  const capTriangles=insetFits&&!hollow?ShapeUtils.triangulateShape(inner,[]):[];
+  smoothHeight=smoothedDomeField(outer,inner,distance);
+  // 긴 삼각형을 그대로 등분하면 가는 팔다리에 주름이 생긴다. 경계는 고정하고 내부 대각선을 다듬는다.
+  const surface=tessellateSurface(rimPoints,rimTriangles);
+  for (const triangle of surface.triangles) face(...triangle.map(i=>surface.points[i]));
   if (insetFits && !hollow) {
-    for (const triangle of ShapeUtils.triangulateShape(inner,[])) subdivide(...triangle.map(i=>inner[i]),3,true);
+    for (const triangle of capTriangles) face(...triangle.map(i=>inner[i]),true);
   } else if (hollow) {
     // 빈 틀의 사진 창은 실제 구멍이다. 안쪽 벽은 별도 법선으로 만들어 사진 자리의 경계를 유지한다.
-    const clockwise=ShapeUtils.isClockWise(inner);
-    for (let i=0;i<inner.length;i++) {
-      const from=inner[i],to=inner[(i+1)%inner.length];
-      for (let step=0;step<8;step++) {
-        const a=from.clone().lerp(to,step/8),b=from.clone().lerp(to,(step+1)/8),start=positions.length/3;
+    for (const [from,to] of surface.boundaries) {
+      const a=surface.points[from],b=surface.points[to];
+      if(distance(a,outer)<1e-7 && distance(b,outer)<1e-7) continue;
+      {
+        const start=positions.length/3;
         positions.push(a.x,a.y,halfDepth,b.x,b.y,halfDepth,a.x,a.y,-halfDepth,b.x,b.y,-halfDepth);
-        const wall=clockwise?[0,2,1,1,2,3]:[0,1,2,1,3,2];
+        // 경계는 앞면의 반시계 방향이다. 구멍 경계는 시계 방향이므로 안쪽을 향한다.
+        const wall=[0,2,1,1,2,3];
         indices.push(...wall.map(n=>start+n));
       }
     }
   }
-  // 삼각형 분할의 바깥 변과 같은 8분할로 연결해 오목한 틀에도 옆면 틈을 남기지 않는다.
-  const edge=[];
-  for(let i=0;i<outer.length;i++) for(let step=0;step<8;step++) edge.push(outer[i].clone().lerp(outer[(i+1)%outer.length],step/8));
-  joinEdge(edge);
+  // 삼각형 분할의 실제 바깥 변으로 연결해 오목한 틀에도 옆면 틈을 남기지 않는다.
+  for(const [a,b] of surface.boundaries) {
+    const from=surface.points[a],to=surface.points[b];
+    if(distance(from,outer)<1e-7 && distance(to,outer)<1e-7) {
+      const halfEdge=BODY_3D_EDGE_DEPTH/2;
+      indices.push(vertex(from,halfEdge),vertex(from,-halfEdge),vertex(to,halfEdge),
+        vertex(to,halfEdge),vertex(from,-halfEdge),vertex(to,-halfEdge));
+    }
+  }
   return finish();
+}
+
+/** 균일한 격자에서 높이를 보정해 삼각형의 길이/방향이 표면의 주름으로 나타나지 않게 한다. 경계와 사진 판은 고정한다. */
+export function smoothedDomeField(outer,inner,distance) {
+  const size=129,step=2/(size-1),count=size*size;
+  const inside=(p,polygon)=>{
+    let result=false;
+    for(let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
+      const a=polygon[i],b=polygon[j];
+      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x) result=!result;
+    }return result;
+  };
+  const initial=new Float64Array(count),fixed=new Uint8Array(count);
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
+    const i=y*size+x,p={x:x*step-1,y:y*step-1};
+    if(!inside(p,outer)) fixed[i]=1;
+    else if(inside(p,inner)) {initial[i]=1;fixed[i]=1;}
+    else {
+      // 깊은 오목한 틀도 외곽까지의 거리로 안전하게 부푼다. 사진 창은 먼저 몸통 안에 보정되어 있다.
+      const edge=distance(p,outer);initial[i]=edge/Math.max(edge+distance(p,inner),1e-12);
+    }
+  }
+  let values=initial.slice(),next=values.slice();
+  for(let pass=0;pass<96;pass++) {
+    for(let y=1;y<size-1;y++) for(let x=1;x<size-1;x++) {
+      const i=y*size+x;
+      next[i]=fixed[i]?initial[i]:initial[i]*.02+values[i]*.18+(values[i-1]+values[i+1]+values[i-size]+values[i+size])*.2;
+    }
+    [values,next]=[next,values];
+  }
+  return p=>{
+    const x=Math.max(0,Math.min(size-1.000001,(p.x+1)/step)),y=Math.max(0,Math.min(size-1.000001,(p.y+1)/step));
+    const ix=Math.floor(x),iy=Math.floor(y),tx=x-ix,ty=y-iy,i=iy*size+ix;
+    let progress=(values[i]*(1-tx)+values[i+1]*tx)*(1-ty)+(values[i+size]*(1-tx)+values[i+size+1]*tx)*ty;
+    const edge=distance(p,outer),photo=distance(p,inner);
+    // 격자와 실제 외곽의 오차는 한 칸 안에서만 보정한다. 정확한 경계는 언제나 같은 높이에 남긴다.
+    if(edge<step) {const t=edge/step;progress*=t*(2-t);}
+    if(photo<step) {const t=photo/step;progress=1-(1-progress)*t*(2-t);}
+    return bodyDomeDepth(progress);
+  };
+}
+
+/** 삼각형의 긴 변을 함께 나누고 내부 대각선만 바꾼다. 외곽/구멍 경계와 오목한 골짜기는 그대로 보존한다. */
+function tessellateSurface(source,faces) {
+  const points=source.map(p=>p.clone()),cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  let triangles=faces.map(([a,b,c])=>cross(points[a],points[b],points[c])>0?[a,b,c]:[a,c,b]);
+  const key=(a,b)=>a<b?`${a},${b}`:`${b},${a}`;
+  const edges=()=>{
+    const result=new Map();
+    triangles.forEach((t,i)=>t.forEach((a,j)=>{
+      const b=t[(j+1)%3],c=t[(j+2)%3],id=key(a,b);
+      if(!result.has(id)) result.set(id,[]);result.get(id).push({a,b,c,i});
+    }));return result;
+  };
+  const improve=()=>{
+    // 경계는 인접 삼각형이 하나뿐이므로 이동하지 않는다. 같은 패스의 정점을 중복 교체하지 않는다.
+    for(let pass=0;pass<8;pass++) {
+      const used=new Set();let changed=false;
+      for(const adjacent of edges().values()) {
+        if(adjacent.length!==2) continue;
+        const [first,second]=adjacent,{a,b,c,i}=first,d=second.c,j=second.i;
+        if(used.has(i)||used.has(j)) continue;
+        const pa=points[a],pb=points[b],pc=points[c],pd=points[d];
+        if(cross(pc,pa,pd)<=1e-12 || cross(pc,pd,pb)<=1e-12) continue;
+        const ax=pa.x-pd.x,ay=pa.y-pd.y,bx=pb.x-pd.x,by=pb.y-pd.y,cx=pc.x-pd.x,cy=pc.y-pd.y;
+        const inCircle=(ax*ax+ay*ay)*(bx*cy-by*cx)-(bx*bx+by*by)*(ax*cy-ay*cx)+(cx*cx+cy*cy)*(ax*by-ay*bx);
+        if(inCircle<=1e-12) continue;
+        triangles[i]=[c,a,d];triangles[j]=[c,d,b];used.add(i);used.add(j);changed=true;
+      }
+      if(!changed) break;
+    }
+  };
+  improve();
+  for(let round=0;round<7;round++) {
+    const midpoints=new Map();
+    for(const [id,[edge]] of edges()) {
+      const a=points[edge.a],b=points[edge.b];
+      if(a.distanceTo(b)>.035) { midpoints.set(id,points.length);points.push(a.clone().lerp(b,.5)); }
+    }
+    if(!midpoints.size) break;
+    const refined=[];
+    for(const t of triangles) {
+      const mid=t.map((a,i)=>midpoints.get(key(a,t[(i+1)%3]))),count=mid.filter(n=>n!==undefined).length;
+      if(count===0) refined.push(t);
+      else if(count===3) {
+        const [a,b,c]=t,[ab,bc,ca]=mid;refined.push([a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]);
+      } else {
+        // 변 하나 또는 두 개를 나눌 때도 이웃과 같은 중간 점을 사용해 틈/T자 접합을 만들지 않는다.
+        const start=count===1?mid.findIndex(n=>n!==undefined):(mid.findIndex(n=>n===undefined)+1)%3;
+        const a=t[start],b=t[(start+1)%3],c=t[(start+2)%3],ab=mid[start],bc=mid[(start+1)%3];
+        if(count===1) refined.push([a,ab,c],[ab,b,c]);
+        else {
+          refined.push([ab,b,bc]);
+          if(points[a].distanceTo(points[bc])<points[ab].distanceTo(points[c])) refined.push([a,ab,bc],[a,bc,c]);
+          else refined.push([a,ab,c],[ab,bc,c]);
+        }
+      }
+    }
+    // 비정상적으로 복잡한 모델이 UI를 장시간 막지 않도록 한 면의 계산량에 상한을 둔다.
+    if(refined.length>16000) throw new Error("Surface budget exceeded");
+    triangles=refined;improve();
+  }
+  return {points,triangles,boundaries:[...edges().values()].filter(list=>list.length===1).map(([edge])=>[edge.a,edge.b])};
 }

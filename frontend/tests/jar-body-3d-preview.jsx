@@ -11,6 +11,7 @@ import { CHARACTER_SHAPES } from "../src/features/jarDesign/characterShapes.mjs"
 import { drawShape } from "../src/features/jarDesign/drawingTools.mjs";
 import { paintedBodyOutline } from "../src/features/jarDesign/bodyPainting.mjs";
 import JarVisual from "../src/features/jarDetail/components/JarVisual";
+import { DEEP_BODY_FIXTURE, narrowBodyFixture } from "./fixtures/body3DShapes.mjs";
 
 // 개발 전용 합성 이미지로 확인한다. 로그인/운영 API/AI 생성 요청은 없다.
 if(!import.meta.env.DEV)throw new Error("로컬 개발 전용");
@@ -37,6 +38,8 @@ function Preview() {
       <button type="button" onClick={()=>setRequest(r=>r+1)} className="rounded border p-3">쪽지 작성 열기</button>
       <button type="button" onClick={()=>setTarget(measureJarDropTarget(document.querySelector("[data-photo-fixture]")))} className="rounded border p-3">정면 입구 측정</button>
       <button type="button" onClick={()=>document.querySelector("canvas")?.dispatchEvent(new Event("webglcontextlost",{cancelable:true}))} className="rounded border p-3">컨텍스트 손실 재현</button>
+      <button type="button" onClick={()=>setBody(narrowBodyFixture())} className="rounded border p-3">가는 팔다리 검증</button>
+      <button type="button" onClick={()=>setBody(DEEP_BODY_FIXTURE)} className="rounded border p-3">깊은 굴곡 검증</button>
     </div>
     <div className="mt-3 flex flex-wrap gap-2">{CHARACTER_SHAPES.map(([id,label])=><button type="button" key={id} onClick={()=>useCharacter(id)} className="rounded border p-2 text-xs">{label}</button>)}</div>
     <div className="mt-6 grid items-start gap-6 md:grid-cols-2">

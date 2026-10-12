@@ -16,7 +16,8 @@ test("잘못된 외곽선은 Three.js로 전달하지 않고 원본 좌표도 �
   assert.equal(body3DOutline({points:[],color:"#ffffff"}),null);
   assert.equal(body3DOutline({...outline,color:"url(example)"}),null);
   assert.equal(body3DOutline({...outline,points:[...outline.points,{x:Infinity,y:.5}]}),null);
-  assert.equal(body3DOutline(outline).length,outline.points.length);
+  assert.ok(body3DOutline(outline).length>=outline.points.length);
+  assert.ok(body3DOutline(outline).length<=outline.points.length*4);
   assert.deepEqual(outline,snapshot);
 });
 test("회전은 앞뒤와 제한된 기울기만 허용하며 비정상 입력은 정면으로 복구한다",()=>{
@@ -52,11 +53,9 @@ test("3D 곡면만 넓히며 사진 창의 비율/중심과 저장/2D 좌표를 
   assert.equal(profile.window.height,body.window.height*BODY_3D_PHOTO_SCALE);
   assert.equal(profile.window.x+profile.window.width/2,body.window.x+body.window.width/2);
   assert.equal(profile.window.y+profile.window.height/2,body.window.y+body.window.height/2);
-  for(let i=0;i<body.photoOutline.length;i++) {
-    const cx=body.window.x+body.window.width/2,cy=body.window.y+body.window.height/2;
-    assert.ok(Math.abs(profile.photoOutline[i].x-(cx+(body.photoOutline[i].x-cx)*BODY_3D_PHOTO_SCALE))<1e-10);
-    assert.ok(Math.abs(profile.photoOutline[i].y-(cy+(body.photoOutline[i].y-cy)*BODY_3D_PHOTO_SCALE))<1e-10);
-  }
+  assert.equal(profile.photoSafe,true);
+  assert.equal(profile.photoMode,"OUTLINE");
+  assert.equal(canExtrudeHollowBody(profile),true);
   assert.deepEqual(customJarBody(outline),body);assert.deepEqual(outline,snapshot);
 });
 test("가장 넓은 틀도 회전과 기울기에서 사진/옆면이 카메라 밖으로 잘리지 않는다",()=>{
