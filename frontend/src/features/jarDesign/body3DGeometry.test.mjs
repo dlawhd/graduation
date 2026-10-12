@@ -20,10 +20,28 @@ test("잘못된 외곽선은 Three.js로 전달하지 않고 원본 좌표도 �
   assert.ok(body3DOutline(outline).length<=outline.points.length*4);
   assert.deepEqual(outline,snapshot);
 });
-test("회전은 앞뒤와 제한된 기울기만 허용하며 비정상 입력은 정면으로 복구한다",()=>{
+test("양쪽 축의 회전은 한 바퀴 뒤에도 이어지고 비정상 입력은 정면으로 복구한다",()=>{
   assert.deepEqual(bodyRotation(Infinity,NaN),{yaw:0,pitch:0});
-  assert.deepEqual(bodyRotation(9,-4),{yaw:Math.PI,pitch:-.55});
-  assert.deepEqual(bodyRotation(-9,4),{yaw:-Math.PI,pitch:.55});
+  assert.deepEqual(bodyRotation(9,-4),{yaw:9-2*Math.PI,pitch:2*Math.PI-4});
+  assert.deepEqual(bodyRotation(-9,4),{yaw:2*Math.PI-9,pitch:4-2*Math.PI});
+  assert.deepEqual(bodyRotation(Math.PI*4,-Math.PI*4),{yaw:0,pitch:0});
+  assert.deepEqual(bodyRotation(.4,.8),{yaw:.4,pitch:.8});
+  for(const angle of [Number.MAX_VALUE,-Number.MAX_VALUE]) {
+    const rotation=bodyRotation(angle,angle);
+    assert.ok(Object.values(rotation).every(n=>Number.isFinite(n)&&Math.abs(n)<=Math.PI));
+  }
+});
+test("위/아래와 좌/우를 여러 바퀴 돌려도 같은 회전 방향과 자세를 유지한다",()=>{
+  for(const sign of [1,-1]) {
+    let rotation={yaw:0,pitch:0};
+    for(let i=1;i<=200;i++) {
+      rotation=bodyRotation(rotation.yaw+sign*.2,rotation.pitch+sign*.12);
+      for(const [axis,delta] of [["yaw",.2],["pitch",.12]]) {
+        assert.ok(Math.abs(Math.cos(rotation[axis])-Math.cos(sign*i*delta))<1e-10);
+        assert.ok(Math.abs(Math.sin(rotation[axis])-Math.sin(sign*i*delta))<1e-10);
+      }
+    }
+  }
 });
 test("얇은 옆 테두리와 앞뒤 볼륨을 분리해도 사진은 표면 바깥이고 정면 외형 크기는 유지한다",()=>{
   assert.equal(BODY_3D_DEPTH,.46);
@@ -61,7 +79,8 @@ test("3D 곡면만 넓히며 사진 창의 비율/중심과 저장/2D 좌표를 
 test("가장 넓은 틀도 회전과 기울기에서 사진/옆면이 카메라 밖으로 잘리지 않는다",()=>{
   const points=body3DOutline({color:"#123456",points:[{x:.05,y:.05},{x:.95,y:.05},{x:.95,y:.95},{x:.05,y:.95}]});
   const snapshot=structuredClone(points),group=new Group();
-  for(const aspect of [.75,1,1.5]) for(let i=0;i<=24;i++) for(const pitch of [-.55,0,.55]) {
+  for(const aspect of [.75,1,1.5]) for(let i=0;i<=24;i++) for(let j=0;j<=24;j++) {
+    const pitch=-Math.PI+j*Math.PI/12;
     const yaw=-Math.PI+i*Math.PI/12,view=bodyViewExtent(points,yaw,pitch,aspect);
     const camera=new OrthographicCamera(-view*aspect,view*aspect,view,-view,.1,20);
     camera.position.set(0,0,5);camera.updateMatrixWorld(true);
@@ -80,9 +99,12 @@ test("앞뒤 사진은 각각 바깥 표면에 놓고 옆면에서는 가느다�
     assert.deepEqual(bodyPhotoSurface(yaw,0),{side:"back",depth:-BODY_3D_SURFACE,visible:true});
   }
   for(const yaw of [Math.PI/2,-Math.PI/2]) assert.equal(bodyPhotoSurface(yaw,.55).visible,false);
+  for(const pitch of [Math.PI,-Math.PI]) assert.deepEqual(bodyPhotoSurface(0,pitch),{side:"back",depth:-BODY_3D_SURFACE,visible:true});
+  for(const pitch of [Math.PI/2,-Math.PI/2]) assert.equal(bodyPhotoSurface(0,pitch).visible,false);
+  assert.deepEqual(bodyPhotoSurface(0,2*Math.PI),bodyPhotoSurface(0,0));
   assert.deepEqual(bodyPhotoSurface(Infinity,NaN),bodyPhotoSurface(0,0));
 });
-test("실제 Three 카메라 투영은 뒷면의 사진 좌우만 반전하고 위아래와 원본 좌표를 유지한다",()=>{
+test("실제 Three 카메라 투영은 좌우 뒷면 반전과 위아래 뒤집힌 자세를 사진에도 반영한다",()=>{
   const camera=new OrthographicCamera(-BODY_3D_VIEW,BODY_3D_VIEW,BODY_3D_VIEW,-BODY_3D_VIEW,.1,20);
   camera.position.set(0,0,5);camera.updateMatrixWorld(true);
   const group=new Group();
@@ -105,11 +127,11 @@ test("실제 Three 카메라 투영은 뒷면의 사진 좌우만 반전하고 �
     assert.ok(Math.abs(a.y-b.y)<1e-8);
   }
   for(const yaw of [0,.35,Math.PI,-Math.PI,2.6,-2.6]) {
-    for(const pitch of [-.55,0,.55]) {
+    for(const pitch of [-2*Math.PI,-Math.PI,-2,-.55,0,.55,2,Math.PI,2*Math.PI]) {
       const m=projectMatrix(yaw,pitch);
       const determinant=m[0]*m[3]-m[1]*m[2];
       assert.equal(determinant<0,bodyPhotoSurface(yaw,pitch).side==="back");
-      assert.ok(m[3]>0);assert.ok(m.every(Number.isFinite));
+      assert.equal(m[3]>0,Math.cos(pitch)>0);assert.ok(m.every(Number.isFinite));
     }
   }
   assert.deepEqual(photoPoints,snapshot);

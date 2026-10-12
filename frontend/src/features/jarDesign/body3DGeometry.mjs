@@ -83,12 +83,17 @@ export function body3DContainWindow(profile,frame) {
   return customContainWindow({photoOutline:outline,window:{x,y,width:Math.max(...xs)-x,height:Math.max(...ys)-y}},frame);
 }
 
-/** 앞뒤를 볼 수 있지만 위아래로 뒤집히지는 않도록 제한한다. */
+/** 양쪽 축으로 계속 돌릴 수 있게 각도만 한 바퀴 안으로 정규화한다. 비정상 입력은 정면으로 복구한다. */
 export function bodyRotation(yaw, pitch) {
-  return {
-    yaw: Number.isFinite(yaw) ? Math.max(-Math.PI, Math.min(Math.PI, yaw)) : 0,
-    pitch: Number.isFinite(pitch) ? Math.max(-.55, Math.min(.55, pitch)) : 0,
+  const wrap = value => {
+    if (!Number.isFinite(value)) return 0;
+    // ±π에서 멈추지 않고 같은 방향으로 이어진다. 반복 조작으로 각도가 커져 정밀도가 줄어드는 것도 막는다.
+    let angle=value%(Math.PI*2);
+    if(angle>Math.PI) angle-=Math.PI*2;
+    if(angle<-Math.PI) angle+=Math.PI*2;
+    return angle===0?0:angle;
   };
+  return {yaw:wrap(yaw),pitch:wrap(pitch)};
 }
 
 /** 보이는 면 바깥에 같은 사진 평면을 놓는다. 뒷면 투영 자체가 좌우 반전하므로 별도 반전을 하지 않는다. */

@@ -200,7 +200,8 @@ test("새 곡면의 실제 정점도 회전/기울기/세로 화면에서 카메
   const group=new Group();
   for (const kind of ["ROUND","JAR","SQUARE","characterCat"]) {
     const value=shapes.find(([name])=>name===kind)[1],geometry=roundedBodyGeometry(value),p=geometry.attributes.position;
-    for (const aspect of [.75,1,1.5]) for (const yaw of [0,.8,Math.PI/2,2.5,Math.PI]) for (const pitch of [-.55,0,.55]) {
+    for (const aspect of [.75,1,1.5]) for (const yaw of [0,.8,Math.PI/2,2.5,Math.PI])
+      for (const pitch of [-2*Math.PI,-Math.PI,-2,-Math.PI/2,-.55,0,.55,Math.PI/2,2,Math.PI,2*Math.PI]) {
       const view=bodyViewExtent(body3DOutline(value),yaw,pitch,aspect);
       const camera=new OrthographicCamera(-view*aspect,view*aspect,view,-view,.1,20);
       camera.position.set(0,0,5);camera.updateMatrixWorld();group.rotation.set(pitch,yaw,0);group.updateMatrixWorld();
