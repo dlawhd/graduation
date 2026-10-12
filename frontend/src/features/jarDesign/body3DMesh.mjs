@@ -1,10 +1,9 @@
 import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2 } from "three";
-import { customJarBody } from "./customJarBody.mjs";
-import { bodyWorldPoint, canExtrudeHollowBody, BODY_3D_DEPTH } from "./body3DGeometry.mjs";
+import { bodyWorldPoint, body3DProfile, bodyDomeDepth, canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH } from "./body3DGeometry.mjs";
 
 /** 저장 외곽선 안에서만 앞뒤를 부풀린다. 사진 자리는 평평하게 남기고 외곽에서 양쪽 곡면을 연결한다. */
 export function roundedBodyGeometry(value, hollow = false) {
-  const body = customJarBody(value);
+  const body = body3DProfile(value);
   if (!body) throw new Error("Unsupported outline");
   const insetFits = canExtrudeHollowBody(body);
   if (hollow && !insetFits) throw new Error("Unsupported outline");
@@ -27,7 +26,7 @@ export function roundedBodyGeometry(value, hollow = false) {
     const outside=distance(p,outer);
     // 안쪽 윤곽이 외곽을 벗어나는 깊은 오목한 틀은 외곽까지의 거리로 안전하게 부푼다.
     const t=insetFits ? outside/Math.max(outside+distance(p,inner),1e-12) : Math.min(1,outside/rimWidth);
-    return halfDepth*Math.sqrt(Math.max(0,t*(2-t)));
+    return bodyDomeDepth(t);
   };
   const vertex = (p,z) => {
     const key=`${p.x.toFixed(8)},${p.y.toFixed(8)},${z.toFixed(8)}`;
@@ -46,6 +45,16 @@ export function roundedBodyGeometry(value, hollow = false) {
   const center=bodyWorldPoint({x:(body.window.x+body.window.width/2)/480,y:(body.window.y+body.window.height/2)/480});
   const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   const direction=ShapeUtils.isClockWise(outer)?-1:1;
+  /** 넓은 옆벽 대신 앞뒤 곡면 사이에 아주 얇은 연결 띠만 만든다. 빈 틀도 외부 옆면은 닫아 준다. */
+  const joinEdge = contour => {
+    const halfEdge=BODY_3D_EDGE_DEPTH/2;
+    for (let i=0;i<contour.length;i++) {
+      const a=contour[i],b=contour[(i+1)%contour.length];
+      const frontA=vertex(a,halfEdge),frontB=vertex(b,halfEdge),backA=vertex(a,-halfEdge),backB=vertex(b,-halfEdge);
+      const wall=direction>0?[frontA,backA,frontB,frontB,backA,backB]:[frontA,frontB,backA,frontB,backB,backA];
+      indices.push(...wall);
+    }
+  };
   // 중심을 향해 줄여도 선이 접히지 않는 틀은 일정한 곡률의 링으로 만든다. 귀/볼이 매끈하게 이어진다.
   const ringSafe=insetFits && outer.every((a,i)=>direction*cross(a,outer[(i+1)%outer.length],center)>1e-10);
   if (ringSafe) {
@@ -59,10 +68,11 @@ export function roundedBodyGeometry(value, hollow = false) {
     }
     const rings=[];
     for (let ring=0;ring<=12;ring++) {
-      const angle=ring*Math.PI/24,z=halfDepth*Math.sin(angle);
+      const progress=ring/12,z=bodyDomeDepth(progress);
       const front=[],back=[];
       for (let i=0;i<contour.length;i++) {
-        const q=photoContour[i].clone().lerp(contour[i],Math.cos(angle));
+        // 테두리 근처에서 깊이가 급하게 솟던 코사인 이동 대신 곡면의 폭을 균일하게 나눈다.
+        const q=contour[i].clone().lerp(photoContour[i],progress);
         front.push(vertex(q,z));back.push(vertex(q,-z));
       }
       rings.push({front,back});
@@ -91,6 +101,7 @@ export function roundedBodyGeometry(value, hollow = false) {
         indices.push(...wall.map(n=>start+n));
       }
     }
+    joinEdge(contour);
     return finish();
   }
   const face = (a,b,c,flat=false) => {
@@ -134,5 +145,9 @@ export function roundedBodyGeometry(value, hollow = false) {
       }
     }
   }
+  // 삼각형 분할의 바깥 변과 같은 8분할로 연결해 오목한 틀에도 옆면 틈을 남기지 않는다.
+  const edge=[];
+  for(let i=0;i<outer.length;i++) for(let step=0;step<8;step++) edge.push(outer[i].clone().lerp(outer[(i+1)%outer.length],step/8));
+  joinEdge(edge);
   return finish();
 }

@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DirectionalLight, Group, HemisphereLight, Mesh,
   MeshStandardMaterial, OrthographicCamera, Scene, Vector3, WebGLRenderer } from "three";
-import { customJarBody } from "../customJarBody.mjs";
-import { body3DOutline, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
+import { body3DOutline, body3DProfile, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
   canExtrudeHollowBody, BODY_3D_VIEW } from "../body3DGeometry.mjs";
 import { roundedBodyGeometry } from "../body3DMesh.mjs";
 import CustomJarBodyArtwork from "./CustomJarBodyArtwork";
@@ -15,7 +14,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
   const [ready,setReady]=useState(false);
   useEffect(() => {
     const stage=stageRef.current, surface=surfaceRef.current;
-    const body=customJarBody(customBody), points=body3DOutline(customBody);
+    const body=body3DProfile(customBody), points=body3DOutline(customBody);
     let renderer, geometry, faceMaterial, observer, frame=0, disposed=false;
     let gesture=null, yaw=.35, pitch=-.12;
     const cleanup = () => {

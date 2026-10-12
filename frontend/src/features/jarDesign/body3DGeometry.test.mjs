@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { Group, OrthographicCamera, Vector3 } from "three";
 import { roundedBodyGeometry } from "./body3DMesh.mjs";
 import { basicBodyOutline, customJarBody } from "./customJarBody.mjs";
-import { bodyWorldPoint, body3DOutline, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
-  canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_SURFACE, BODY_3D_VIEW } from "./body3DGeometry.mjs";
+import { bodyWorldPoint, body3DOutline, body3DProfile, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
+  canExtrudeHollowBody, bodyDomeDepth, BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH, BODY_3D_SURFACE, BODY_3D_VIEW, BODY_3D_PHOTO_SCALE } from "./body3DGeometry.mjs";
 
 test("그림판 좌표를 위아래 뒤집힘 없이 3D 좌표로 변환한다",()=>{
   assert.deepEqual(bodyWorldPoint({x:0,y:0}),{x:-1,y:1});
@@ -24,15 +24,40 @@ test("회전은 앞뒤와 제한된 기울기만 허용하며 비정상 입력�
   assert.deepEqual(bodyRotation(9,-4),{yaw:Math.PI,pitch:-.55});
   assert.deepEqual(bodyRotation(-9,4),{yaw:-Math.PI,pitch:.55});
 });
-test("앞뒤 볼륨을 키워도 사진은 표면 바깥에 있고 정면 크기는 유지한다",()=>{
-  assert.equal(BODY_3D_DEPTH,.72);
-  assert.ok(BODY_3D_DEPTH/.18>2.6);
+test("얇은 옆 테두리와 앞뒤 볼륨을 분리해도 사진은 표면 바깥이고 정면 외형 크기는 유지한다",()=>{
+  assert.equal(BODY_3D_DEPTH,.46);
+  assert.equal(BODY_3D_EDGE_DEPTH,.025);
+  assert.ok(BODY_3D_EDGE_DEPTH<BODY_3D_DEPTH*.06);
   assert.ok(BODY_3D_SURFACE>BODY_3D_DEPTH/2+.003);
   for(const kind of ["ROUND","JAR","SQUARE"]) {
     const points=body3DOutline(basicBodyOutline(kind));
     assert.equal(bodyViewExtent(points,0,0),BODY_3D_VIEW);
     assert.equal(bodyViewExtent(points,Math.PI,0),BODY_3D_VIEW);
   }
+});
+test("테두리 근처는 얇고 사진 자리로 갈수록 앞뒤가 봉긋해진다",()=>{
+  assert.equal(bodyDomeDepth(0),BODY_3D_EDGE_DEPTH/2);
+  assert.equal(bodyDomeDepth(1),BODY_3D_DEPTH/2);
+  assert.ok(bodyDomeDepth(.1)<.05);
+  assert.ok(bodyDomeDepth(.5)>.16);
+  let previous=bodyDomeDepth(0);
+  for(let i=1;i<=12;i++) { const current=bodyDomeDepth(i/12);assert.ok(current>previous);previous=current; }
+  for(const value of [-1,NaN,Infinity]) assert.equal(bodyDomeDepth(value),bodyDomeDepth(0));
+  assert.equal(bodyDomeDepth(2),bodyDomeDepth(1));
+});
+test("3D 곡면만 넓히며 사진 창의 비율/중심과 저장/2D 좌표를 보존한다",()=>{
+  const outline=basicBodyOutline("ROUND"),snapshot=structuredClone(outline),body=customJarBody(outline),profile=body3DProfile(outline);
+  assert.equal(body3DProfile({points:[],color:"#ffffff"}),null);
+  assert.equal(profile.window.width,body.window.width*BODY_3D_PHOTO_SCALE);
+  assert.equal(profile.window.height,body.window.height*BODY_3D_PHOTO_SCALE);
+  assert.equal(profile.window.x+profile.window.width/2,body.window.x+body.window.width/2);
+  assert.equal(profile.window.y+profile.window.height/2,body.window.y+body.window.height/2);
+  for(let i=0;i<body.photoOutline.length;i++) {
+    const cx=body.window.x+body.window.width/2,cy=body.window.y+body.window.height/2;
+    assert.ok(Math.abs(profile.photoOutline[i].x-(cx+(body.photoOutline[i].x-cx)*BODY_3D_PHOTO_SCALE))<1e-10);
+    assert.ok(Math.abs(profile.photoOutline[i].y-(cy+(body.photoOutline[i].y-cy)*BODY_3D_PHOTO_SCALE))<1e-10);
+  }
+  assert.deepEqual(customJarBody(outline),body);assert.deepEqual(outline,snapshot);
 });
 test("가장 넓은 틀도 회전과 기울기에서 사진/옆면이 카메라 밖으로 잘리지 않는다",()=>{
   const points=body3DOutline({color:"#123456",points:[{x:.05,y:.05},{x:.95,y:.05},{x:.95,y:.95},{x:.05,y:.95}]});

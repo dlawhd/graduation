@@ -4,7 +4,7 @@ import { Mesh, MeshBasicMaterial, Raycaster, Vector3, Group, OrthographicCamera 
 import { roundedBodyGeometry } from "./body3DMesh.mjs";
 import { basicBodyOutline, outlineError } from "./customJarBody.mjs";
 import { CHARACTER_SHAPES, drawCharacterShape } from "./characterShapes.mjs";
-import { BODY_3D_DEPTH, BODY_3D_SURFACE, body3DOutline, bodyViewExtent } from "./body3DGeometry.mjs";
+import { BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH, BODY_3D_SURFACE, body3DOutline, bodyViewExtent } from "./body3DGeometry.mjs";
 
 /** 실제 캐릭터 경로를 좌표로 샘플링해 귀/골짜기가 있는 외곽도 브라우저 없이 검증한다. */
 function characterOutline(id) {
@@ -59,7 +59,7 @@ test("기본 틀과 캐릭터 12종은 유효한 곡면/법선을 만들고 좌�
   }
 });
 
-test("둥근 몸통은 앞뒤가 대칭으로 봉긋하고 가장자리에 직선 옆면을 만들지 않는다",()=>{
+test("둥근 몸통은 앞뒤가 대칭으로 봉긋하고 가장자리에는 얇은 연결 띠만 남긴다",()=>{
   const geometry=roundedBodyGeometry(basicBodyOutline("ROUND")),p=geometry.attributes.position;
   const levels=new Set(),coordinates=new Set();
   for (let i=0;i<p.count;i++) {
@@ -75,6 +75,21 @@ test("둥근 몸통은 앞뒤가 대칭으로 봉긋하고 가장자리에 직�
   }
   assert.ok(Math.abs(geometry.boundingBox.max.z-geometry.boundingBox.min.z-BODY_3D_DEPTH)<1e-6);
   geometry.dispose();
+});
+
+test("실제 곡면도 테두리 근처는 얇고 앞뒤 사진 판은 이전보다 바깥으로 나온다",()=>{
+  const geometry=roundedBodyGeometry(basicBodyOutline("ROUND")),material=new MeshBasicMaterial(),mesh=new Mesh(geometry,material);
+  mesh.updateMatrixWorld();
+  for(const sign of [1,-1]) {
+    const edge=new Raycaster(new Vector3(.69,-.04,sign*3),new Vector3(0,0,-sign)).intersectObject(mesh);
+    const center=new Raycaster(new Vector3(0,-.04,sign*3),new Vector3(0,0,-sign)).intersectObject(mesh);
+    assert.ok(edge.length>0 && center.length>0);
+    assert.ok(Math.abs(edge[0].point.z)<.04);
+    assert.ok(Math.abs(center[0].point.z)>.22);
+  }
+  const p=geometry.attributes.position;
+  assert.ok([...p.array].filter((_,i)=>i%3===2).some(z=>Math.abs(Math.abs(z)-BODY_3D_EDGE_DEPTH/2)<1e-6));
+  material.dispose();geometry.dispose();
 });
 
 test("사진 자리의 앞뒤 판은 평평하고 빈 틀에는 실제 통과하는 구멍이 있다",()=>{

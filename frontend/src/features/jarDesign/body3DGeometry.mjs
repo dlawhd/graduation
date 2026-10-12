@@ -3,10 +3,20 @@ import { customJarBody } from "./customJarBody.mjs";
 // 480px 그림판 좌표와 3D 좌표의 변환 기준이다. 사진/입구는 기존 2D 렌더러를 그대로 투영한다.
 // 얇은 동전 대신 두툼한 저금통 느낌을 주되, 정면 사진 크기는 바꾸지 않는다.
 // 앞뒤 곡면의 최대 깊이다. 바깥 테두리에서 0으로 모이고 사진 자리는 ±절반 깊이에 평평하게 남긴다.
-export const BODY_3D_DEPTH = .72;
+export const BODY_3D_DEPTH = .46;
+// 옆 연결 띠는 얇게 두고 나머지 깊이를 앞뒤 곡면에 나눠 준다. 전체 깊이와 별도로 조정한다.
+export const BODY_3D_EDGE_DEPTH = .025;
+// 3D에서만 곡면의 어깨를 조금 넓힌다. 사진 전체를 같은 비율로 줄여 원본의 자르기/확대는 유지한다.
+export const BODY_3D_PHOTO_SCALE = .76 / .88;
 export const BODY_3D_VIEW = 1.02;
 export const BODY_3D_SURFACE = BODY_3D_DEPTH / 2 + .007;
 export const BODY_3D_FAILURE = "이 환경에서는 3D를 표시하지 못했어요. 기존 2D로 계속 이용할 수 있어요.";
+
+/** 테두리부터 사진 자리까지 천천히 솟는 앞면 깊이. 뒷면은 부호만 반대로 적용한다. */
+export function bodyDomeDepth(progress) {
+  const t=Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;
+  return BODY_3D_EDGE_DEPTH/2+(BODY_3D_DEPTH-BODY_3D_EDGE_DEPTH)/2*Math.sin(t*Math.PI/2);
+}
 
 export function bodyWorldPoint(point) {
   return { x: (point.x - .5) * 2, y: (.5 - point.y) * 2 };
@@ -15,6 +25,15 @@ export function bodyWorldPoint(point) {
 /** 기존 검증을 통과한 숫자만 geometry로 전달한다. 임의 모델/HTML/외부 파일을 받지 않는다. */
 export function body3DOutline(value) {
   return customJarBody(value) ? value.points.map(bodyWorldPoint) : null;
+}
+
+/** 저장/2D 경계를 바꾸지 않고 3D 사진 판과 곡면이 만나는 경계를 함께 계산한다. */
+export function body3DProfile(value) {
+  const body=customJarBody(value);
+  if (!body) return null;
+  const w=body.window,cx=w.x+w.width/2,cy=w.y+w.height/2,scale=BODY_3D_PHOTO_SCALE;
+  return {...body,window:{...w,x:cx-w.width*scale/2,y:cy-w.height*scale/2,width:w.width*scale,height:w.height*scale},
+    photoOutline:body.photoOutline.map(p=>({x:cx+(p.x-cx)*scale,y:cy+(p.y-cy)*scale}))};
 }
 
 /** 앞뒤를 볼 수 있지만 위아래로 뒤집히지는 않도록 제한한다. */
