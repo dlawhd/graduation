@@ -22,6 +22,7 @@ export default function JarCustomDesignVisual({
   const [reloadError, setReloadError] = useState("");
   const [reloadAttempt, setReloadAttempt] = useState(0);
   const slot = useMemo(() => storedSlot(design ?? {}), [design]);
+  const customBody=useMemo(()=>design?.customBody?{...design.customBody,artworkUrl:design.bodyArtworkUrl||undefined}:null,[design?.customBody,design?.bodyArtworkUrl]);
 
   useEffect(() => {
     setImageFailed(false);
@@ -91,7 +92,7 @@ export default function JarCustomDesignVisual({
         key={`${design.imageUrl}-${reloadAttempt}`}
         imageUrl={design.imageUrl}
         bodyStyle={design.bodyStyle}
-        customBody={design.customBody}
+        customBody={customBody}
         photoFrame={design.photoFrame}
         alt={alt}
         className={imageClassName}

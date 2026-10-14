@@ -26,7 +26,18 @@ export async function createJarDesignDraft(imageFile, bodyStyle, customBody) {
   );
   // 본체는 이미지에 합성하지 않는다. 원본은 AI 입력으로 유지하고 서버에는 선택 코드만 함께 저장한다.
   if (bodyStyle) formData.append("bodyStyle", bodyStyle);
-  if (bodyStyle === "CUSTOM" && customBody) formData.append("customBody", new Blob([JSON.stringify(customBody)], {type:"application/json"}));
+  if (bodyStyle === "CUSTOM" && customBody) {
+    // 임시 URL/PNG 문자열은 JSON이나 DB에 넣지 않는다. 테두리는 검증 가능한 별도 multipart 파일이다.
+    const {points,color,photoContours}=customBody;
+    formData.append("customBody",new Blob([JSON.stringify({points,color,...(photoContours?{photoContours}: {})})],{type:"application/json"}));
+    if(customBody.artworkUrl) {
+      if(!/^data:image\/png;base64,[a-zA-Z0-9+/=]+$/.test(customBody.artworkUrl)||customBody.artworkUrl.length>1400000)
+        throw new Error("테두리 그림을 다시 준비해 주세요.");
+      const bytes=Uint8Array.from(atob(customBody.artworkUrl.split(",")[1]),n=>n.charCodeAt(0));
+      if(bytes.length>1024*1024) throw new Error("테두리 그림은 1MB 이하로 만들어 주세요.");
+      formData.append("bodyArtwork",new Blob([bytes],{type:"image/png"}),"jar-body-artwork.png");
+    }
+  }
 
   await ensureCsrf();
   const response = await apiClient.post(DRAFT_BASE_URL, formData, { timeout: 90_000 });

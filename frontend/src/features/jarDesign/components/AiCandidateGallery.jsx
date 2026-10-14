@@ -59,6 +59,7 @@ export default function AiCandidateGallery({ draftId }) {
   const [selectingGenerationId, setSelectingGenerationId] = useState(null);
   const [previewUrls, setPreviewUrls] = useState({});
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState("");
+  const bodyArtworkUrlRef=useRef("");
   const [error, setError] = useState("");
   const [chosenStyle, setChosenStyle] = useState("CUTE_2D");
   const [styleFilter, setStyleFilter] = useState("ALL");
@@ -115,7 +116,12 @@ export default function AiCandidateGallery({ draftId }) {
     if (showLoading) setLoading(true);
     try {
       const nextDraft = await getJarDesignDraft(draftId);
-      setDraft(nextDraft);
+      setDraft(current => {
+        const nextBody=nextDraft.customBody?{...nextDraft.customBody,artworkUrl:bodyArtworkUrlRef.current||undefined}:null;
+        // 상태 폴링으로 같은 틀을 다시 받아도 큰 PNG/3D geometry를 새로 만들거나 회전을 초기화하지 않는다.
+        const sameBody=current?.draftId===nextDraft.draftId && JSON.stringify(current?.customBody)===JSON.stringify(nextBody);
+        return {...nextDraft,customBody:sameBody?current.customBody:nextBody};
+      });
     } catch (requestError) {
       setError(getJarDesignDraftError(requestError).message);
     } finally {
@@ -128,6 +134,7 @@ export default function AiCandidateGallery({ draftId }) {
     setConfirmedSelectionKey(null);
     previewUrlsRef.current = {};
     originalPreviewUrlRef.current = "";
+    bodyArtworkUrlRef.current="";
     retriedPreviewUrlsRef.current.clear();
     setPreviewUrls({});
     setOriginalPreviewUrl("");
@@ -202,7 +209,7 @@ export default function AiCandidateGallery({ draftId }) {
     const previewRequests = [
       ...(originalPreviewUrlRef.current ? [] : [
         getJarDesignOriginalPreview(draftId)
-          .then((preview) => ["original", preview.previewUrl])
+          .then((preview) => ["original", preview.previewUrl,preview.bodyArtworkUrl])
           .catch(() => ["original", null]),
       ]),
       ...missingCandidateIds.map(async (generationId) => {
@@ -223,6 +230,8 @@ export default function AiCandidateGallery({ draftId }) {
         if (originalEntry?.[1]) {
           originalPreviewUrlRef.current = originalEntry[1];
           setOriginalPreviewUrl(originalEntry[1]);
+          bodyArtworkUrlRef.current=originalEntry[2]||"";
+          if(originalEntry[2]) setDraft(current=>current?.customBody?{...current,customBody:{...current.customBody,artworkUrl:originalEntry[2]}}:current);
         }
 
         const candidateEntries = entries.filter(([key, url]) => key !== "original" && Boolean(url));
@@ -243,6 +252,9 @@ export default function AiCandidateGallery({ draftId }) {
   const refreshOriginalPreview = useCallback(async () => {
     try {
       const preview = await getJarDesignOriginalPreview(draftId);
+      bodyArtworkUrlRef.current=preview.bodyArtworkUrl||"";
+      setDraft(current=>Number(current?.draftId)===Number(draftId)&&current?.customBody
+        ? {...current,customBody:{...current.customBody,artworkUrl:preview.bodyArtworkUrl||undefined}}:current);
       originalPreviewUrlRef.current = preview.previewUrl;
       setOriginalPreviewUrl(preview.previewUrl);
     } catch {
@@ -255,6 +267,9 @@ export default function AiCandidateGallery({ draftId }) {
   const refreshCandidatePreview = useCallback(async (generationId) => {
     try {
       const preview = await getJarDesignGenerationPreview(draftId, generationId);
+      bodyArtworkUrlRef.current = preview.bodyArtworkUrl || "";
+      setDraft(current => Number(current?.draftId) === Number(draftId) && current?.customBody
+        ? {...current, customBody: {...current.customBody, artworkUrl: preview.bodyArtworkUrl || undefined}} : current);
       previewUrlsRef.current = { ...previewUrlsRef.current, [generationId]: preview.previewUrl };
       setPreviewUrls((current) => ({ ...current, [generationId]: preview.previewUrl }));
     } catch {

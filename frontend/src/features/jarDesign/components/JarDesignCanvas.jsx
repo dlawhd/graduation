@@ -6,6 +6,7 @@ import StudioIcon from "./StudioIcon";
 import ShapeSwatch from "./ShapeSwatch";
 import { fillPaintedBody, paintedBodyOutline } from "../bodyPainting.mjs";
 import { customJarBody } from "../customJarBody.mjs";
+import { insetBodyContours } from "../bodyContours.mjs";
 
 const CANVAS_SIZE = 480;
 const HISTORY_LIMIT = 25;
@@ -29,6 +30,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
   const availableShapes = shapeGroup === "FRIENDS" ? CHARACTER_SHAPES : basicShapes;
   const canvasRef = useRef(null), gestureRef = useRef(null), historyRef = useRef([]), indexRef = useRef(0);
   const exportingRef = useRef(false), selectionRef = useRef(null);
+  const restoringBody = useRef(false);
   const publishedBody = useRef(bodyValue);
   const [historyState, setHistoryState] = useState({ index: 0, count: 1 });
   const [tool, setTool] = useState("pen"), [brush, setBrush] = useState("pen"), [shape, setShape] = useState(isBody ? "characterCat" : "rectangle");
@@ -39,7 +41,8 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
   const [zoom, setZoom] = useState(1), [grid, setGrid] = useState(false), [selection, setSelection] = useState(null);
   const [hasDrawing, setHasDrawing] = useState(false), [drawing, setDrawing] = useState(false);
   const [exporting, setExporting] = useState(false), [error, setError] = useState("");
-  const locked = disabled || drawing || exporting;
+  const [restoring, setRestoring] = useState(false);
+  const locked = disabled || drawing || exporting || restoring;
 
   useEffect(() => {
     const context = canvasRef.current.getContext("2d", { willReadFrequently: true });
@@ -62,8 +65,28 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
 
   /** 저장된 기본 틀도 테두리만 그려 사용자가 원할 때 내부를 채울 수 있게 한다. */
   function renderBody(context, value) {
+    restoringBody.current = false;
+    setRestoring(false);
     context.clearRect(0, 0, 480, 480);
     if (!value?.points?.length) return;
+    if(value.artworkUrl) {
+      restoringBody.current = true;
+      setRestoring(true);
+      const image=new Image();image.crossOrigin="anonymous";
+      image.onload=()=>{
+        if(publishedBody.current!==value || gestureRef.current) return;
+        try {
+          context.clearRect(0,0,480,480);context.drawImage(image,0,0,480,480);
+          historyRef.current=[context.getImageData(0,0,480,480)];indexRef.current=0;syncHistory(false);
+          restoringBody.current = false;
+          setRestoring(false);
+        } catch { setError("저장한 테두리를 편집할 수 없어요. 새로고침 후 다시 확인해 주세요. 기존 테두리는 유지돼요."); }
+      };
+      image.onerror=()=>{
+        if(publishedBody.current === value) setError("저장한 테두리를 불러오지 못했어요. 새로고침 후 다시 확인해 주세요. 기존 테두리는 유지돼요.");
+      };
+      image.src=value.artworkUrl;return;
+    }
     context.beginPath(); value.points.forEach((p, i) => i ? context.lineTo(p.x * 480, p.y * 480) : context.moveTo(p.x * 480, p.y * 480));
     context.closePath(); context.strokeStyle = value.color; context.lineWidth = 8;
     context.lineJoin = "round"; context.stroke();
@@ -77,7 +100,22 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
     if (isBody) {
       setHasDrawing(snapshot.data.some((n, i) => i % 4 === 3 && n >= 48));
       // 외곽선 계산은 완료한 획/실행 취소에서만 한다. 움직이는 동안에는 픽셀 미리보기만 갱신한다.
-      if (publish) { const result = paintedBodyOutline(snapshot, brushColor, { encloseInterior: true }); setError(result.error); publishBody(result.value); }
+      if (publish) {
+        const result=paintedBodyOutline(snapshot,brushColor,{encloseInterior:true});
+        if(!result.error) {
+          const contours=insetBodyContours(result.value.points,snapshot.data);
+          if(contours.length) {
+            result.value.photoContours=contours;
+            // 획이 끝난 뒤에만 PNG를 만든다. 사진 원본과 별도로 보관해 색/굵기/질감을 다음 단계에 전달한다.
+            result.value.artworkUrl=canvasRef.current.toDataURL("image/png");
+          } else {
+            // 픽셀 경계를 안전하게 표현할 수 없으면 다른 구멍으로 바꾸지 않는다. 그림/실행 취소 이력은 유지한다.
+            result.error="사진을 담을 안쪽 공간을 계산하지 못했어요. 너무 좁은 부분을 넓히거나 내부 선을 줄여주세요.";
+            result.value.points=[];
+          }
+        }
+        setError(result.error);publishBody(result.value);
+      }
       return;
     }
     setHasDrawing(hasDrawingPixels(snapshot.data));
@@ -130,7 +168,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
 
   /** 터치·펜·마우스를 하나의 Pointer Event 경로로 처리한다. */
   function startDrawing(event) {
-    if (disabled || exportingRef.current || gestureRef.current || event.button !== 0 || !event.isPrimary) return;
+    if (disabled || restoringBody.current || exportingRef.current || gestureRef.current || event.button !== 0 || !event.isPrimary) return;
     // 드래그 도중 도구 패널 높이가 바뀌면 Canvas 위치가 움직여 좌표가 튄다. 패널은 유지한다.
     event.preventDefault(); canvasRef.current.focus({ preventScroll: true }); setError("");
     const point = getCanvasPoint(event), context = canvasRef.current.getContext("2d");
@@ -330,7 +368,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="max-w-sm"><p id={helpId} className="text-xs leading-5 text-slate-600">{help}</p><p className="mt-1 text-[10px] text-slate-400">{isBody ? "닫힌 테두리로 연결된 틀 / 점선 안쪽에 그려주세요" : "480 × 480 PNG"} · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z</p>{isBody && <p className="mt-1 text-[10px] text-slate-400">그림판의 색은 각각 유지해요. 다음 단계에는 외곽선과 대표 틀 색 하나가 적용돼요.</p>}</div>
+        <div className="max-w-sm"><p id={helpId} className="text-xs leading-5 text-slate-600">{help}</p><p className="mt-1 text-[10px] text-slate-400">{isBody ? "닫힌 테두리로 연결된 틀 / 점선 안쪽에 그려주세요" : "480 × 480 PNG"} · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z</p>{isBody && <p className="mt-1 text-[10px] text-slate-400">그린 테두리의 색과 굵기를 그대로 담아요. 사진은 테두리 안쪽 모양에 맞춰 보여요.</p>}</div>
         <button type="button" onClick={() => isBody ? onConfirm() : exportDrawing()} disabled={locked || !hasDrawing || (isBody && !customJarBody(bodyValue))} className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">{isBody ? "이 틀 사용하기 →" : exporting ? "그림 변환 중..." : "이 그림 사용하기 →"}</button>
       </div>
       {error && <p role="alert" className="px-4 pb-4 text-sm text-rose-600">{error}</p>}

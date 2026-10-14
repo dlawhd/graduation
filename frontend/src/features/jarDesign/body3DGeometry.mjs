@@ -1,15 +1,18 @@
 import { customJarBody, customContainWindow } from "./customJarBody.mjs";
+import { insetBodyContours } from "./bodyContours.mjs";
 
 // 480px 그림판 좌표와 3D 좌표의 변환 기준이다. 사진/입구는 기존 2D 렌더러를 그대로 투영한다.
 // 얇은 동전 대신 두툼한 저금통 느낌을 주되, 정면 사진 크기는 바꾸지 않는다.
-// 앞뒤 곡면의 최대 깊이다. 바깥 테두리에서 0으로 모이고 사진 자리는 ±절반 깊이에 평평하게 남긴다.
-export const BODY_3D_DEPTH = .46;
+// 테두리 곡면이 사진 경계와 만나는 연결 깊이다. 사진 안쪽은 아래 PHOTO_BULGE로 별도 부풀린다.
+export const BODY_3D_DEPTH = .30;
+// 테두리 연결 두께는 유지하고 사진이 놓이는 앞뒤 면에만 둥근 배를 더한다.
+export const BODY_3D_PHOTO_BULGE = .22;
 // 옆 연결 띠는 얇게 두고 나머지 깊이를 앞뒤 곡면에 나눠 준다. 전체 깊이와 별도로 조정한다.
 export const BODY_3D_EDGE_DEPTH = .025;
 // 3D에서만 곡면의 어깨를 조금 넓힌다. 사진 전체를 같은 비율로 줄여 원본의 자르기/확대는 유지한다.
 export const BODY_3D_PHOTO_SCALE = .76 / .88;
 export const BODY_3D_VIEW = 1.02;
-export const BODY_3D_SURFACE = BODY_3D_DEPTH / 2 + .007;
+export const BODY_3D_SURFACE = BODY_3D_DEPTH / 2 + BODY_3D_PHOTO_BULGE + .007;
 export const BODY_3D_FAILURE = "이 환경에서는 3D를 표시하지 못했어요. 기존 2D로 계속 이용할 수 있어요.";
 
 /** 테두리부터 사진 자리까지 천천히 솟는 앞면 깊이. 뒷면은 부호만 반대로 적용한다. */
@@ -59,25 +62,27 @@ function crossing(a,b,c,d) {
 export function body3DProfile(value) {
   const body=customJarBody(value);
   if (!body) return null;
-  const w=body.window,cx=w.x+w.width/2,cy=w.y+w.height/2,scale=BODY_3D_PHOTO_SCALE;
+  const w=body.window,cx=w.x+w.width/2,cy=w.y+w.height/2,scale=body.naturalPhoto?1:BODY_3D_PHOTO_SCALE;
   const renderOutline=roundedOutline(value.points);
   const desired=body.photoOutline.map(p=>({x:(cx+(p.x-cx)*scale)/480,y:(cy+(p.y-cy)*scale)/480}));
-  const profile={...body,renderOutline,window:{...w,x:cx-w.width*scale/2,y:cy-w.height*scale/2,width:w.width*scale,height:w.height*scale},
-    photoOutline:roundedOutline(desired).map(p=>({x:p.x*480,y:p.y*480})),photoMode:"OUTLINE",photoSafe:true};
+  const contours=body.naturalPhoto?body.photoContours:[roundedOutline(desired).map(p=>({x:p.x*480,y:p.y*480}))];
+  const profile={...body,renderOutline,photoScale:scale,window:{...w,x:cx-w.width*scale/2,y:cy-w.height*scale/2,width:w.width*scale,height:w.height*scale},
+    photoOutline:contours[0]||[],photoContours:contours,photoMode:body.naturalPhoto?"CONTOURS":"OUTLINE",photoSafe:true};
   if(canExtrudeHollowBody(profile)) return profile;
-  // 중심 축소만 하면 깊은 오목한 틀의 사진 창이 몸통을 벗어난다. 기존 전체 보기 탐색으로 안전한 창을 찾는다.
-  const safe=customContainWindow({...profile,photoOutline:renderOutline.map(p=>({x:p.x*480,y:p.y*480}))},
-    {width:profile.window.width,height:profile.window.height});
-  const width=safe.width*.94,height=safe.height*.94,x=safe.x+(safe.width-width)/2,y=safe.y+(safe.height-height)/2;
-  profile.photoOutline=[{x,y},{x:x+width,y},{x:x+width,y:y+height},{x,y:y+height}];
-  profile.photoMode="SAFE_WINDOW";
-  profile.photoSafe=width>1 && height>1 && canExtrudeHollowBody(profile);
+  // 중심 축소가 외곽을 벗어나도 사각형으로 바꾸지 않는다. 안쪽 거리 마스크로 자연스러운 경계를 찾는다.
+  profile.renderOutline=value.points.map(p=>({...p}));
+  profile.photoContours=body.naturalPhoto?body.photoContours:insetBodyContours(value.points).map(poly=>poly.map(p=>({x:p.x*480,y:p.y*480})));
+  profile.photoOutline=profile.photoContours[0]||[];
+  profile.photoMode="CONTOURS";profile.photoScale=1;
+  profile.photoSafe=canExtrudeHollowBody(profile);
   return profile;
 }
 
 /** 전체 보기 사진도 보정된 3D 창 안에 담는다. DOM의 축소 전 좌표로 돌려 저장한 배치를 덮어쓰지 않는다. */
 export function body3DContainWindow(profile,frame) {
-  const w=profile.window,scale=BODY_3D_PHOTO_SCALE,cx=w.x+w.width/2,cy=w.y+w.height/2;
+  const w=profile.window,scale=profile.photoScale||BODY_3D_PHOTO_SCALE,cx=w.x+w.width/2,cy=w.y+w.height/2;
+  if(profile.photoContours?.length>1) return profile.photoContours.map(p=>body3DContainWindow({...profile,photoContours:null,photoOutline:p},frame))
+    .reduce((best,p)=>p.width>best.width?p:best);
   const outline=profile.photoOutline.map(p=>({x:cx+(p.x-cx)/scale,y:cy+(p.y-cy)/scale}));
   const xs=outline.map(p=>p.x),ys=outline.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys);
   return customContainWindow({photoOutline:outline,window:{x,y,width:Math.max(...xs)-x,height:Math.max(...ys)-y}},frame);
@@ -133,7 +138,8 @@ export function projectedSurfaceMatrix(topLeft, topRight, bottomLeft) {
 export function canExtrudeHollowBody(body) {
   const outer = body?.renderOutline || body?.customBody?.points;
   if (!outer) return false;
-  const inner = body.photoOutline.map(p => ({x:p.x/480,y:p.y/480}));
+  const contours=body.photoContours||[body.photoOutline];
+  if(!contours.length||contours.some(p=>p.length<3)) return false;
   const cross = (a,b,c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   const inside = p => {
     let result = false;
@@ -143,11 +149,11 @@ export function canExtrudeHollowBody(body) {
     }
     return result;
   };
-  return inner.every(inside) && inner.every((a,i) => {
+  return contours.every(poly=>{const inner=poly.map(p=>({x:p.x/480,y:p.y/480}));return inner.every(inside) && inner.every((a,i) => {
     const b=inner[(i+1)%inner.length];
     return outer.every((c,j) => {
       const d=outer[(j+1)%outer.length];
-      return !(cross(a,b,c)*cross(a,b,d)<=0 && cross(c,d,a)*cross(c,d,b)<=0);
+      return !crossing(a,b,c,d);
     });
-  });
+  });});
 }

@@ -1330,7 +1330,7 @@ export default function JarsNewPage() {
       <div className="mx-auto max-w-4xl">
         <p className="text-xs font-black tracking-[0.25em] text-emerald-600">MAKE A MEMORY JAR</p>
         <h1 className="mt-4 text-3xl font-black text-slate-900 sm:text-4xl">어떤 저금통을 만들어볼까요?</h1>
-        <p className="mt-4 text-sm leading-7 text-slate-500">나만의 그림으로 특별하게, 준비된 테마로 간편하게.</p>
+        <p className="mt-4 text-sm leading-7 text-slate-500">나만의 그림으로 특별하게! 준비된 테마로 간편하게!</p>
         <div className="mt-10 grid gap-5 sm:grid-cols-2">
           <Link to="/jars/design/new" className="group rounded-[28px] border border-violet-200 bg-gradient-to-br from-white via-violet-50 to-pink-100 p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-violet-600">
             <span aria-hidden="true" className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white text-5xl shadow-sm">🎨</span>

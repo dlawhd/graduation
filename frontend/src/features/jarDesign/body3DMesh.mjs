@@ -1,16 +1,19 @@
 import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2 } from "three";
-import { bodyWorldPoint, body3DProfile, bodyDomeDepth, canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH } from "./body3DGeometry.mjs";
+import { flatBodyBase } from "./body3DBase.mjs";
+import { bodyWorldPoint, body3DProfile, bodyDomeDepth, canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH, BODY_3D_PHOTO_BULGE } from "./body3DGeometry.mjs";
 
-/** 저장 외곽선 안에서만 앞뒤를 부풀린다. 사진 자리는 평평하게 남기고 외곽에서 양쪽 곡면을 연결한다. */
+/** 저장 외곽선 안에서 앞뒤 몸통과 사진 면을 함께 부풀린다. 외곽과 사진 경계는 그대로 연결한다. */
 export function roundedBodyGeometry(value, hollow = false, profile = body3DProfile(value)) {
   const body = profile;
   if (!body || !body.photoSafe) throw new Error("Unsupported outline");
   const insetFits = canExtrudeHollowBody(body);
   if (hollow && !insetFits) throw new Error("Unsupported outline");
   const outer = body.renderOutline.map(bodyWorldPoint).map(p => new Vector2(p.x, p.y));
-  const inner = body.photoOutline.map(p => bodyWorldPoint({x:p.x/480,y:p.y/480})).map(p => new Vector2(p.x, p.y));
+  const holes=body.photoContours.map(poly=>poly.map(p=>bodyWorldPoint({x:p.x/480,y:p.y/480})).map(p=>new Vector2(p.x,p.y)));
+  const inner=holes[0];
   const halfDepth = BODY_3D_DEPTH / 2;
-  const positions = [], indices = [], vertices = new Map();
+  const positions = [], indices = [], photoIndices = [], vertices = new Map();
+  let photoHeight=null;
   // 사진 배치만 바뀔 때는 다시 만들지 않는다. 저장 96점/3D 곡선 384점, 12개 링 또는 제한된 내부 분할만 사용한다.
   const distance = (p, polygon) => {
     let best = Infinity;
@@ -32,15 +35,37 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
   };
   const finish = () => {
     if (!positions.every(Number.isFinite)) throw new Error("Invalid geometry");
-    if(indices.length/3>40000) throw new Error("Surface budget exceeded");
+    if((indices.length+photoIndices.length)/3>40000) throw new Error("Surface budget exceeded");
     const geometry=new BufferGeometry();
-    geometry.setAttribute("position",new Float32BufferAttribute(positions,3));geometry.setIndex(indices);
-    geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();
-    return geometry;
+    geometry.setAttribute("position",new Float32BufferAttribute(positions,3));geometry.setIndex([...indices,...photoIndices]);
+    geometry.addGroup(0,indices.length,0);
+    if(photoIndices.length) geometry.addGroup(indices.length,photoIndices.length,1);
+    // 입구도 사진 곡면의 실제 높이에 맞춰 놓는다. 회전 중에는 격자를 다시 계산하지 않는다.
+    geometry.userData.photoHeight=photoHeight;
+    // 앞뒤 모두 같은 그림판 좌표를 사용한다. 실제 뒤 회전에서 색 배치도 자연스럽게 반전된다.
+    const uv=new Float32Array(positions.length/3*2);
+    for(let i=0,j=0;i<positions.length;i+=3) {uv[j++]=(positions[i]+1)/2;uv[j++]=(positions[i+1]+1)/2;}
+    geometry.setAttribute("uv",new Float32BufferAttribute(uv,2));
+    geometry.computeBoundingBox();
+    // 2D 저장 외곽은 그대로 둔다. 법선/구는 바닥을 닫은 뒤 한 번만 계산하고 중간 geometry도 정리한다.
+    try {return flatBodyBase(geometry,holes);} finally {geometry.dispose();}
   };
   const center=bodyWorldPoint({x:(body.window.x+body.window.width/2)/480,y:(body.window.y+body.window.height/2)/480});
   const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   const direction=ShapeUtils.isClockWise(outer)?-1:1;
+  /** 사진 면도 내부 정점으로 나눠 앞뒤 대칭으로 부풀린다. 구멍의 XY 경계/사진 UV는 움직이지 않는다. */
+  function addPhotoCaps(polygons) {
+    photoHeight=photoDomeField(holes,distance);
+    for(const polygon of polygons) {
+      const cap=tessellateSurface(polygon,ShapeUtils.triangulateShape(polygon,[]));
+      for(const triangle of cap.triangles) {
+        const points=triangle.map(i=>cap.points[i]);
+        const front=points.map(p=>vertex(p,photoHeight(p))),back=points.map(p=>vertex(p,-photoHeight(p)));
+        const ccw=cross(...points)>0;
+        photoIndices.push(...(ccw?front:[front[0],front[2],front[1]]),...(ccw?[back[0],back[2],back[1]]:back));
+      }
+    }
+  }
   /** 넓은 옆벽 대신 앞뒤 곡면 사이에 아주 얇은 연결 띠만 만든다. 빈 틀도 외부 옆면은 닫아 준다. */
   const joinEdge = contour => {
     const halfEdge=BODY_3D_EDGE_DEPTH/2;
@@ -52,7 +77,7 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
     }
   };
   // 중심을 향해 줄여도 선이 접히지 않는 틀은 일정한 곡률의 링으로 만든다. 귀/볼이 매끈하게 이어진다.
-  const ringSafe=body.photoMode==="OUTLINE" && outer.length===inner.length && insetFits
+  const ringSafe=holes.length===1 && body.photoMode==="OUTLINE" && outer.length===inner.length && insetFits
     && outer.every((a,i)=>direction*cross(a,outer[(i+1)%outer.length],center)>1e-10
       && direction*cross(a,outer[(i+1)%outer.length],inner[i])>0
       && direction*cross(outer[(i+1)%outer.length],inner[(i+1)%inner.length],inner[i])>0);
@@ -86,12 +111,8 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
     }
     if (!hollow) {
       // 사진 자리의 평평한 판은 중심 팬이 아닌 Earcut으로 채워 오목한 외곽도 보존한다.
-      for (const [a,b,c] of ShapeUtils.triangulateShape(photoContour,[])) {
-        const front=rings[12].front,back=rings[12].back;
-        const ccw=cross(photoContour[a],photoContour[b],photoContour[c])>0;
-        indices.push(...(ccw?[front[a],front[b],front[c]]:[front[a],front[c],front[b]]));
-        indices.push(...(ccw?[back[a],back[c],back[b]]:[back[a],back[b],back[c]]));
-      }
+      // Earcut 경계는 유지하되 내부 면을 둥글게 부풀리는 방식으로 확장한다.
+      addPhotoCaps([photoContour]);
     } else {
       for (let i=0;i<photoContour.length;i++) {
         const a=photoContour[i],b=photoContour[(i+1)%photoContour.length],start=positions.length/3;
@@ -119,15 +140,14 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
     indices.push(...(ccw?[back[0],back[2],back[1]]:back));
   };
   // Earcut으로 먼저 나눠 귀/골짜기를 보존한다. 중심점 팬 방식은 오목한 틀 밖을 덮을 수 있어 쓰지 않는다.
-  const rimPoints=insetFits?[...outer,...inner]:outer;
-  const rimTriangles=ShapeUtils.triangulateShape(outer,insetFits?[inner]:[]);
-  const capTriangles=insetFits&&!hollow?ShapeUtils.triangulateShape(inner,[]):[];
-  smoothHeight=smoothedDomeField(outer,inner,distance);
+  const rimPoints=[...outer,...holes.flat()];
+  const rimTriangles=ShapeUtils.triangulateShape(outer,holes);
+  smoothHeight=smoothedDomeField(outer,holes,distance);
   // 긴 삼각형을 그대로 등분하면 가는 팔다리에 주름이 생긴다. 경계는 고정하고 내부 대각선을 다듬는다.
   const surface=tessellateSurface(rimPoints,rimTriangles);
   for (const triangle of surface.triangles) face(...triangle.map(i=>surface.points[i]));
   if (insetFits && !hollow) {
-    for (const triangle of capTriangles) face(...triangle.map(i=>inner[i]),true);
+    addPhotoCaps(holes);
   } else if (hollow) {
     // 빈 틀의 사진 창은 실제 구멍이다. 안쪽 벽은 별도 법선으로 만들어 사진 자리의 경계를 유지한다.
     for (const [from,to] of surface.boundaries) {
@@ -154,8 +174,44 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
   return finish();
 }
 
+/** 사진 창마다 경계는 고정하고 안쪽 높이를 부드럽게 푼다. 깊은 골짜기를 막거나 좁은 가지를 과도하게 부풀리지 않는다. */
+export function photoDomeField(holes,distance) {
+  const size=129,step=2/(size-1),count=size*size,inside=new Uint8Array(count);
+  const contains=(p,poly)=>{
+    let result=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++) {
+      const a=poly[i],b=poly[j];
+      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)result=!result;
+    }return result;
+  };
+  for(let y=1;y<size-1;y++)for(let x=1;x<size-1;x++)
+    inside[y*size+x]=holes.some(poly=>contains({x:x*step-1,y:y*step-1},poly))?1:0;
+  let values=new Float64Array(count),next=new Float64Array(count);
+  // 고정 횟수와 129×129 격자로 CPU/메모리를 제한한다. 최소 거리만 사용하면 중앙에 생기는 능선을 피한다.
+  for(let pass=0;pass<160;pass++) {
+    for(let y=1;y<size-1;y++)for(let x=1;x<size-1;x++) {
+      const i=y*size+x;
+      next[i]=inside[i]?(values[i-1]+values[i+1]+values[i-size]+values[i+size])/4+step*step:0;
+    }
+    [values,next]=[next,values];
+  }
+  const peak=values.reduce((a,b)=>Math.max(a,b),0);
+  return p=>{
+    const edge=Math.min(...holes.map(poly=>distance(p,poly)));
+    if(edge<1e-8||!holes.some(poly=>contains(p,poly))||!peak)return BODY_3D_DEPTH/2;
+    const x=Math.max(0,Math.min(size-1.000001,(p.x+1)/step)),y=Math.max(0,Math.min(size-1.000001,(p.y+1)/step));
+    const ix=Math.floor(x),iy=Math.floor(y),tx=x-ix,ty=y-iy,i=iy*size+ix;
+    let t=((values[i]*(1-tx)+values[i+1]*tx)*(1-ty)+(values[i+size]*(1-tx)+values[i+size+1]*tx)*ty)/peak;
+    if(edge<step) t*=Math.sin(edge/step*Math.PI/2)**2;
+    t=Math.max(0,Math.min(1,t));
+    return BODY_3D_DEPTH/2+BODY_3D_PHOTO_BULGE*t*t*(3-2*t);
+  };
+}
+
 /** 균일한 격자에서 높이를 보정해 삼각형의 길이/방향이 표면의 주름으로 나타나지 않게 한다. 경계와 사진 판은 고정한다. */
 export function smoothedDomeField(outer,inner,distance) {
+  const holes=Array.isArray(inner[0])?inner:[inner];
+  const photoDistance=p=>Math.min(...holes.map(poly=>distance(p,poly)));
   const size=129,step=2/(size-1),count=size*size;
   const inside=(p,polygon)=>{
     let result=false;
@@ -168,10 +224,10 @@ export function smoothedDomeField(outer,inner,distance) {
   for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
     const i=y*size+x,p={x:x*step-1,y:y*step-1};
     if(!inside(p,outer)) fixed[i]=1;
-    else if(inside(p,inner)) {initial[i]=1;fixed[i]=1;}
+    else if(holes.some(poly=>inside(p,poly))) {initial[i]=1;fixed[i]=1;}
     else {
       // 깊은 오목한 틀도 외곽까지의 거리로 안전하게 부푼다. 사진 창은 먼저 몸통 안에 보정되어 있다.
-      const edge=distance(p,outer);initial[i]=edge/Math.max(edge+distance(p,inner),1e-12);
+      const edge=distance(p,outer);initial[i]=edge/Math.max(edge+photoDistance(p),1e-12);
     }
   }
   let values=initial.slice(),next=values.slice();
@@ -186,7 +242,7 @@ export function smoothedDomeField(outer,inner,distance) {
     const x=Math.max(0,Math.min(size-1.000001,(p.x+1)/step)),y=Math.max(0,Math.min(size-1.000001,(p.y+1)/step));
     const ix=Math.floor(x),iy=Math.floor(y),tx=x-ix,ty=y-iy,i=iy*size+ix;
     let progress=(values[i]*(1-tx)+values[i+1]*tx)*(1-ty)+(values[i+size]*(1-tx)+values[i+size+1]*tx)*ty;
-    const edge=distance(p,outer),photo=distance(p,inner);
+    const edge=distance(p,outer),photo=photoDistance(p);
     // 격자와 실제 외곽의 오차는 한 칸 안에서만 보정한다. 정확한 경계는 언제나 같은 높이에 남긴다.
     if(edge<step) {const t=edge/step;progress*=t*(2-t);}
     if(photo<step) {const t=photo/step;progress=1-(1-progress)*t*(2-t);}

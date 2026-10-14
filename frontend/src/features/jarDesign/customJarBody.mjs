@@ -1,4 +1,5 @@
 /** 직접 만든 틀은 좌표와 색상만 사용한다. SVG/HTML/URL 문자열은 받지 않는다. */
+import { contoursFit, insetBodyContours } from "./bodyContours.mjs";
 const round = n => Math.round(n * 100000) / 100000;
 export const MAX_BODY_POINTS = 96;
 export const BODY_DRAFT_KEY = "memoryjar.body-workshop.v1";
@@ -37,15 +38,30 @@ export function customJarBody(value) {
   const xs=value.points.map(p=>p.x*480),ys=value.points.map(p=>p.y*480);
   const x=Math.min(...xs),y=Math.min(...ys),width=Math.max(...xs)-x,height=Math.max(...ys)-y;
   const path="M"+value.points.map(p=>`${round(p.x*480)} ${round(p.y*480)}`).join("L")+"Z";
-  return {id:"CUSTOM",name:"내가 만든 틀",path,customBody:value,
+  const scaled=value.points.map(p=>({x:(x+(p.x*480-x)*.88+width*.06)/480,y:(y+(p.y*480-y)*.88+height*.06)/480}));
+  if(value.photoContours!=null&&!contoursFit(value.points,value.photoContours)) return null;
+  const naturalPhoto=value.photoContours!=null||!contoursFit(value.points,[scaled]);
+  const contours=value.photoContours||(naturalPhoto?insetBodyContours(value.points):[scaled]);
+  const photoContours=contours.map(poly=>poly.map(p=>({x:p.x*480,y:p.y*480})));
+  const photoOutline=photoContours[0]||[];
+  const body={id:"CUSTOM",name:"내가 만든 틀",path,customBody:value,naturalPhoto,photoContours,
     window:{x:x+width*.06,y:y+height*.06,width:width*.88,height:height*.88,radius:0},
-    photoOutline:value.points.map(p=>({x:x+(p.x*480-x)*.88+width*.06,y:y+(p.y*480-y)*.88+height*.06})),
+    photoOutline,
     slot:{centerX:(x+width/2)/480,centerY:(y+height*.16)/480,sizeRatio:-.15,slotStyle:"CAPSULE"}};
+  if(naturalPhoto&&photoOutline.length) {
+    const all=photoContours.flat(),px=all.map(p=>p.x),py=all.map(p=>p.y),minX=Math.min(...px),minY=Math.min(...py);
+    body.window={x:minX,y:minY,width:Math.max(...px)-minX,height:Math.max(...py)-minY,radius:0};
+  }
+  return body;
 }
 
 /** 전체 보기에서는 사진 네 모서리와 변이 모두 틀 안에 들어가는 사각형에 사진을 놓는다.
  * 모양을 다시 그릴 때만 계산한다. 오목한 틀도 변 교차를 검사해 사진 일부가 잘리지 않게 한다. */
 export function customContainWindow(body, frame) {
+  if(body.photoContours?.length>1) {
+    return body.photoContours.map(p=>customContainWindow({...body,photoContours:null,photoOutline:p},frame)).reduce((best,w)=>w.width>best.width?w:best);
+  }
+  if(!body.photoOutline.length) return {...body.window,width:0,height:0};
   const polygon=body.photoOutline, w=body.window, ratio=frame.width/frame.height;
   const inside=p=>{
     let result=false;

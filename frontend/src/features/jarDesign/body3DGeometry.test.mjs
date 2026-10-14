@@ -44,9 +44,9 @@ test("위/아래와 좌/우를 여러 바퀴 돌려도 같은 회전 방향과 �
   }
 });
 test("얇은 옆 테두리와 앞뒤 볼륨을 분리해도 사진은 표면 바깥이고 정면 외형 크기는 유지한다",()=>{
-  assert.equal(BODY_3D_DEPTH,.46);
+  assert.equal(BODY_3D_DEPTH,.30);
   assert.equal(BODY_3D_EDGE_DEPTH,.025);
-  assert.ok(BODY_3D_EDGE_DEPTH<BODY_3D_DEPTH*.06);
+  assert.ok(BODY_3D_EDGE_DEPTH<BODY_3D_DEPTH*.1);
   assert.ok(BODY_3D_SURFACE>BODY_3D_DEPTH/2+.003);
   for(const kind of ["ROUND","JAR","SQUARE"]) {
     const points=body3DOutline(basicBodyOutline(kind));
@@ -58,7 +58,7 @@ test("테두리 근처는 얇고 사진 자리로 갈수록 앞뒤가 봉긋해�
   assert.equal(bodyDomeDepth(0),BODY_3D_EDGE_DEPTH/2);
   assert.equal(bodyDomeDepth(1),BODY_3D_DEPTH/2);
   assert.ok(bodyDomeDepth(.1)<.05);
-  assert.ok(bodyDomeDepth(.5)>.16);
+  assert.ok(bodyDomeDepth(.5)>BODY_3D_DEPTH*.33);
   let previous=bodyDomeDepth(0);
   for(let i=1;i<=12;i++) { const current=bodyDomeDepth(i/12);assert.ok(current>previous);previous=current; }
   for(const value of [-1,NaN,Infinity]) assert.equal(bodyDomeDepth(value),bodyDomeDepth(0));
@@ -161,8 +161,9 @@ for(const kind of ["ROUND","JAR","SQUARE"]) {
     geometry.dispose();
   });
 }
-test("축소한 내부가 외곽을 벗어나는 깊은 오목한 빈 틀은 2D로 보호한다",()=>{
+test("축소하면 외곽을 벗어나는 깊은 오목한 틀도 안쪽 경계를 따라 빈 공간을 만든다",()=>{
   const outline={color:"#123456",points:[{x:.1,y:.1},{x:.9,y:.1},{x:.9,y:.9},{x:.65,y:.9},
     {x:.65,y:.3},{x:.35,y:.3},{x:.35,y:.9},{x:.1,y:.9}]};
-  assert.ok(customJarBody(outline));assert.equal(canExtrudeHollowBody(customJarBody(outline)),false);
+  assert.ok(customJarBody(outline));assert.equal(canExtrudeHollowBody(customJarBody(outline)),true);
+  assert.ok(customJarBody(outline).photoOutline.length>4);
 });

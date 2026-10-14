@@ -4,7 +4,7 @@ import { Mesh, MeshBasicMaterial, Raycaster, Vector3, Group, OrthographicCamera 
 import { roundedBodyGeometry, smoothedDomeField } from "./body3DMesh.mjs";
 import { basicBodyOutline, outlineError } from "./customJarBody.mjs";
 import { CHARACTER_SHAPES, drawCharacterShape } from "./characterShapes.mjs";
-import { BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH, BODY_3D_SURFACE, BODY_3D_PHOTO_SCALE, bodyDomeDepth, body3DProfile, body3DContainWindow, body3DOutline, bodyViewExtent, canExtrudeHollowBody } from "./body3DGeometry.mjs";
+import { BODY_3D_DEPTH, BODY_3D_PHOTO_BULGE, BODY_3D_EDGE_DEPTH, BODY_3D_SURFACE, BODY_3D_PHOTO_SCALE, bodyDomeDepth, body3DProfile, body3DContainWindow, body3DOutline, bodyViewExtent, canExtrudeHollowBody } from "./body3DGeometry.mjs";
 import { DEEP_BODY_FIXTURE, narrowBodyFixture } from "../../../tests/fixtures/body3DShapes.mjs";
 
 /** 실제 캐릭터 경로를 좌표로 샘플링해 귀/골짜기가 있는 외곽도 브라우저 없이 검증한다. */
@@ -40,7 +40,7 @@ test("최대 96점의 굴곡과 역방향 외곽에서도 계산량을 제한하
     assert.ok(geometry.index.count/3<40000);
     for (const sign of [1,-1]) {
       const hits=new Raycaster(new Vector3(0,0,sign*3),new Vector3(0,0,-sign)).intersectObject(mesh);
-      assert.ok(hits.length>0);assert.ok(Math.abs(hits[0].point.z-sign*BODY_3D_DEPTH/2)<1e-6);
+      assert.ok(hits.length>0);assert.ok(Math.abs(hits[0].point.z-sign*geometry.userData.photoHeight({x:0,y:0}))<.002);
     }
     material.dispose();geometry.dispose();
   }
@@ -52,10 +52,10 @@ test("기본 틀과 캐릭터 12종은 유효한 곡면/법선을 만들고 좌�
     const position=geometry.attributes.position,normal=geometry.attributes.normal;
     assert.ok([...position.array,...normal.array].every(Number.isFinite),name);
     assert.ok(geometry.index.count>0 && geometry.index.count/3<40000,name);
-    assert.ok(geometry.boundingBox.max.z<=BODY_3D_DEPTH/2+1e-6,name);
-    assert.ok(geometry.boundingBox.min.z>=-BODY_3D_DEPTH/2-1e-6,name);
+    assert.ok(geometry.boundingBox.max.z<=BODY_3D_DEPTH/2+BODY_3D_PHOTO_BULGE+1e-6,name);
+    assert.ok(geometry.boundingBox.min.z>=-BODY_3D_DEPTH/2-BODY_3D_PHOTO_BULGE-1e-6,name);
     assert.ok(BODY_3D_SURFACE>geometry.boundingBox.max.z,name);
-    for (let i=0;i<normal.count;i++) assert.ok(Math.hypot(normal.getX(i),normal.getY(i),normal.getZ(i))>.5,name);
+    for (let i=0;i<normal.count;i++) assert.ok(Math.hypot(normal.getX(i),normal.getY(i),normal.getZ(i))>.5,`${name}: normal ${i} at ${position.getX(i)},${position.getY(i)},${position.getZ(i)}`);
     assert.deepEqual(value,snapshot);geometry.dispose();
   }
 });
@@ -67,14 +67,16 @@ test("둥근 몸통은 앞뒤가 대칭으로 봉긋하고 가장자리에는 �
     levels.add(Math.round(Math.abs(p.getZ(i))*1e5));
     coordinates.add(`${p.getX(i).toFixed(5)},${p.getY(i).toFixed(5)},${p.getZ(i).toFixed(5)}`);
   }
-  assert.equal(levels.size,13);
+  assert.ok(levels.size>13); // 앞뒤 사진 면도 단일 평면이 아닌 실제 곡면이다.
   for (let i=0;i<p.count;i++) {
+    // 절단면은 옆벽 대각선에 따라 추가 점이 달라진다. 바닥 경계 대칭은 body3DBase 테스트로 별도 확인한다.
+    if(Math.abs(p.getY(i)-geometry.userData.flatBase.plane)<1e-6)continue;
     const z=Math.abs(p.getZ(i));
     assert.ok(coordinates.has(`${p.getX(i).toFixed(5)},${p.getY(i).toFixed(5)},${z.toFixed(5)}`));
     // 0과 -0의 문자열 차이는 정점이 아닌 표현 차이이므로 경계는 별도로 확인한다.
     if(z>1e-6) assert.ok(coordinates.has(`${p.getX(i).toFixed(5)},${p.getY(i).toFixed(5)},${(-z).toFixed(5)}`));
   }
-  assert.ok(Math.abs(geometry.boundingBox.max.z-geometry.boundingBox.min.z-BODY_3D_DEPTH)<1e-6);
+  assert.ok(geometry.boundingBox.max.z-geometry.boundingBox.min.z>BODY_3D_DEPTH+.2);
   geometry.dispose();
 });
 
@@ -86,21 +88,22 @@ test("실제 곡면도 테두리 근처는 얇고 앞뒤 사진 판은 이전보
     const center=new Raycaster(new Vector3(0,-.04,sign*3),new Vector3(0,0,-sign)).intersectObject(mesh);
     assert.ok(edge.length>0 && center.length>0);
     assert.ok(Math.abs(edge[0].point.z)<.04);
-    assert.ok(Math.abs(center[0].point.z)>.22);
+    assert.ok(Math.abs(center[0].point.z)>BODY_3D_DEPTH/2+.1);
   }
   const p=geometry.attributes.position;
   assert.ok([...p.array].filter((_,i)=>i%3===2).some(z=>Math.abs(Math.abs(z)-BODY_3D_EDGE_DEPTH/2)<1e-6));
   material.dispose();geometry.dispose();
 });
 
-test("사진 자리의 앞뒤 판은 평평하고 빈 틀에는 실제 통과하는 구멍이 있다",()=>{
+test("사진 자리의 앞뒤 면은 통통하게 부풀고 빈 틀에는 실제 통과하는 구멍이 있다",()=>{
   const material=new MeshBasicMaterial(),ray=new Raycaster(new Vector3(0,0,3),new Vector3(0,0,-1));
   for (const kind of ["ROUND","JAR","SQUARE"]) {
     const value=basicBodyOutline(kind),full=roundedBodyGeometry(value),hollow=roundedBodyGeometry(value,true);
     const solidMesh=new Mesh(full,material),emptyMesh=new Mesh(hollow,material);
     solidMesh.updateMatrixWorld();emptyMesh.updateMatrixWorld();
     const hits=ray.intersectObject(solidMesh);
-    assert.ok(hits.length>0,kind);assert.ok(Math.abs(hits[0].point.z-BODY_3D_DEPTH/2)<1e-6,kind);
+    assert.ok(hits.length>0,kind);assert.ok(hits[0].point.z>BODY_3D_DEPTH/2+.08,kind);
+    assert.equal(full.groups.length,2);assert.equal(hollow.groups.length,1);
     assert.equal(ray.intersectObject(emptyMesh).length,0,kind);
     full.dispose();hollow.dispose();
   }
@@ -113,7 +116,7 @@ test("오목한 골짜기 바깥을 덮지 않고 깊은 틀의 사진 창도 �
   assert.equal(new Raycaster(new Vector3(0,-.5,3),new Vector3(0,0,-1)).intersectObject(mesh).length,0);
   assert.ok(new Raycaster(new Vector3(-.65,-.5,3),new Vector3(0,0,-1)).intersectObject(mesh).length>0);
   const safe=body3DProfile(deep),hollow=roundedBodyGeometry(deep,true);
-  assert.equal(safe.photoMode,"SAFE_WINDOW");assert.equal(canExtrudeHollowBody(safe),true);
+  assert.equal(safe.photoMode,"CONTOURS");assert.ok(safe.photoOutline.length>4);assert.equal(canExtrudeHollowBody(safe),true);
   hollow.dispose();
   assert.throws(()=>roundedBodyGeometry({points:[],color:"#ffffff"}),/Unsupported outline/);
   material.dispose();geometry.dispose();
@@ -152,8 +155,9 @@ test("전체 보기 사진은 가로/세로 비율을 유지하며 보정된 3D 
     assert.ok(fitted.width>0);assert.ok(Math.abs(fitted.width/fitted.height-ratio)<1e-8);
     const corners=[{x:fitted.x,y:fitted.y},{x:fitted.x+fitted.width,y:fitted.y},
       {x:fitted.x+fitted.width,y:fitted.y+fitted.height},{x:fitted.x,y:fitted.y+fitted.height}];
-    assert.equal(canExtrudeHollowBody({...profile,renderOutline:profile.photoOutline.map(p=>({x:p.x/480,y:p.y/480})),
-      photoOutline:corners.map(p=>({x:cx+(p.x-cx)*BODY_3D_PHOTO_SCALE,y:cy+(p.y-cy)*BODY_3D_PHOTO_SCALE}))}),true);
+    const scaled=corners.map(p=>({x:cx+(p.x-cx)*profile.photoScale,y:cy+(p.y-cy)*profile.photoScale}));
+    assert.equal(profile.photoContours.some(p=>canExtrudeHollowBody({...profile,renderOutline:p.map(p=>({x:p.x/480,y:p.y/480})),
+      photoContours:[scaled],photoOutline:scaled})),true);
     assert.deepEqual([value,frame],snapshot);
   }
 });
@@ -182,16 +186,22 @@ test("안전한 사진 창의 실물 판과 빈 구멍은 앞뒤에서 일치하
     const profile=body3DProfile(value),full=roundedBodyGeometry(value),hollow=roundedBodyGeometry(value,true);
     const material=new MeshBasicMaterial(),solid=new Mesh(full,material),empty=new Mesh(hollow,material);
     solid.updateMatrixWorld();empty.updateMatrixWorld();
-    const center=profile.photoOutline.reduce((sum,p)=>({x:sum.x+p.x/profile.photoOutline.length,y:sum.y+p.y/profile.photoOutline.length}),{x:0,y:0});
+    const fitted=body3DContainWindow(profile,{width:1,height:1}),w=profile.window,cx=w.x+w.width/2,cy=w.y+w.height/2;
+    const center={x:cx+(fitted.x+fitted.width/2-cx)*profile.photoScale,y:cy+(fitted.y+fitted.height/2-cy)*profile.photoScale};
     for(const sign of [1,-1]) {
       const ray=new Raycaster(new Vector3((center.x/480-.5)*2,(.5-center.y/480)*2,sign*3),new Vector3(0,0,-sign));
       const hits=ray.intersectObject(solid);
-      assert.ok(hits.length>0);assert.ok(Math.abs(hits[0].point.z-sign*BODY_3D_DEPTH/2)<1e-6);
+      assert.ok(hits.length>0);
+      const expected=full.userData.photoHeight({x:(center.x/480-.5)*2,y:(.5-center.y/480)*2});
+      assert.ok(Math.abs(hits[0].point.z-sign*expected)<.003);
       assert.equal(ray.intersectObject(empty).length,0);
     }
     const p=full.attributes.position,coordinates=new Set();
     for(let i=0;i<p.count;i++) coordinates.add(`${p.getX(i).toFixed(6)},${p.getY(i).toFixed(6)},${p.getZ(i).toFixed(6)}`);
-    for(let i=0;i<p.count;i++) assert.ok(coordinates.has(`${p.getX(i).toFixed(6)},${p.getY(i).toFixed(6)},${(-p.getZ(i)).toFixed(6)}`));
+    for(let i=0;i<p.count;i++) {
+      if(Math.abs(p.getY(i)-full.userData.flatBase.plane)<1e-6)continue;
+      assert.ok(coordinates.has(`${p.getX(i).toFixed(6)},${p.getY(i).toFixed(6)},${(-p.getZ(i)).toFixed(6)}`));
+    }
     full.dispose();hollow.dispose();material.dispose();
   }
 });

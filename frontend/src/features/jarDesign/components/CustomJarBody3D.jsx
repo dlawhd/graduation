@@ -1,23 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DirectionalLight, Group, HemisphereLight, Mesh,
-  MeshStandardMaterial, OrthographicCamera, Scene, Vector3, WebGLRenderer } from "three";
+  MeshStandardMaterial, OrthographicCamera, Scene, Vector3, WebGLRenderer,CanvasTexture,SRGBColorSpace,NearestFilter,LinearFilter,LinearMipmapLinearFilter } from "three";
 import { bodyWorldPoint, body3DProfile, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
   canExtrudeHollowBody, BODY_3D_VIEW } from "../body3DGeometry.mjs";
 import { roundedBodyGeometry } from "../body3DMesh.mjs";
-import CustomJarBodyArtwork from "./CustomJarBodyArtwork";
+import { bodyArtworkPixels } from "../bodyArtworkPixels.mjs";
+import {drawBody3DPhoto} from "../body3DPhoto.mjs";
 import JarSlotOverlay from "./JarSlotOverlay";
 
-/** 외곽선을 입체화하고 사진/입구 평면을 같은 카메라로 투영한다. 사진 속 인물을 3D로 바꾸지는 않는다. */
+/** 외곽선과 사진 면을 둥근 몸통으로 만들고 입구도 같은 카메라로 투영한다. 사진 속 인물을 3D로 바꾸지는 않는다. */
 export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imageStyle, imageRendering,
   outlineOnly, slot, resetKey, onFailure }) {
   const stageRef=useRef(null), surfaceRef=useRef(null), slotRef=useRef(null), controllerRef=useRef(null);
+  const slotValueRef=useRef(slot);
   // 곡선과 안전한 사진 창 탐색은 틀이 바뀔 때만 수행한다. 회전/사진 배치 변경에서는 재사용한다.
   const renderProfile=useMemo(()=>body3DProfile(customBody),[customBody]);
   const [ready,setReady]=useState(false);
   useEffect(() => {
     const stage=stageRef.current, surface=surfaceRef.current;
     const body=renderProfile, points=body?.renderOutline.map(bodyWorldPoint);
-    let renderer, geometry, faceMaterial, observer, frame=0, disposed=false;
+    let renderer, geometry, faceMaterial, photoMaterial, observer, texture, textureImage, photoTexture, photoImage, photoVersion=0, frame=0, disposed=false;
+    let photoUrl="";
+    let borderReady=!customBody?.artworkUrl,photoReady=!imageUrl;
+    const refreshReady=()=>{if(!disposed)setReady(borderReady&&photoReady);};
     let gesture=null, yaw=.35, pitch=-.12;
     const cleanup = () => {
       if (disposed) return;
@@ -32,6 +37,10 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       stage.removeEventListener("keydown",keyDown);
       renderer?.domElement.removeEventListener("webglcontextlost",lostContext);
       geometry?.dispose(); faceMaterial?.dispose();
+      photoMaterial?.dispose();photoTexture?.dispose();
+      texture?.dispose();
+      if(textureImage) {textureImage.onload=null;textureImage.onerror=null;}
+      if(photoImage) {photoImage.onload=null;photoImage.onerror=null;}
       renderer?.dispose(); renderer?.forceContextLoss(); renderer?.domElement.remove();
       controllerRef.current=null;
     };
@@ -77,14 +86,18 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         }
         renderer.render(scene,camera);
         const photoSurface=bodyPhotoSurface(yaw,pitch);
+        const currentSlot=slotValueRef.current;
+        const center=currentSlot?{x:currentSlot.centerX,y:currentSlot.centerY}:null;
+        const depth=center&&geometry.userData.photoHeight
+          ? geometry.userData.photoHeight(bodyWorldPoint(center))+.007 : Math.abs(photoSurface.depth);
         const project=(x,y) => {
-          const p=group.localToWorld(new Vector3(x,y,photoSurface.depth)).project(camera);
+          const p=group.localToWorld(new Vector3(x,y,photoSurface.side==="front"?depth:-depth)).project(camera);
           return {x:(p.x+1)*stage.clientWidth/2,y:(1-p.y)*stage.clientHeight/2};
         };
         const matrix=projectedSurfaceMatrix(project(-1,1),project(1,1),project(-1,-1));
         surface.style.transform=`matrix(${matrix.join(",")})`;
-        // 같은 DOM 사진을 보이는 면으로 옮긴다. 뒷면의 음수 가로 투영이 사진/배경/글자를 함께 반전한다.
-        // 옆으로 거의 세워진 평면은 잠깐 숨겨 가느다란 사진 띠가 입체 옆면 위에 떠 보이지 않게 한다.
+        // 앞뒤 사진은 이제 곡면 텍스처가 같은 카메라로 그린다. DOM에는 앞면 입구만 투영한다.
+        // 옆으로 거의 세워진 입구는 숨겨 가느다란 띠가 옆면 위에 떠 보이지 않게 한다.
         surface.style.visibility=photoSurface.visible?"visible":"hidden";
         if (slotRef.current) slotRef.current.style.visibility=photoSurface.visible && photoSurface.side==="front"?"visible":"hidden";
         stage.dataset.yaw=String(yaw);
@@ -121,8 +134,9 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       camera.position.set(0,0,5);
       // 빈 틀에는 실제 구멍을 낸다. 사진이 있으면 앞뒤 표면 위에 같은 사진을 투영하고 옆면 두께는 유지한다.
       geometry=roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl),renderProfile);
-      faceMaterial=new MeshStandardMaterial({color:customBody.color,roughness:.8,metalness:0});
-      group.add(new Mesh(geometry,faceMaterial));
+      faceMaterial=new MeshStandardMaterial({color:customBody.color,roughness:.55,metalness:0});
+      photoMaterial=new MeshStandardMaterial({color:0xffffff,roughness:.55,metalness:0});
+      group.add(new Mesh(geometry,[faceMaterial,photoMaterial]));
       // 따뜻한 반사광으로 밝은 틀도 아래쪽이 검게 변하지 않게 하면서 곡면의 명암은 남긴다.
       scene.add(new HemisphereLight(0xffffff,0xd8ccc8,2));
       const key=new DirectionalLight(0xffffff,2.6);key.position.set(-3,4,5);scene.add(key);
@@ -141,19 +155,67 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       stage.addEventListener("pointercancel",finish);
       stage.addEventListener("lostpointercapture",finish);
       stage.addEventListener("keydown",keyDown);
-      controllerRef.current={reset:()=>rotate(0,0),turn:delta=>rotate(yaw+delta,pitch),refresh:schedule};
-      setReady(true);
+      /** 사진 URL/배치가 바뀌어도 몸통 geometry는 재사용하고 이전 비동기 이미지 결과만 폐기한다. */
+      function updatePhoto(url,placement,style,pixelRendering) {
+        const version=++photoVersion;
+        const reuse=photoUrl===url&&photoImage?.complete&&photoImage.naturalWidth>0;
+        if(photoImage){photoImage.onload=null;photoImage.onerror=null;}
+        photoReady=!url;refreshReady();
+        if(!url)return;
+        // 기존 배경 편집 마스크를 무시해서 보여주지 않는다. 이런 Draft는 기존 2D에서 정확히 표시한다.
+        if(style&&Object.values(style).some(v=>v!=null&&v!=="")) {
+          fail("배경 편집이 있는 디자인은 원본 편집을 유지한 2D로 보여드려요.");return;
+        }
+        const paint=()=>{
+          if(disposed||version!==photoVersion)return;
+          try {
+            // 슬라이더로 배치만 바꾸면 같은 디코딩 이미지/Canvas/텍스처를 재사용해 반복 GET과 GPU 할당을 막는다.
+            const canvas=photoTexture?.image||document.createElement("canvas");canvas.width=canvas.height=480;
+            drawBody3DPhoto(canvas.getContext("2d"),photoImage,renderProfile,placement,pixelRendering==="pixelated");
+            if(!photoTexture){photoTexture=new CanvasTexture(canvas);photoTexture.colorSpace=SRGBColorSpace;}
+            photoTexture.magFilter=pixelRendering==="pixelated"?NearestFilter:LinearFilter;
+            photoTexture.minFilter=pixelRendering==="pixelated"?NearestFilter:LinearMipmapLinearFilter;
+            photoTexture.generateMipmaps=pixelRendering!=="pixelated";photoTexture.needsUpdate=true;
+            photoMaterial.map=photoTexture;photoMaterial.needsUpdate=true;
+            photoReady=true;refreshReady();schedule();
+          } catch {fail("사진을 곡면에 불러오지 못했어요. 원본 배치를 유지한 2D로 보여드려요.");}
+        };
+        if(reuse){paint();return;}
+        photoImage=new Image();photoImage.crossOrigin="anonymous";photoUrl=url;
+        photoImage.onload=paint;
+        photoImage.onerror=()=>{if(!disposed&&version===photoVersion)fail("3D 사진을 불러오지 못했어요. 기존 2D로 보여드려요.");};
+        photoImage.src=url;
+      }
+      controllerRef.current={reset:()=>rotate(0,0),turn:delta=>rotate(yaw+delta,pitch),refresh:schedule,updatePhoto};
+      if(customBody.artworkUrl) {
+        // 권한 확인 뒤 발급한 PNG만 읽는다. 읽기/CORS 실패 시 단색으로 속이지 않고 원본을 보존한 2D로 복구한다.
+        textureImage=new Image();textureImage.crossOrigin="anonymous";
+        textureImage.onload=()=>{
+          if(disposed) return;
+          try {
+            const canvas=document.createElement("canvas");canvas.width=canvas.height=480;
+            if(textureImage.naturalWidth!==480||textureImage.naturalHeight!==480) throw new Error("Invalid body artwork");
+            const context=canvas.getContext("2d");context.drawImage(textureImage,0,0);
+            const pixels=context.getImageData(0,0,480,480);pixels.data.set(bodyArtworkPixels(pixels));context.putImageData(pixels,0,0);
+            texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;
+            faceMaterial.color.set(0xffffff);faceMaterial.map=texture;faceMaterial.needsUpdate=true;
+            borderReady=true;refreshReady();schedule();
+          } catch {fail("테두리 색을 3D로 불러오지 못했어요. 원본 색을 유지한 2D로 보여드려요.");}
+        };
+        textureImage.onerror=()=>{if(!disposed)fail("테두리 그림을 불러오지 못했어요. 2D로 돌아가 다시 확인해 주세요.");};
+        textureImage.src=customBody.artworkUrl;
+      } else refreshReady();
     } catch { fail(); }
     return cleanup;
   },[customBody,renderProfile,Boolean(imageUrl),outlineOnly,onFailure]);
+  useEffect(()=>{controllerRef.current?.updatePhoto(imageUrl,photoFrame,imageStyle,imageRendering);},[imageUrl,photoFrame,imageStyle,imageRendering,renderProfile,outlineOnly]);
   useEffect(()=>{if(resetKey)controllerRef.current?.reset();},[resetKey]);
   // 회전 중 입구 prop이 바뀌어도 새 DOM의 앞/뒤 표시를 한 프레임 안에 맞춘다.
-  useEffect(()=>{controllerRef.current?.refresh();},[slot]);
+  useEffect(()=>{slotValueRef.current=slot;controllerRef.current?.refresh();},[slot]);
   return <div ref={stageRef} role="group" aria-label="저금통 3D 회전 보기" tabIndex={0}
     className="relative h-full w-full touch-none overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
     <div ref={surfaceRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0"
       style={{width:480,height:480,transformOrigin:"0 0",visibility:"hidden"}}>
-      <CustomJarBodyArtwork {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,renderProfile}} suppressShadow photoOnly />
       {slot && <div ref={slotRef} data-3d-front-slot className="absolute inset-0" style={{visibility:"hidden"}}><JarSlotOverlay slot={slot}/></div>}
     </div>
     {!ready && <p role="status" className="absolute inset-x-0 bottom-16 text-center text-xs text-stone-500">3D를 준비하고 있어요.</p>}

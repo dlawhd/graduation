@@ -15,6 +15,8 @@ import { samePhotoFrame, WHOLE_PHOTO, coverPhotoFrame, containPhotoFrame } from 
 import { SLOT_CATALOG, SLOT_COLLECTIONS, LEGACY_SLOT_CATALOG, FREEFORM_SLOT_CATALOG } from "../src/features/jarDesign/slotCatalog.mjs";
 import { SlotSwatch } from "../src/features/jarDesign/components/JarSlotOverlay";
 import { slotGlints } from "../src/features/jarDesign/slotGlints.mjs";
+import {multicolorBodyFixture} from "./fixtures/body3DShapes.mjs";
+import {BODY_DRAFT_KEY} from "../src/features/jarDesign/customJarBody.mjs";
 
 // Vite의 기본 index.html 빌드에 포함되지 않는 로컬 UI 검증용 진입점이다.
 // 모든 HTTP 요청은 이 메모리 어댑터에서 종료되며 WebSocket 연결을 시작하지 않는다.
@@ -25,6 +27,7 @@ let finalForm = {};
 const landscape = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480"><defs><linearGradient id="s" x2="0" y2="1"><stop stop-color="#f6ac81"/><stop offset="1" stop-color="#f4d7aa"/></linearGradient></defs><rect width="480" height="480" fill="white"/><svg y="105" width="480" height="270" viewBox="0 0 800 450"><rect width="800" height="450" fill="url(#s)"/><circle cx="575" cy="107" r="64" fill="#ffe8a7"/><path d="M0 232L137 117L280 232L389 159L575 265L720 142L800 241V450H0" fill="#769d95"/><path d="M0 297Q120 234 245 298T500 298T800 303V450H0" fill="#397d82"/><path d="M0 353Q131 318 288 365T800 348V450H0" fill="#aad7cf"/><path d="M0 427Q123 374 211 450H0" fill="#e5c09b"/><g fill="#fff4e4"><rect x="325" y="268" width="122" height="73" rx="4"/><path d="M303 270L387 206L465 270" fill="#b75d52"/><rect x="372" y="301" width="24" height="40" fill="#496b60"/><rect x="337" y="286" width="25" height="21" fill="#b0d3c4"/><rect x="407" y="286" width="25" height="21" fill="#b0d3c4"/></g></svg></svg>');
 let activeSample = sample, saveFailsOnce = false, uploadFailsOnce=false, generationFailsOnce=false;
 let uploadProbe = null;
+let bodyArtworkUrl = "";
 // 주소로 같은 검증 장면을 다시 열 수 있게 한다. 운영 진입점에는 포함되지 않는다.
 const landscapeFixture = new URLSearchParams(window.location.search).get("fixture") === "landscape";
 const storedSlotFixture = new URLSearchParams(window.location.search).get("fixture") === "stored-slot";
@@ -53,9 +56,12 @@ apiClient.defaults.adapter = async (config) => {
     if(uploadFailsOnce) {uploadFailsOnce=false;const error=new Error("Network Error");error.code="ERR_NETWORK";throw error;}
     const uploaded=input.get("image");uploadProbe={...(uploadProbe || {}),sentBytes:uploaded.size,sentType:uploaded.type,timeout:config.timeout};
     const customPart=input.get("customBody");
+    const border=input.get("bodyArtwork");
+    bodyArtworkUrl=border?await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(border);}):"";
+    uploadProbe={...uploadProbe,borderBytes:border?.size||0,borderType:border?.type||null,metadataHasUrl:customPart?(await customPart.text()).includes("artworkUrl"):false};
     draft = { ...draft, bodyStyle: input.get("bodyStyle"),customBody:customPart?JSON.parse(await customPart.text()):null,photoFrame:null,aiInputPhotoFrame:null }; data = { draftId: 999 };
   }
-  else if (url.endsWith("/preview")) data = { previewUrl: activeSample };
+  else if (url.endsWith("/preview")) data = { previewUrl: activeSample, bodyArtworkUrl };
   else if (url.endsWith("/selection")) { draft = { ...draft, selectedDesignType: input.designType, selectedGenerationId: input.generationId, photoFrame:input.designType === "ORIGINAL" ? draft.aiInputPhotoFrame || null : null, slotCenterX: null, slotCenterY: null, slotSizeRatio: null, cutoutRegions:[] }; }
   else if (url.endsWith("/composition")) {
     if (draft.bodyStyle !== input.bodyStyle || !samePhotoFrame(draft.photoFrame ?? null, input.photoFrame))
@@ -70,7 +76,7 @@ apiClient.defaults.adapter = async (config) => {
   else throw new Error(`검증하지 않은 요청 차단: ${method} ${url}`);
   return { data: { data }, status: 200, statusText: "OK", headers: {}, config };
 };
-function Result() { return <main className="mx-auto max-w-lg p-6"><h1 className="break-keep text-2xl font-bold">로컬 생성 완료 · {finalForm.name}</h1><JarCustomDesignVisual design={{ ...draft, imageUrl: activeSample }}/><p>저장한 본체: {draft.bodyStyle || "이미지 단독"}</p><p>저장한 입구: {draft.slotStyle || "CAPSULE"}</p><p className="break-all" data-saved-photo-frame>{JSON.stringify(draft.photoFrame)}</p><p>사진 배치 저장 요청: {requests.filter((r) => r.url.endsWith("/composition")).length}</p></main>; }
+function Result() { return <main className="mx-auto max-w-lg p-6"><h1 className="break-keep text-2xl font-bold">로컬 생성 완료 · {finalForm.name}</h1><JarCustomDesignVisual design={{ ...draft, bodyArtworkUrl, imageUrl: activeSample }}/><p>저장한 본체: {draft.bodyStyle || "이미지 단독"}</p><p>저장한 입구: {draft.slotStyle || "CAPSULE"}</p><p className="break-all" data-saved-photo-frame>{JSON.stringify(draft.photoFrame)}</p><p>사진 배치 저장 요청: {requests.filter((r) => r.url.endsWith("/composition")).length}</p></main>; }
 /** 실제 공용 렌더러의 새 입구와 이전 저장 입구를 밝은/어두운 바탕에서 비교한다. */
 function SlotSheet() {
   const [checks,setChecks]=useState([]);
@@ -227,6 +233,8 @@ function FixtureApp() {
     setVersion((v) => v+1);
   }
   return <><div className="flex flex-wrap gap-2 bg-amber-50 p-3 text-xs"><button onClick={() => reset("landscape")} className="min-h-11 rounded-xl bg-white px-3">가로 사진 배치 검증</button><button onClick={() => reset("square")} className="min-h-11 rounded-xl bg-white px-3">정사각 그림 배치 검증</button><button onClick={() => { saveFailsOnce=true; }} className="min-h-11 rounded-xl bg-white px-3">다음 저장 실패 검증</button><button onClick={()=>void syntheticUpload()}>대용량 JPEG 입력 검증</button><button onClick={()=>void syntheticUpload("image/png")}>투명 PNG 입력 검증</button><button onClick={()=>{uploadFailsOnce=true;}}>다음 전송 Network Error</button><p data-upload-probe className="w-full min-w-0 break-all">{uploadResult}</p>
+    <button className="min-h-11 rounded-xl bg-white px-3" onClick={()=>{sessionStorage.setItem(BODY_DRAFT_KEY,JSON.stringify(multicolorBodyFixture(true)));window.location.reload();}}>다색 틀 저장 흐름 검증</button>
+    <button className="min-h-11 rounded-xl bg-white px-3" onClick={()=>setUploadResult(JSON.stringify(uploadProbe))}>전송 결과 확인</button>
     {confirmationFixture && <><label><input type="checkbox" checked={allowDiscard} onChange={event=>setAllowDiscard(event.target.checked)}/>편집 버리기 확인 응답</label><button onClick={()=>{generationFailsOnce=true;}}>다음 AI 요청 실패 검증</button><p role="status" data-edit-confirmation className="w-full">편집 확인 횟수: {confirmation.count}{confirmation.message && ` / ${confirmation.message}`}</p></>}
   </div>
   <MemoryRouter key={version} initialEntries={[version || landscapeFixture || storedSlotFixture ? "/?draft=999" : "/"]}><OnboardingProvider userId={1} checkingAuth={false}><StompClientProvider><header className="flex flex-wrap justify-between gap-3 bg-white px-6 py-4 text-sm font-bold text-emerald-800"><Link to="/">MEMORY JAR · 로컬 검증 (서버 요청 없음)</Link><nav className="flex flex-wrap gap-4"><Link to="/contact-sheet">{JAR_BODIES.length}종 한눈에</Link><Link to="/slot-sheet">입구 {SLOT_CATALOG.length}종</Link><Link to="/?draft=999">후보·편집 검증</Link></nav></header><Routes><Route path="/jars/new" element={<JarsNewPage/>}/><Route path="/jars/999" element={<Result/>}/><Route path="/contact-sheet" element={<ContactSheet/>}/><Route path="/slot-sheet" element={<SlotSheet/>}/><Route path="*" element={<JarDesignNewPage/>}/></Routes></StompClientProvider></OnboardingProvider></MemoryRouter></>;
