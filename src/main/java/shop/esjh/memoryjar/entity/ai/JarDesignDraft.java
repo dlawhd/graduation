@@ -55,6 +55,10 @@ public class JarDesignDraft {
     @Column(name = "original_s3_key", nullable = false, length = 512)
     private String originalS3Key;
 
+    /** 원본/AI 입력과 분리한 테두리 PNG다. 종료 시 원본과 함께 삭제가 완료되어야 정리 완료로 기록한다. */
+    @Column(name="body_artwork_s3_key",length=512)
+    private String bodyArtworkS3Key;
+
     /** 생성 전에는 본체/이미지 단독 모드를 바꿀 수 있다. 완성한 Jar에는 적용하지 않는다. */
     @Enumerated(EnumType.STRING)
     @Column(name = "body_style", length = 30)
@@ -208,6 +212,7 @@ public class JarDesignDraft {
 
     /** 원본/AI 후보 선택과 무관하게 직접 만든 틀을 유지한다. */
     public void setCustomBody(shop.esjh.memoryjar.dto.ai.CustomJarBodyValue value) { this.customBody = value; }
+    public void setBodyArtworkS3Key(String key) { this.bodyArtworkS3Key=key; }
 
     /** 의미 있는 사용자 편집이 끝났을 때만 Draft의 유효 기간을 새로 계산한다. */
     public void extendExpiration(LocalDateTime expiresAt) {

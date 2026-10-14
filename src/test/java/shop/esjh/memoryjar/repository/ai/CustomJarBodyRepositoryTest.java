@@ -22,14 +22,17 @@ import static org.assertj.core.api.Assertions.*;
 class CustomJarBodyRepositoryTest extends AbstractMariaDbRepositoryTest {
     @Test void draftAndPermanentDesignRestoreTheSameOutline() {
         var owner=saveUser("custom-body","custom-body@example.test","시험");
-        var body=new CustomJarBodyValue(List.of(new Point(.1,.1),new Point(.9,.1),new Point(.9,.9),new Point(.1,.9)),"#abcdef");
+        var body=new CustomJarBodyValue(List.of(new Point(.1,.1),new Point(.9,.1),new Point(.9,.9),new Point(.1,.9)),"#abcdef",
+                List.of(List.of(new Point(.2,.2),new Point(.8,.2),new Point(.8,.8),new Point(.2,.8))));
         var draft=JarDesignDraft.builder().owner(owner).originalS3Key("fixture-original").bodyStyle(JarBodyStyle.CUSTOM).expiresAt(LocalDateTime.now().plusDays(1)).build();
-        draft.setCustomBody(body);persist(draft);
+        draft.setCustomBody(body);draft.setBodyArtworkS3Key("fixture-original.body.png");persist(draft);
         var jar=saveJar(owner,"틀 시험",LocalDateTime.now().plusDays(1));
-        var design=persist(JarDesign.builder().jar(jar).designType(JarDesignType.ORIGINAL).finalS3Key("fixture-final").bodyStyle(JarBodyStyle.CUSTOM).customBody(body)
+        var design=persist(JarDesign.builder().jar(jar).designType(JarDesignType.ORIGINAL).finalS3Key("fixture-final").bodyArtworkS3Key("fixture-final.body.png").bodyStyle(JarBodyStyle.CUSTOM).customBody(body)
                 .slotCenterX(new BigDecimal(".5")).slotCenterY(new BigDecimal(".3")).slotSizeRatio(new BigDecimal(".2")).build());
         var draftId=draft.getDraftId();var designId=design.getJarDesignId();flushAndClear();
         assertThat(entityManager.find(JarDesignDraft.class,draftId).getCustomBody()).isEqualTo(body);
         assertThat(entityManager.find(JarDesign.class,designId).getCustomBody()).isEqualTo(body);
+        assertThat(entityManager.find(JarDesignDraft.class,draftId).getBodyArtworkS3Key()).isEqualTo("fixture-original.body.png");
+        assertThat(entityManager.find(JarDesign.class,designId).getBodyArtworkS3Key()).isEqualTo("fixture-final.body.png");
     }
 }

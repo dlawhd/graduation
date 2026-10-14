@@ -109,7 +109,9 @@ public class AiDraftCleanupService {
         int deleted = 0;
         for (JarDesignDraftRepository.DraftS3Reference reference
                 : persistenceService.findTerminalOriginalReferences(terminalCutoff, properties.getBatchSize())) {
-            if (deleteQuietly(reference.getOriginalS3Key(), "종료 Draft 원본", reference.getDraftId())
+            // 테두리 삭제 실패 시 완료 시각을 남기지 않아 다음 주기에 두 객체를 다시 정리한다.
+            if ((reference.getBodyArtworkS3Key()==null || deleteQuietly(reference.getBodyArtworkS3Key(),"종료 Draft 테두리",reference.getDraftId()))
+                    && deleteQuietly(reference.getOriginalS3Key(), "종료 Draft 원본", reference.getDraftId())
                     && persistenceService.markOriginalS3Deleted(reference.getDraftId(), reference.getOriginalS3Key(), now)) {
                 deleted++;
             }

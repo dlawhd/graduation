@@ -65,6 +65,7 @@ public class JarDesignViewService {
         int expiresInSeconds = s3Properties.getPresignExpSeconds();
         String imageUrl = null;
         OffsetDateTime imageExpiresAt = null;
+        String bodyArtworkUrl=null;
 
         if (expiresInSeconds > 0 && hasText(s3Properties.getBucket()) && hasText(design.getFinalS3Key())) {
             try {
@@ -80,7 +81,11 @@ public class JarDesignViewService {
                         .url()
                         .toString();
                 imageExpiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(expiresInSeconds);
+                if(design.getBodyArtworkS3Key()!=null) bodyArtworkUrl=s3Presigner.presignGetObject(GetObjectPresignRequest.builder()
+                        .signatureDuration(Duration.ofSeconds(expiresInSeconds)).getObjectRequest(GetObjectRequest.builder()
+                                .bucket(s3Properties.getBucket()).key(design.getBodyArtworkS3Key()).responseContentType("image/png").build()).build()).url().toString();
             } catch (RuntimeException exception) {
+                imageUrl=null;imageExpiresAt=null;bodyArtworkUrl=null;
                 // 사용자 화면에는 내부 S3 정보와 SDK 예외를 노출하지 않고 재조회 가능한 빈 URL만 전달한다.
                 log.warn("Jar 최종 디자인 미리보기 URL 발급에 실패했습니다. jarId={}",
                         design.getJar().getJarId());
@@ -96,7 +101,7 @@ public class JarDesignViewService {
                 design.getSlotSizeRatio(),
                 design.getSelectedGeneration() == null ? null : design.getSelectedGeneration().getAiStyle(),
                 design.getSlotStyle(),
-                design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame()), design.getCustomBody()
+                design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame()), design.getCustomBody(),bodyArtworkUrl
         );
     }
 

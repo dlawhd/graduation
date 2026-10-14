@@ -11,11 +11,17 @@ import java.util.Collections;
 
 /** 사용자가 그린 닫힌 틀이다. 실행 가능한 SVG 대신 제한된 좌표와 색상만 저장한다. */
 public record CustomJarBodyValue(@NotNull @Size(min=3, max=96) List<@NotNull @Valid Point> points,
-                                @NotNull @Pattern(regexp="#[0-9a-fA-F]{6}") String color) {
+                                @NotNull @Pattern(regexp="#[0-9a-fA-F]{6}") String color,
+                                @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                                @Size(max=8) List<@NotNull @Size(min=3,max=96) List<@NotNull @Valid Point>> photoContours) {
     // 최종 저장 전후 비교에 쓰는 좌표가 외부 List 변경으로 뒤늦게 달라지지 않도록 복사한다.
     public CustomJarBodyValue {
         if (points != null) points = Collections.unmodifiableList(new ArrayList<>(points));
+        if (photoContours != null) photoContours = Collections.unmodifiableList(photoContours.stream()
+                .map(p -> p == null ? null : Collections.unmodifiableList(new ArrayList<>(p))).toList());
     }
+    /** 과거 단색 틀은 기존 두 필드만으로 계속 읽는다. */
+    public CustomJarBodyValue(List<Point> points, String color) { this(points,color,null); }
     public record Point(@NotNull @DecimalMin("0.05") @DecimalMax("0.95") Double x,
                         @NotNull @DecimalMin("0.05") @DecimalMax("0.95") Double y) { }
 
@@ -39,7 +45,46 @@ public record CustomJarBodyValue(@NotNull @Size(min=3, max=96) List<@NotNull @Va
                 if (intersects(a,b,c,d)) return false;
             }
         }
-        return maxX-minX>=.25 && maxY-minY>=.25 && Math.abs(area)/2>=.05;
+        return maxX-minX>=.25 && maxY-minY>=.25 && Math.abs(area)/2>=.05 && validPhotoContours();
+    }
+
+    /** 사진 창은 몸통 안의 서로 겹치지 않는 단순 경계만 허용한다. 임의 경로/URL은 입력으로 받지 않는다. */
+    private boolean validPhotoContours() {
+        if (photoContours == null) return true;
+        if (photoContours.isEmpty() || photoContours.size()>8 || photoContours.stream().anyMatch(java.util.Objects::isNull)) return false;
+        if(photoContours.stream().mapToInt(List::size).sum()>384) return false;
+        if(photoContours.stream().flatMap(List::stream).anyMatch(p -> !valid(p))) return false;
+        for(int k=0;k<photoContours.size();k++) {
+            List<Point> polygon=photoContours.get(k);
+            if(polygon.size()<3 || polygon.size()>96) return false;
+            double area=0;
+            for(int i=0;i<polygon.size();i++) {
+                Point a=polygon.get(i),b=polygon.get((i+1)%polygon.size());
+                if(!valid(a)||!valid(b)||!inside(a,points)||Math.hypot(a.x-b.x,a.y-b.y)<.0001) return false;
+                area+=a.x*b.y-b.x*a.y;
+                for(int j=0;j<points.size();j++) if(intersects(a,b,points.get(j),points.get((j+1)%points.size()))) return false;
+                for(int j=i+2;j<polygon.size();j++) {
+                    if(i==0&&j==polygon.size()-1) continue;
+                    if(!valid(polygon.get(j))||!valid(polygon.get((j+1)%polygon.size()))
+                            ||intersects(a,b,polygon.get(j),polygon.get((j+1)%polygon.size()))) return false;
+                }
+                for(int j=0;j<k;j++) {
+                    List<Point> other=photoContours.get(j);
+                    if(inside(a,other)||inside(other.get(0),polygon)) return false;
+                    for(int e=0;e<other.size();e++) if(intersects(a,b,other.get(e),other.get((e+1)%other.size()))) return false;
+                }
+            }
+            if(Math.abs(area)<.00002) return false;
+        }
+        return true;
+    }
+    private static boolean inside(Point p,List<Point> polygon) {
+        boolean inside=false;
+        for(int i=0,j=polygon.size()-1;i<polygon.size();j=i++) {
+            Point a=polygon.get(i),b=polygon.get(j);
+            if((a.y>p.y)!=(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x) inside=!inside;
+        }
+        return inside;
     }
 
     private static boolean valid(Point p) {

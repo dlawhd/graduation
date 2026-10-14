@@ -55,6 +55,13 @@ public class JarDesignDraftPersistenceService {
     @Transactional
     public JarDesignDraft createDraft(Long userId, String originalS3Key, JarBodyStyle bodyStyle, JarPhotoFrameValue contentFrame,
                                      shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+        return createDraft(userId,originalS3Key,bodyStyle,contentFrame,customBody,null);
+    }
+
+    /** 테두리 Key도 같은 INSERT에서 확정한다. 사진 창 경계는 변경 불가능한 스냅샷에 포함된다. */
+    @Transactional
+    public JarDesignDraft createDraft(Long userId,String originalS3Key,JarBodyStyle bodyStyle,JarPhotoFrameValue contentFrame,
+                                     shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,String bodyArtworkS3Key) {
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
@@ -69,6 +76,7 @@ public class JarDesignDraftPersistenceService {
 
         if (contentFrame != null) draft.setOriginalContentFrame(new JarPhotoFrame(contentFrame));
         draft.setCustomBody(customBody);
+        draft.setBodyArtworkS3Key(bodyArtworkS3Key);
         return draftRepository.save(draft);
     }
 }

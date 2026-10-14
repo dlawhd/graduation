@@ -45,7 +45,7 @@ public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, 
     }
 
     @Query("""
-            SELECT draft.draftId AS draftId, draft.originalS3Key AS originalS3Key
+            SELECT draft.draftId AS draftId, draft.originalS3Key AS originalS3Key, draft.bodyArtworkS3Key AS bodyArtworkS3Key
             FROM JarDesignDraft draft
             WHERE draft.status IN :terminalStatuses
               AND draft.updatedAt <= :terminalCutoff
@@ -70,5 +70,6 @@ public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, 
 
     interface DraftS3Reference extends DraftReference {
         String getOriginalS3Key();
+        String getBodyArtworkS3Key();
     }
 }

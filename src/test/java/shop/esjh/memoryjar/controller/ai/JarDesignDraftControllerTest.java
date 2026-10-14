@@ -87,6 +87,18 @@ class JarDesignDraftControllerTest {
   mockMvc.perform(multipart("/api/v1/design-drafts").file("image",new byte[]{1}).file(part).param("bodyStyle","CUSTOM").principal(auth())).andExpect(status().isCreated());
   verify(uploadService).uploadOriginalAndCreateDraft(eq(1L),any(),eq(JarBodyStyle.CUSTOM),eq(outline));
  }
+ @Test void upload_routesOptionalBorderFileWithValidatedPhotoContours() throws Exception {
+  var outline=new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue(java.util.List.of(
+      new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.1,.1),new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.9,.1),
+      new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.9,.9),new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.1,.9)),"#abcdef",
+      java.util.List.of(java.util.List.of(new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.2,.2),
+          new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.8,.2),new shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.Point(.5,.8))));
+  var json=new org.springframework.mock.web.MockMultipartFile("customBody","","application/json",objectMapper.writeValueAsBytes(outline));
+  var border=new org.springframework.mock.web.MockMultipartFile("bodyArtwork","border.png","image/png",new byte[]{7});
+  mockMvc.perform(multipart("/api/v1/design-drafts").file("image",new byte[]{1}).file(json).file(border)
+      .param("bodyStyle","CUSTOM").principal(auth())).andExpect(status().isCreated());
+  verify(uploadService).uploadOriginalAndCreateDraft(eq(1L),any(),eq(JarBodyStyle.CUSTOM),eq(outline),eq(border));
+ }
  @Test void upload_rejectsMissingOrCrossingCustomBodyBeforeService() throws Exception {
   mockMvc.perform(multipart("/api/v1/design-drafts").file("image",new byte[]{1}).param("bodyStyle","CUSTOM").principal(auth())).andExpect(status().isBadRequest());
   var part=new org.springframework.mock.web.MockMultipartFile("customBody","","application/json","{\"points\":[{\"x\":0.1,\"y\":0.1},{\"x\":0.9,\"y\":0.9},{\"x\":0.1,\"y\":0.9},{\"x\":0.9,\"y\":0.1}],\"color\":\"#abcdef\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));

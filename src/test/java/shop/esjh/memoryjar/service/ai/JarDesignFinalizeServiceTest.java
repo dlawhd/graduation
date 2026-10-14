@@ -43,6 +43,30 @@ class JarDesignFinalizeServiceTest {
     @Mock private JarDesignCutoutImageProcessor cutoutImageProcessor;
     @Mock private ResponseBytes<GetObjectResponse> sourceBytes;
 
+    @Test void aiImageAndOriginalBorderAreCopiedSeparatelyBeforeFinalize() {
+        var target=new JarDesignFinalizePersistenceService.FinalizeTarget(JarDraftDesignType.AI,"candidate.png",100L,
+            null,null,null,null,null,shop.esjh.memoryjar.enums.ai.JarBodyStyle.CUSTOM,null,CustomJarBodyTest.outline(),"original.png.body.png");
+        when(persistenceService.prepare(1L,10L)).thenReturn(target);when(keyFactory.createKey(1L,10L)).thenReturn("final.png");
+        when(persistenceService.finalizeCustom(eq(1L),eq(10L),any(),eq(target),eq("final.png")))
+            .thenReturn(new JarDesignFinalizePersistenceService.FinalizeResult(100L,JarDraftDesignType.AI));
+        service().finalizeDraft(1L,10L,request());
+        var copies=ArgumentCaptor.forClass(CopyObjectRequest.class);verify(s3Client,times(2)).copyObject(copies.capture());
+        assertThat(copies.getAllValues().stream().map(CopyObjectRequest::copySource)).containsExactly("test-bucket/candidate.png","test-bucket/original.png.body.png");
+        assertThat(copies.getAllValues().stream().map(CopyObjectRequest::key)).containsExactly("final.png","final.png.body.png");
+    }
+    @Test void failedBorderCopyCompensatesBothReservationsAndDoesNotCommit() {
+        var target=new JarDesignFinalizePersistenceService.FinalizeTarget(JarDraftDesignType.ORIGINAL,"original.png",null,
+            null,null,null,null,null,shop.esjh.memoryjar.enums.ai.JarBodyStyle.CUSTOM,null,CustomJarBodyTest.outline(),"original.png.body.png");
+        when(persistenceService.prepare(1L,10L)).thenReturn(target);when(keyFactory.createKey(1L,10L)).thenReturn("final.png");
+        when(s3Client.copyObject(any(CopyObjectRequest.class)))
+            .thenReturn(software.amazon.awssdk.services.s3.model.CopyObjectResponse.builder().build())
+            .thenThrow(SdkClientException.create("copy failed"));
+        assertThatThrownBy(()->service().finalizeDraft(1L,10L,request())).isInstanceOf(ApiException.class);
+        verify(persistenceService,never()).finalizeCustom(any(),any(),any(),any(),any());
+        var deletes=ArgumentCaptor.forClass(DeleteObjectRequest.class);verify(s3Client,times(2)).deleteObject(deletes.capture());
+        assertThat(deletes.getAllValues().stream().map(DeleteObjectRequest::key)).containsExactlyInAnyOrder("final.png","final.png.body.png");
+    }
+
     @Test
     void finalizeDraft_customCopiesThenCommits() {
         var target = customTarget();

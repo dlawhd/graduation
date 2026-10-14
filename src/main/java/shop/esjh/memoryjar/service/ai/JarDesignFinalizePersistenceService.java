@@ -98,6 +98,7 @@ public class JarDesignFinalizePersistenceService {
                 .slotStyle(actual.slotStyle())
                 .bodyStyle(actual.bodyStyle())
                 .customBody(actual.customBody())
+                .bodyArtworkS3Key(actual.bodyArtworkS3Key()==null?null:finalS3Key+".body.png")
                 .photoFrame(actual.photoFrame() == null ? null : new JarPhotoFrame(actual.photoFrame()))
                 .build();
         designRepository.save(design);
@@ -134,7 +135,8 @@ public class JarDesignFinalizePersistenceService {
         requireSlot(draft);
         if (selectedType == JarDraftDesignType.ORIGINAL) {
             return new FinalizeTarget(JarDraftDesignType.ORIGINAL, draft.getOriginalS3Key(), null,
-                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()), draft.getBodyStyle() == JarBodyStyle.CUSTOM ? draft.getCustomBody() : null);
+                    draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()), draft.getBodyStyle() == JarBodyStyle.CUSTOM ? draft.getCustomBody() : null,
+                    draft.getBodyStyle()==JarBodyStyle.CUSTOM?draft.getBodyArtworkS3Key():null);
         }
 
         Long generationId = draft.getSelectedGenerationId();
@@ -147,7 +149,8 @@ public class JarDesignFinalizePersistenceService {
             throw new ApiException(AiDraftErrorCode.AI_GENERATION_FINALIZE_NOT_SELECTABLE);
         }
         return new FinalizeTarget(JarDraftDesignType.AI, generation.getGeneratedS3Key(), generation.getGenerationId(),
-                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()), draft.getBodyStyle() == JarBodyStyle.CUSTOM ? draft.getCustomBody() : null);
+                draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()), draft.getBodyStyle() == JarBodyStyle.CUSTOM ? draft.getCustomBody() : null,
+                draft.getBodyStyle()==JarBodyStyle.CUSTOM?draft.getBodyArtworkS3Key():null);
     }
 
     private void requireSlot(JarDesignDraft draft) {
@@ -176,9 +179,16 @@ public class JarDesignFinalizePersistenceService {
     public record FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,
                                  BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
                                  String cutoutPathJson, JarSlotStyle slotStyle, JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame,
-                                 shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+                                 shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,String bodyArtworkS3Key) {
         public FinalizeTarget {
             slotStyle = JarSlotStyle.orDefault(slotStyle);
+        }
+
+        public FinalizeTarget(JarDraftDesignType designType,String sourceS3Key,Long generationId,
+                              BigDecimal slotCenterX,BigDecimal slotCenterY,BigDecimal slotSizeRatio,String cutoutPathJson,
+                              JarSlotStyle slotStyle,JarBodyStyle bodyStyle,JarPhotoFrameValue photoFrame,
+                              shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+            this(designType,sourceS3Key,generationId,slotCenterX,slotCenterY,slotSizeRatio,cutoutPathJson,slotStyle,bodyStyle,photoFrame,customBody,null);
         }
 
         public FinalizeTarget(JarDraftDesignType designType, String sourceS3Key, Long generationId,

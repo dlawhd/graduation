@@ -40,6 +40,31 @@ class JarDesignDraftUploadServiceTest {
     @Mock private S3Properties s3Properties;
     @InjectMocks private JarDesignDraftUploadService uploadService;
 
+    @Test void borderIsModeratedAndStoredSeparatelyAndBothObjectsAreCompensatedOnDbFailure() throws Exception {
+        byte[] border=JarBodyArtworkImageValidatorTest.png(480,true);
+        var original=new MockMultipartFile("image","photo.jpg","image/jpeg",new byte[]{1,2,3});
+        when(userRepository.existsById(1L)).thenReturn(true);when(s3Properties.getBucket()).thenReturn("private-bucket");
+        when(imageValidator.normalizeWithContentFrame(any(byte[].class)))
+            .thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{7},null))
+            .thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{8},null));
+        when(persistenceService.createDraft(eq(1L),anyString(),eq(JarBodyStyle.CUSTOM),isNull(),eq(CustomJarBodyTest.outline()),anyString()))
+            .thenThrow(new IllegalStateException("DB failed"));
+        assertThatThrownBy(()->uploadService.uploadOriginalAndCreateDraft(1L,original,JarBodyStyle.CUSTOM,CustomJarBodyTest.outline(),JarBodyArtworkImageValidatorTest.file(border)))
+            .isInstanceOf(IllegalStateException.class);
+        verify(moderationService).verifyAllowed(new byte[]{7});verify(moderationService).verifyAllowed(new byte[]{8});
+        var puts=ArgumentCaptor.forClass(PutObjectRequest.class);verify(s3Client,times(2)).putObject(puts.capture(),any(RequestBody.class));
+        var keys=puts.getAllValues();assertThat(keys.get(1).key()).isEqualTo(keys.get(0).key()+".body.png");
+        var deletes=ArgumentCaptor.forClass(DeleteObjectRequest.class);verify(s3Client,times(2)).deleteObject(deletes.capture());
+        assertThat(deletes.getAllValues().stream().map(DeleteObjectRequest::key)).containsExactlyInAnyOrder(keys.get(0).key(),keys.get(1).key());
+    }
+
+    @Test void invalidBorderStopsBeforeModerationStorageOrDbWrite() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        assertThatThrownBy(()->uploadService.uploadOriginalAndCreateDraft(1L,null,JarBodyStyle.CUSTOM,CustomJarBodyTest.outline(),
+            JarBodyArtworkImageValidatorTest.file(new byte[]{1}))).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verifyNoInteractions(imageValidator,moderationService,s3Client,persistenceService);
+    }
+
     @Test
     void uploadOriginalAndCreateDraft_savesOnlyAfterValidationAndModeration() {
         MockMultipartFile image = new MockMultipartFile("image", "ignored.jpg", "image/jpeg", new byte[]{1, 2, 3});

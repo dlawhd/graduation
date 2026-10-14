@@ -54,6 +54,10 @@ public class JarDesign {
     @Column(name = "final_s3_key", nullable = false, length = 512)
     private String finalS3Key;
 
+    /** 임시 Draft 정리와 무관하게 보존하는 영구 테두리 PNG다. */
+    @Column(name="body_artwork_s3_key",length=512,updatable=false)
+    private String bodyArtworkS3Key;
+
     /** 확정한 본체는 이미지와 별도 보관해 모든 Jar 화면이 같은 모양을 사용한다. */
     @Enumerated(EnumType.STRING)
     @Column(name = "body_style", length = 30, updatable = false)
@@ -91,7 +95,7 @@ public class JarDesign {
     private JarDesign(Jar jar, JarDesignType designType, String finalS3Key,
                       JarAiGeneration selectedGeneration, BigDecimal slotCenterX,
                       BigDecimal slotCenterY, BigDecimal slotSizeRatio, JarSlotStyle slotStyle, JarBodyStyle bodyStyle,
-                      JarPhotoFrame photoFrame, shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+                      JarPhotoFrame photoFrame, shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody, String bodyArtworkS3Key) {
         this.jar = jar;
         this.designType = designType;
         this.finalS3Key = finalS3Key;
@@ -103,5 +107,6 @@ public class JarDesign {
         this.bodyStyle = bodyStyle;
         this.photoFrame = photoFrame;
         this.customBody = customBody;
+        this.bodyArtworkS3Key=bodyArtworkS3Key;
     }
 }

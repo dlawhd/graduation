@@ -152,11 +152,14 @@ public class JarDesignDraftController {
             @RequestParam("image") MultipartFile image,
             @RequestParam(value = "bodyStyle", required = false) JarBodyStyle bodyStyle,
             @org.springframework.web.bind.annotation.RequestPart(value = "customBody", required = false)
-            @Valid shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody
+            @Valid shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,
+            @RequestParam(value="bodyArtwork",required=false) MultipartFile bodyArtwork
     ) {
         Long currentUserId = extractCurrentUserId(authentication);
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
-        JarDesignDraftCreateResponse response = customBody == null
+        JarDesignDraftCreateResponse response = bodyArtwork!=null
+                ? uploadService.uploadOriginalAndCreateDraft(currentUserId,image,bodyStyle,customBody,bodyArtwork)
+                : customBody == null
                 ? uploadService.uploadOriginalAndCreateDraft(currentUserId, image, bodyStyle)
                 : uploadService.uploadOriginalAndCreateDraft(currentUserId, image, bodyStyle, customBody);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(response));

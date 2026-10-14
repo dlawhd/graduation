@@ -25,6 +25,21 @@ import static org.mockito.Mockito.*;
 /** timeout·종료 Draft 정리가 S3 삭제 성공 뒤에만 DB 완료 시각을 남기는지 검증한다. */
 @ExtendWith(MockitoExtension.class)
 class AiDraftCleanupServiceTest {
+    @Test void borderDeletionFailureRetriesBothAssetsAndMarksCompletionOnlyAfterSuccess() {
+        var original=mock(JarDesignDraftRepository.DraftS3Reference.class);
+        when(original.getDraftId()).thenReturn(10L);when(original.getOriginalS3Key()).thenReturn("original.png");
+        when(original.getBodyArtworkS3Key()).thenReturn("original.png.body.png");
+        when(persistenceService.findTerminalOriginalReferences(any(),anyInt())).thenReturn(List.of(original));
+        when(s3Client.deleteObject(argThat((DeleteObjectRequest r)->r.key().endsWith(".body.png"))))
+            .thenThrow(S3Exception.builder().statusCode(503).build())
+            .thenReturn(software.amazon.awssdk.services.s3.model.DeleteObjectResponse.builder().build());
+        assertThat(service().runCleanup().originalsDeleted()).isZero();
+        verify(persistenceService,never()).markOriginalS3Deleted(any(),any(),any());
+        verify(s3Client,never()).deleteObject(argThat((DeleteObjectRequest r)->r.key().equals("original.png")));
+        when(persistenceService.markOriginalS3Deleted(eq(10L),eq("original.png"),any())).thenReturn(true);
+        assertThat(service().runCleanup().originalsDeleted()).isEqualTo(1);
+        verify(persistenceService).markOriginalS3Deleted(eq(10L),eq("original.png"),any());
+    }
 
     @Mock private AiDraftCleanupPersistenceService persistenceService;
     @Mock private S3Client s3Client;

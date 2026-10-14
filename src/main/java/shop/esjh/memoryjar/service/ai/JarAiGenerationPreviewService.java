@@ -36,7 +36,7 @@ public class JarAiGenerationPreviewService {
     /** OWNER·ACTIVE·성공 후보를 모두 확인한 다음에만 브라우저용 읽기 URL을 만든다. */
     @Transactional(readOnly = true)
     public JarAiGenerationPreviewResponse createPreviewUrl(Long userId, Long draftId, Long generationId) {
-        findOwnedActiveDraft(userId, draftId);
+        JarDesignDraft draft=findOwnedActiveDraft(userId,draftId);
 
         JarAiGeneration generation = generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
                 .orElseThrow(() -> new ApiException(AiDraftErrorCode.AI_GENERATION_NOT_FOUND));
@@ -44,14 +44,18 @@ public class JarAiGenerationPreviewService {
             throw new ApiException(AiDraftErrorCode.AI_GENERATION_NOT_SELECTABLE);
         }
 
-        return presignPreviewUrl(generation.getGeneratedS3Key());
+        var candidate=presignPreviewUrl(generation.getGeneratedS3Key());
+        return new JarAiGenerationPreviewResponse(candidate.previewUrl(),candidate.expiresAt(),
+                draft.getBodyArtworkS3Key()==null?null:presignPreviewUrl(draft.getBodyArtworkS3Key()).previewUrl());
     }
 
     /** ORIGINAL 선택 카드도 같은 OWNER·ACTIVE·Private S3 규칙으로 짧은 읽기 URL을 발급한다. */
     @Transactional(readOnly = true)
     public JarAiGenerationPreviewResponse createOriginalPreviewUrl(Long userId, Long draftId) {
         JarDesignDraft draft = findOwnedActiveDraft(userId, draftId);
-        return presignPreviewUrl(draft.getOriginalS3Key());
+        var original=presignPreviewUrl(draft.getOriginalS3Key());
+        return new JarAiGenerationPreviewResponse(original.previewUrl(),original.expiresAt(),
+                draft.getBodyArtworkS3Key()==null?null:presignPreviewUrl(draft.getBodyArtworkS3Key()).previewUrl());
     }
 
     private JarDesignDraft findOwnedActiveDraft(Long userId, Long draftId) {

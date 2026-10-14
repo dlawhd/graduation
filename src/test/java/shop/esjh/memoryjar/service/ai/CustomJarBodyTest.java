@@ -13,6 +13,20 @@ import static org.mockito.Mockito.*;
 
 /** 직접 만든 틀의 입력 제한, 안전한 JSON 저장, 후보 변경 시 보존과 외부 호출 전 거절을 검증한다. */
 class CustomJarBodyTest {
+    @Test void photoContoursAreDeepCopiedValidatedAndStoredWithoutUrls() {
+        var inner=new java.util.ArrayList<>(List.of(new Point(.25,.25),new Point(.75,.25),new Point(.75,.75),new Point(.25,.75)));
+        var contours=new java.util.ArrayList<List<Point>>();contours.add(inner);
+        var value=new CustomJarBodyValue(outline().points(),outline().color(),contours);
+        inner.clear();contours.clear();
+        assertThat(value.isUsableOutline()).isTrue();
+        var converter=new CustomJarBodyConverter();var json=converter.convertToDatabaseColumn(value);
+        assertThat(json).contains("photoContours").doesNotContain("artworkUrl","s3Key");
+        assertThat(converter.convertToEntityAttribute(json)).isEqualTo(value);
+        assertThatThrownBy(()->value.photoContours().get(0).clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThat(converter.convertToDatabaseColumn(outline())).doesNotContain("photoContours");
+        assertThat(new CustomJarBodyValue(outline().points(),outline().color(),List.of(outline().points())).isUsableOutline()).isFalse();
+        assertThat(new CustomJarBodyValue(outline().points(),outline().color(),List.of(value.photoContours().get(0),value.photoContours().get(0))).isUsableOutline()).isFalse();
+    }
     static CustomJarBodyValue outline() { return new CustomJarBodyValue(List.of(new Point(.15,.15),new Point(.85,.15),new Point(.85,.85),new Point(.15,.85)),"#d7e9df"); }
     @Test void validOutlinePassesBeanValidationAndConverterRoundTrip() {
         var value=outline();

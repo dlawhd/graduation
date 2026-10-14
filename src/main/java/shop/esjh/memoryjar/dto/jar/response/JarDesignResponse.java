@@ -24,8 +24,16 @@ public record JarDesignResponse(
         JarSlotStyle slotStyle,
         JarBodyStyle bodyStyle,
         JarPhotoFrameValue photoFrame,
-        shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody
+        shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,
+        String bodyArtworkUrl
 ) {
+    /** 기존 단색 디자인 호출은 테두리 이미지 없이 유지한다. */
+    public JarDesignResponse(JarDesignType designType,String imageUrl,OffsetDateTime imageExpiresAt,
+                            BigDecimal slotCenterX,BigDecimal slotCenterY,BigDecimal slotSizeRatio,JarAiStyle aiStyle,
+                            JarSlotStyle slotStyle,JarBodyStyle bodyStyle,JarPhotoFrameValue photoFrame,
+                            shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+        this(designType,imageUrl,imageExpiresAt,slotCenterX,slotCenterY,slotSizeRatio,aiStyle,slotStyle,bodyStyle,photoFrame,customBody,null);
+    }
     public JarDesignResponse(JarDesignType designType, String imageUrl, OffsetDateTime imageExpiresAt,
                              BigDecimal slotCenterX, BigDecimal slotCenterY, BigDecimal slotSizeRatio,
                              JarAiStyle aiStyle, JarSlotStyle slotStyle, JarBodyStyle bodyStyle, JarPhotoFrameValue photoFrame) {

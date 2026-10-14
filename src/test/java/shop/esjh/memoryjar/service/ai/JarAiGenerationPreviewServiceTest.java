@@ -32,6 +32,22 @@ class JarAiGenerationPreviewServiceTest {
     @Mock private S3Presigner s3Presigner;
     @Mock private S3Properties s3Properties;
 
+    @Test void ownerGetsOriginalAndBorderReadUrlsWithSameExpiryWithoutAdditionalDraftQuery() throws Exception {
+        var draft=mock(JarDesignDraft.class);var signed=mock(PresignedGetObjectRequest.class);
+        when(draftRepository.findById(10L)).thenReturn(Optional.of(draft));when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);when(draft.getOriginalS3Key()).thenReturn("original.png");
+        when(draft.getBodyArtworkS3Key()).thenReturn("original.png.body.png");
+        when(s3Properties.getBucket()).thenReturn("private-bucket");when(s3Properties.getPresignExpSeconds()).thenReturn(300);
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(signed);
+        when(signed.url()).thenReturn(new URL("https://signed.example.test/photo"),new URL("https://signed.example.test/border"));
+        var response=service().createOriginalPreviewUrl(1L,10L);
+        assertThat(response.previewUrl()).isEqualTo("https://signed.example.test/photo");
+        assertThat(response.bodyArtworkUrl()).isEqualTo("https://signed.example.test/border");
+        verify(draftRepository).findById(10L);
+        var requests=ArgumentCaptor.forClass(GetObjectPresignRequest.class);verify(s3Presigner,times(2)).presignGetObject(requests.capture());
+        assertThat(requests.getAllValues()).allSatisfy(r->assertThat(r.signatureDuration().getSeconds()).isEqualTo(300));
+    }
+
     @Test
     void createPreviewUrl_issuesShortLivedGetUrlWithoutExposingKeyInDto() throws Exception {
         JarDesignDraft draft = mock(JarDesignDraft.class);

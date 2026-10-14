@@ -62,10 +62,12 @@ public class JarDesignFinalizeService {
         String finalS3Key = finalS3KeyFactory.createKey(userId, draftId);
         writeToPermanentS3(target.sourceS3Key(), finalS3Key, cutoutPathCodec.decodeRegions(target.cutoutPathJson()));
         try {
+            if(target.bodyArtworkS3Key()!=null) writeToPermanentS3(target.bodyArtworkS3Key(),finalS3Key+".body.png",List.of());
             return persistenceService.finalizeCustom(userId, draftId, request, target, finalS3Key);
         } catch (RuntimeException exception) {
             // DB 확정 실패 시 이 요청만 만든 UUID 복사본을 지운다. 기존 임시 원본·후보는 건드리지 않는다.
             deleteCopiedFinalQuietly(finalS3Key);
+            if(target.bodyArtworkS3Key()!=null) deleteCopiedFinalQuietly(finalS3Key+".body.png");
             throw exception;
         }
     }

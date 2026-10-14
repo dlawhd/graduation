@@ -69,29 +69,44 @@ public class JarDesignDraftUploadService {
     /** 틀은 외부 심사/S3 호출 전에 검증하며 사진이나 AI 입력에 합성하지 않는다. */
     public JarDesignDraftCreateResponse uploadOriginalAndCreateDraft(Long userId, MultipartFile image, JarBodyStyle bodyStyle,
                                                                   shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody) {
+        return uploadOriginalAndCreateDraft(userId,image,bodyStyle,customBody,null);
+    }
+
+    /** 테두리 PNG는 별도 심사/비공개 저장하며 AI 입력 사진과 합치지 않는다. 구 요청은 파일 없이도 동작한다. */
+    public JarDesignDraftCreateResponse uploadOriginalAndCreateDraft(Long userId,MultipartFile image,JarBodyStyle bodyStyle,
+            shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,MultipartFile bodyArtwork) {
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
+        if(bodyArtwork!=null && (bodyStyle!=JarBodyStyle.CUSTOM||customBody==null))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"테두리 그림은 직접 만든 틀에서만 사용할 수 있습니다.");
         // 존재하지 않는 사용자의 요청으로 외부 심사·S3 비용이 발생하지 않게 먼저 확인한다.
         if (!userRepository.existsById(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
         }
 
+        byte[] border=bodyArtwork==null?null:JarBodyArtworkImageValidator.normalize(bodyArtwork);
         byte[] uploadedBytes = readImageBytes(image);
         // 실제 바이트 검증과 480×480 PNG 정규화를 먼저 마쳐 심사·S3·AI 입력이 모두 같은 파일을 사용한다.
         DraftOriginalImageValidator.NormalizedOriginal normalized = imageValidator.normalizeWithContentFrame(uploadedBytes);
         byte[] normalizedPngBytes = normalized.pngBytes();
         moderationService.verifyAllowed(normalizedPngBytes);
+        if(border!=null) moderationService.verifyAllowed(imageValidator.normalizeWithContentFrame(border).pngBytes());
 
         String originalS3Key = createImmutableOriginalS3Key();
         putPrivateOriginal(originalS3Key, normalizedPngBytes);
+        String borderKey=border==null?null:originalS3Key+".body.png";
 
         try {
-            JarDesignDraft draft = customBody == null
+            if(border!=null) putPrivateOriginal(borderKey,border);
+            JarDesignDraft draft = borderKey!=null
+                    ? persistenceService.createDraft(userId,originalS3Key,bodyStyle,normalized.contentFrame(),customBody,borderKey)
+                    : customBody == null
                     ? persistenceService.createDraft(userId, originalS3Key, bodyStyle, normalized.contentFrame())
                     : persistenceService.createDraft(userId, originalS3Key, bodyStyle, normalized.contentFrame(), customBody);
             return new JarDesignDraftCreateResponse(draft.getDraftId(), draft.getExpiresAt());
         } catch (RuntimeException exception) {
             // S3 저장만 성공하고 DB Draft 생성이 실패하면 이 요청의 고유 객체만 보상 삭제한다.
             deleteOriginalAfterPersistenceFailure(originalS3Key);
+            if(borderKey!=null) deleteOriginalAfterPersistenceFailure(borderKey);
             throw exception;
         }
     }
