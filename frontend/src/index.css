@@ -1,6 +1,7 @@
 /* src/index.css */
 /* ✅ Tailwind 전체 스타일 불러오기 */
 @import "tailwindcss";
+@import "./interactionFeedback.css";
 
 /* ✅ 화면 전체 기본 배경/글꼴을 살짝 정리 */
 html,

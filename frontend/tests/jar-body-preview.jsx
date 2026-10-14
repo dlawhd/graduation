@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, Link } from "react-router-dom";
 import "../src/index.css";
 import JarDesignNewPage from "../src/pages/JarDesignNewPage";
 import JarsNewPage from "../src/pages/JarsNewPage";
+import JarsPage from "../src/pages/JarsPage";
 import { OnboardingProvider } from "../src/features/onboarding/OnboardingProvider";
 import { prepareSourceUpload } from "../src/features/jarDesign/sourceUpload.mjs";
 import JarCustomDesignVisual from "../src/features/jarDetail/components/JarCustomDesignVisual";
@@ -52,6 +53,9 @@ apiClient.defaults.adapter = async (config) => {
   if (url.endsWith("/composition") && saveFailsOnce) { saveFailsOnce = false; throw new Error("로컬 저장 실패 검증: 편집은 보존돼요."); }
   if (url.endsWith("/generations") && generationFailsOnce) { generationFailsOnce = false; throw new Error("로컬 AI 요청 실패 검증"); }
   if (url.endsWith("/csrf")) data = { token: "local-fixture", headerName: "X-XSRF-TOKEN" };
+  // 실제 계정 조회 없이 목록 바탕과 서로 다른 카드 테마를 함께 확인한다.
+  else if (url === "/api/v1/jars" && method === "get") data = { items:["SUMMER","SPRING"].map((theme,index)=>({jarId:900+index,name:index?"봄날의 기록":"여름의 추억",description:"로컬 배경색 검증용 저금통",theme,myRole:"방장",memberCount:1,maxMembers:2,openAt:"2026-11-13T12:00:00",isOpen:false})),page:0,totalPages:1,totalElements:2 };
+  else if (url === "/api/v1/me" && method === "get") data={userId:1};
   else if (url === "/api/v1/design-drafts" && method === "post") {
     if(uploadFailsOnce) {uploadFailsOnce=false;const error=new Error("Network Error");error.code="ERR_NETWORK";throw error;}
     const uploaded=input.get("image");uploadProbe={...(uploadProbe || {}),sentBytes:uploaded.size,sentType:uploaded.type,timeout:config.timeout};
@@ -72,7 +76,7 @@ apiClient.defaults.adapter = async (config) => {
   else if (url.endsWith("/generations")) draft = { ...draft, generations: [...draft.generations, { generationId: draft.generations.length + 1, style: input.style, status: "SUCCEEDED" }] };
   else if (url.endsWith("/finalize")) { finalForm = input; data = { jarId: 999 }; }
   else if (url === "/api/v1/design-drafts/999") data = { ...draft };
-  else if (url === "/api/v1/me/onboarding") data={version:1,items:["WELCOME","JAR_CREATE"].map(tutorialKey=>({tutorialKey,handled:true,status:"COMPLETED"}))};
+  else if (url === "/api/v1/me/onboarding") data={version:1,items:["WELCOME","JAR_CREATE","JAR_LIST"].map(tutorialKey=>({tutorialKey,handled:true,status:"COMPLETED"}))};
   else throw new Error(`검증하지 않은 요청 차단: ${method} ${url}`);
   return { data: { data }, status: 200, statusText: "OK", headers: {}, config };
 };
@@ -189,6 +193,7 @@ if (import.meta.hot) import.meta.hot.data.root = previewRoot;
 function FixtureApp() {
   const [version,setVersion] = useState(0);
   const [uploadResult,setUploadResult]=useState("");
+  const [canvasProbe,setCanvasProbe]=useState("");
   const [allowDiscard,setAllowDiscard]=useState(false);
   const [confirmation,setConfirmation]=useState({count:0,message:""});
   // 브라우저 네이티브 창에 의존하지 않고 경고 발생과 취소/확인 분기를 로컬에서 재현한다.
@@ -235,8 +240,17 @@ function FixtureApp() {
   return <><div className="flex flex-wrap gap-2 bg-amber-50 p-3 text-xs"><button onClick={() => reset("landscape")} className="min-h-11 rounded-xl bg-white px-3">가로 사진 배치 검증</button><button onClick={() => reset("square")} className="min-h-11 rounded-xl bg-white px-3">정사각 그림 배치 검증</button><button onClick={() => { saveFailsOnce=true; }} className="min-h-11 rounded-xl bg-white px-3">다음 저장 실패 검증</button><button onClick={()=>void syntheticUpload()}>대용량 JPEG 입력 검증</button><button onClick={()=>void syntheticUpload("image/png")}>투명 PNG 입력 검증</button><button onClick={()=>{uploadFailsOnce=true;}}>다음 전송 Network Error</button><p data-upload-probe className="w-full min-w-0 break-all">{uploadResult}</p>
     <button className="min-h-11 rounded-xl bg-white px-3" onClick={()=>{sessionStorage.setItem(BODY_DRAFT_KEY,JSON.stringify(multicolorBodyFixture(true)));window.location.reload();}}>다색 틀 저장 흐름 검증</button>
     <button className="min-h-11 rounded-xl bg-white px-3" onClick={()=>setUploadResult(JSON.stringify(uploadProbe))}>전송 결과 확인</button>
+    <button className="min-h-11 rounded-xl bg-white px-3" onClick={()=>{
+      // 도형 선택만으로 원본 픽셀이 바뀌지 않았는지 로컬 UI에서 비교한다. 외부 전송은 없다.
+      const canvas=[...document.querySelectorAll('canvas[aria-label="저금통 틀 캔버스"], canvas[aria-label="저금통 디자인 캔버스"]')].find(element=>element.getBoundingClientRect().width>0);
+      if (!canvas) { setCanvasProbe("캔버스 없음"); return; }
+      const pixels=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data;
+      let hash=2166136261;
+      for(const byte of pixels) hash=Math.imul(hash^byte,16777619)>>>0;
+      setCanvasProbe(`픽셀 확인: ${hash.toString(16)}`);
+    }}>그림판 픽셀 확인</button><output data-canvas-probe>{canvasProbe}</output>
     {confirmationFixture && <><label><input type="checkbox" checked={allowDiscard} onChange={event=>setAllowDiscard(event.target.checked)}/>편집 버리기 확인 응답</label><button onClick={()=>{generationFailsOnce=true;}}>다음 AI 요청 실패 검증</button><p role="status" data-edit-confirmation className="w-full">편집 확인 횟수: {confirmation.count}{confirmation.message && ` / ${confirmation.message}`}</p></>}
   </div>
-  <MemoryRouter key={version} initialEntries={[version || landscapeFixture || storedSlotFixture ? "/?draft=999" : "/"]}><OnboardingProvider userId={1} checkingAuth={false}><StompClientProvider><header className="flex flex-wrap justify-between gap-3 bg-white px-6 py-4 text-sm font-bold text-emerald-800"><Link to="/">MEMORY JAR · 로컬 검증 (서버 요청 없음)</Link><nav className="flex flex-wrap gap-4"><Link to="/contact-sheet">{JAR_BODIES.length}종 한눈에</Link><Link to="/slot-sheet">입구 {SLOT_CATALOG.length}종</Link><Link to="/?draft=999">후보·편집 검증</Link></nav></header><Routes><Route path="/jars/new" element={<JarsNewPage/>}/><Route path="/jars/999" element={<Result/>}/><Route path="/contact-sheet" element={<ContactSheet/>}/><Route path="/slot-sheet" element={<SlotSheet/>}/><Route path="*" element={<JarDesignNewPage/>}/></Routes></StompClientProvider></OnboardingProvider></MemoryRouter></>;
+  <MemoryRouter key={version} initialEntries={[version || landscapeFixture || storedSlotFixture ? "/?draft=999" : "/"]}><OnboardingProvider userId={1} checkingAuth={false}><StompClientProvider><header className="flex flex-wrap justify-between gap-3 bg-white px-6 py-4 text-sm font-bold text-emerald-800"><Link to="/">MEMORY JAR · 로컬 검증 (서버 요청 없음)</Link><nav className="flex flex-wrap gap-4"><Link to="/jars">저금통 목록 배경 검증</Link><Link to="/contact-sheet">{JAR_BODIES.length}종 한눈에</Link><Link to="/slot-sheet">입구 {SLOT_CATALOG.length}종</Link><Link to="/?draft=999">후보·편집 검증</Link></nav></header><Routes><Route path="/jars" element={<JarsPage/>}/><Route path="/jars/new" element={<JarsNewPage/>}/><Route path="/jars/999" element={<Result/>}/><Route path="/contact-sheet" element={<ContactSheet/>}/><Route path="/slot-sheet" element={<SlotSheet/>}/><Route path="*" element={<JarDesignNewPage/>}/></Routes></StompClientProvider></OnboardingProvider></MemoryRouter></>;
 }
 previewRoot.render(<FixtureApp/>);

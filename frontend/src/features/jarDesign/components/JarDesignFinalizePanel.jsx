@@ -16,7 +16,6 @@ import {
   createPreviewImageKey,
   resolvePreviewImageState,
 } from "../previewImageState.mjs";
-import JarSlotOverlay from "./JarSlotOverlay";
 import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 import JarDesignImage from "./JarDesignImage";
 
@@ -179,7 +178,7 @@ export default function JarDesignFinalizePanel({
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="최종 미리보기와 저금통 만들기">
       {finalizing && <CreationExperience theme={form.theme} name={form.name}>
-        {isCustom && imageUrl ? <div className="relative h-full w-full"><JarDesignImage bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={imageUrl} alt="만드는 중인 저금통" imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)} />{slot && <JarSlotOverlay slot={slot} />}</div> : null}
+        {isCustom && imageUrl ? <div className="relative h-full w-full"><JarDesignImage bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={imageUrl} alt="만드는 중인 저금통" imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)} slot={slot}/></div> : null}
       </CreationExperience>}
       <div>
         <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700">마지막 단계</div>
@@ -205,7 +204,6 @@ export default function JarDesignFinalizePanel({
                 }}
                 onImageError={() => setFailedImageKey(imageKey)} />
             )}
-            {isCustom && draft.bodyStyle !== "CUSTOM" && previewState === "ready" && slot && <JarSlotOverlay slot={slot} />}
             {isCustom && previewState !== "ready" && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-sm font-semibold leading-6 text-slate-500">
                 {previewState === "loading" ? "최종 이미지를 불러오는 중이에요." : "최종 이미지를 불러오지 못했어요."}

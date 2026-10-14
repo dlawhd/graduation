@@ -82,6 +82,7 @@ class JarDesignViewServiceTest {
         assertThat(response.aiStyle()).isEqualTo(JarAiStyle.PIXEL);
         assertThat(response.imageUrl()).isEqualTo("https://signed.example.test/final");
         assertThat(response.imageExpiresAt()).isNotNull();
+        assertThat(response.imageTextureUrl()).isEqualTo("/api/v1/jars/10/design/texture?part=IMAGE");
         assertThat(response.slotCenterX()).isEqualByComparingTo("0.50000");
         assertThat(response.slotCenterY()).isEqualByComparingTo("0.30000");
         assertThat(response.slotSizeRatio()).isEqualByComparingTo("0.60000");

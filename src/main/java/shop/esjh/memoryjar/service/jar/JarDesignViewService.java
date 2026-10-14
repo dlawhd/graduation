@@ -101,7 +101,9 @@ public class JarDesignViewService {
                 design.getSlotSizeRatio(),
                 design.getSelectedGeneration() == null ? null : design.getSelectedGeneration().getAiStyle(),
                 design.getSlotStyle(),
-                design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame()), design.getCustomBody(),bodyArtworkUrl
+                design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame()), design.getCustomBody(),bodyArtworkUrl,
+                "/api/v1/jars/"+design.getJar().getJarId()+"/design/texture?part=IMAGE",
+                design.getBodyArtworkS3Key()==null?null:"/api/v1/jars/"+design.getJar().getJarId()+"/design/texture?part=BODY"
         );
     }
 

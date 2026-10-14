@@ -993,9 +993,10 @@ export default function JarsPage() {
         }
       />
 
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100">
+      <div className="relative min-h-screen overflow-hidden bg-[#f3f8f5]">
       {/* 페이지 뒤쪽 은은한 배경 빛 */}
-      <div className={`pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b ${primaryPalette.pageGlow}`} />
+      {/* 카드와 제목의 테마 색은 유지하되 페이지 바탕은 첫 저금통의 테마와 무관하게 고정한다. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[#f3f8f5]" />
 
       <div className="relative mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-10">
         {/* 맨 위 제목 영역 */}

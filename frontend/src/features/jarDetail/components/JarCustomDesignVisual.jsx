@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { designImageRendering } from "../../jarDesign/imageRendering.mjs";
-import JarSlotOverlay from "../../jarDesign/components/JarSlotOverlay";
 import { storedSlot } from "../../jarDesign/slotGeometry.mjs";
 import JarDesignImage from "../../jarDesign/components/JarDesignImage";
 
@@ -91,6 +90,8 @@ export default function JarCustomDesignVisual({
       <JarDesignImage
         key={`${design.imageUrl}-${reloadAttempt}`}
         imageUrl={design.imageUrl}
+        imageTextureUrl={design.imageTextureUrl}
+        bodyArtworkTextureUrl={design.bodyArtworkTextureUrl}
         bodyStyle={design.bodyStyle}
         customBody={customBody}
         photoFrame={design.photoFrame}
@@ -102,7 +103,6 @@ export default function JarCustomDesignVisual({
         slot={slot}
         frontViewRequest={frontViewRequest}
       />
-      {slot && !(allow3D && design.bodyStyle === "CUSTOM") && <JarSlotOverlay slot={slot} />}
     </div>
   );
 }

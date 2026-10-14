@@ -3,7 +3,10 @@ import { BRUSHES, BODY_BRUSHES, BRUSH_DESCRIPTIONS, SHAPES, constrainShape, draw
 import { CHARACTER_SHAPES } from "../characterShapes.mjs";
 import BrushSwatch from "./BrushSwatch";
 import StudioIcon from "./StudioIcon";
-import ShapeSwatch from "./ShapeSwatch";
+import CharacterShapePicker from "./CharacterShapePicker";
+import StudioPickerDialog from "./StudioPickerDialog";
+import ShapeSelectionDialog from "./ShapeSelectionDialog";
+import StudioColorDialog from "./StudioColorDialog";
 import { fillPaintedBody, paintedBodyOutline } from "../bodyPainting.mjs";
 import { customJarBody } from "../customJarBody.mjs";
 import { insetBodyContours } from "../bodyContours.mjs";
@@ -21,13 +24,12 @@ const controlClass = "inline-flex min-h-10 items-center justify-center gap-1.5 r
  * 도형은 드래그 중 미리보기하고 완료된 작업만 최대 25단계로 보관한다.
  * BODY 모드는 닫힌 테두리 안쪽을 사진 공간으로 읽고 완료된 작업만 기존 좌표 계약으로 변환한다.
  */
-export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, purpose = "IMAGE", bodyValue, onBodyChange, onWorkingChange }) {
+export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, purpose = "IMAGE", bodyValue, onBodyChange, onWorkingChange, workshopLayout = false, toolboxHeader }) {
   const isBody = purpose === "BODY";
+  const studioLayout = workshopLayout;
   const availableTools = isBody ? TOOLS.slice(0, 4) : TOOLS;
   const availableBrushes = isBody ? BODY_BRUSHES : BRUSHES;
-  const [shapeGroup, setShapeGroup] = useState(isBody ? "FRIENDS" : "BASIC");
   const basicShapes = isBody ? SHAPES.filter(([id]) => id !== "line") : SHAPES;
-  const availableShapes = shapeGroup === "FRIENDS" ? CHARACTER_SHAPES : basicShapes;
   const canvasRef = useRef(null), gestureRef = useRef(null), historyRef = useRef([]), indexRef = useRef(0);
   const exportingRef = useRef(false), selectionRef = useRef(null);
   const restoringBody = useRef(false);
@@ -317,9 +319,9 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
     : { pen: `자유롭게 그려보세요. 펜 버튼을 누르면 ${BRUSHES.length}가지 질감을 고를 수 있어요.`, eraser: "드래그해서 지워요. 굵기로 지우개 크기를 조절하세요.", shapes: "누르고 드래그해 그려요. Shift를 누르면 가로·세로가 같아져요.", fill: "색칠할 닫힌 영역을 누르세요. 현재 펜 색으로 채워요.", eyedropper: "그림에서 가져올 색을 누르세요. 펜으로 자동 전환돼요.", text: "글자를 입력하고 그림 위에서 놓을 곳을 누르세요.", select: "영역을 선택하고 안쪽을 끌어 이동해요. Delete로 삭제, Esc로 선택 해제." }[tool];
   const helpId = isBody ? "body-drawing-help" : "drawing-help";
   return (
-    <section onKeyDown={handleKey} className="overflow-hidden rounded-[24px] border border-violet-100 bg-white shadow-sm" aria-label={isBody ? "저금통 틀 그림판" : "그림판"}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100 bg-gradient-to-r from-violet-50 to-pink-50 p-4">
-        <div><p className="text-[10px] font-black tracking-[.2em] text-violet-500">MEMORY ATELIER</p><h3 className="mt-1 font-black text-slate-800">{isBody ? "내 손으로 만드는 틀 그림판" : "작은 상상이 시작되는 그림판"}</h3></div>
+    <section onKeyDown={handleKey} className={studioLayout ? "body-studio-canvas" : "overflow-hidden rounded-[24px] border border-violet-100 bg-white shadow-sm"} aria-label={isBody ? "저금통 틀 그림판" : "그림판"}>
+      <div className="studio-canvas-heading flex flex-wrap items-center justify-between gap-3 border-b border-violet-100 bg-gradient-to-r from-violet-50 to-pink-50 p-4">
+        <div><p className="text-[10px] font-black tracking-[.2em] text-violet-500">MEMORY ATELIER</p><h3 className="mt-1 font-black text-slate-800">{studioLayout ? "그림판" : isBody ? "내 손으로 만드는 틀 그림판" : "작은 상상이 시작되는 그림판"}</h3></div>
         <div className="flex gap-1.5">
           <button type="button" className={controlClass} title="실행 취소 (Ctrl+Z)" aria-label="실행 취소" disabled={locked || historyState.index === 0} onClick={() => moveHistory(-1)}><StudioIcon name="undo" size={18} /></button>
           <button type="button" className={controlClass} title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행" disabled={locked || historyState.index === historyState.count - 1} onClick={() => moveHistory(1)}><StudioIcon name="redo" size={18} /></button>
@@ -327,21 +329,32 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
           <button type="button" className={controlClass} title="전체 지우기" aria-label="전체 지우기" disabled={locked || !hasDrawing} onClick={clearCanvas}><StudioIcon name="trash" size={18} /></button>
         </div>
       </div>
-      <fieldset disabled={locked} className="border-b border-slate-100 p-3 sm:p-4">
+      <fieldset disabled={locked} className="studio-tools border-b border-slate-100 p-3 sm:p-4">
         <legend className="sr-only">그리기 도구</legend>
-        <div className={"grid grid-cols-4 gap-1.5 " + (isBody ? "" : "sm:grid-cols-7")}>
+        {studioLayout && <>
+          {toolboxHeader}
+          {isBody && <div className="studio-character-section"><CharacterShapePicker tone="mint" selectedShape={tool === "shapes" ? shape : ""} disabled={locked} onSelect={value => {
+            // 캐릭터를 고르면 다음 드래그 도구만 변경한다. 기존 캔버스와 이력은 유지한다.
+            if (locked) return;
+            clearSelection(); setShape(value); setTool("shapes"); setPicker(""); setError("");
+          }}/></div>}
+          <h4 className="mb-3 text-sm font-black text-slate-800">그리기 도구</h4>
+        </>}
+        <div className={"grid gap-1.5 " + (studioLayout && !isBody ? "grid-cols-3" : "grid-cols-4 " + (isBody ? "" : "sm:grid-cols-7"))}>
           {availableTools.map(([value, label]) => <button key={value} type="button" aria-pressed={tool === value} aria-expanded={["pen", "shapes"].includes(value) ? picker === value : undefined} onClick={() => chooseTool(value)} className={"flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl text-xs font-bold transition " + (tool === value ? "bg-violet-600 text-white shadow-md shadow-violet-200" : "bg-slate-50 text-slate-600 hover:bg-violet-50")}><StudioIcon name={value} />{label}{["pen", "shapes"].includes(value) ? " ⌄" : ""}</button>)}
         </div>
-        {picker === "pen" && <div className="mt-3 grid max-h-80 grid-cols-2 gap-2 overflow-y-auto overscroll-contain rounded-2xl border border-violet-100 bg-violet-50/50 p-3 sm:max-h-none sm:grid-cols-3" aria-label="펜 종류">{availableBrushes.map(([value, label]) => <button key={value} type="button" aria-label={label} aria-pressed={brush === value} onClick={() => { setBrush(value); setPicker(""); }} className={controlClass + " flex-col px-1 " + (brush === value ? "ring-2 ring-violet-400" : "")}><BrushSwatch brush={value} color={brushColor} silhouette={isBody} />{label}<span className="text-[10px] font-normal leading-4 text-slate-500">{BRUSH_DESCRIPTIONS[value]}</span></button>)}</div>}
-        {picker === "shapes" && <div className="mt-3 rounded-2xl border border-violet-100 bg-violet-50/50 p-3" aria-label="도형 종류">
-          <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="도형 분류">{[["FRIENDS", `캐릭터 친구들 (${CHARACTER_SHAPES.length})`], ["BASIC", `기본 도형 (${basicShapes.length})`]].map(([value, label]) => <button key={value} type="button" aria-pressed={shapeGroup === value} onClick={() => setShapeGroup(value)} className={controlClass + (shapeGroup === value ? " border-violet-300 bg-violet-100 text-violet-700" : "")}>{label}</button>)}</div>
-          <div className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto overscroll-contain sm:max-h-none sm:grid-cols-6">{availableShapes.map(([value, label]) => <button key={value} type="button" aria-pressed={shape === value} onClick={() => { setShape(value); setPicker(""); }} className={controlClass + " flex-col px-1 " + (shape === value ? "ring-2 ring-violet-400" : "")}><ShapeSwatch shape={value} />{label}</button>)}</div>
-        </div>}
+        {picker === "pen" && <StudioPickerDialog title="어떤 펜으로 그릴까요?" description="펜을 고르면 선택 창이 닫혀요. 이미 그린 획은 바뀌지 않아요." onClose={() => setPicker("")}><div className="grid grid-cols-2 gap-3" role="group" aria-label="전체 펜 종류">{availableBrushes.map(([value, label]) => <button key={value} type="button" disabled={locked} aria-label={label} aria-pressed={brush === value} onClick={() => { if (locked) return; setBrush(value); setPicker(""); }} className={controlClass + " min-h-28 flex-col px-2 " + (brush === value ? "ring-2 ring-emerald-500" : "")}><BrushSwatch brush={value} color={brushColor} silhouette={isBody}/>{label}<span className="text-[11px] font-normal leading-5 text-slate-500">{BRUSH_DESCRIPTIONS[value]}</span></button>)}</div></StudioPickerDialog>}
+        {picker === "shapes" && <ShapeSelectionDialog basicShapes={basicShapes} characters={isBody ? [] : CHARACTER_SHAPES} selectedShape={shape} disabled={locked} tone={studioLayout ? "mint" : "violet"} onClose={() => setPicker("")} onSelect={value => {
+          // 선택은 다음 드래그 도구만 바꾸며, 창을 닫아도 원래 그림과 실행 취소 이력은 유지한다.
+          if (locked) return;
+          setShape(value); setPicker("");
+        }}/>}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-600">{isBody ? "도구 색" : "펜 색"}<input aria-label="사용자 지정 색상" type="color" value={brushColor} onChange={(event) => chooseColor(event.target.value)} className="h-9 w-10 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" /></label>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="색상 팔레트">{COLORS.map((color) => <button key={color} type="button" aria-label={"색상 " + color} aria-pressed={brushColor === color} onClick={() => chooseColor(color)} className={"h-7 w-7 rounded-full border border-slate-300 " + (brushColor === color ? "ring-2 ring-violet-500 ring-offset-2" : "")} style={{ backgroundColor: color }} />)}</div>
+          <span className="text-xs font-bold text-slate-600">{isBody ? "도구 색" : "펜 색"}</span><button type="button" aria-label="사용자 지정 색상" aria-haspopup="dialog" aria-expanded={picker === "color"} onClick={() => setPicker("color")} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600"><span aria-hidden="true" className="h-8 w-10 rounded-lg border border-slate-300" style={{background:brushColor}}/>크게 선택</button>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="색상 팔레트">{COLORS.slice(0, 6).map((color) => <button key={color} type="button" aria-label={"색상 " + color} aria-pressed={brushColor === color} onClick={() => chooseColor(color)} className={"h-7 w-7 rounded-full border border-slate-300 " + (brushColor === color ? "ring-2 ring-violet-500 ring-offset-2" : "")} style={{ backgroundColor: color }} />)}</div>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {picker === "color" && <StudioColorDialog color={brushColor} disabled={locked} onClose={() => setPicker("")} onSelect={color => { if (locked) return; chooseColor(color); setPicker(""); }}/>}
+        <div className={"mt-4 grid gap-3 " + (studioLayout ? "" : "sm:grid-cols-2")}>
           <label className="flex items-center gap-2 text-xs font-bold text-slate-600">굵기<input aria-label="도구 굵기" type="range" min="1" max="64" value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} className="min-w-12 flex-1 accent-violet-600" /><span className="w-9 tabular-nums">{brushSize}px</span></label>
           {!isBody && <label className="flex items-center gap-2 text-xs font-bold text-slate-600">불투명도<input aria-label="불투명도" type="range" min="10" max="100" value={opacity} disabled={tool === "eraser" || tool === "fill"} onChange={(event) => setOpacity(Number(event.target.value))} className="min-w-12 flex-1 accent-violet-600" /><span className="w-9 tabular-nums">{opacity}%</span></label>}
         </div>
@@ -349,7 +362,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
         {tool === "text" && <div className="mt-3 flex flex-wrap gap-2"><input aria-label="그림에 넣을 글자" placeholder="여기에 글자를 입력하세요" maxLength={60} value={textValue} onChange={(e) => setTextValue(e.target.value)} className="min-w-0 flex-1 rounded-xl border border-violet-200 px-3 py-2 text-sm" /><select aria-label="글자 크기" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className={controlClass}>{[16, 24, 32, 48, 64, 80].map((s) => <option key={s} value={s}>{s}px</option>)}</select><button type="button" aria-pressed={fontBold} onClick={() => setFontBold(!fontBold)} className={controlClass}>굵게 {fontBold ? "✓" : ""}</button></div>}
         {tool === "select" && <button type="button" disabled={locked || !selection} onClick={deleteSelection} className={controlClass + " mt-3"}>선택 영역 삭제</button>}
       </fieldset>
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2">
+      <div className="studio-canvas-toolbar flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2">
         <span className="text-xs font-bold text-violet-700">{tool === "pen" ? BRUSHES.find(([v]) => v === brush)?.[1] : tool === "shapes" ? ALL_SHAPES.find(([v]) => v === shape)?.[1] : TOOLS.find(([v]) => v === tool)?.[1]}</span>
         <div className="flex flex-wrap gap-1">
           <button type="button" className={controlClass} aria-label="오른쪽으로 90도 회전" disabled={locked || !hasDrawing} onClick={() => transformCanvas("rotate")}><StudioIcon name="rotate" size={16} /></button>
@@ -358,7 +371,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
           <select aria-label="캔버스 확대" disabled={locked} className={controlClass} value={zoom} onChange={(e) => setZoom(Number(e.target.value))}><option value="1">화면 맞춤</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select>
         </div>
       </div>
-      <div className="max-h-[650px] overflow-auto bg-[#edeaf3] p-3 sm:p-5">
+      <div className="studio-canvas-paper max-h-[650px] overflow-auto bg-[#edeaf3] p-3 sm:p-5">
         <div className="relative mx-auto shadow-md" style={{ width: (zoom * 100) + "%", maxWidth: zoom === 1 ? 560 : undefined, aspectRatio: "1" }}>
           <canvas ref={canvasRef} width={480} height={480} tabIndex={0} onPointerDown={startDrawing} onPointerMove={draw} onPointerUp={(event) => stopDrawing(event)} onPointerCancel={(event) => stopDrawing(event, true)} onLostPointerCapture={(event) => stopDrawing(event, true)}
             className="block h-full w-full touch-none bg-white focus-visible:outline-2 focus-visible:outline-violet-400" style={{ cursor: disabled ? "not-allowed" : tool === "select" ? "move" : "crosshair" }} aria-label={isBody ? "저금통 틀 캔버스" : "저금통 디자인 캔버스"} aria-describedby={helpId} />
@@ -367,11 +380,11 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
           {selection && <div aria-hidden="true" className="pointer-events-none absolute border-2 border-dashed border-violet-600 bg-violet-200/10" style={{ left: (selection.x / 4.8) + "%", top: (selection.y / 4.8) + "%", width: (selection.w / 4.8) + "%", height: (selection.h / 4.8) + "%" }} />}
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+      <div className="studio-canvas-footer flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="max-w-sm"><p id={helpId} className="text-xs leading-5 text-slate-600">{help}</p><p className="mt-1 text-[10px] text-slate-400">{isBody ? "닫힌 테두리로 연결된 틀 / 점선 안쪽에 그려주세요" : "480 × 480 PNG"} · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z</p>{isBody && <p className="mt-1 text-[10px] text-slate-400">그린 테두리의 색과 굵기를 그대로 담아요. 사진은 테두리 안쪽 모양에 맞춰 보여요.</p>}</div>
-        <button type="button" onClick={() => isBody ? onConfirm() : exportDrawing()} disabled={locked || !hasDrawing || (isBody && !customJarBody(bodyValue))} className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">{isBody ? "이 틀 사용하기 →" : exporting ? "그림 변환 중..." : "이 그림 사용하기 →"}</button>
+        {(!studioLayout || !isBody) && <button type="button" onClick={() => isBody ? onConfirm() : exportDrawing()} disabled={locked || !hasDrawing || (isBody && !customJarBody(bodyValue))} className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">{isBody ? "이 틀 사용하기 →" : exporting ? "그림 변환 중..." : "이 그림 사용하기 →"}</button>}
       </div>
-      {error && <p role="alert" className="px-4 pb-4 text-sm text-rose-600">{error}</p>}
+      {error && <p role="alert" className="studio-canvas-error px-4 pb-4 text-sm text-rose-600">{error}</p>}
     </section>
   );
 }

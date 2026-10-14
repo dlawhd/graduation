@@ -3,6 +3,7 @@ import { basicBodyOutline, customJarBody, MAX_BODY_POINTS, outlineError } from "
 import CustomJarBodyArtwork from "./CustomJarBodyArtwork";
 import JarDesignCanvas from "./JarDesignCanvas";
 import CustomJarBodyViewer from "./CustomJarBodyViewer";
+import "../bodyWorkshop.css";
 
 /** 틀의 외곽선을 자유롭게 그리거나 점으로 편집한다. 사진 그림판과 분리하여 AI가 틀을 바꾸지 않게 한다. */
 export default function JarBodyWorkshop({ value, onChange, onContinue, onOpenCatalog, onImageOnly, disabled=false, previewUrl="" }) {
@@ -70,17 +71,18 @@ export default function JarBodyWorkshop({ value, onChange, onContinue, onOpenCat
     setAdvanced(v => !v);
   }
   const path=outline.points.length ? "M"+outline.points.map(p=>`${p.x*480} ${p.y*480}`).join("L")+(outline.points.length>2?"Z":"") : "";
-  return <section aria-label="저금통 틀 공방" className="mt-7 rounded-[28px] border border-stone-200 bg-[#fffdf9] p-4 sm:p-7">
-    <p className="text-[10px] font-bold tracking-[.22em] text-emerald-700">A SHAPE THAT IS YOURS</p>
-    <h2 className="mt-2 break-keep text-2xl font-black text-stone-800">우선 저금통 틀부터 만들어볼까요?</h2>
-    <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-500">펜과 도형으로 속이 빈 틀을 만들어보세요. 이후 틀 안쪽에 사진을 넣을 수 있어요. 원하면 채우기로 색을 넣거나 기본 틀에서 시작해도 좋아요.</p>
-    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+  const basicTemplates = <div className="studio-basic-section" role="group" aria-label="꾸밈없는 기본 틀에서 시작하기"><h3 className="mb-3 text-sm font-black text-slate-800">기본 틀</h3><div className="grid grid-cols-3 gap-2">{[["ROUND","둥근 틀"],["JAR","병 모양 틀"],["SQUARE","네모 틀"]].map(([kind,label])=><button key={kind} type="button" disabled={locked} onClick={()=>useBasic(kind)} className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-1 text-xs font-bold text-slate-600">
+    <svg viewBox="0 0 48 48" width="36" height="36" aria-hidden="true"><path d={"M"+basicBodyOutline(kind).points.map(p=>`${p.x*48} ${p.y*48}`).join("L")+"Z"} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>{label}
+  </button>)}</div><p className="mt-2 text-[11px] leading-5 text-slate-500">기본 틀은 지금 모양을 바꿔요. 실행 취소로 되돌릴 수 있어요.</p></div>;
+  return <section aria-label="저금통 틀 공방" className="body-workshop mt-6">
+    <h2 className="sr-only">저금통 틀 만들기 작업 공간</h2>
+    <div className="studio-workspace">
       <div className="min-w-0">
-        <fieldset disabled={locked} className="mb-4 rounded-2xl bg-stone-50 p-4"><legend className="px-2 text-sm font-bold text-stone-700">꾸밈없는 기본 틀에서 시작하기</legend><div className="flex flex-wrap gap-2">{[["ROUND","둥근 틀"],["JAR","병 모양 틀"],["SQUARE","네모 틀"]].map(([kind,label])=><button key={kind} type="button" onClick={()=>useBasic(kind)} className="min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-stone-600">{label}</button>)}</div></fieldset>
         {/* 기존 사진 그림판을 재사용하되 픽셀 원본과 틀 좌표는 별도로 보관한다. 편집 전환 중에도 획을 유지한다. */}
-        <div hidden={advanced}><JarDesignCanvas purpose="BODY" bodyValue={value} onBodyChange={onChange} onWorkingChange={setWorking} disabled={disabled || advanced} onConfirm={onContinue}/></div>
+        <div hidden={advanced}><JarDesignCanvas purpose="BODY" workshopLayout toolboxHeader={basicTemplates} bodyValue={value} onBodyChange={onChange} onWorkingChange={setWorking} disabled={disabled || advanced} onConfirm={onContinue}/></div>
         <button type="button" disabled={locked} aria-expanded={advanced} aria-controls="body-outline-editor" onClick={toggleAdvanced} className="mt-4 min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-xs font-bold text-stone-600">{advanced?"← 그림판으로 돌아가기":"외곽선을 점으로 세밀하게 다듬기"}</button>
         <div id="body-outline-editor" hidden={!advanced} className="mt-4">
+        {basicTemplates}
         <div role="group" aria-label="틀 그리기 도구" className="mb-3 flex flex-wrap gap-2">{[["DRAW","자유롭게 그리기"],["POINTS","점을 찍어 만들기"],["EDIT","점 다듬기"]].map(([id,label])=><button type="button" key={id} disabled={disabled} aria-pressed={tool===id} onClick={()=>{gesture.current=null;setTool(id);}} className={`min-h-11 rounded-xl px-4 text-xs font-bold ${tool===id?"bg-emerald-800 text-white":"bg-stone-100 text-stone-600"}`}>{label}</button>)}</div>
         <svg viewBox="0 0 480 480" aria-label="저금통 외곽선 그리기" role="group" onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={()=>{gesture.current=null;setWorking(false);}} onLostPointerCapture={()=>{gesture.current=null;setWorking(false);}} onKeyUp={()=>setWorking(false)} onBlur={()=>setWorking(false)}
           className="aspect-square w-full touch-none rounded-3xl border border-stone-200 bg-white select-none">
@@ -99,8 +101,8 @@ export default function JarBodyWorkshop({ value, onChange, onContinue, onOpenCat
         <p role="status" className={`mt-3 text-xs leading-6 ${body?"text-emerald-800":"text-stone-500"}`}>{body?"좋아요. 이 틀 안에 사진과 그림을 담을 수 있어요.":error}</p>
         </div>
       </div>
-      <aside className="rounded-3xl border border-emerald-100 bg-[#edf3ec] p-5 lg:sticky lg:top-24"><p className="text-xs font-bold text-emerald-800">사진이 담길 틀 미리보기</p><div className="mt-3 aspect-square rounded-2xl bg-white/60">{body?<CustomJarBodyViewer customBody={outline} imageUrl={previewUrl} outlineOnly disabled={locked}><CustomJarBodyArtwork customBody={outline} imageUrl={previewUrl} outlineOnly alt="직접 만든 틀 미리보기"/></CustomJarBodyViewer>:<div className="flex h-full items-center justify-center px-5 text-center text-sm leading-7 text-stone-400">모양을 만들면<br/>여기에 함께 보여요.</div>}</div><p className="mt-3 text-xs leading-6 text-stone-500">{previewUrl?"틀 안에 담긴 사진을 미리 보여드려요. 다음 단계에서 사진 위치와 확대를 조절할 수 있어요.":"지금은 속이 빈 테두리만 보여요. 다음 단계에서 이 안에 사진이나 그림을 담을 수 있어요."}</p><p className="mt-2 text-xs leading-6 text-stone-500">3D로 보기에서는 틀에 두께를 붙여 돌려볼 수 있어요. 사진 속 인물을 입체로 만드는 기능은 아니에요.</p><p role="status" className="mt-2 text-xs leading-6 text-emerald-800">{working?"그리는 중이에요. 손을 떼면 미리보기에 반영돼요.":body?"좋아요. 이 틀로 다음 단계를 시작할 수 있어요.":"모양을 만들거나 기본 틀을 골라주세요."}</p><button type="button" disabled={locked||!body} onClick={onContinue} className="mt-4 min-h-12 w-full rounded-xl bg-emerald-800 px-4 text-sm font-black text-white disabled:opacity-40">이 틀에 그림 담기 →</button></aside>
+      <aside className="studio-preview rounded-2xl border border-slate-200 bg-white p-5"><h3 className="text-base font-black text-slate-800"> 틀 미리보기</h3><div className="mt-4 aspect-square rounded-2xl bg-[#f3f7f5]">{body?<CustomJarBodyViewer customBody={outline} imageUrl={previewUrl} outlineOnly disabled={locked}><CustomJarBodyArtwork customBody={outline} imageUrl={previewUrl} outlineOnly alt="직접 만든 틀 미리보기"/></CustomJarBodyViewer>:<div className="flex h-full items-center justify-center px-5 text-center text-sm leading-7 text-stone-400">모양을 만들면<br/>여기에 함께 보여요.</div>}</div><p className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs leading-6 text-slate-600">{previewUrl?"틀 안에 담긴 사진을 미리 보여드려요. 다음 단계에서 사진 위치와 확대를 조절할 수 있어요.":"사진과 그림은 다음 단계에서 담아요. 지금은 속이 빈 테두리를 만들어요."}</p><details className="mt-3 text-xs leading-6 text-slate-500"><summary className="cursor-pointer font-bold">3D 미리보기 안내</summary><p>틀에 두께를 붙여 돌려볼 수 있어요. 사진 속 인물을 입체로 만드는 기능은 아니에요.</p></details><p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-xs font-bold leading-6 text-emerald-800">{working?"그리는 중이에요. 손을 떼면 미리보기에 반영돼요.":body?"✓ 연결된 틀이에요. 다음 단계로 갈 수 있어요.":"모양을 만들거나 기본 틀을 골라주세요."}</p><button type="button" disabled={locked||!body} onClick={onContinue} className="mt-4 min-h-12 w-full rounded-xl bg-emerald-800 px-4 text-sm font-black text-white disabled:opacity-40">다음: 그림 담기 →</button><div className="mt-4 grid gap-2 border-t border-slate-100 pt-4"><button type="button" disabled={locked} onClick={onOpenCatalog} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600">준비된 저금통에서 고르기</button><button type="button" disabled={locked} onClick={onImageOnly} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600">이미지만 사용하기</button></div></aside>
     </div>
-    <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-5"><p className="text-sm leading-6 text-stone-500">직접 만든 모양이 마음에 들지 않거나 만들기가 어렵나요?</p><div className="flex flex-wrap gap-2"><button type="button" disabled={locked} onClick={onOpenCatalog} className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm font-bold text-stone-700">준비된 저금통에서 고르기</button><button type="button" disabled={locked} onClick={onImageOnly} className="min-h-11 rounded-xl px-4 text-sm font-bold text-stone-500">이미지만 사용하기</button></div></div>
+    <p className="mt-5 text-center text-xs leading-6 text-slate-500">내가 그린 색과 테두리는 그대로, 소중한 추억은 그 안에.</p>
   </section>;
 }

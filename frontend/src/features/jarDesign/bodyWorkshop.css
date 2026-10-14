@@ -1,0 +1,69 @@
+/* 틀과 원본 입력을 같은 작업실로 배치한다. 캔버스는 하나만 유지해 크기 변경에도 그림/이력을 보존한다. */
+.studio-workspace { display: grid; gap: 18px; align-items: start; }
+.studio-intro { display: flex; flex-direction: column; }
+.studio-intro > span { display: none; }
+.studio-intro > ol { order: -1; margin-top: 0; margin-bottom: 14px; }
+.studio-intro > h1 { margin-top: 8px; }
+.studio-intro > p { margin-top: 10px; }
+.body-studio-canvas { display: grid; min-width: 0; gap: 0; }
+.body-studio-canvas > * { min-width: 0; }
+.body-studio-canvas .studio-tools,
+.body-studio-canvas .studio-canvas-heading,
+.body-studio-canvas .studio-canvas-footer { background: white; }
+.body-studio-canvas .studio-tools { border: 1px solid #dfe7e4; border-radius: 18px; padding: 18px; }
+.body-studio-canvas .studio-canvas-heading { border: 1px solid #dfe7e4; border-bottom: 0; border-radius: 18px 18px 0 0; }
+.body-studio-canvas .studio-canvas-heading p { display: none; }
+.body-studio-canvas .studio-canvas-heading h3 { margin-top: 0; }
+.body-studio-canvas .studio-canvas-toolbar { border-inline: 1px solid #dfe7e4; background: #f8fbfa; }
+.body-studio-canvas .studio-canvas-paper { border-inline: 1px solid #dfe7e4; background: white; padding: 18px; }
+.body-studio-canvas .studio-canvas-paper > div { box-shadow: none; border: 1px solid #e7eeeb; border-radius: 12px; overflow: hidden; }
+.body-studio-canvas .studio-canvas-footer { border: 1px solid #dfe7e4; border-top: 0; border-radius: 0 0 18px 18px; }
+.body-studio-canvas .studio-canvas-error { margin-top: 12px; }
+.studio-basic-section, .studio-character-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e7eeeb; }
+.body-studio-canvas [aria-label="대표 캐릭터 모양"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.body-studio-canvas [aria-label="대표 기본 도형 모양"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.body-studio-canvas [aria-label="도형 종류"] > .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.body-studio-canvas [aria-label="펜 종류"] { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 260px; }
+/* 기존 그림판 컴포넌트의 강조색만 이 작업실 안에서 민트로 바꾼다. 팔레트의 실제 색은 건드리지 않는다. */
+.body-studio-canvas .bg-violet-600 { background: #11785f; box-shadow: none; }
+.body-studio-canvas .text-violet-700, .body-studio-canvas .text-violet-500 { color: #11785f; }
+.body-studio-canvas .border-violet-200, .body-studio-canvas .border-violet-100 { border-color: #d8e8e0; }
+.body-studio-canvas .ring-violet-300, .body-studio-canvas .ring-violet-400, .body-studio-canvas .ring-violet-500 { --tw-ring-color: #75b9a0; }
+.body-studio-canvas .accent-violet-600 { accent-color: #11785f; }
+.body-studio-canvas .studio-shape-options { background: #f4f9f6; }
+.body-studio-canvas button:hover:not(:disabled) { border-color: #92bfae; }
+.body-studio-canvas canvas:focus-visible { outline-color: #11785f; }
+.body-studio-canvas canvas + .border-dashed { border-color: #bddacf; }
+dialog[data-character-tone="mint"] button[aria-pressed="true"] { border-color: #75b9a0; --tw-ring-color: #75b9a0; }
+.image-upload-studio { display: grid; gap: 16px; align-items: start; }
+.image-upload-studio > .image-source-options { margin: 0; border: 1px solid #dfe7e4; border-radius: 18px; background: white; padding: 18px; }
+.image-upload-studio .image-upload-notice { margin-top: 0; background: #f8fbf9; }
+.image-upload-studio .image-upload-paper { min-height: 480px; }
+
+@media (min-width: 768px) {
+  .image-upload-studio { grid-template-columns: 260px minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 18px; }
+  .image-upload-studio > .image-source-options { grid-column: 1; grid-row: 1; }
+  .image-upload-studio .image-upload-notice { grid-column: 1; grid-row: 2 / 4; }
+  .image-upload-studio .image-upload-paper { grid-column: 2; grid-row: 1 / 3; }
+  .image-upload-studio .image-upload-status { grid-column: 2; grid-row: 3; }
+  .image-upload-studio .image-upload-error { grid-column: 2; grid-row: 4; }
+  .body-studio-canvas { grid-template-columns: 260px minmax(0, 1fr); grid-template-rows: auto auto auto auto 1fr; column-gap: 18px; align-items: start; }
+  .body-studio-canvas .studio-tools { grid-column: 1; grid-row: 1 / 6; }
+  .body-studio-canvas .studio-canvas-heading { grid-column: 2; grid-row: 1; }
+  .body-studio-canvas .studio-canvas-toolbar { grid-column: 2; grid-row: 2; }
+  .body-studio-canvas .studio-canvas-paper { grid-column: 2; grid-row: 3; }
+  .body-studio-canvas .studio-canvas-footer { grid-column: 2; grid-row: 4; }
+  .body-studio-canvas .studio-canvas-error { grid-column: 2; grid-row: 5; }
+}
+@media (min-width: 1200px) {
+  .studio-workspace { grid-template-columns: minmax(0, 1fr) 280px; }
+  .studio-preview { position: sticky; top: 96px; }
+}
+@media (max-width: 767px) {
+  .body-studio-canvas .studio-tools { grid-row: 1; margin-bottom: 16px; }
+  .body-studio-canvas .studio-canvas-heading { grid-row: 2; }
+  .body-studio-canvas .studio-canvas-toolbar { grid-row: 3; }
+  .body-studio-canvas .studio-canvas-paper { grid-row: 4; padding: 12px; }
+  .body-studio-canvas .studio-canvas-footer { grid-row: 5; }
+  .body-studio-canvas .studio-canvas-error { grid-row: 6; }
+}

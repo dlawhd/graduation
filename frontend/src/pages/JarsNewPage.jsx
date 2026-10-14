@@ -1326,7 +1326,7 @@ export default function JarsNewPage() {
     return <DefaultJarCreatePage />;
   }
   return (
-    <main className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-5 py-12 sm:py-20">
+    <main className="min-h-[calc(100vh-80px)] bg-[#f3f8f5] px-5 py-12 sm:py-20">
       <div className="mx-auto max-w-4xl">
         <p className="text-xs font-black tracking-[0.25em] text-emerald-600">MAKE A MEMORY JAR</p>
         <h1 className="mt-4 text-3xl font-black text-slate-900 sm:text-4xl">어떤 저금통을 만들어볼까요?</h1>
@@ -2103,7 +2103,7 @@ function DefaultJarCreatePage() {
         }
       />
 
-      <div className="min-h-[calc(100vh-80px)] bg-[#f8f4ef] px-6 py-10">
+      <div className="min-h-[calc(100vh-80px)] bg-[#f3f8f5] px-6 py-10">
       <div className="mx-auto max-w-6xl">
         <Link to="/jars/new" className="mb-5 inline-block text-sm font-bold text-violet-700 hover:text-violet-900">← 만들기 방식 다시 선택</Link>
         {/* 상단 소개 */}
@@ -2165,6 +2165,7 @@ function DefaultJarCreatePage() {
                 const templateCardStyle = getTemplateCardStyle(template.values.theme);
                 return (
                   <motion.button
+                    data-hover-feedback="custom"
                     key={template.id}
                     type="button"
                     onClick={() => handleTemplateClick(template)}
@@ -2543,6 +2544,7 @@ function DefaultJarCreatePage() {
               {/* 저금통 만들기 버튼 */}
               <div className="mt-8 flex justify-end">
                 <motion.button
+                  data-hover-feedback="custom"
                   /*
                    * JAR_CREATE 여덟 번째 단계에서
                    * 실제 저금통 만들기 버튼을 강조한다.

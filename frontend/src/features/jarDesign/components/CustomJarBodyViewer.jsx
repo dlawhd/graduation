@@ -1,4 +1,5 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { customJarBody } from "../customJarBody.mjs";
 import { BODY_3D_FAILURE } from "../body3DGeometry.mjs";
 
@@ -14,25 +15,34 @@ class ViewerBoundary extends Component {
 
 /** 기본 2D는 계속 유지하고 요청한 경우에만 3D 코드와 GPU를 사용한다. DB/API/원본을 변경하지 않는다. */
 export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,imageStyle,imageRendering,
-  outlineOnly,slot,children,className="h-full w-full",frontViewRequest=0,disabled=false }) {
+  outlineOnly,slot,children,className="h-full w-full",frontViewRequest=0,disabled=false,preparedBody=null,controlsOutside=false,viewerStageStyle,viewControlsTarget=null,imageTextureUrl,bodyArtworkTextureUrl }) {
   const [mode,setMode]=useState("2D"),[failure,setFailure]=useState(""),[resetKey,setResetKey]=useState(0);
-  const body=useMemo(()=>customJarBody(customBody),[customBody]);
+  const body=useMemo(()=>preparedBody || customJarBody(customBody),[customBody,preparedBody]);
   const onFailure=useCallback(message=>{setMode("2D");setFailure(message || BODY_3D_FAILURE);},[]);
   // 쪽지 작성 창을 열기 전에 정면으로 복귀한다. 기존 입구 위치 측정/애니메이션을 그대로 사용한다.
   useEffect(()=>{setMode("2D");setFailure("");},[frontViewRequest,imageUrl]);
   useEffect(()=>{if(disabled)setMode("2D");},[disabled]);
-  return <div data-custom-body-viewer data-view-mode={mode} className={`relative isolate aspect-square ${className}`}>
+  // 상세 화면의 장식 레이어는 pointer-events:none이다. 실제 조작 영역만 다시 활성화한다.
+  const controls=body && <div data-view-controls className={`pointer-events-auto ${viewControlsTarget?"flex min-h-11 flex-wrap items-center justify-end gap-1":controlsOutside?"flex min-h-11 shrink-0 flex-wrap items-center justify-end gap-1 pb-2":"absolute right-2 top-2 z-20 flex flex-wrap justify-end gap-1 rounded-full border border-stone-200 bg-white/95 p-1 shadow-sm"}`}>
+    <button type="button" disabled={disabled} aria-pressed={mode==="3D"} onClick={()=>{setFailure("");setMode(m=>m==="3D"?"2D":"3D");}}
+      className="min-h-11 rounded-full border border-stone-200 bg-white px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-40">{mode==="3D"?"2D로 보기":"3D로 보기"}</button>
+    {mode==="3D" && <button type="button" onClick={()=>setResetKey(k=>k+1)} className="min-h-11 rounded-full bg-stone-100 px-3 text-xs font-bold text-stone-600 hover:bg-stone-200">정면으로</button>}
+  </div>;
+  return <div data-custom-body-viewer data-view-mode={mode} data-controls-outside={controlsOutside} className={`relative isolate ${controlsOutside?"flex flex-col":"aspect-square"} ${className}`}>
+    {/* 회전 상태는 이 뷰어에 유지하고 버튼 DOM만 카드 제목줄로 옮긴다. */}
+    {viewControlsTarget ? createPortal(controls,viewControlsTarget) : controlsOutside && controls}
+    {/* 고정 높이 편집 미리보기에서도 버튼 높이만큼 사진 창을 찌그러뜨리지 않는다. 남은 공간 안에 정사각형을 맞춘다. */}
+    <div className={controlsOutside?"relative grid min-h-0 flex-1 aspect-square place-items-center":"h-full w-full"} style={controlsOutside?{containerType:"size"}:undefined}>
+    <div data-view-stage className="relative h-full w-full" style={controlsOutside?{...viewerStageStyle,width:"min(100cqw, 100cqh)",height:"min(100cqw, 100cqh)"}:viewerStageStyle}>
     <div className="h-full w-full" hidden={mode==="3D"}>{children}</div>
     {mode==="3D" && <div className="pointer-events-auto absolute inset-0">
       <ViewerBoundary onFailure={onFailure}><Suspense fallback={<div role="status" className="flex h-full items-center justify-center bg-white/80 text-xs text-stone-500">3D를 불러오고 있어요…</div>}>
-        <CustomJarBody3D {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,slot,resetKey,onFailure}}/>
+        <CustomJarBody3D {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,slot,resetKey,onFailure,preparedBody,imageTextureUrl,bodyArtworkTextureUrl}}/>
       </Suspense></ViewerBoundary>
     </div>}
-    {body && <div className="pointer-events-auto absolute right-2 top-2 z-20 flex flex-wrap justify-end gap-1 rounded-full border border-stone-200 bg-white/95 p-1 shadow-sm">
-      <button type="button" disabled={disabled} aria-pressed={mode==="3D"} onClick={()=>{setFailure("");setMode(m=>m==="3D"?"2D":"3D");}}
-        className="min-h-9 rounded-full px-3 text-[11px] font-bold text-emerald-800 disabled:opacity-40">{mode==="3D"?"2D로 보기":"3D로 보기"}</button>
-      {mode==="3D" && <button type="button" onClick={()=>setResetKey(k=>k+1)} className="min-h-9 rounded-full bg-stone-100 px-3 text-[11px] font-bold text-stone-600">정면으로</button>}
-    </div>}
+    {!viewControlsTarget && !controlsOutside && controls}
     {failure && <p role="status" className="pointer-events-none absolute inset-x-2 bottom-2 rounded-xl bg-white/95 p-2 text-center text-[10px] leading-4 text-stone-600">{failure}</p>}
+    </div>
+    </div>
   </div>;
 }

@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { drawingPoint, drawShape, hasDrawingPixels, SHAPES, BRUSHES, BODY_BRUSHES, constrainShape, drawBrushStroke, floodFill, sampledColor } from "./drawingTools.mjs";
-import { CHARACTER_SHAPES, drawCharacterShape } from "./characterShapes.mjs";
+import { CHARACTER_SHAPES, QUICK_CHARACTER_SHAPES, drawCharacterShape } from "./characterShapes.mjs";
+
+test("대표 캐릭터는 전체 목록에서 고른 4종이며 모든 12종의 정의를 유지한다", () => {
+  assert.equal(CHARACTER_SHAPES.length, 12);
+  assert.deepEqual(QUICK_CHARACTER_SHAPES.map(([id]) => id), ["characterCat", "characterRabbit", "characterBear", "characterDog"]);
+  assert.equal(new Set(QUICK_CHARACTER_SHAPES.map(([id]) => id)).size, 4);
+  for (const entry of QUICK_CHARACTER_SHAPES) assert.ok(CHARACTER_SHAPES.includes(entry));
+});
 
 test("축소된 캔버스 좌표와 바깥 입력을 480px 원본에 매핑한다", () => {
   const rect = { left: 10, top: 20, width: 240, height: 240 };

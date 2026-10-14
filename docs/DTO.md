@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 3D 이미지 읽기 증분: JarDesignResponse에 선택 필드 `imageTextureUrl`, `bodyArtworkTextureUrl`을 추가했다. 기존 필드/생성자를 유지한다. [3D 텍스처 읽기 계약](ai/AI_3D_TEXTURE_ACCESS.md)을 참고한다.
+
 > 2026-10-07 V49 증분: 문의 요청은 `draftId/generationId/description/shareOriginal=true`, 응답은 안전한 실패 정보와 처리 상태를 사용한다. 알림에 nullable `inquiryId`를 추가하며 기존 호출을 유지한다. [AI 실패 문의 계약](AI_SUPPORT_V49.md)을 확인한다.
 
 > 2026-10-05 V48 증분: `NoteCreateRequest.content`는 최대 300자로 검증한다. 새 `NoteCommentPageResponse`는 `items/hasMore/nextCursor/totalCount/flat`이며 items의 replies는 빈 목록이다. 기존 댓글 DTO/API는 유지한다. [현재 계약](WRITE_SAFETY_V48.md)을 확인한다.

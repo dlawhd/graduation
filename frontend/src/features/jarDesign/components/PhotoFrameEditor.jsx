@@ -5,6 +5,7 @@ import { draftImageRendering } from "../imageRendering.mjs";
 import { createPreviewImageKey, resolvePreviewImageState } from "../previewImageState.mjs";
 import { updateJarDesignComposition, getJarDesignDraftError } from "../../../api/jarDesignDraftApi";
 import JarDesignImage from "./JarDesignImage";
+import { storedSlot } from "../slotGeometry.mjs";
 
 /** 선택 사진의 표시 영역만 조절하는 단계다. 드래그는 로컬에서 처리하고 적용할 때 한 번 저장한다. */
 export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved, onCancel, onBusyChange, onDirtyChange, onRetry, onRefresh }) {
@@ -108,7 +109,7 @@ export default function PhotoFrameEditor({ draft, previewUrl, disabled, onSaved,
       <div className="min-w-0 rounded-3xl border border-stone-200 bg-gradient-to-b from-[#e7eee5] to-[#f6ead8] p-4">
         <div className="flex items-center justify-between gap-3"><p className="text-xs font-black tracking-wide text-emerald-900">적용하면 이렇게 보여요</p><span className="text-xs text-stone-600">{body.name}</span></div>
         <div className="relative mx-auto mt-3 max-w-[420px]">
-          <JarDesignImage key={imageKey} bodyStyle={bodyId} customBody={draft.customBody} imageUrl={previewUrl} photoFrame={displayedFrame} alt="사진 배치 적용 미리보기" imageRendering={draftImageRendering(draft)} onImageError={() => setFailedKey(imageKey)} showDefaultSlot/>
+          <JarDesignImage key={imageKey} bodyStyle={bodyId} customBody={draft.customBody} imageUrl={previewUrl} photoFrame={displayedFrame} alt="사진 배치 적용 미리보기" imageRendering={draftImageRendering(draft)} onImageError={() => setFailedKey(imageKey)} slot={bodyId === draft.bodyStyle ? storedSlot(draft) : null}/>
           {!whole && <div role="application" aria-label="저금통 사진 위치 조절" aria-describedby="photo-drag-help" tabIndex={locked ? -1 : 0}
             className={`absolute rounded-xl outline-offset-4 focus-visible:outline-2 focus-visible:outline-emerald-700 ${locked ? "" : "cursor-grab touch-none active:cursor-grabbing"}`}
             style={{ left:`${body.window.x/4.8}%`,top:`${body.window.y/4.8}%`,width:`${body.window.width/4.8}%`,height:`${body.window.height/4.8}%` }}

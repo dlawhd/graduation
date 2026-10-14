@@ -25,8 +25,17 @@ public record JarDesignResponse(
         JarBodyStyle bodyStyle,
         JarPhotoFrameValue photoFrame,
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,
-        String bodyArtworkUrl
+        String bodyArtworkUrl,
+        String imageTextureUrl,
+        String bodyArtworkTextureUrl
 ) {
+    /** 이전 응답 생성 코드는 유지하고 새 3D 읽기 경로는 선택 필드로 제공한다. */
+    public JarDesignResponse(JarDesignType designType,String imageUrl,OffsetDateTime imageExpiresAt,
+                            BigDecimal slotCenterX,BigDecimal slotCenterY,BigDecimal slotSizeRatio,JarAiStyle aiStyle,
+                            JarSlotStyle slotStyle,JarBodyStyle bodyStyle,JarPhotoFrameValue photoFrame,
+                            shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,String bodyArtworkUrl) {
+        this(designType,imageUrl,imageExpiresAt,slotCenterX,slotCenterY,slotSizeRatio,aiStyle,slotStyle,bodyStyle,photoFrame,customBody,bodyArtworkUrl,null,null);
+    }
     /** 기존 단색 디자인 호출은 테두리 이미지 없이 유지한다. */
     public JarDesignResponse(JarDesignType designType,String imageUrl,OffsetDateTime imageExpiresAt,
                             BigDecimal slotCenterX,BigDecimal slotCenterY,BigDecimal slotSizeRatio,JarAiStyle aiStyle,
