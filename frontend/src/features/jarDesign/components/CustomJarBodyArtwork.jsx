@@ -31,7 +31,6 @@ export default function CustomJarBodyArtwork({ customBody, imageUrl, photoFrame,
   return <div role="img" aria-label={alt} data-jar-body="CUSTOM" className={`relative isolate aspect-square ${className}`}>
     <svg width="0" height="0" aria-hidden="true" className="absolute"><defs><clipPath id={clipId} clipPathUnits="objectBoundingBox"><path d={clipPath}/></clipPath></defs></svg>
     {!photoOnly && !customBody.artworkUrl && <svg viewBox="0 0 480 480" aria-hidden="true" className="absolute inset-0 h-full w-full">{!suppressShadow && <path d={body.path} fill="#334b3c" opacity=".08" transform="translate(0 5)"/>}<path d={body.path} fill={customBody.color} stroke="#5d7367" strokeWidth="2" strokeLinejoin="round"/></svg>}
-    {!photoOnly && customBody.artworkUrl && <img src={customBody.artworkUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full" onError={onImageError}/>}
     <div className="absolute inset-0" style={{clipPath:`url(#${clipId})`}}><div className="absolute overflow-hidden bg-white" style={{left:`${w.x/4.8}%`,top:`${w.y/4.8}%`,width:`${w.width/4.8}%`,height:`${w.height/4.8}%`,
       // 몸통 곡면에 맞춰 3D 사진 창만 같은 비율로 줄인다. 내부 사진의 위치/확대/전체 보기는 바꾸지 않는다.
       ...(photoOnly?{transform:`scale(${renderProfile?.photoScale||BODY_3D_PHOTO_SCALE})`,transformOrigin:"50% 50%"}:{})}}>
@@ -39,6 +38,8 @@ export default function CustomJarBodyArtwork({ customBody, imageUrl, photoFrame,
         {imageUrl && <img src={imageUrl} alt="" draggable={false} style={{...photoFrameStyle(photoFrame || coverPhotoFrame(w),photoWindow),...imageStyle,imageRendering}} onLoad={onImageLoad} onError={onImageError}/>}
       </div>
     </div></div>
+    {/* 내부의 분리된 꾸밈도 사진에 덮이지 않도록 원본 PNG를 마지막에 겹친다. */}
+    {!photoOnly && customBody.artworkUrl && <img src={customBody.artworkUrl} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full" onError={onImageError}/>}
     {showDefaultSlot && <JarSlotOverlay slot={body.slot}/>}
   </div>;
 }

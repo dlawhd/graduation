@@ -12,12 +12,12 @@ export default function CharacterShapePicker({ selectedShape, disabled, onSelect
   return <>
     <div className="mb-2 flex items-center justify-between gap-2">
       <span className="text-xs font-bold text-slate-700">{kind} 모양</span>
-      <button type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} className="min-h-11 rounded-xl border border-violet-200 bg-white px-3 text-xs font-bold text-violet-700 disabled:opacity-40">전체 보기 · {entries.length}종</button>
+      <button type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} className="min-h-11 rounded-xl border border-violet-200 bg-white px-3 text-xs font-bold text-violet-700 disabled:opacity-40">전체 보기</button>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={`대표 ${kind} 모양`}>
       {quickEntries.map(([id, label]) => <button key={id} type="button" disabled={disabled} aria-pressed={selectedShape === id} onClick={() => onSelect(id)} className={shapeButtonClass + (selectedShape === id ? " border-violet-400 ring-2 ring-violet-300" : " border-slate-200 hover:bg-violet-50")}><ShapeSwatch shape={id} tone={tone}/>{label}</button>)}
     </div>
-    <p className="mt-3 text-xs leading-5 text-slate-600" role="status">{selected ? <>선택한 모양: <strong className="text-violet-700">{selected[1]}</strong> · 그림판에서 드래그해 넣어요.</> : "모양을 고른 뒤 그림판에서 드래그해 넣어요."}</p>
+    <p className="mt-3 text-xs leading-5 text-slate-600" role="status">{selected ? <>선택한 모양: <strong className="text-violet-700">{selected[1]}</strong></> : "모양을 고른 뒤 그림판에서 드래그해 넣어요."}</p>
     {open && <CharacterShapeDialog entries={entries} kind={kind} tone={tone} selectedShape={selectedShape} disabled={disabled} onSelect={id => { if (disabled) return; onSelect(id); setOpen(false); }} onClose={() => setOpen(false)}/>}
   </>;
 }

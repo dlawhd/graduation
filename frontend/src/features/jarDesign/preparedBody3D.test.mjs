@@ -35,13 +35,13 @@ test("앞면 무늬/양쪽 사진/뒷면 단색의 재질을 분리하며 삼각
   assert.deepEqual(g.groups.map(group=>group.materialIndex),[0,1,2]);
   assert.ok(g.groups.every(group=>group.count===3));g.dispose();
 });
-test("코/리본/꼬리는 유효한 입체 부품이고 정리 시 모두 제거한다",()=>{
+test("내부 코/리본 세공은 유효한 입체 부품이고 정리 시 모두 제거한다",()=>{
   for(const id of PREPARED_3D_IDS){
     const group=new Group(),geometry=new BoxGeometry(2,2,.4),material=new MeshStandardMaterial();
     const mesh=new Mesh(geometry,material);group.add(mesh);
     const cleanup=addPreparedBodyRelief(group,mesh,getJarBody(id),null);
     assert.ok(group.children.length>=1);
-    if(["PIG","CAT","RABBIT"].includes(id))assert.ok(group.children.length>=3);
+    if(["PIG","CAT","RABBIT"].includes(id))assert.ok(group.children.length>=2);
     else assert.equal(group.children.length,1,`${id}: 관련 없는 고양이 꼬리를 붙이지 않는다`);
     for(const object of group.children)assert.ok([...object.geometry.attributes.position.array].every(Number.isFinite));
     cleanup();assert.equal(group.children.length,1);geometry.dispose();material.dispose();

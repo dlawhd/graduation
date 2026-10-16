@@ -34,7 +34,7 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
         {body.id === "WHALE" && <mask id={`${id}-still-body`} maskUnits="userSpaceOnUse" x="0" y="0" width="480" height="480"><rect width="480" height="480" fill="white"/><rect x="383" y="216" width="97" height="122" fill="black"/></mask>}
       </defs>
       <ellipse cx="240" cy="441" rx="164" ry="23" fill={paint("shadow")}/>
-      <Decorations body={body} paint={paint} layer="back"/>
+      <g data-body-decoration="back"><Decorations body={body} paint={paint} layer="back"/></g>
       <g mask={body.id === "WHALE" ? paint("still-body") : undefined}>
       <path d={body.path} fill={c.shade} opacity=".18" transform="translate(0 7)"/>
       <path d={body.path} fill={paint("body")} stroke={c.shade} strokeWidth="3" strokeLinejoin="round"/>
@@ -62,7 +62,7 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
     <svg aria-hidden="true" viewBox="0 0 480 480" className="pointer-events-none absolute inset-0 h-full w-full">
       <rect x={w.x} y={w.y} width={w.width} height={w.height} rx={w.radius} fill="none" stroke={c.shade} strokeOpacity=".4" strokeWidth="2"/>
       {/* 어떤 장식을 추가해도 사용자의 그림 창은 가리지 않는다. 입구는 이 마스크 밖의 별도 오버레이다. */}
-      <g mask={paint("photo-safe")} data-jar-photo-safe><Decorations body={body} paint={paint} layer="front"/><Atmosphere body={body}/></g>
+      <g mask={paint("photo-safe")} data-jar-photo-safe><g data-body-decoration="front"><Decorations body={body} paint={paint} layer="front"/></g><Atmosphere body={body}/></g>
     </svg>
     {showDefaultSlot && <JarSlotOverlay slot={body.slot}/>}
   </div>;

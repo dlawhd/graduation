@@ -40,8 +40,20 @@ export function paintedBodyOutline(image, fallbackColor = "#d7e9df", { encloseIn
   const color = "#" + Array.from(data.slice(colorPixel * 4, colorPixel * 4 + 3), n => n.toString(16).padStart(2, "0")).join("");
   const failed = error => ({ value: { points: [], color }, error });
   const visited = new Uint8Array(mask.length), queue = new Int32Array(mask.length);
+  // 먼저 닫힌 테두리 안을 계산용으로 채운다. 내부 꾸밈은 연결 여부와 관계없이 원본 PNG에 남는다.
+  if (encloseInterior) {
+    let outsideHead=0,outsideTail=1;queue[0]=0;visited[0]=1;
+    while(outsideHead<outsideTail){
+      const p=queue[outsideHead++],neighbors=[p-width,p+width];
+      if(p%width)neighbors.push(p-1);
+      if(p%width<width-1)neighbors.push(p+1);
+      for(const n of neighbors)if(n>=0&&n<mask.length&&!mask[n]&&!visited[n]){visited[n]=1;queue[outsideTail++]=n;}
+    }
+    for(let i=0;i<mask.length;i++)if(!mask[i]&&!visited[i]){mask[i]=1;count++;}
+    visited.fill(0);
+  }
   let head = 0, tail = 1; queue[0] = first; visited[first] = 1;
-  // 하나로 연결된 영역만 허용한다. 작은 조각을 임의로 삭제하거나 가장 큰 조각만 저장하지 않는다.
+  // 내부 꾸밈을 포함한 영역에서 연결을 확인해 바깥의 독립된 조각만 안내한다.
   while (head < tail) {
     const p = queue[head++], neighbors = [p - width, p + width];
     if (p % width) neighbors.push(p - 1);
@@ -55,22 +67,25 @@ export function paintedBodyOutline(image, fallbackColor = "#d7e9df", { encloseIn
       visited[n] = 1; queue[tail++] = n;
     }
   }
-  if (tail !== count) return failed("떨어진 조각은 펜으로 이어주세요. 하나로 연결된 틀을 사용할 수 있어요.");
+  if (tail !== count) return failed(encloseInterior
+    ? "테두리 바깥의 떨어진 조각은 틀에 연결해 주세요. 안쪽 꾸밈은 연결하지 않아도 돼요."
+    : "떨어진 조각은 펜으로 이어주세요. 하나로 연결된 틀을 사용할 수 있어요.");
 
-  // 바깥 빈 공간을 먼저 방문한다. 내부 구멍은 현재 단일 외곽선 계약으로 표현할 수 없으므로 안내한다.
-  // 테두리 편집에서는 닫힌 선 안쪽을 사진 공간으로 취급한다. 계산용 마스크만 메우고 원본 픽셀은 보존한다.
-  visited.fill(0); head = 0; tail = 1; queue[0] = 0; visited[0] = 1;
-  while (head < tail) {
-    const p = queue[head++], neighbors = [p - width, p + width];
-    if (p % width) neighbors.push(p - 1);
-    if (p % width < width - 1) neighbors.push(p + 1);
-    for (const n of neighbors) if (n >= 0 && n < mask.length && !mask[n] && !visited[n]) {
-      visited[n] = 1; queue[tail++] = n;
+  // 채운 덩어리 모드의 내부 구멍은 단일 외곽선 계약으로 표현할 수 없으므로 안내한다.
+  // 테두리 모드는 앞에서 계산용 내부를 메웠으므로 같은 탐색을 반복하지 않는다.
+  if (!encloseInterior) {
+    visited.fill(0); head = 0; tail = 1; queue[0] = 0; visited[0] = 1;
+    while (head < tail) {
+      const p = queue[head++], neighbors = [p - width, p + width];
+      if (p % width) neighbors.push(p - 1);
+      if (p % width < width - 1) neighbors.push(p + 1);
+      for (const n of neighbors) if (n >= 0 && n < mask.length && !mask[n] && !visited[n]) {
+        visited[n] = 1; queue[tail++] = n;
+      }
     }
-  }
-  if (count + tail !== mask.length) {
-    if (!encloseInterior) return failed("틀 안쪽의 빈 곳을 채우기로 메워주세요. 사진 창은 다음 단계에서 만들어져요.");
-    for (let i = 0; i < mask.length; i++) if (!mask[i] && !visited[i]) { mask[i] = 1; count++; }
+    if (count + tail !== mask.length) {
+      return failed("틀 안쪽의 빈 곳을 채우기로 메워주세요. 사진 창은 다음 단계에서 만들어져요.");
+    }
   }
 
   const stride = width + 1, edges = new Map();

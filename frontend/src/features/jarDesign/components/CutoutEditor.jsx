@@ -238,7 +238,7 @@ export default function CutoutEditor({ draft, previewUrl, disabled, onSaved, onB
 
           <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
             {mode === "POINT"
-              ? <p><b>점으로 선택:</b> {draft.bodyStyle ? "남길 그림" : "본체"} 테두리를 따라 차례로 클릭한 뒤 현재 영역 닫기를 누르세요.</p>
+              ? <p><b>점으로 선택:</b> {draft.bodyStyle ? "남길 그림" : "본체"} 테두리를 따라 차례로 클릭한 뒤 현재 영역 사용을 누르세요.</p>
               : <p><b>자유롭게 그리기:</b> {draft.bodyStyle ? "남길 그림" : "본체"} 바깥을 한 바퀴 드래그하고 손을 떼면 영역이 자동으로 닫혀요.</p>}
             <p className="mt-1">분리된 귀·장식·글자는 같은 방식으로 영역을 더 추가할 수 있어요.</p>
           </div>
@@ -257,7 +257,7 @@ export default function CutoutEditor({ draft, previewUrl, disabled, onSaved, onB
           </div>}
 
           {mode === "POINT" && <button type="button" onClick={finishPointRegion} disabled={locked || activePoints.length < 3 || regions.length >= CUTOUT_MAX_REGIONS}
-            className="min-h-11 w-full rounded-xl border border-pink-200 bg-pink-50 px-4 text-sm font-black text-pink-700 disabled:opacity-50">현재 영역 닫기</button>}
+            className="min-h-11 w-full rounded-xl border border-pink-200 bg-pink-50 px-4 text-sm font-black text-pink-700 disabled:opacity-50">현재 영역 사용</button>}
 
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={undo} disabled={locked || (activePoints.length === 0 && regions.length === 0)}

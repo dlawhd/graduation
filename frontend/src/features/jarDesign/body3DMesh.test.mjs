@@ -30,6 +30,23 @@ const deep={color:"#123456",points:[{x:.1,y:.1},{x:.9,y:.1},{x:.9,y:.9},{x:.65,y
 const shapes=[...["ROUND","JAR","SQUARE"].map(kind=>[kind,basicBodyOutline(kind)]),
   ...CHARACTER_SHAPES.map(([id])=>[id,characterOutline(id)]),["deep",deep]];
 
+test("격자보다 얇은 테두리에서도 바깥면과 안쪽 벽의 연결 높이를 정확히 유지한다",()=>{
+  const square=size=>[{x:-size,y:-size},{x:size,y:-size},{x:size,y:size},{x:-size,y:size}];
+  const outer=square(.8),distance=(p,poly)=>Math.min(...poly.map((a,i)=>{
+    const b=poly[(i+1)%poly.length],dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+    return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
+  }));
+  for(const width of [1/240,2/240,3/240]){
+    const inner=square(.8-width),height=smoothedDomeField(outer,inner,distance);
+    for(let i=0;i<=20;i++){
+      const y=-.6+i*.06;
+      assert.ok(Math.abs(height({x:.8,y})-BODY_3D_EDGE_DEPTH/2)<1e-10);
+      assert.ok(Math.abs(height({x:.8-width,y})-BODY_3D_DEPTH/2)<1e-10);
+      assert.ok(Math.abs(height({x:.8-width/2,y})-bodyDomeDepth(.5))<1e-10);
+    }
+  }
+});
+
 test("최대 96점의 굴곡과 역방향 외곽에서도 계산량을 제한하고 양쪽 면을 바깥으로 향하게 한다",()=>{
   const value={color:"#ffffff",points:Array.from({length:96},(_,i)=>{
     const angle=i*Math.PI/48,r=i%2?.3:.34;return {x:.5+r*Math.cos(angle),y:.5+r*Math.sin(angle)};

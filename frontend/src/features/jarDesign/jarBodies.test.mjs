@@ -57,6 +57,16 @@ test("all objects have distinct complete finishes and valid gallery colors", () 
   }
 });
 
+test("모든 저금통 카드는 캐릭터 소개글을 표시하고 소재 상세 영역은 노출하지 않는다",()=>{
+  for(const body of JAR_BODIES)assert.ok(body.description?.trim().length>0,body.id);
+  const picker=readFileSync(new URL("./components/JarBodyPicker.jsx",import.meta.url),"utf8");
+  assert.ok(picker.includes('aria-label={`${body.name} · ${body.description}`}'));
+  assert.ok(picker.includes('text-stone-500">{body.description}</p>'));
+  assert.ok(!picker.includes("body.detail"));
+  assert.ok(!picker.includes("FINISH & DETAILS"));
+  assert.ok(!picker.includes("selected.material"));
+});
+
 test("new animal collection and local search combine without changing catalog or selection", () => {
   assert.equal(filterJarBodies("새 동물 친구").length,20);
   assert.equal(filterJarBodies("다정한 친구").length,27);

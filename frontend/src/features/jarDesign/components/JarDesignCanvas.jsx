@@ -105,7 +105,9 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
       if (publish) {
         const result=paintedBodyOutline(snapshot,brushColor,{encloseInterior:true});
         if(!result.error) {
-          const contours=insetBodyContours(result.value.points,snapshot.data);
+          // 내부에 떠 있는 꾸밈은 사진 창의 구멍이 아니다. 원본 PNG를 사진 위에 올려 보존한다.
+          const paintedContours=insetBodyContours(result.value.points,snapshot.data);
+          const contours=paintedContours.length?paintedContours:insetBodyContours(result.value.points);
           if(contours.length) {
             result.value.photoContours=contours;
             // 획이 끝난 뒤에만 PNG를 만든다. 사진 원본과 별도로 보관해 색/굵기/질감을 다음 단계에 전달한다.
@@ -343,7 +345,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
         <div className={"grid gap-1.5 " + (studioLayout && !isBody ? "grid-cols-3" : "grid-cols-4 " + (isBody ? "" : "sm:grid-cols-7"))}>
           {availableTools.map(([value, label]) => <button key={value} type="button" aria-pressed={tool === value} aria-expanded={["pen", "shapes"].includes(value) ? picker === value : undefined} onClick={() => chooseTool(value)} className={"flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl text-xs font-bold transition " + (tool === value ? "bg-violet-600 text-white shadow-md shadow-violet-200" : "bg-slate-50 text-slate-600 hover:bg-violet-50")}><StudioIcon name={value} />{label}{["pen", "shapes"].includes(value) ? " ⌄" : ""}</button>)}
         </div>
-        {picker === "pen" && <StudioPickerDialog title="어떤 펜으로 그릴까요?" description="펜을 고르면 선택 창이 닫혀요. 이미 그린 획은 바뀌지 않아요." onClose={() => setPicker("")}><div className="grid grid-cols-2 gap-3" role="group" aria-label="전체 펜 종류">{availableBrushes.map(([value, label]) => <button key={value} type="button" disabled={locked} aria-label={label} aria-pressed={brush === value} onClick={() => { if (locked) return; setBrush(value); setPicker(""); }} className={controlClass + " min-h-28 flex-col px-2 " + (brush === value ? "ring-2 ring-emerald-500" : "")}><BrushSwatch brush={value} color={brushColor} silhouette={isBody}/>{label}<span className="text-[11px] font-normal leading-5 text-slate-500">{BRUSH_DESCRIPTIONS[value]}</span></button>)}</div></StudioPickerDialog>}
+        {picker === "pen" && <StudioPickerDialog title="어떤 펜으로 그릴까요?" description="펜을 고르면 선택 창이 닫혀요." onClose={() => setPicker("")}><div className="grid grid-cols-2 gap-3" role="group" aria-label="전체 펜 종류">{availableBrushes.map(([value, label]) => <button key={value} type="button" disabled={locked} aria-label={label} aria-pressed={brush === value} onClick={() => { if (locked) return; setBrush(value); setPicker(""); }} className={controlClass + " min-h-28 flex-col px-2 " + (brush === value ? "ring-2 ring-emerald-500" : "")}><BrushSwatch brush={value} color={brushColor} silhouette={isBody}/>{label}<span className="text-[11px] font-normal leading-5 text-slate-500">{BRUSH_DESCRIPTIONS[value]}</span></button>)}</div></StudioPickerDialog>}
         {picker === "shapes" && <ShapeSelectionDialog basicShapes={basicShapes} characters={isBody ? [] : CHARACTER_SHAPES} selectedShape={shape} disabled={locked} tone={studioLayout ? "mint" : "violet"} onClose={() => setPicker("")} onSelect={value => {
           // 선택은 다음 드래그 도구만 바꾸며, 창을 닫아도 원래 그림과 실행 취소 이력은 유지한다.
           if (locked) return;
@@ -381,7 +383,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
         </div>
       </div>
       <div className="studio-canvas-footer flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="max-w-sm"><p id={helpId} className="text-xs leading-5 text-slate-600">{help}</p><p className="mt-1 text-[10px] text-slate-400">{isBody ? "닫힌 테두리로 연결된 틀 / 점선 안쪽에 그려주세요" : "480 × 480 PNG"} · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z</p>{isBody && <p className="mt-1 text-[10px] text-slate-400">그린 테두리의 색과 굵기를 그대로 담아요. 사진은 테두리 안쪽 모양에 맞춰 보여요.</p>}</div>
+        <div className="max-w-sm"><p id={helpId} className="text-xs leading-5 text-slate-600">{help}</p>{!isBody && <p className="mt-1 text-[10px] text-slate-400">480 × 480 PNG · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z</p>}</div>
         {(!studioLayout || !isBody) && <button type="button" onClick={() => isBody ? onConfirm() : exportDrawing()} disabled={locked || !hasDrawing || (isBody && !customJarBody(bodyValue))} className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">{isBody ? "이 틀 사용하기 →" : exporting ? "그림 변환 중..." : "이 그림 사용하기 →"}</button>}
       </div>
       {error && <p role="alert" className="studio-canvas-error px-4 pb-4 text-sm text-rose-600">{error}</p>}

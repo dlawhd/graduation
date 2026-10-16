@@ -34,6 +34,7 @@ export default function JarDesignNewPage() {
   const sourceSelection = useRef(0);
   const [readingSource, setReadingSource] = useState(false);
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
+  const [previewControlsTarget, setPreviewControlsTarget] = useState(null);
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
   useEffect(() => {
     try { if (customBody) window.sessionStorage.setItem(BODY_DRAFT_KEY, JSON.stringify(customBody)); }
@@ -110,7 +111,7 @@ export default function JarDesignNewPage() {
   }
 
   // 입력 탭을 양쪽 입력 화면에서 공유한다. 그림판은 숨기기만 해 탭 전환에도 작성 중인 획을 보존한다.
-  const sourceTabs = <div className="studio-basic-section image-source-options"><h2 className="mb-3 text-sm font-black text-slate-800">사진·그림 추가</h2><div className="grid grid-cols-2 gap-2" role="tablist" aria-label="디자인 원본 입력 방식">
+  const sourceTabs = <div className="studio-basic-section image-source-options"><h2 className="mb-3 text-sm font-black text-slate-800">사진 또는 그림 추가</h2><div className="grid grid-cols-2 gap-2" role="tablist" aria-label="디자인 원본 입력 방식">
     <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "DRAW"} onClick={() => { sourceSelection.current += 1; setReadingSource(false); setInputMode("DRAW"); }} className={`min-h-12 rounded-xl px-2 text-xs font-bold ${inputMode === "DRAW" ? "bg-emerald-700 text-white" : "border border-slate-200 bg-white text-slate-600"}`}>직접 그리기</button>
     <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "UPLOAD"} onClick={() => setInputMode("UPLOAD")} className={`min-h-12 rounded-xl px-2 text-xs font-bold ${inputMode === "UPLOAD" ? "bg-emerald-700 text-white" : "border border-slate-200 bg-white text-slate-600"}`}>이미지 불러오기</button>
   </div><p className="mt-3 text-xs leading-5 text-slate-500">직접 그리거나 사진을 골라주세요. 위치와 크기는 다음 단계에서 맞춰요.</p></div>;
@@ -122,8 +123,8 @@ export default function JarDesignNewPage() {
         <section className={studioPage ? "studio-intro mt-4 py-3" : "mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8"}>
           <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black tracking-wide text-emerald-800">MEMORY JAR · 작은 저금통 공방</span>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{draftId ? "우리의 그림에 분위기를 더해요" : imageStep ? "이 저금통에 어떤 추억을 담을까요?" : "우리만의 저금통 틀 만들기"}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">나만의 틀을 만들고 그 안에 그림이나 사진을 담아보세요. 기본 틀을 쓰거나 준비된 저금통으로 바꿔도 좋아요. AI 변환은 선택 사항이에요.</p>
-          <ol className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500" aria-label="디자인 제작 순서">{["틀 만들기 또는 선택", "그림 담기", "사진 배치 · AI 꾸미기", "투입구와 배경", "이름 붙이기"].map((label, i) => <li key={label} aria-current={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "step" : undefined} className={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "text-emerald-800" : ""}><span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{i + 1}</span>{label}</li>)}</ol>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">나만의 틀을 만들고 그 안에 그림이나 사진을 담아보세요. 기본 틀을 쓰거나 준비된 저금통으로 바꿔도 좋아요.<span className="block">AI 변환은 선택 사항이에요.</span></p>
+          <ol className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500" aria-label="디자인 제작 순서">{["틀 만들기 또는 선택", "그림 담기", "사진 배치와 AI 꾸미기", "투입구와 배경", "이름 붙이기"].map((label, i) => <li key={label} aria-current={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "step" : undefined} className={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "text-emerald-800" : ""}><span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{i + 1}</span>{label}</li>)}</ol>
         </section>
 
         {/* 선택 목록이나 그림 담기로 이동해도 틀 그림판을 유지해 미완성 획과 실행 취소 이력을 보존한다. */}
@@ -143,7 +144,7 @@ export default function JarDesignNewPage() {
               <button type="button" disabled={saving} onClick={() => setSearchParams(body ? { body: body.id } : {})} className="min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-emerald-800 disabled:opacity-50">모양 다시 고르기</button>
             </div>
             <div className="studio-workspace">
-              <div hidden={inputMode !== "DRAW"} className="min-w-0"><JarDesignCanvas workshopLayout toolboxHeader={sourceTabs} disabled={saving || !imageStep || inputMode !== "DRAW"} onConfirm={setDesignSource} onDirtyChange={setSourceDirty} /></div>
+              <div hidden={inputMode !== "DRAW"} className="studio-editor min-w-0"><JarDesignCanvas workshopLayout toolboxHeader={sourceTabs} disabled={saving || !imageStep || inputMode !== "DRAW"} onConfirm={setDesignSource} onDirtyChange={setSourceDirty} /></div>
               {inputMode === "UPLOAD" && (
                 <div className="image-upload-studio min-w-0">
                   {sourceTabs}
@@ -171,11 +172,12 @@ export default function JarDesignNewPage() {
                 </div>
               )}
               <aside className="studio-preview h-fit rounded-[18px] border border-slate-200 bg-white p-5">
-                <h2 className="text-sm font-black text-slate-800">저금통에 담긴 모습</h2>
+                <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-black text-slate-800">저금통에 담긴 모습</h2><div ref={setPreviewControlsTarget} data-studio-preview-controls /></div>
                 <p className="mt-2 text-xs leading-5 text-slate-500">그림을 수정했다면 ‘이 그림 사용하기’를 다시 눌러 미리보기에 반영해 주세요.</p>
-                <div className="mt-3 aspect-square rounded-2xl bg-[#f3f7f5]">{(body || previewUrl) && <JarDesignImage key={previewUrl} bodyStyle={body?.id} customBody={customBody} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" allow3D viewDisabled={readingSource || saving}
+                <div className="studio-preview-stage mt-3 aspect-square rounded-2xl bg-[#f3f7f5]">{(body || previewUrl) && <JarDesignImage key={previewUrl} bodyStyle={body?.id} customBody={customBody} imageUrl={previewUrl} alt="선택한 저금통과 그림 미리보기" allow3D viewControlsTarget={previewControlsTarget} viewDisabled={readingSource || saving}
                   onImageLoad={() => setLoadedPreviewUrl(previewUrl)} onImageError={() => { setLoadedPreviewUrl(""); setError("이 사진의 미리보기를 읽지 못했어요. JPEG 또는 PNG로 다시 저장한 사진을 선택해 주세요."); }} />}</div>
                 {!previewUrl && <p className="mt-2 text-center text-xs leading-5 text-slate-500">그림을 확정하거나 이미지를 골라<br />저금통 안을 채워주세요.</p>}
+                {imageOnly && previewUrl && <p className="mt-2 text-xs leading-5 text-slate-500">3D는 이미지 윤곽에 두께를 더해 돌려보는 미리보기예요. 사진 속 대상을 입체 모델로 바꾸지는 않아요.</p>}
                 {sourceDirty && sourceImage && inputMode === "DRAW" && <p role="status" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">그림이 바뀌었어요. ‘이 그림 사용하기’를 눌러 최신 그림을 반영해 주세요.</p>}
                 <button type="button" disabled={!sourceImage || !previewReady || readingSource || saving || (inputMode === "DRAW" && sourceDirty)} onClick={() => void handleCreateDraft()}
                   className="mt-4 min-h-12 w-full rounded-xl bg-emerald-800 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "그림을 준비하고 있어요…" : "이 그림으로 다음 단계 →"}</button>

@@ -18,11 +18,17 @@ export default function PreparedJarBodyViewer({body, children, ...props}) {
         for(const child of layer.children) svg.append(child.cloneNode(true));
       }
       const artworkUrl="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(new XMLSerializer().serializeToString(svg));
-      setPrepared({id:body.id,customBody:{...outline,artworkUrl}});
+      // 바깥 장식은 본체 텍스처만으로 보존되지 않는다. 같은 SVG의 장식 그룹을 별도 입체 부품 도면으로 전달한다.
+      const decorations=document.createElementNS("http://www.w3.org/2000/svg","svg");
+      decorations.setAttribute("xmlns","http://www.w3.org/2000/svg");
+      for(const element of svg.querySelectorAll("defs,[data-body-decoration]"))decorations.append(element.cloneNode(true));
+      const decorationSvg=new XMLSerializer().serializeToString(decorations);
+      setPrepared({id:body.id,customBody:{...outline,artworkUrl,decorationSvg}});
     } catch {setPrepared(null);}
   },[body]);
   return <>
     <div ref={sourceRef} hidden aria-hidden="true"><JarBodyArtwork bodyStyle={body.id}/></div>
-    {prepared?.id===body.id ? <CustomJarBodyViewer key={body.id} controlsOutside {...props} customBody={prepared.customBody} preparedBody={body}>{children}</CustomJarBodyViewer> : children}
+    {/* 사진 교체는 원래 2D로 복귀한다. 새 사진으로 불필요한 GPU를 만들었다 즉시 폐기하지 않도록 뷰어도 초기화한다. */}
+    {prepared?.id===body.id ? <CustomJarBodyViewer key={`${body.id}:${props.imageUrl||""}`} controlsOutside {...props} customBody={prepared.customBody} preparedBody={body}>{children}</CustomJarBodyViewer> : children}
   </>;
 }

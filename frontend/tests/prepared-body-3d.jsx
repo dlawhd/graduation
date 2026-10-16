@@ -5,6 +5,7 @@ import JarDesignImage from "../src/features/jarDesign/components/JarDesignImage"
 import {getJarBody} from "../src/features/jarDesign/jarBodies.mjs";
 import {PREPARED_3D_IDS,preparedBodyOutline,preparedBodyProfile} from "../src/features/jarDesign/preparedBody3D.mjs";
 import {roundedBodyGeometry} from "../src/features/jarDesign/body3DMesh.mjs";
+import {thickenPreparedBody} from "../src/features/jarDesign/preparedBodyVolume.mjs";
 import {coverPhotoFrame} from "../src/features/jarDesign/photoFraming.mjs";
 
 // 외부 API/로그인/유료 이미지 생성 없이 실제 3D 컴포넌트를 확인하는 개발 전용 화면이다.
@@ -20,7 +21,7 @@ function Preview(){
       try {
         const body=getJarBody(id),path=document.createElementNS("http://www.w3.org/2000/svg","path");
         const value=preparedBodyOutline(body,path),profile=preparedBodyProfile(value,body);
-        geometry=roundedBodyGeometry(value,false,profile);
+        geometry=thickenPreparedBody(roundedBodyGeometry(value,false,profile));
         return {id,safe:profile.photoSafe,triangles:geometry.index.count/3,
           finite:[...geometry.attributes.position.array,...geometry.attributes.normal.array].every(Number.isFinite)};
       }catch(error){return {id,error:error.message};}finally{geometry?.dispose();}

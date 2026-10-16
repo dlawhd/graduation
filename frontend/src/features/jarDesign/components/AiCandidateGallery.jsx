@@ -11,6 +11,8 @@ import CandidateComparison from "./CandidateComparison";
 import JarDesignImage from "./JarDesignImage";
 import { storedSlot } from "../slotGeometry.mjs";
 import PhotoFrameEditor from "./PhotoFrameEditor";
+import AiStylePicker from "./AiStylePicker";
+import { AI_STYLE_PREVIEWS } from "../aiStylePreviews.mjs";
 import { coverPhotoFrame, WHOLE_PHOTO, samePhotoFrame } from "../photoFraming.mjs";
 import { getJarBody } from "../jarBodies.mjs";
 import { designSelectionKey, canEditDesignDetails } from "../designWorkflow.mjs";
@@ -26,25 +28,8 @@ import {
   selectJarDesign,
 } from "../../../api/jarDesignDraftApi";
 
-const AI_STYLES = [
-  ["CUTE_2D", "귀여운 2D", "말랑하고 사랑스러운 일러스트"],
-  ["SOFT_25D", "부드러운 3D", "원본 형태를 살린 입체적인 볼륨과 부드러운 질감"],
-  ["WATERCOLOR", "수채화", "번지는 색감의 손그림 분위기"],
-  ["HAND_DRAWN", "손그림", "연필과 펜으로 그린 듯한 느낌"],
-  ["WEIRDO", "기괴", "원본을 알아볼 수 있는 강렬한 뒤틀림과 초현실적 질감"],
-  ["PIXEL", "픽셀", "96×96 격자·최대 64색으로 표현하는 레트로 스타일"],
-];
-
+const AI_STYLES = AI_STYLE_PREVIEWS.map(({ id, title, description }) => [id, title, description]);
 const CONNECTED_SAFETY_REFRESH_MS = 30_000;
-// 스타일 식별자는 서버 계약을 유지하고, 화면의 분위기만 각 스타일에 맞게 구분한다.
-const STYLE_APPEARANCE = {
-  CUTE_2D: { background: "linear-gradient(125deg, #fff1f2, #fce7f3)", border: "#f9a8d4", icon: "✿", color: "#be185d" },
-  SOFT_25D: { background: "linear-gradient(125deg, #ede9fe, #dbeafe)", border: "#c4b5fd", icon: "◉", color: "#6d28d9" },
-  WATERCOLOR: { background: "linear-gradient(125deg, #e0f2fe, #ccfbf1, #fce7f3)", border: "#99d9df", icon: "◌", color: "#0e7490" },
-  HAND_DRAWN: { background: "linear-gradient(125deg, #fffbeb, #fef3c7)", border: "#fcd34d", icon: "✎", color: "#92400e" },
-  WEIRDO: { background: "linear-gradient(125deg, #ecfccb, #fae8ff)", border: "#bef264", icon: "✦", color: "#4d7c0f" },
-  PIXEL: { background: "linear-gradient(125deg, #e0e7ff, #cffafe)", border: "#a5b4fc", icon: "▦", color: "#4338ca" },
-};
 const DISCONNECTED_FALLBACK_REFRESH_MS = 3_000;
 
 /**
@@ -409,9 +394,9 @@ export default function AiCandidateGallery({ draftId }) {
         onSubmitted={(ticket) => setInquiries((current) => ({ ...current, [ticket.generationId]: ticket }))} />}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="inline-flex rounded-full bg-violet-100 px-3 py-1.5 text-xs font-black text-violet-700">{body ? "03" : "01"} · 디자인 고르기</div>
+          <div className="inline-flex rounded-full bg-violet-100 px-3 py-1.5 text-xs font-black text-violet-700">{body ? "03" : "01"} AI 꾸미기</div>
           <h2 className="mt-3 text-2xl font-black text-slate-800">원본을 어떤 분위기로 바꿔볼까요?</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">마음에 드는 스타일을 고르고 한 장씩 만들어보세요. 원본과 비교한 뒤, 가장 마음에 드는 그림으로 계속할 수 있어요.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">마음에 드는 스타일을 고르고 한 장씩 만들어보세요. 원본과 비교하고 가장 마음에 드는 그림으로 계속할 수 있어요.</p>
         </div>
         <button type="button" onClick={() => void handleManualRefresh()} disabled={loading || Boolean(generatingStyle) || slotSaving || cutoutSaving || selectingGenerationId !== null}
           className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
@@ -419,20 +404,10 @@ export default function AiCandidateGallery({ draftId }) {
         </button>
       </div>
 
-      {body && <p className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900"><strong>{body.name}</strong> 안에 담을 그림을 골라요. AI는 원본에서 저장한 사진 선택 영역을 꾸미고 저금통 모양은 유지해요. AI 후보의 사진 배치는 별도로 조절할 수 있어요.</p>}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {AI_STYLES.map(([style, title, description]) => (
-          <button key={style} type="button" aria-pressed={chosenStyle === style} onClick={() => setChosenStyle(style)}
-            disabled={Boolean(generatingStyle) || hasProcessingGeneration || loading || slotSaving || cutoutSaving || selectingGenerationId !== null}
-            style={{ background: STYLE_APPEARANCE[style].background, borderColor: STYLE_APPEARANCE[style].border }}
-            className={`group relative rounded-2xl border p-4 text-left shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:shadow-md focus-visible:outline-2 focus-visible:outline-violet-600 disabled:cursor-not-allowed disabled:opacity-60 ${chosenStyle === style ? "ring-2 ring-violet-500 ring-offset-2" : ""}`}>
-            <span aria-hidden="true" style={{ color: STYLE_APPEARANCE[style].color }} className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-white/80 text-3xl shadow-sm">{STYLE_APPEARANCE[style].icon}</span>
-            <p className="text-sm font-black text-slate-800">{generatingStyle === style || processingGeneration?.style === style ? "생성 중..." : title}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
-            <span className="mt-3 inline-block text-xs font-bold" style={{ color: STYLE_APPEARANCE[style].color }}>{generatingStyle === style || processingGeneration?.style === style ? "디자인을 만들고 있어요" : chosenStyle === style ? "선택한 스타일 ✓" : "스타일 선택"}</span>
-          </button>
-        ))}
-      </div>
+      {body && <p className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900"><strong>{body.name}</strong> 안에 담을 그림을 골라요. AI는 원본에서 저장한 사진 선택 영역을 꾸미고 저금통 모양은 유지해요. AI 후보의 사진 배치는 선택하고 조절할 수 있어요.</p>}
+      <AiStylePicker value={chosenStyle} onChange={setChosenStyle}
+        processingStyle={generatingStyle || processingGeneration?.style || ""}
+        disabled={Boolean(generatingStyle) || hasProcessingGeneration || loading || slotSaving || cutoutSaving || selectingGenerationId !== null} />
       <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-violet-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600"><strong className="text-violet-800">{styleLabel(chosenStyle)}</strong>로 나만의 그림을 꾸며요.<br /><span className="text-xs text-slate-500">한 번에 한 장씩 생성해요. 완료되면 아래에 나타나요.</span></p>
         <button type="button" disabled={Boolean(generatingStyle) || hasProcessingGeneration || loading || slotSaving || cutoutSaving || selectingGenerationId !== null || draft?.status !== "ACTIVE"}
@@ -442,7 +417,7 @@ export default function AiCandidateGallery({ draftId }) {
       {hasProcessingGeneration && (
         <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
           {connected
-            ? "AI가 백그라운드에서 디자인을 만들고 있어요. 완료되면 이 화면이 자동으로 갱신됩니다."
+            ? "디자인을 만들고 있어요~ 완료되면 이 화면이 자동으로 갱신됩니다."
             : "AI 디자인은 계속 생성 중이에요. 실시간 연결을 복구하는 동안 상태를 자동으로 확인합니다."}
         </p>
       )}

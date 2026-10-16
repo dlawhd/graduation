@@ -244,8 +244,13 @@ export function smoothedDomeField(outer,inner,distance) {
     let progress=(values[i]*(1-tx)+values[i+1]*tx)*(1-ty)+(values[i+size]*(1-tx)+values[i+size+1]*tx)*ty;
     const edge=distance(p,outer),photo=photoDistance(p);
     // 격자와 실제 외곽의 오차는 한 칸 안에서만 보정한다. 정확한 경계는 언제나 같은 높이에 남긴다.
-    if(edge<step) {const t=edge/step;progress*=t*(2-t);}
-    if(photo<step) {const t=photo/step;progress=1-(1-progress)*t*(2-t);}
+    if(edge<step && photo<step) {
+      // 얇은 테두리에서는 두 경계 보정이 겹친다. 거리 비율로 연결해 바깥 변이 옆벽에서 들뜨지 않게 한다.
+      progress=edge/Math.max(edge+photo,1e-12);
+    } else {
+      if(edge<step) {const t=edge/step;progress*=t*(2-t);}
+      if(photo<step) {const t=photo/step;progress=1-(1-progress)*t*(2-t);}
+    }
     return bodyDomeDepth(progress);
   };
 }

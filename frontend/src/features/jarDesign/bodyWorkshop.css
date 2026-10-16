@@ -56,8 +56,28 @@ dialog[data-character-tone="mint"] button[aria-pressed="true"] { border-color: #
   .body-studio-canvas .studio-canvas-error { grid-column: 2; grid-row: 5; }
 }
 @media (min-width: 1200px) {
-  .studio-workspace { grid-template-columns: minmax(0, 1fr) 280px; }
+  .studio-workspace { grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 400px); }
   .studio-preview { position: sticky; top: 96px; }
+  /* 틀 공방의 세 카드만 같은 행 높이를 공유한다. 사진 편집/모바일 배치는 유지한다. */
+  .body-workshop > .studio-workspace { align-items: stretch; }
+  .body-workshop .studio-editor { display: flex; }
+  .body-workshop .body-studio-canvas { flex: 1; grid-template-rows: auto auto 1fr auto auto; align-items: stretch; }
+  .body-workshop .studio-tools { align-self: stretch; }
+  .body-workshop .studio-canvas-paper { display: flex; align-items: center; }
+  .body-workshop .studio-canvas-paper > div { flex: 1; }
+  .body-workshop .studio-preview { position: static; }
+  /* 그림 담기 화면도 같은 밑선을 쓰되, 숨긴 입력 탭은 다시 표시하지 않는다. */
+  .image-input-studio .studio-workspace { align-items: stretch; }
+  .image-input-studio .studio-editor:not([hidden]) { display: flex; }
+  .image-input-studio .body-studio-canvas { flex: 1; grid-template-rows: auto auto 1fr auto auto; align-items: stretch; }
+  .image-input-studio .studio-tools { align-self: stretch; }
+  .image-input-studio .studio-canvas-paper { display: flex; align-items: center; }
+  .image-input-studio .studio-canvas-paper > div { flex: 1; }
+  .image-input-studio .studio-preview { position: static; height: auto; }
+}
+/* 중간 화면에서는 그림판을 압축하지 않고 넓은 미리보기를 다음 줄에서 보여준다. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .studio-preview { width: min(100%, 560px); justify-self: center; }
 }
 @media (max-width: 767px) {
   .body-studio-canvas .studio-tools { grid-row: 1; margin-bottom: 16px; }

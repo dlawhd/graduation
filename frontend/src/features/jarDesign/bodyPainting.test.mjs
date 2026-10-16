@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { fillPaintedBody, paintedBodyOutline } from "./bodyPainting.mjs";
 import { basicBodyOutline, customJarBody, MAX_BODY_POINTS, outlineError } from "./customJarBody.mjs";
 import { floodFill } from "./drawingTools.mjs";
+import {insetBodyContours} from "./bodyContours.mjs";
+import {readFileSync} from "node:fs";
 
 /** 브라우저 의존성 없이 실제 480px 픽셀 마스크와 좌표 저장 규칙을 대조한다. */
 function painting(inside, color = [215, 233, 223, 255], size = 480) {
@@ -110,6 +112,26 @@ test("닫힌 테두리는 속을 실제로 칠하지 않아도 사진 공간의 
   const result = paintedBodyOutline(image, "#d7e9df", { encloseInterior: true });
   assertValid(result); assert.equal(result.value.points.length, 4);
   assert.deepEqual(image.data, before); assert.equal(image.data[(240 * 480 + 240) * 4 + 3], 0);
+});
+
+test("닫힌 테두리 안의 분리된 선과 점은 꾸밈으로 허용하고 원본을 유지한다",()=>{
+  const ring=(x,y)=>rectangle(x,y)&&!(x>=110&&x<370&&y>=110&&y<370);
+  const image=painting((x,y)=>ring(x,y)||(x>=180&&x<300&&y>=220&&y<232)||(x>=200&&x<210&&y>=170&&y<180));
+  const before=image.data.slice(),options={encloseInterior:true};
+  const decorated=paintedBodyOutline(image,"#d7e9df",options),plain=paintedBodyOutline(painting(ring),"#d7e9df",options);
+  assertValid(decorated);assert.deepEqual(decorated.value.points,plain.value.points);assert.deepEqual(image.data,before);
+  const painted=insetBodyContours(decorated.value.points,image.data);
+  const contours=painted.length?painted:insetBodyContours(decorated.value.points);
+  assert.ok(contours.length,"내부 꾸밈이 있어도 사진 창을 만들 수 있다");
+});
+
+test("점 편집 UI는 제거하고 원본 꾸밈을 사진보다 위에 표시한다",()=>{
+  const source=path=>readFileSync(new URL(path,import.meta.url),"utf8");
+  const workshop=source("./components/JarBodyWorkshop.jsx"),artwork=source("./components/CustomJarBodyArtwork.jsx"),css=source("./bodyWorkshop.css");
+  assert.ok(!workshop.includes("body-outline-editor"));assert.ok(!workshop.includes("toggleAdvanced"));
+  assert.ok(workshop.includes('className="studio-editor min-w-0"'));
+  assert.ok(artwork.indexOf('pointer-events-none absolute inset-0 h-full w-full')>artwork.indexOf('const contours='));
+  assert.ok(css.includes('.body-workshop > .studio-workspace { align-items: stretch; }'));
 });
 
 test("1px 대각선 테두리도 연결된 닫힌 외곽선으로 읽고 원본 내부는 비워둔다", () => {

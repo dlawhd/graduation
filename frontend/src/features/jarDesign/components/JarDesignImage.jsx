@@ -11,7 +11,7 @@ import { supportsPrepared3D } from "../preparedBody3D.mjs";
 export default function JarDesignImage({ bodyStyle, customBody, imageUrl, photoFrame, alt, className = "h-full w-full", imageRendering = "auto", imageStyle, onImageLoad, onImageError, showDefaultSlot = false, allow3D = false, slot = null, frontViewRequest = 0, viewDisabled = false, viewerStageStyle, viewControlsTarget = null, imageTextureUrl, bodyArtworkTextureUrl }) {
   if (bodyStyle === "CUSTOM" && allow3D) {
     const savedSlot=slot || (showDefaultSlot ? customJarBody(customBody)?.slot : null);
-    return <CustomJarBodyViewer {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,className,frontViewRequest,imageTextureUrl,bodyArtworkTextureUrl}} slot={savedSlot} disabled={viewDisabled}>
+    return <CustomJarBodyViewer {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,className,frontViewRequest,imageTextureUrl,bodyArtworkTextureUrl,viewerStageStyle,viewControlsTarget}} slot={savedSlot} disabled={viewDisabled}>
       <CustomJarBodyArtwork {...{customBody,imageUrl,photoFrame,alt,imageRendering,imageStyle,onImageLoad,onImageError}}/>
       {savedSlot && <JarSlotOverlay slot={savedSlot}/>}
     </CustomJarBodyViewer>;
@@ -30,5 +30,7 @@ export default function JarDesignImage({ bodyStyle, customBody, imageUrl, photoF
   const image=<img src={imageUrl} alt={alt} draggable={false} className={`${slot?"h-full w-full":className} select-none object-contain`}
     style={{ ...imageStyle, imageRendering }} onLoad={onImageLoad} onError={onImageError} />;
   // 이미지 단독/이전 디자인도 이 컴포넌트가 입구를 한 번만 그린다. 부모는 중복 오버레이를 붙이지 않는다.
-  return slot ? <div className={`relative ${className}`}>{image}<JarSlotOverlay slot={slot}/></div> : image;
+  const result=slot ? <div className={`relative ${className}`}>{image}<JarSlotOverlay slot={slot}/></div> : image;
+  if(allow3D && imageUrl)return <CustomJarBodyViewer imageOnly {...{imageUrl,imageStyle,imageRendering,className,frontViewRequest,imageTextureUrl,viewerStageStyle,viewControlsTarget,slot}} disabled={viewDisabled}>{result}</CustomJarBodyViewer>;
+  return result;
 }

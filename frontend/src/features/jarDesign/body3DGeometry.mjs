@@ -111,14 +111,14 @@ export function bodyPhotoSurface(yaw, pitch) {
 }
 
 /** 두꺼운 틀을 기울여도 잘리지 않게 필요한 경우에만 카메라 범위를 넓힌다. 정면은 기존 크기를 유지한다. */
-export function bodyViewExtent(points, yaw, pitch, aspect = 1) {
+export function bodyViewExtent(points, yaw, pitch, aspect = 1, surfaceDepth = BODY_3D_SURFACE) {
   const rotation = bodyRotation(yaw, pitch);
   const cy = Math.cos(rotation.yaw), sy = Math.sin(rotation.yaw);
   const cp = Math.cos(rotation.pitch), sp = Math.sin(rotation.pitch);
   const ratio = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
   let extent = BODY_3D_VIEW;
   // 저장 외곽선은 최대 96점, 3D 곡선은 최대 384점이다. GPU 전체 geometry 대신 앞뒤 경계만 확인한다.
-  for (const z of [-BODY_3D_SURFACE, BODY_3D_SURFACE]) for (const p of points) {
+  for (const z of [-surfaceDepth, surfaceDepth]) for (const p of points) {
     const x = cy * p.x + sy * z;
     const y = sp * sy * p.x + cp * p.y - sp * cy * z;
     extent = Math.max(extent, (Math.abs(x) + .02) / ratio, Math.abs(y) + .02);
