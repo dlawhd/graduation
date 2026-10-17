@@ -1,3 +1,25 @@
+# 관리 API는 컨테이너 내부 loopback 전용이다. Docker 포트 공개 없이 SSH+nsenter로만 조회한다.
+management:
+  server:
+    port: 9091
+    address: 127.0.0.1
+  endpoints:
+    web:
+      exposure:
+        include: health,resources
+      discovery:
+        enabled: false
+    jmx:
+      exposure:
+        exclude: '*'
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+  metrics:
+    enable:
+      all: false
+
 spring:
   application:
     name: demo

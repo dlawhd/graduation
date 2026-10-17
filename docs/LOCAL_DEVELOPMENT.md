@@ -41,6 +41,60 @@ Linux·macOS 프론트 테스트 명령은 `node --test src/features/jarDesign/*
 
 브라우저 테스트는 별도의 Playwright 모듈과 Google Chrome이 필요합니다. 현재 `frontend/package.json`에 Playwright가 선언되어 있지 않으므로 `npm ci`만으로는 실행되지 않습니다. 스크립트는 `PLAYWRIGHT_MODULE`로 모듈 경로를, `TEST_BASE_URL`로 로컬 Vite 주소를, `TEST_VIEWPORT_WIDTH`로 화면 너비를 지정할 수 있습니다. 테스트 HTML은 `frontend/tests`에 있으며 운영 라우트가 아닙니다.
 
+Heap·Hikari 내부 관리 API의 접근 보호와 배포 후 조회 방법은
+[최소 계측 안내](RESOURCE_MONITORING.md)를 참고합니다. 운영 배포 전 로컬 검증과 별도 승인이 필요합니다.
+
+## 외부 비용 없는 격리 통합 시험
+
+JDK 17과 실행 중인 로컬 Docker가 필요합니다. 프로젝트 루트에서 실행합니다.
+
+```powershell
+.\gradlew.bat isolatedIntegrationTest --offline --no-daemon --console=plain
+```
+
+`--offline`은 Gradle 의존성 다운로드만 막습니다. 캐시가 없으면 준비 후 다시 실행해야 하며,
+Testcontainers의 최초 이미지 다운로드나 OS 네트워크를 차단하는 옵션은 아닙니다.
+
+- DB: 기존 `AbstractMariaDbRepositoryTest`가 새 `mariadb:10.11` 컨테이너를 만들고 JDBC 설정을 직접 주입합니다. 기존 로컬/운영 DB 주소를 사용하지 않습니다. Flyway도 이 임시 DB에만 적용합니다.
+- 실제 코드: Draft 잠금·Generation 저장·이미지 검증·AI 비동기 실행기·큐 거절 및 복구를 연결합니다.
+- 대역: Cloudflare·S3·Rekognition·SES·S3Presigner. 실제 SDK 설정 클래스는 가져오지 않으며, 지정하지 않은 대역 호출은 `AssertionError`로 실패합니다. 성공 시나리오는 `doReturn`/`doAnswer`로 명시합니다.
+- 실행기: 이 시험에서만 worker 1개, 대기 1개로 포화를 만듭니다. 운영 실행 수·큐 설정은 바꾸지 않습니다.
+- 정리: 시험이 끝나면 Testcontainers가 임시 컨테이너를 정리합니다. 이미 실행 중이던 DB는 종료하지 않습니다.
+- 결과: `build/reports/tests/isolatedIntegrationTest/index.html`. 일반 `test` 보고서와 분리됩니다.
+
+위 명령은 **시험 JVM 안의 AI 서비스 통합 검증**입니다. 아래 별도 Docker E2E 명령과 구분합니다.
+실제 메일·AI 품질·AWS 권한·외부 지연 시간을 검증했다고 해석하지 않습니다.
+시험 코드는 `src/test`에만 있으므로 운영 `bootJar`에 대역 설정이 포함되지 않습니다.
+
+### 실제 HTTP·WebSocket·이메일 인증과 컨테이너 외부 연결 차단
+
+로컬 Windows Docker Desktop의 `desktop-linux` 컨텍스트에서 다음을 실행합니다.
+
+```powershell
+.\tools\isolated\run-e2e.ps1
+```
+
+스크립트는 시험 클래스·런타임 JAR만 묶고, 개인 `application-local.yml`과 운영 프로필 파일은 제외합니다.
+Gradle 캐시, AWS 설정, Docker 소켓, 호스트 환경변수는 시험 컨테이너에 공유하지 않습니다.
+처음에는 공개 `eclipse-temurin:17-jdk` 이미지 다운로드가 필요할 수 있습니다.
+
+매 실행마다 GUID 이름의 `--internal` 네트워크와 임시 MariaDB를 만듭니다. 포트 공개는 하지 않고,
+JVM 컨테이너는 읽기 전용 파일시스템·비특권 사용자·capability 제거 상태로 실행합니다.
+기본 외부 경로 부재 및 공용 IPv4/IPv6·메타데이터 TCP 연결 실패를 먼저 확인하며,
+실패하면 Spring 서버도 시작하지 않습니다. 이 차단은 시험 컨테이너에만 적용되며 호스트 방화벽은 바꾸지 않습니다.
+
+시험 대상은 실제 HTTP 쿠키·CSRF·회원가입·로그인·갱신·로그아웃, 이메일 인증번호의 오류·만료·재발송·사용 완료,
+SES 장애, 실제 STOMP 채팅 전송·REST fallback 방송·DB 저장·재접속·비멤버 권한 차단입니다.
+SES SDK만 대역으로 교체하여 실제 인증번호·Hash·토큰·회원가입 로직은 유지합니다.
+S3·Rekognition·Cloudflare도 대역이며 네트워크 차단이 추가 안전장치입니다.
+스케줄러 일부는 자동 실행 경합을 막기 위해 대역으로 교체합니다.
+
+결과는 `build/isolated-e2e-results/<실행 ID>/summary.txt`에 남습니다. 종료·실패 시에도 이번 실행에서 만든 컨테이너와 네트워크만 정리합니다.
+다운로드한 공개 이미지는 재실행을 위해 캐시에 남기며 기존 DB 컨테이너는 유지합니다.
+이것은 주요 경로의 E2E 시험이지 모든 REST API·모든 실시간 이벤트, 브라우저 UI, OAuth 제공자 로그인,
+실제 메일 도착, 강제 장애 후 자동 재연결, DNS 유출 방지까지 검증하는 시험은 아닙니다.
+300 VU 성능 수치나 EC2 처리 여력을 입증하지도 않습니다.
+
 <details>
 <summary><strong>전체 서비스 구동을 위한 설정과 실행</strong></summary>
 

@@ -29,6 +29,8 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")
+	// Heap과 DB 연결 풀의 읽기 전용 관리 API를 별도 내부 포트에서 제공한다.
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
 
 	// ✅ WebSocket + STOMP 채팅을 사용하기 위한 의존성
 	// - WebSocket: 브라우저와 서버가 계속 연결된 상태로 메시지를 주고받게 해줌
@@ -86,7 +88,8 @@ dependencies {
 	testImplementation("org.testcontainers:mariadb")
 	testImplementation ("com.h2database:h2")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	// 격리 컨테이너의 시험 전용 launcher도 동일한 JUnit 실행 API를 사용한다.
+	testImplementation("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
@@ -95,6 +98,30 @@ tasks.withType<Test> {
 	// 테스트 실행 시 application-test.yml을 기본으로 읽게 한다.
 	// GitHub Actions, 로컬 Gradle 테스트에서 OAuth2/JWT 테스트용 설정이 빠지지 않도록 한다.
 	systemProperty("spring.profiles.active", "test")
+}
+
+// 운영 애플리케이션을 띄우지 않고 임시 DB와 대역 경계만 사용하는 통합 검증이다.
+tasks.register<Test>("isolatedIntegrationTest") {
+	group = "verification"
+	description = "Runs isolated integration tests with disposable MariaDB and no real provider clients"
+	testClassesDirs = sourceSets.test.get().output.classesDirs
+	classpath = sourceSets.test.get().runtimeClasspath
+	filter { includeTestsMatching("shop.esjh.memoryjar.isolated.*") }
+	environment("AWS_EC2_METADATA_DISABLED", "true")
+}
+
+// 호스트 Gradle 캐시·AWS 설정을 컨테이너에 공유하지 않고 필요한 클래스와 JAR만 복사한다.
+tasks.register<Sync>("isolatedE2eBundle") {
+	dependsOn(tasks.testClasses)
+	into(layout.buildDirectory.dir("isolated-e2e-runtime"))
+	from(sourceSets.main.get().output.classesDirs) { into("classes/main") }
+	from(sourceSets.test.get().output.classesDirs) { into("classes/test") }
+	from(layout.buildDirectory.dir("resources/main")) {
+		into("resources/main")
+		exclude("application-local.yml", "application-prod.yml")
+	}
+	from(layout.buildDirectory.dir("resources/test")) { into("resources/test") }
+	from(configurations.testRuntimeClasspath) { into("lib") }
 }
 
 // 운영 프롬프트를 바꾸지 않고 서버에서만 수동 비교할 작은 도구다.
