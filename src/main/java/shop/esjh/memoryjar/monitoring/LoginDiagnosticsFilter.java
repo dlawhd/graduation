@@ -7,21 +7,31 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** 로그인 POST의 보안 필터·컨트롤러·직렬화 구간을 둘러싸며 요청 본문·헤더는 읽지 않는다. */
+/** 로그인 POST와 CSRF GET의 보안 필터·컨트롤러·직렬화를 둘러싸며 본문·헤더는 읽지 않는다. */
 public class LoginDiagnosticsFilter extends OncePerRequestFilter {
     private final LoginDiagnostics diagnostics;
     public LoginDiagnosticsFilter(LoginDiagnostics diagnostics) { this.diagnostics = diagnostics; }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !"POST".equals(request.getMethod()) || !request.getRequestURI()
-                .equals(request.getContextPath() + "/api/v1/auth/login");
+        return requestKind(request) == null;
+    }
+
+    private LoginDiagnostics.RequestKind requestKind(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if ("POST".equals(request.getMethod()) && uri.equals(request.getContextPath() + "/api/v1/auth/login")) {
+            return LoginDiagnostics.RequestKind.LOGIN;
+        }
+        if ("GET".equals(request.getMethod()) && uri.equals(request.getContextPath() + "/api/v1/csrf")) {
+            return LoginDiagnostics.RequestKind.CSRF;
+        }
+        return null;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        var attempt = diagnostics.start();
+        var attempt = diagnostics.start(requestKind(request));
         boolean completed = false;
         try {
             chain.doFilter(request, response);

@@ -95,3 +95,60 @@ Nginx/클라이언트가 499/timeout이어도 애플리케이션은 200 상태�
 JvmGcMetricsTest.java, ResourceUsageEndpointTest.java 및
 src/test/java/shop/esjh/memoryjar/isolated/IsolatedHttpWebSocketTest.java,
 tools/monitoring/test_diagnostics.py, tools/monitoring/test_guard.py.
+
+## 로그인 후 CSRF 지연 계측 확장 (2026-10-18)
+
+위의 준비 검증 결과는 최초 구현 시점의 기록이다. 이후 운영에서 로그인은 200이지만 후속
+GET /api/v1/csrf가 3초 timeout/Nginx 499로 끝나는 사례를 관측했다. 이를 나누기 위해
+이번 로컬 변경은 다음 범위만 확장한다. 이 절 자체가 운영 배포·측정 완료를 의미하지 않는다.
+
+- 기존 기본 꺼짐 설정과 내부 관리 포트, 최근 64개 상한을 유지한다.
+- 허용 경로는 POST /api/v1/auth/login, GET /api/v1/csrf 두 개뿐이다.
+- 고정 requestKind(LOGIN/CSRF)를 추가하며 원문 URI·query·토큰·사용자 정보를 보존하지 않는다.
+- JWT_VALIDATE는 기존 validate, JWT_CLAIMS_PARSE는 기존 두 번째 파싱 호출 시간이다.
+  중복 파싱을 제거하거나 보안 검사를 생략하는 성능 수정은 하지 않는다.
+- SESSION_VERSION_QUERY는 기존 Repository 호출 전체다. **연결 획득·트랜잭션·SQL 실행 등을
+  포함할 수 있으며, 연결 대기와 순수 SQL 실행 시간을 독립적으로 측정한 값이 아니다.**
+- CSRF_CONTROLLER는 컨트롤러 진입 후 토큰 읽기·응답 객체 생성이다. 필터 전체 시간에는
+  그 앞의 보안 필터/MVC와 뒤의 직렬화가 포함된다. 필터 진입 전 서버 큐·네트워크는 제외된다.
+- API 응답·생성자·인증 결과·예외·트랜잭션 경계는 유지한다. GC는 여전히 JVM 전체 차이다.
+- 관리 응답의 loginDiagnostics 필드명은 호환성을 위해 유지하되 recent에는 두 종류가 섞인다.
+  분석기는 requestKind가 없는 구버전만 LOGIN으로 해석하고 새 CSRF는 별도 csrfSamples로 분리한다.
+  새 측정에서 마지막 recent 항목을 무조건 로그인이라고 가정하면 안 된다.
+- 현재 프로브의 후속 CSRF 실패도 로그인 실패와 구분해야 하며, 실패한 전체 흐름을 통과로 바꾸지 않는다.
+
+로컬 검증 후 별도 커밋·배포 승인을 받고 운영에서 소량 재측정한다. 기존 전체 Compose 배포는
+시험용 DB 캐시와 진단 설정을 해제할 수 있었다. 아래 API 전용 절차로 이를 보존하되 실제 배포 후에도 확인한다.
+
+### 확장 계측의 로컬 검증
+
+- Node 조회/분석 도구 검사 25개 통과. 새 혼합 진단/구버전 호환 검사 2개를 포함한다.
+- Python 자원 수집/중단 정책 검사 27개 통과. 첫 샌드박스 실행은 Windows의 시험 프로세스
+  종료 제한으로 실패했고 필요한 로컬 권한으로 재실행해 통과했다. 운영 부하는 실행하지 않았다.
+- `tools/isolated/run-e2e.ps1`의 실제 HTTP/WebSocket 검사 4개 통과. 로그인 후 CSRF의
+  JWT_VALIDATE·JWT_CLAIMS_PARSE·SESSION_VERSION_QUERY·CSRF_CONTROLLER와 관리 접근 차단 확인.
+- 결과: `build/isolated-e2e-results/memoryjar-e2e-acb3b70f9047/`.
+  생성한 임시 컨테이너·네트워크 잔존 0개. 외부 IPv4/IPv6·메타데이터 TCP 차단을 확인했으며
+  호스트 방화벽 전체나 DNS 전체의 차단을 검증한 것은 아니다.
+- Java 17 오프라인 `test bootJar isolatedE2eBundle` 성공. 전체 1,861개 중 1,856개 성공,
+  격리 전용 5개 skip, 실패/오류 0개. 이 중 실제 HTTP/WebSocket 4개는 위 격리 환경에서
+  별도로 통과했으며 조회 부하 전용 1개는 이번에 별도 재실행하지 않았다.
+- `git diff --check` 통과. 프론트엔드·의존성·DB 스키마 변경은 없다.
+  위 검증을 운영 지연 해결로 해석하지 않는다.
+- 이 확장 변경의 커밋·푸시·운영 배포·실제 로그인 재시험은 아직 수행하지 않았다.
+
+### API 배포 시 시험 설정 보존
+
+- `.github/workflows/deploy.yml`은 검증된 실행의 manifest와 `tools/deploy/deploy-api.py`를 사용한다.
+  실행기는 digest를 고정하고 `pull api`, `up -d --no-deps --pull never api`만 실행한다.
+  DB 이미지 갱신·설정 적용·재생성은 이 자동 배포의 범위가 아니며 별도 작업이다.
+- 서버의 선택 파일 `docker-compose.diagnostics.yml`이 있으면 함께 읽고, 없으면 기본 꺼짐이다.
+  `tools/monitoring/diagnostics.override.example.yml`은 진단 플래그만 추가한다.
+  기존 이미지 고정용 override를 재사용하면 오래된 API가 배포될 수 있으므로 재사용하지 않는다.
+- 기존 DB 캐시 시험 override는 변경하지 않는다. API 전용 배포로 현재 DB를 보존하는 것이며
+  캐시 설정의 영구 반영을 완료했다는 의미는 아니다.
+- 원복에 필요한 이전 이미지의 자동 prune을 제거했다. 디스크 여유를 배포 전에 확인하고
+  이미지 정리는 별도 승인·대상 확인으로 진행한다.
+- 배포 후 API 이미지·관리 포트·진단 활성화·Heap/풀을 확인하고 DB ID·기동 시각·캐시값을
+  변경 전과 비교한다. 로그인 재시험은 이 확인 뒤에 별도로 진행한다.
+- 커밋/digest 연결·동시 배포 방지·실패 시 원복과 제한은 [배포 안전 절차](DEPLOYMENT_SAFETY.md)를 따른다.

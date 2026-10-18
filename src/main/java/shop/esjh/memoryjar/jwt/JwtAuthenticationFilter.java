@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -44,9 +45,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
         }
 
-        if (jwt != null && jwtTokenProvider.validate(jwt)) {
+        // 기존 검증·파싱 횟수와 인증 결과를 유지한다. 진단이 켜진 허용 경로에서만 시간을 보존한다.
+        if (jwt != null && LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_VALIDATE,
+                () -> jwtTokenProvider.validate(jwt))) {
 
-            Claims claims = jwtTokenProvider.getClaimsFromToken(jwt);
+            Claims claims = LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_CLAIMS_PARSE,
+                    () -> jwtTokenProvider.getClaimsFromToken(jwt));
 
             // ✅ subject = userId (String)
             String userId = claims.getSubject();

@@ -60,6 +60,7 @@ class IsolatedHttpWebSocketTest {
         var account = signup(browser);
         browser.okPost("/api/v1/auth/logout", Map.of(), 200);
         browser.okPost("/api/v1/auth/login", Map.of("loginId", account.login, "password", "Isolated123!"), 200);
+        assertThat(browser.get("/api/v1/csrf").statusCode()).isEqualTo(200);
         assertThat(browser.get("/actuator/resources").statusCode()).isEqualTo(403);
         var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         var response = client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:9091/actuator/resources"))
@@ -75,11 +76,24 @@ class IsolatedHttpWebSocketTest {
         assertThat(snapshot.path("loginDiagnostics").path("enabled").asBoolean()).isTrue();
         var attempts = snapshot.path("loginDiagnostics").path("recent");
         assertThat(attempts.size()).isPositive();
-        var stages = attempts.get(attempts.size() - 1).path("stages");
+        // CSRF도 같은 고정 크기 버퍼에 있으므로 마지막 기록을 로그인으로 추측하지 않는다.
+        com.fasterxml.jackson.databind.JsonNode loginAttempt = null;
+        com.fasterxml.jackson.databind.JsonNode csrfAttempt = null;
+        for (var attempt : attempts) {
+            if (attempt.path("requestKind").asText().equals("LOGIN")) loginAttempt = attempt;
+            if (attempt.path("requestKind").asText().equals("CSRF")) csrfAttempt = attempt;
+        }
+        assertThat(loginAttempt).isNotNull();
+        assertThat(csrfAttempt).isNotNull();
+        var stages = loginAttempt.path("stages");
         for (String stage : List.of("CREDENTIAL_LOOKUP", "PASSWORD_VERIFY", "AUTH_SERVICE",
                 "REFRESH_TRANSACTION", "JWT_CREATE", "COOKIE_WRITE")) {
             assertThat(stages.path(stage).path("completed").asBoolean()).isTrue();
             assertThat(stages.path(stage).path("elapsedNanos").asLong()).isPositive();
+        }
+        for (String stage : List.of("JWT_VALIDATE", "JWT_CLAIMS_PARSE", "SESSION_VERSION_QUERY", "CSRF_CONTROLLER")) {
+            assertThat(csrfAttempt.path("stages").path(stage).path("completed").asBoolean()).isTrue();
+            assertThat(csrfAttempt.path("stages").path(stage).path("elapsedNanos").asLong()).isPositive();
         }
         assertThat(response.body()).doesNotContain(account.login, account.email, "Isolated123!", "accessToken", "refreshToken");
         var healthResponse = client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:9091/actuator/health"))

@@ -11,10 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/** 명시적으로 켠 로그인 요청만 시간 구간으로 측정한다. 입력값·사용자·토큰·예외 원문은 받지 않는다. */
+/** 명시적으로 켠 로그인·CSRF 요청만 시간 구간으로 측정한다. 입력값·사용자·토큰·예외 원문은 받지 않는다. */
 @Component
 public class LoginDiagnostics {
-    public enum Stage { CREDENTIAL_LOOKUP, PASSWORD_VERIFY, AUTH_SERVICE, REFRESH_TRANSACTION, JWT_CREATE, COOKIE_WRITE }
+    public enum RequestKind { LOGIN, CSRF }
+    public enum Stage { CREDENTIAL_LOOKUP, PASSWORD_VERIFY, AUTH_SERVICE, REFRESH_TRANSACTION, JWT_CREATE, COOKIE_WRITE,
+        JWT_VALIDATE, JWT_CLAIMS_PARSE, SESSION_VERSION_QUERY, CSRF_CONTROLLER }
     private static final ThreadLocal<Attempt> CURRENT = new ThreadLocal<>();
     private static final int CAPACITY = 64;
     private final boolean enabled;
@@ -31,8 +33,13 @@ public class LoginDiagnostics {
 
     /** ThreadLocal은 동기 로그인 한 요청에만 연결하고 반드시 finish에서 제거한다. */
     Attempt start() {
+        return start(RequestKind.LOGIN);
+    }
+
+    /** 원문 URI 대신 고정 분류만 보존해 사용자 입력이 지표에 섞이지 않게 한다. */
+    Attempt start(RequestKind requestKind) {
         if (!enabled || CURRENT.get() != null) return null;
-        var attempt = new Attempt(ids.incrementAndGet(), safeGc());
+        var attempt = new Attempt(ids.incrementAndGet(), safeGc(), requestKind);
         CURRENT.set(attempt);
         return attempt;
     }
@@ -45,7 +52,7 @@ public class LoginDiagnostics {
             var after = safeGc();
             var sample = new Sample(attempt.id, attempt.startedAt, Instant.now().toString(), elapsed,
                     status, completed, Map.copyOf(attempt.stages),
-                    delta(attempt.gcBefore, after, true), delta(attempt.gcBefore, after, false));
+                    delta(attempt.gcBefore, after, true), delta(attempt.gcBefore, after, false), attempt.requestKind);
             synchronized (recent) {
                 if (recent.size() == CAPACITY) recent.removeFirst();
                 recent.addLast(sample);
@@ -90,13 +97,16 @@ public class LoginDiagnostics {
         final String startedAt = Instant.now().toString();
         final long startedNanos = System.nanoTime();
         final JvmGcMetrics.Snapshot gcBefore;
+        final RequestKind requestKind;
         final EnumMap<Stage, Timing> stages = new EnumMap<>(Stage.class);
-        Attempt(long id, JvmGcMetrics.Snapshot gcBefore) { this.id = id; this.gcBefore = gcBefore; }
+        Attempt(long id, JvmGcMetrics.Snapshot gcBefore, RequestKind requestKind) {
+            this.id = id; this.gcBefore = gcBefore; this.requestKind = requestKind;
+        }
     }
 
     public record Timing(long elapsedNanos, boolean completed) { }
     public record Sample(long diagnosticId, String startedAt, String completedAt, long elapsedNanos,
                          Integer responseStatus, boolean completed, Map<Stage, Timing> stages,
-                         Long jvmGcCountDelta, Long jvmGcTimeMillisDelta) { }
+                         Long jvmGcCountDelta, Long jvmGcTimeMillisDelta, RequestKind requestKind) { }
     public record Snapshot(boolean enabled, int capacity, List<Sample> recent) { }
 }

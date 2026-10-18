@@ -1,0 +1,7 @@
+# 시험 종료 후 서버에서 제거하고 API를 재생성하면 기본 꺼짐 설정으로 돌아간다.
+# /home/ubuntu/deploy/docker-compose.diagnostics.yml 이름으로 명시 승인 후에만 배치한다.
+# 이미지·DB 설정·포트·볼륨은 이 파일에서 지정하지 않는다.
+services:
+  api:
+    environment:
+      APP_MONITORING_LOGIN_DIAGNOSTICS_ENABLED: "true"

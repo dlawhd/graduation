@@ -2,6 +2,7 @@ package shop.esjh.memoryjar.controller;
 
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.dto.response.CsrfResponse;
+import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,12 +14,13 @@ public class CsrfController {
     // 응답에는 headerName (예: X-XSRF-TOKEN), parameterName (예: _csrf), token 이런 것들을 포함.
     @GetMapping("/api/v1/csrf")
         public ApiResponse<CsrfResponse> csrf(CsrfToken csrfToken) {
-        return ApiResponse.of(
+        // 인증 필터·MVC 진입 대기와 토큰/응답 생성을 구분한다. 토큰 값은 계측기에 전달하지 않는다.
+        return LoginDiagnostics.measure(LoginDiagnostics.Stage.CSRF_CONTROLLER, () -> ApiResponse.of(
                 new CsrfResponse(
                         csrfToken.getHeaderName(),
                         csrfToken.getParameterName(),
                         csrfToken.getToken()
                 )
-        );
+        ));
     }
 }

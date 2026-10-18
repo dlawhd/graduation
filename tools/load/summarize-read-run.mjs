@@ -40,6 +40,9 @@ for (const s of valid) {
   }
 }
 const range = values => values.length ? { min: Math.min(...values), max: Math.max(...values) } : null;
+// 구버전은 로그인만 보존했다. 새 CSRF 기록을 로그인 성능에 합산하지 않는다.
+const loginSamples = [...loginRecords.values()].filter(s => !s.requestKind || s.requestKind === 'LOGIN');
+const csrfSamples = [...loginRecords.values()].filter(s => s.requestKind === 'CSRF');
 const endpoints = Object.fromEntries(['jar_list', 'jar_detail', 'note_list'].map(name => {
   const values = reads.filter(r => r.tags.endpoint === name).map(r => r.value);
   return [name, { count: values.length, p95ms: p95(values) }];
@@ -54,8 +57,10 @@ const windows = valid.map(s => {
     ioWaitPercent: s.ioWaitPercent, swapInMiBs: s.swapInBytesPerSecond / 1048576,
     swapOutMiBs: s.swapOutBytesPerSecond / 1048576,
     gcDelta: s.gcDelta ?? null, processes: s.processes ?? null,
-    loginDiagnosticIds: [...loginRecords.values()].filter(login => login.jvmIdentity === identity && Date.parse(login.startedAt) <= end
-      && Date.parse(login.completedAt) >= start).map(login => login.diagnosticId) };
+    loginDiagnosticIds: loginSamples.filter(login => login.jvmIdentity === identity && Date.parse(login.startedAt) <= end
+      && Date.parse(login.completedAt) >= start).map(login => login.diagnosticId),
+    csrfDiagnosticIds: csrfSamples.filter(csrf => csrf.jvmIdentity === identity && Date.parse(csrf.startedAt) <= end
+      && Date.parse(csrf.completedAt) >= start).map(csrf => csrf.diagnosticId) };
 });
 const result = { scope: 'OBSERVED_READ_TEST_NOT_GENERAL_USER_CAPACITY',
   guardStatus: guard.status, guardReason: guard.reason, loadExitCode: guard.loadExitCode ?? null,
@@ -71,6 +76,6 @@ const result = { scope: 'OBSERVED_READ_TEST_NOT_GENERAL_USER_CAPACITY',
   poolActive: range(valid.flatMap(s => s.application.pools.map(p => p.activeConnections))),
   poolPending: range(valid.flatMap(s => s.application.pools.map(p => p.pendingRequests))),
   loginDiagnosticsEnabled: valid.at(-1)?.application.loginDiagnostics?.enabled ?? null,
-  loginSamples: [...loginRecords.values()],
+  loginSamples, csrfSamples,
   windows };
 console.log(JSON.stringify(result, null, 2));
