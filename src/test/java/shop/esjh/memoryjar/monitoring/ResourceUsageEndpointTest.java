@@ -31,6 +31,8 @@ class ResourceUsageEndpointTest {
         assertThat(result.gc().collectors()).isNotEmpty();
         assertThat(result.loginDiagnostics().enabled()).isFalse();
         assertThat(result.loginDiagnostics().recent()).isEmpty();
+        assertThat(result.jvmMemory().nonHeap()).isNotNull();
+        assertThat(result.jvmMemory().threads().liveCount()).isPositive();
         verify(source, never()).getConnection();
     }
 

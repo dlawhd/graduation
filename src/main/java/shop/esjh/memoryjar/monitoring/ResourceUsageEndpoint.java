@@ -46,7 +46,7 @@ public class ResourceUsageEndpoint {
         boolean measurable = heap.maxBytes() > 0 && !pools.isEmpty()
                 && pools.stream().allMatch(pool -> pool.initialized() && pool.maxConnections() > 0);
         return new Snapshot(Instant.now().toString(), measurable, heap, pools,
-                JvmGcMetrics.read(), loginDiagnostics.snapshot());
+                JvmGcMetrics.read(), loginDiagnostics.snapshot(), JvmMemoryMetrics.read());
     }
 
     private Pool pool(String beanName, DataSource source) {
@@ -66,7 +66,8 @@ public class ResourceUsageEndpoint {
     private static Double percent(long used, long max) { return max > 0 ? used * 100.0 / max : null; }
 
     public record Snapshot(String observedAt, boolean measurable, Heap heap, List<Pool> pools,
-                           JvmGcMetrics.Snapshot gc, LoginDiagnostics.Snapshot loginDiagnostics) { }
+                           JvmGcMetrics.Snapshot gc, LoginDiagnostics.Snapshot loginDiagnostics,
+                           JvmMemoryMetrics.Snapshot jvmMemory) { }
     public record Heap(long usedBytes, long committedBytes, long maxBytes, Double usedPercent) { }
     public record Pool(String name, boolean initialized, Integer maxConnections, Integer activeConnections,
                        Integer idleConnections, Integer totalConnections, Integer pendingRequests, Double usedPercent) { }

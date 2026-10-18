@@ -73,6 +73,11 @@ class IsolatedHttpWebSocketTest {
         assertThat(snapshot.path("pools").get(0).path("maxConnections").asInt()).isPositive();
         assertThat(snapshot.path("pools").get(0).has("pendingRequests")).isTrue();
         assertThat(snapshot.path("gc").path("collectors").isArray()).isTrue();
+        assertThat(snapshot.path("jvmMemory").path("nonHeap").path("usedBytes").asLong()).isPositive();
+        assertThat(snapshot.path("jvmMemory").path("memoryPools").isArray()).isTrue();
+        assertThat(snapshot.path("jvmMemory").path("bufferPools").isArray()).isTrue();
+        assertThat(snapshot.path("jvmMemory").path("threads").path("liveCount").asInt()).isPositive();
+        assertThat(snapshot.path("jvmMemory").path("threads").has("threadNames")).isFalse();
         assertThat(snapshot.path("loginDiagnostics").path("enabled").asBoolean()).isTrue();
         var attempts = snapshot.path("loginDiagnostics").path("recent");
         assertThat(attempts.size()).isPositive();
