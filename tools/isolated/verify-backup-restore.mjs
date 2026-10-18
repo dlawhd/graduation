@@ -4,10 +4,13 @@ import { resolve, dirname, join } from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { createGunzip } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
+import { fileURLToPath } from 'node:url';
 
 // 백업 내용을 출력하지 않고 폐기 가능한 로컬 MariaDB에 실제 복원한다.
 // 운영 접속 정보는 사용하지 않으며 기존 컨테이너와 백업 파일은 변경하지 않는다.
 const backup = resolve(process.argv[2] ?? '');
+const fixtureFolder = process.argv[3] === '--check-read-fixture' && process.argv[4] ? resolve(process.argv[4]) : null;
+const scaleFolder = process.argv[3] === '--check-scale-fixture' && process.argv[4] ? resolve(process.argv[4]) : null;
 const container = `memoryjar-restore-${randomUUID().replaceAll('-', '').slice(0, 16)}`;
 let created = false;
 function docker(...args) {
@@ -76,6 +79,19 @@ try {
     rows += Number(query(`SELECT COUNT(*) FROM appdb.\`${table.trim()}\``));
   }
   console.log('ALL TABLES READABLE: PASS; combined row count:', rows);
+  if (fixtureFolder) {
+    // 복원한 폐기용 DB에서만 실제 운영 예정 SQL의 롤백·중복 거절·기존 행 보존을 확인한다.
+    const output = execFileSync('python', ['-B', join(dirname(fileURLToPath(import.meta.url)), '../load/ec2-read-prep.py'),
+      'local-check', '--folder', fixtureFolder, '--container', container, '--restored-backup-sha256', expected.slice(0, 64)],
+      { encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
+    console.log('READ FIXTURE SQL CHECK:', output.trim());
+  }
+  if (scaleFolder) {
+    const output = execFileSync('python', ['-B', join(dirname(fileURLToPath(import.meta.url)), '../load/scale-read-prep.py'),
+      'local-check', '--folder', scaleFolder, '--container', container, '--restored-backup-sha256', expected.slice(0, 64)],
+      { encoding: 'utf8', timeout: 300000, stdio: ['ignore', 'pipe', 'pipe'] });
+    console.log('SCALE FIXTURE SQL CHECK:', output.trim());
+  }
   console.log('Scope: appdb logical restore only; no S3 files, accounts/grants or server configuration.');
 } catch (failure) {
   console.error('CHECK FAILED:', failure.message);

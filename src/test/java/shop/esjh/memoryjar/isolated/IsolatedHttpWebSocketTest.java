@@ -35,6 +35,7 @@ import static org.mockito.Mockito.*;
 @SpringBootTest(classes = MemoryJarApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"server.address=127.0.0.1", "spring.docker.compose.enabled=false",
                 "management.server.port=9091", "management.server.address=127.0.0.1",
+                "app.monitoring.login-diagnostics-enabled=true",
                 "app.cookie.secure=false", "app.cookie.domain=", "app.cookie.same-site=Lax"})
 class IsolatedHttpWebSocketTest {
     @LocalServerPort int port;
@@ -56,7 +57,9 @@ class IsolatedHttpWebSocketTest {
         Browser browser = new Browser();
         assertThat(browser.get("/actuator/resources").statusCode()).isEqualTo(403);
         assertThat(browser.get("/actuator/health").statusCode()).isEqualTo(403);
-        signup(browser);
+        var account = signup(browser);
+        browser.okPost("/api/v1/auth/logout", Map.of(), 200);
+        browser.okPost("/api/v1/auth/login", Map.of("loginId", account.login, "password", "Isolated123!"), 200);
         assertThat(browser.get("/actuator/resources").statusCode()).isEqualTo(403);
         var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         var response = client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:9091/actuator/resources"))
@@ -68,6 +71,17 @@ class IsolatedHttpWebSocketTest {
         assertThat(snapshot.path("heap").path("maxBytes").asLong()).isPositive();
         assertThat(snapshot.path("pools").get(0).path("maxConnections").asInt()).isPositive();
         assertThat(snapshot.path("pools").get(0).has("pendingRequests")).isTrue();
+        assertThat(snapshot.path("gc").path("collectors").isArray()).isTrue();
+        assertThat(snapshot.path("loginDiagnostics").path("enabled").asBoolean()).isTrue();
+        var attempts = snapshot.path("loginDiagnostics").path("recent");
+        assertThat(attempts.size()).isPositive();
+        var stages = attempts.get(attempts.size() - 1).path("stages");
+        for (String stage : List.of("CREDENTIAL_LOOKUP", "PASSWORD_VERIFY", "AUTH_SERVICE",
+                "REFRESH_TRANSACTION", "JWT_CREATE", "COOKIE_WRITE")) {
+            assertThat(stages.path(stage).path("completed").asBoolean()).isTrue();
+            assertThat(stages.path(stage).path("elapsedNanos").asLong()).isPositive();
+        }
+        assertThat(response.body()).doesNotContain(account.login, account.email, "Isolated123!", "accessToken", "refreshToken");
         var healthResponse = client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:9091/actuator/health"))
                 .GET().build(), HttpResponse.BodyHandlers.ofString());
         assertThat(healthResponse.statusCode()).isEqualTo(200);

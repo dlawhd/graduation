@@ -8,6 +8,7 @@ import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.*;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.jwt.JwtTokenProvider;
+import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -647,10 +648,10 @@ public class AuthController {
          * 실제 아이디 / 비밀번호 검사
          */
         LocalAuthService.LocalAuthResult result =
-                localAuthService.login(
+                LoginDiagnostics.measure(LoginDiagnostics.Stage.AUTH_SERVICE, () -> localAuthService.login(
                         request.loginId(),
                         request.password()
-                );
+                ));
 
 
         /*
@@ -793,9 +794,9 @@ public class AuthController {
          * DB에 저장되는 Refresh Token을 새로 발급한다.
          */
         String refreshToken =
-                refreshTokenService.issue(
+                LoginDiagnostics.measure(LoginDiagnostics.Stage.REFRESH_TRANSACTION, () -> refreshTokenService.issue(
                         user
-                );
+                ));
 
 
         /*
@@ -831,29 +832,32 @@ public class AuthController {
         claims.put("sessionVersion", user.getSessionVersion());
 
         String accessToken =
-                jwtTokenProvider
+                LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_CREATE, () -> jwtTokenProvider
                         .createAccessToken(
                                 String.valueOf(
                                         user.getId()
                                 ),
                                 claims
-                        );
+                        ));
 
 
         /*
          * HttpOnly Cookie 저장
          */
-        authCookieService
-                .setAccessCookie(
-                        response,
-                        accessToken
-                );
+        LoginDiagnostics.measure(LoginDiagnostics.Stage.COOKIE_WRITE, () -> {
+            authCookieService
+                    .setAccessCookie(
+                            response,
+                            accessToken
+                    );
 
-        authCookieService
-                .setRefreshCookie(
-                        response,
-                        refreshToken
-                );
+            authCookieService
+                    .setRefreshCookie(
+                            response,
+                            refreshToken
+                    );
+            return null;
+        });
     }
 
     /*

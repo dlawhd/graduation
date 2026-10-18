@@ -18,15 +18,21 @@ import org.springframework.stereotype.Component;
 public class ResourceUsageEndpoint {
     private final Map<String, DataSource> sources;
     private final MemoryMXBean memory;
+    private final LoginDiagnostics loginDiagnostics;
 
     @Autowired
-    public ResourceUsageEndpoint(Map<String, DataSource> sources) {
-        this(sources, ManagementFactory.getMemoryMXBean());
+    public ResourceUsageEndpoint(Map<String, DataSource> sources, LoginDiagnostics loginDiagnostics) {
+        this(sources, ManagementFactory.getMemoryMXBean(), loginDiagnostics);
     }
 
     ResourceUsageEndpoint(Map<String, DataSource> sources, MemoryMXBean memory) {
+        this(sources, memory, new LoginDiagnostics(false));
+    }
+
+    ResourceUsageEndpoint(Map<String, DataSource> sources, MemoryMXBean memory, LoginDiagnostics loginDiagnostics) {
         this.sources = Map.copyOf(sources);
         this.memory = memory;
+        this.loginDiagnostics = loginDiagnostics;
     }
 
     /** 값이 없으면 null/false로 반환한다. 미측정을 사용률 0%로 오해하지 않게 한다. */
@@ -39,7 +45,8 @@ public class ResourceUsageEndpoint {
                 .map(entry -> pool(entry.getKey(), entry.getValue())).toList();
         boolean measurable = heap.maxBytes() > 0 && !pools.isEmpty()
                 && pools.stream().allMatch(pool -> pool.initialized() && pool.maxConnections() > 0);
-        return new Snapshot(Instant.now().toString(), measurable, heap, pools);
+        return new Snapshot(Instant.now().toString(), measurable, heap, pools,
+                JvmGcMetrics.read(), loginDiagnostics.snapshot());
     }
 
     private Pool pool(String beanName, DataSource source) {
@@ -58,7 +65,8 @@ public class ResourceUsageEndpoint {
 
     private static Double percent(long used, long max) { return max > 0 ? used * 100.0 / max : null; }
 
-    public record Snapshot(String observedAt, boolean measurable, Heap heap, List<Pool> pools) { }
+    public record Snapshot(String observedAt, boolean measurable, Heap heap, List<Pool> pools,
+                           JvmGcMetrics.Snapshot gc, LoginDiagnostics.Snapshot loginDiagnostics) { }
     public record Heap(long usedBytes, long committedBytes, long maxBytes, Double usedPercent) { }
     public record Pool(String name, boolean initialized, Integer maxConnections, Integer activeConnections,
                        Integer idleConnections, Integer totalConnections, Integer pendingRequests, Double usedPercent) { }

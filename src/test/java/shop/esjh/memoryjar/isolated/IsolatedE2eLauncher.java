@@ -21,10 +21,11 @@ public final class IsolatedE2eLauncher {
                         + "Java=" + System.getProperty("java.version") + "\n"
                         + "Scope=isolated runner container only; DNS/host firewall not tested\n");
         var listener = new SummaryGeneratingListener();
+        boolean readPreflight = "1".equals(System.getenv("ISOLATED_READ_PREFLIGHT"));
         var launcher = LauncherFactory.create();
         launcher.registerTestExecutionListeners(listener);
         launcher.execute(LauncherDiscoveryRequestBuilder.request()
-                .selectors(selectClass(IsolatedHttpWebSocketTest.class)).build());
+                .selectors(selectClass(readPreflight ? IsolatedReadScenarioTest.class : IsolatedHttpWebSocketTest.class)).build());
         var summary = listener.getSummary();
         try (var writer = new PrintWriter(Files.newBufferedWriter(Path.of("/results/summary.txt")))) {
             summary.printTo(writer);
@@ -33,6 +34,6 @@ public final class IsolatedE2eLauncher {
         summary.printTo(new PrintWriter(System.out, true));
         summary.printFailuresTo(new PrintWriter(System.out, true));
         // 컨텍스트 초기화 실패나 전부 skip도 성공으로 취급하지 않는다.
-        System.exit(summary.getTotalFailureCount() == 0 && summary.getTestsSucceededCount() == 4 ? 0 : 1);
+        System.exit(summary.getTotalFailureCount() == 0 && summary.getTestsSucceededCount() == (readPreflight ? 1 : 4) ? 0 : 1);
     }
 }

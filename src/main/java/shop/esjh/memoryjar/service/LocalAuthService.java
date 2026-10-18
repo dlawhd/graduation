@@ -13,6 +13,7 @@ import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserLocalCredential;
 import shop.esjh.memoryjar.entity.UserOAuthAccount;
 import shop.esjh.memoryjar.policy.NicknamePolicy;
+import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 import shop.esjh.memoryjar.repository.UserLocalCredentialRepository;
 import shop.esjh.memoryjar.repository.UserOAuthAccountRepository;
 import shop.esjh.memoryjar.repository.UserRepository;
@@ -1054,13 +1055,13 @@ public class LocalAuthService {
          * "아이디가 존재하지 않는다"고 알려주지 않는다.
          */
         UserLocalCredential credential =
-                userLocalCredentialRepository
+                LoginDiagnostics.measure(LoginDiagnostics.Stage.CREDENTIAL_LOOKUP, () -> userLocalCredentialRepository
                         .findByLoginId(
                                 normalizedLoginId
                         )
                         .orElseThrow(
                                 this::invalidLoginException
-                        );
+                        ));
 
 
         /*
@@ -1076,10 +1077,10 @@ public class LocalAuthService {
         user.getSessionVersion();
 
         boolean passwordMatches =
-                passwordEncoder.matches(
+                LoginDiagnostics.measure(LoginDiagnostics.Stage.PASSWORD_VERIFY, () -> passwordEncoder.matches(
                         password,
                         credential.getPasswordHash()
-                );
+                ));
 
 
         /*

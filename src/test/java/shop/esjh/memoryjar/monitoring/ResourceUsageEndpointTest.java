@@ -28,6 +28,9 @@ class ResourceUsageEndpointTest {
         assertThat(result.heap().usedPercent()).isEqualTo(25.0);
         assertThat(result.pools().get(0).usedPercent()).isEqualTo(80.0);
         assertThat(result.pools().get(0).pendingRequests()).isEqualTo(3);
+        assertThat(result.gc().collectors()).isNotEmpty();
+        assertThat(result.loginDiagnostics().enabled()).isFalse();
+        assertThat(result.loginDiagnostics().recent()).isEmpty();
         verify(source, never()).getConnection();
     }
 
