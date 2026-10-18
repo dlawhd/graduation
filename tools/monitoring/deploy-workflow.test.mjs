@@ -17,4 +17,5 @@ test('생성 digest artifact와 이미지 revision 라벨을 남긴다', () => {
   assert.ok(publish.includes('org.opencontainers.image.revision=${{ github.sha }}'));
   assert.ok(publish.includes('deployment-manifest-${{ github.sha }}'));
   assert.ok(publish.includes("python3 -B -m unittest discover -s tools/deploy"));
+  assert.ok(publish.includes("python3 -B -m unittest discover -s tools/load -p 'test_auth*.py'"));
 });
