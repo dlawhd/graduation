@@ -1,4 +1,7 @@
-"""전용 계정 3개의 기존 3초 인증 흐름을 계측하고 실패 후 늦은 세션까지 정리한다."""
+"""전용 계정 3개의 기존 3초 인증 흐름을 계측하고 실패 후 늦은 세션까지 정리한다.
+
+5초는 별도 명시 옵션으로만 선택하며, 이전 3초 조건을 만족했는지도 함께 기록한다.
+"""
 import argparse
 import datetime
 import http.cookiejar
@@ -29,8 +32,12 @@ recovery = load('auth_recovery', 'tools/load/auth-recovery.py')
 
 class AuthProbe:
     """실제 사용자와 비용 경로를 제외하고, 인증·계측·후속 정리의 책임을 분리한다."""
-    def __init__(self, fixture, runtime, output):
+    def __init__(self, fixture, runtime, output, timeout_seconds=3):
         self.fixture, self.runtime, self.output = fixture, runtime, output
+        # 기존 3초 기준본을 유지하고, 승인한 5초 진단만 별도 선택한다.
+        if type(timeout_seconds) is not int or timeout_seconds not in (3, 5):
+            raise ValueError('ONLY_THREE_OR_FIVE_SECOND_DIAGNOSTIC_ALLOWED')
+        self.timeout_seconds = timeout_seconds
         if fixture.get('scope') != 'ec2-prepared' or not re.fullmatch(r'lt[a-f0-9]{8}', fixture.get('runId', '')):
             raise ValueError('DEDICATED_FIXTURE_REQUIRED')
         accounts = fixture.get('accounts', [])
@@ -45,6 +52,7 @@ class AuthProbe:
         self.last_received = None
         self.started = time.monotonic()
         self.collector = None
+        self.collection_failure = None
 
     def where(self):
         ids = ','.join(str(a['userId']) for a in self.accounts)
@@ -71,6 +79,9 @@ class AuthProbe:
                 raise RuntimeError('COLLECTOR_ENDED')
             value = json.loads(line)
             self.append('samples.jsonl', value)
+            # 실패 표본도 먼저 보존하고 첫 실패 단계를 결과에 남긴 뒤 기존 중단 정책에 전달한다.
+            if 'error' in value and self.collection_failure is None:
+                self.collection_failure = value.get('failure') or {'stage': 'UNKNOWN', 'kind': 'UNRECORDED'}
             checked = self.policy.check(value, time.monotonic())
             self.last_received = time.monotonic()
             self.samples.append(value)
@@ -93,7 +104,7 @@ class AuthProbe:
         entry = {'accountIndex':index,'phase':phase,'startedAt':datetime.datetime.now(datetime.timezone.utc).isoformat()}
         started = time.perf_counter()
         try:
-            with opener.open(request, timeout=3) as response:
+            with opener.open(request, timeout=self.timeout_seconds) as response:
                 entry['httpStatus'] = response.status
                 if response.status != 200:
                     raise ValueError('HTTP_FAILED')
@@ -106,8 +117,8 @@ class AuthProbe:
                     raise ValueError('IDENTITY_MISMATCH')
             if phase == 'LOGOUT' and data.get('ok') is not True:
                 raise ValueError('LOGOUT_NOT_CONFIRMED')
-            if time.perf_counter()-started > 3:
-                raise RuntimeError('CLIENT_ELAPSED_OVER_3S')
+            if time.perf_counter()-started > self.timeout_seconds:
+                raise RuntimeError('CLIENT_ELAPSED_OVER_LIMIT')
             entry['passed'] = True
             return data
         except Exception as error:
@@ -116,6 +127,8 @@ class AuthProbe:
         finally:
             entry.update(elapsedMillis=(time.perf_counter()-started)*1000,
                          completedAt=datetime.datetime.now(datetime.timezone.utc).isoformat())
+            entry['timeoutSeconds'] = self.timeout_seconds
+            entry['withinPreviousThreeSecondLimit'] = entry['elapsedMillis'] <= 3000
             self.phases.append(entry)
             self.append('phases.jsonl', entry)
             print(json.dumps(entry), flush=True)
@@ -157,8 +170,9 @@ class AuthProbe:
                 result['completedFlows'] += 1
                 self.pump(10)
             self.pump(20)
-        except Exception:
+        except Exception as error:
             result.update(status='STOPPED',failedPhase=next((p['phase'] for p in reversed(self.phases) if not p['passed']),'RESOURCE_OR_PREFLIGHT'))
+            result['failureType'] = type(error).__name__
             result['recovery'] = recovery.settle_after_failure(lambda seconds:self.pump(seconds,False))
         finally:
             if self.collector.poll() is None:
@@ -177,7 +191,8 @@ class AuthProbe:
                 # 정리 실패·서버 교체를 성공/0개로 숨기지 않고 결과 파일에 남긴다.
                 result.update(status='STOPPED',cleanupError=type(error).__name__)
                 result['failedPhase'] = result['failedPhase'] or 'CLEANUP_OR_RUNTIME'
-            result.update(plannedFlows=3,phases=self.phases,sampleCount=len(self.samples),timeoutSeconds=3,loadStarted=False,
+            result.update(plannedFlows=3,phases=self.phases,sampleCount=len(self.samples),timeoutSeconds=self.timeout_seconds,loadStarted=False,
+                          collectionFailure=self.collection_failure,
                           scope='SEQUENTIAL_AUTH_FLOW_DIAGNOSTIC_NOT_VU_CAPACITY')
             prep.write_private(self.output/'summary.json',result)
         return result
@@ -189,6 +204,8 @@ def main():
     parser.add_argument('--fixture', required=True, type=pathlib.Path)
     parser.add_argument('--output', required=True, type=pathlib.Path)
     parser.add_argument('--approve-sequential-auth', action='store_true')
+    parser.add_argument('--timeout-seconds', type=int, choices=(3, 5), default=3,
+                        help='기본 3초. 별도 진단에서만 5초를 명시하며 앱 설정은 변경하지 않음')
     args = parser.parse_args()
     if not args.approve_sequential_auth:
         raise ValueError('EXPLICIT_AUTH_PROBE_APPROVAL_REQUIRED')
@@ -198,7 +215,7 @@ def main():
     except ValueError:
         raise ValueError('OUTPUT_MUST_BE_UNDER_BUILD')
     args.output.mkdir(parents=True,exist_ok=False)
-    result = AuthProbe(json.loads(args.fixture.read_text(encoding='utf-8')),args.runtime,args.output).run()
+    result = AuthProbe(json.loads(args.fixture.read_text(encoding='utf-8')),args.runtime,args.output,args.timeout_seconds).run()
     print(json.dumps(result),flush=True)
     return 0 if result['status']=='COMPLETED' and result['remainingActiveTestSessions']==0 else 2
 

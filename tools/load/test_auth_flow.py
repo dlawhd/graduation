@@ -36,9 +36,9 @@ class AuthFlowTest(unittest.TestCase):
             if change=='login': value['accounts'][1]['loginId']='real-user'
             with self.assertRaises(ValueError): probe.AuthProbe(value,pathlib.Path('.'),pathlib.Path('.'))
 
-    def case(self,data,phase='LOGIN',path='/api/v1/auth/login',fail=None):
+    def case(self,data,phase='LOGIN',path='/api/v1/auth/login',fail=None,timeout_seconds=3):
         with tempfile.TemporaryDirectory() as folder:
-            value=probe.AuthProbe(fixture(),pathlib.Path('.'),pathlib.Path(folder))
+            value=probe.AuthProbe(fixture(),pathlib.Path('.'),pathlib.Path(folder),timeout_seconds)
             value.pump=lambda *_:None
             value.last_received=time.monotonic()
             class Opener:
@@ -52,13 +52,38 @@ class AuthFlowTest(unittest.TestCase):
                     with self.assertRaises(Exception): value.call(opener,0,phase,path,expected_user=1 if phase=='LOGIN' else None)
                 else:
                     value.call(opener,0,phase,path,expected_user=1 if phase=='LOGIN' else None)
-            if path!='/api/v1/paid': self.assertEqual(opener.timeout,3)
+            if path!='/api/v1/paid': self.assertEqual(opener.timeout,timeout_seconds)
             self.assertNotIn('SECRET_SHOULD_NOT_BE_RECORDED',json.dumps(value.phases))
             self.assertNotIn('not-a-real-password',json.dumps(value.phases))
             return value.phases
 
     def test_success_keeps_three_second_limit(self):
         self.assertTrue(self.case({'userId':1})[0]['passed'])
+
+    def test_explicit_five_second_diagnostic_is_separate(self):
+        result=self.case({'userId':1},timeout_seconds=5)[0]
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['timeoutSeconds'],5)
+        self.assertTrue(result['withinPreviousThreeSecondLimit'])
+        for timeout in [0,4,10,True,'5']:
+            with self.assertRaises(ValueError):
+                probe.AuthProbe(fixture(),pathlib.Path('.'),pathlib.Path('.'),timeout)
+
+    def test_elapsed_beyond_selected_limit_is_not_success(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for timeout,elapsed,passed in [(3,3.5,False),(5,3.5,True),(5,5.5,False)]:
+                value=probe.AuthProbe(fixture(),pathlib.Path('.'),pathlib.Path(folder),timeout)
+                value.pump=lambda *_:None
+                value.last_received=time.monotonic()
+                opener=Mock()
+                opener.open.return_value=Response({'userId':1})
+                with patch.object(probe.time,'perf_counter',side_effect=[0,elapsed,elapsed]), patch('builtins.print'):
+                    if passed:
+                        value.call(opener,0,'LOGIN','/api/v1/auth/login',expected_user=1)
+                    else:
+                        with self.assertRaises(RuntimeError): value.call(opener,0,'LOGIN','/api/v1/auth/login',expected_user=1)
+                self.assertEqual(value.phases[-1]['passed'],passed)
+                self.assertFalse(value.phases[-1]['withinPreviousThreeSecondLimit'])
 
     def test_wrong_user_is_failure(self):
         self.assertFalse(self.case({'userId':99})[0]['passed'])
@@ -68,6 +93,15 @@ class AuthFlowTest(unittest.TestCase):
 
     def test_paid_path_never_reaches_http(self):
         self.assertEqual(self.case({},path='/api/v1/paid'),[])
+
+    def test_collection_failure_is_preserved_before_stopping(self):
+        with tempfile.TemporaryDirectory() as folder:
+            value=probe.AuthProbe(fixture(),pathlib.Path('.'),pathlib.Path(folder),5)
+            failure={'stage':'APPLICATION_READ','kind':'COMMAND_EXIT','exitCode':28,'lastSuccessfulSequence':5}
+            value.messages.put(json.dumps({'error':'RESOURCE_COLLECTION_FAILED','failure':failure}))
+            with self.assertRaises(probe.guard.UnsafeSample): value.pump(.1)
+            self.assertEqual(failure,value.collection_failure)
+            self.assertEqual([],value.phases)
 
     def test_logout_must_be_confirmed(self):
         self.assertFalse(self.case({'ok':False},phase='LOGOUT',path='/api/v1/auth/logout')[0]['passed'])

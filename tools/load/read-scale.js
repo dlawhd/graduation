@@ -3,17 +3,18 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Counter } from 'k6/metrics';
 import { operation, readThresholds, validResponse } from './read-contract.mjs';
-import { validateScale } from './read-scale-policy.mjs';
+import { validateScale, resolveScaleTimeout } from './read-scale-policy.mjs';
 
 const baseUrl = __ENV.BASE_URL || '';
 if (!__ENV.FAMILY_PATH) throw new Error('FAMILY_PATH_REQUIRED');
 const family = JSON.parse(open(__ENV.FAMILY_PATH));
 const groups = validateScale(family, baseUrl, __ENV.SCALE_VUS, __ENV.SCALE_APPROVAL);
+const timeout = resolveScaleTimeout(__ENV.SCALE_VUS, __ENV.SCALE_APPROVAL);
 const vus = Number(__ENV.SCALE_VUS);
 const readErrors = new Rate('read_errors'), readRequests = new Counter('read_requests');
 const cleanupErrors = new Rate('cleanup_errors');
 const scenarios = {};
-scenarios['ec2_read_' + vus] = { executor: 'constant-vus', vus, duration: '60s', gracefulStop: '3s' };
+scenarios['ec2_read_' + vus] = { executor: 'constant-vus', vus, duration: '60s', gracefulStop: timeout };
 export const options = { scenarios, setupTimeout: '20m', teardownTimeout: '15m', maxRedirects: 0,
   systemTags: ['status', 'method', 'name', 'scenario', 'expected_response'],
   thresholds: Object.assign(readThresholds(), { cleanup_errors: ['rate==0'] }) };
@@ -30,7 +31,7 @@ function get(path, params) {
 
 function closeSession(session) {
   const jar = new http.CookieJar();
-  const params = { jar, redirects: 0, timeout: '3s', tags: { phase: 'cleanup', name: 'cleanup' } };
+  const params = { jar, redirects: 0, timeout, tags: { phase: 'cleanup', name: 'cleanup' } };
   try {
     Object.keys(session.cookies).forEach(name => jar.set(baseUrl, name, session.cookies[name][0], { path: '/' }));
     const csrf = data(get('/api/v1/csrf', params));
@@ -46,7 +47,7 @@ export function setup() {
   try {
     groups.forEach((group, groupIndex) => group.accounts.forEach(account => {
       const jar = new http.CookieJar();
-      const params = { jar, redirects: 0, timeout: '3s', tags: { phase: 'prepare', name: 'prepare' } };
+      const params = { jar, redirects: 0, timeout, tags: { phase: 'prepare', name: 'prepare' } };
       const csrf = data(get('/api/v1/csrf', params));
       if (!csrf || csrf.headerName !== 'X-XSRF-TOKEN' || !csrf.token) throw new Error('INVALID_CSRF');
       params.headers = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf.token };
@@ -75,7 +76,7 @@ export default function (sessions) {
   const group = groups[session.groupIndex];
   const op = operation(__ITER, __VU, group);
   const response = http.get(baseUrl + op.path, {
-    cookies: { accessToken: session.cookies.accessToken[0] }, redirects: 0, timeout: '3s',
+    cookies: { accessToken: session.cookies.accessToken[0] }, redirects: 0, timeout,
     tags: { phase: 'read', endpoint: op.endpoint, name: op.endpoint },
   });
   const correct = validResponse(response.status, response.body, op, group, session.userId);

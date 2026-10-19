@@ -40,10 +40,12 @@ def inspect_containers():
 
 
 def read_application(pid):
+    # 관리 HTTP 요청은 5초까지 기다리고, 바깥 명령에는 종료 처리용 1초를 더 준다.
+    # 다른 Docker 명령의 제한과 수집 실패 시 부하 중단 기준은 변경하지 않는다.
     return json.loads(command([
         "sudo", "-n", "nsenter", "--target", str(pid), "--net", "--",
         "curl", "--noproxy", "*", "--fail", "--silent", "--show-error",
-        "--max-time", "3", "http://127.0.0.1:9091/actuator/resources"], timeout=4))
+        "--max-time", "5", "http://127.0.0.1:9091/actuator/resources"], timeout=6))
 
 
 def process_snapshot(container):
@@ -113,39 +115,93 @@ def emit(value):
     print(json.dumps(value, separators=(",", ":"), allow_nan=False), flush=True)
 
 
+COLLECTION_STAGES = frozenset((
+    'INITIAL_CPU', 'INITIAL_VM', 'PAGE_SIZE', 'INITIAL_CONTAINERS', 'INITIAL_PROCESSES',
+    'INITIAL_APPLICATION', 'WAIT', 'CPU_READ', 'VM_READ', 'MEMORY_READ', 'INTERVAL_CHECK',
+    'CONTAINERS_READ', 'CONTAINER_CHECK', 'APPLICATION_READ', 'PROCESSES_READ',
+    'CONTAINER_RECHECK', 'PROCESS_DELTAS', 'GC_DELTA', 'SAMPLE_BUILD', 'SAMPLE_VALIDATE', 'EMIT'))
+
+
+def failure_details(stage, error, sequence):
+    """예외 원문·명령 인자를 제외하고 실패 단계와 정해진 오류 분류만 반환한다."""
+    # 외부 명령의 오류 출력이나 JSON 본문에는 운영 정보가 섞일 수 있어 출력하지 않는다.
+    if isinstance(error, subprocess.TimeoutExpired):
+        kind = 'COMMAND_TIMEOUT'
+    elif isinstance(error, subprocess.CalledProcessError):
+        kind = 'COMMAND_EXIT'
+    elif isinstance(error, json.JSONDecodeError):
+        kind = 'INVALID_JSON'
+    elif isinstance(error, PermissionError):
+        kind = 'PERMISSION_DENIED'
+    elif isinstance(error, FileNotFoundError):
+        kind = 'FILE_NOT_FOUND'
+    elif isinstance(error, KeyError):
+        kind = 'MISSING_FIELD'
+    elif isinstance(error, ValueError):
+        kind = 'INVALID_VALUE'
+    elif isinstance(error, OSError):
+        kind = 'OS_ERROR'
+    else:
+        kind = 'UNEXPECTED_FAILURE'
+    code = getattr(error, 'returncode', None)
+    return {'stage': stage if stage in COLLECTION_STAGES else 'UNKNOWN', 'kind': kind,
+            'exitCode': code if type(code) is int and -255 <= code <= 255 else None,
+            'lastSuccessfulSequence': sequence}
+
+
 def main():
     """첫 CPU 표본은 준비에만 쓰고, 이후 구간 평균을 5초 주기로 전송한다."""
+    stage, sequence = 'INITIAL_CPU', 0
     try:
         previous_cpu = cpu_ticks()
+        stage = 'INITIAL_VM'
         previous_vm = counters("/proc/vmstat")
         previous_at = time.monotonic()
+        stage = 'PAGE_SIZE'
         page_size = os.sysconf("SC_PAGE_SIZE")
+        stage = 'INITIAL_CONTAINERS'
         baseline_containers = inspect_containers()
+        stage = 'INITIAL_PROCESSES'
         previous_processes = [process_snapshot(c) for c in baseline_containers]
+        stage = 'INITIAL_APPLICATION'
         previous_application = read_application(next(c['pid'] for c in baseline_containers if c['name'] == '/spring-api'))
         sequence = 0
         while True:
+            stage = 'WAIT'
             time.sleep(max(0, previous_at + 5 - time.monotonic()))
             now = time.monotonic()
+            stage = 'CPU_READ'
             cpu = cpu_ticks()
+            stage = 'VM_READ'
             vm = counters("/proc/vmstat")
+            stage = 'MEMORY_READ'
             mem = counters("/proc/meminfo")
+            stage = 'INTERVAL_CHECK'
             delta = cpu[0] - previous_cpu[0]
             elapsed = now - previous_at
             if delta <= 0 or elapsed <= 0:
                 raise ValueError("invalid counter interval")
+            stage = 'CONTAINERS_READ'
             containers = inspect_containers()
+            stage = 'CONTAINER_CHECK'
             api = next(c for c in containers if c["name"] == "/spring-api")
             if not all(c["running"] and c["pid"] > 0 for c in containers):
                 raise ValueError("container unavailable")
+            stage = 'APPLICATION_READ'
             application = read_application(api["pid"])
+            stage = 'PROCESSES_READ'
             processes = [process_snapshot(c) for c in containers]
             # 조회 중 교체된 컨테이너에서 서로 다른 시점의 값을 섞지 않는다.
+            stage = 'CONTAINER_RECHECK'
             if inspect_containers() != containers:
                 raise ValueError("container changed during collection")
-            sequence += 1
+            stage = 'PROCESS_DELTAS'
+            measured_processes = process_deltas(previous_processes, processes, elapsed)
+            stage = 'GC_DELTA'
+            measured_gc = gc_delta(previous_application, application)
+            stage = 'SAMPLE_BUILD'
             sample = {
-                "schema": 1, "sequence": sequence,
+                "schema": 1, "sequence": sequence + 1,
                 "observedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "intervalSeconds": elapsed,
                 "cpuPercent": 100 * (delta - (cpu[1] - previous_cpu[1])) / delta,
@@ -158,21 +214,25 @@ def main():
                 "swapOutBytesPerSecond": (vm["pswpout"] - previous_vm["pswpout"]) * page_size / elapsed,
                 "oomKillCount": vm["oom_kill"],
                 "containers": containers, "application": application,
-                "processes": process_deltas(previous_processes, processes, elapsed),
-                "gcDelta": gc_delta(previous_application, application),
+                "processes": measured_processes,
+                "gcDelta": measured_gc,
             }
+            stage = 'SAMPLE_VALIDATE'
             if not all(math.isfinite(sample[key]) for key in (
                     "cpuPercent", "swapInBytesPerSecond", "swapOutBytesPerSecond")):
                 raise ValueError("invalid sample")
+            stage = 'EMIT'
             emit(sample)
+            sequence += 1
             previous_cpu, previous_vm, previous_at = cpu, vm, now
             previous_processes, previous_application = processes, application
     except BrokenPipeError:
         return 0
-    except Exception:
+    except Exception as error:
         # SSH 끊김·sudo 거절·Docker/API 장애를 정상값으로 바꾸지 않는다.
         try:
-            emit({"error": "RESOURCE_COLLECTION_FAILED"})
+            emit({"error": "RESOURCE_COLLECTION_FAILED", 'failure': failure_details(stage, error, sequence),
+                  'observedAt': datetime.datetime.now(datetime.timezone.utc).isoformat()})
         except BrokenPipeError:
             pass
         return 1

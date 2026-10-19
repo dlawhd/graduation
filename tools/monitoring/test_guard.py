@@ -257,7 +257,11 @@ class CollectorTest(unittest.TestCase):
         with mock.patch.object(collector, "cpu_ticks", side_effect=RuntimeError("secret-value")), \
                 mock.patch.object(collector, "emit") as emit:
             self.assertEqual(1, collector.main())
-            emit.assert_called_once_with({"error": "RESOURCE_COLLECTION_FAILED"})
+            emit.assert_called_once()
+            result = emit.call_args[0][0]
+            self.assertEqual('RESOURCE_COLLECTION_FAILED', result['error'])
+            self.assertEqual('INITIAL_CPU', result['failure']['stage'])
+            self.assertNotIn('secret-value', json.dumps(result))
 
     def test_linux_cpu_parser_excludes_duplicate_guest_ticks(self):
         with mock.patch.object(pathlib.Path, "read_text", return_value="cpu 10 2 3 80 1 2 1 1 5 2\n"):
