@@ -19,7 +19,7 @@ function fixture() {
       name: 'ltabcdef12-jar-' + i, noteIds: Array.from({ length: 40 }, (_, n) => i * 40 + 40 - n) })) };
 }
 
-function harness(fault, approval = '10VU_60S_WITH_GUARD') {
+function harness(fault, approval = '10VU_60S_WITH_GUARD', latencyTarget) {
   const f = fixture(), calls = [], waits = [], metrics = {};
   let logged = 0;
   class CookieJar {
@@ -35,7 +35,8 @@ function harness(fault, approval = '10VU_60S_WITH_GUARD') {
   function request(method, url, body, params) {
     assert.equal(params.redirects, 0);
     assert.equal(params.timeout, ['4ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD',
-      '10ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD', '10VU_60S_5S_WITH_GUARD'].includes(approval) ? '5s' : '3s');
+      '10ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD', '10VU_60S_5S_WITH_GUARD',
+      '10VU_1800S_5S_WITH_GUARD'].includes(approval) ? '5s' : '3s');
     assert.ok(url.startsWith(baseUrl + '/api/v1/'));
     const path = url.slice(baseUrl.length);
     calls.push({ method, path, phase: params.tags.phase });
@@ -75,7 +76,7 @@ function harness(fault, approval = '10VU_60S_WITH_GUARD') {
         attachments: [], reactionCounts: [], myReaction: null, commentCount: 0 })) });
   }
   const context = vm.createContext({ __ENV: { BASE_URL: baseUrl, FIXTURE_PATH: 'fake',
-      EC2_READ_APPROVAL: approval }, __VU: 1, __ITER: 0,
+      EC2_READ_APPROVAL: approval, READ_P95_TARGET_MS: latencyTarget }, __VU: 1, __ITER: 0,
     open: () => JSON.stringify(f), operation, readThresholds, validResponse, resolveEc2ReadProfile,
     http: { CookieJar, get: (url, p) => request('GET', url, null, p),
       post: (url, body, p) => request('POST', url, body, p) },
@@ -97,6 +98,18 @@ test('명시 승인·정확한 HTTPS 주소·운영 전용 fixture 없이는 거
   }
   const f = fixture(); f.scope = 'isolated-local';
   assert.throws(() => validateEc2Read(f, baseUrl, '10VU_60S_WITH_GUARD'));
+});
+
+test('임시 2000ms 조회 목표를 선택해도 10 VU·5초 요청 제한은 유지한다', () => {
+  const h = harness(undefined, '10VU_60S_5S_WITH_GUARD', '2000');
+  assert.equal(h.api.options.thresholds['http_req_duration{phase:read,endpoint:jar_list}'][0].threshold, 'p(95)<=2000');
+  const sessions = h.api.setup();
+  h.api.iteration(sessions);
+  h.api.teardown(sessions);
+  assert.equal(h.metrics.read_requests.length, 1);
+  assert.ok(h.metrics.cleanup_errors.every(m => !m.value));
+  assert.equal(harness(undefined, '10VU_60S_5S_WITH_GUARD', '5000').api.options.thresholds['http_req_duration{phase:read,endpoint:jar_list}'][0].threshold, 'p(95)<=5000');
+  assert.throws(() => harness(undefined, '10VU_60S_5S_WITH_GUARD', '10000'));
 });
 
 test('30분 지속 시험은 별도 명시 승인만 허용하고 기존 안전 기준을 유지한다', () => {
@@ -179,9 +192,25 @@ test('10계정 5초 준비와 10 VU 5초 조회를 별도 승인으로 구분하
   assert.equal(load.api.options.scenarios.ec2_read_10.gracefulStop, '5s');
   assert.equal(load.api.options.scenarios.ec2_read_10.duration, '60s');
   assert.equal(JSON.stringify(load.api.options.thresholds), JSON.stringify(harness().api.options.thresholds));
-  for (const approval of ['50VU_60S_5S_WITH_GUARD', '10VU_1800S_5S_WITH_GUARD', '50ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD']) {
+  for (const approval of ['50VU_60S_5S_WITH_GUARD', '10VU_1200S_5S_WITH_GUARD', '50ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD']) {
     assert.throws(() => resolveEc2ReadProfile(fixture(), baseUrl, approval));
   }
+});
+
+test('후속 30분·5초 모드는 10개 별도 계정과 기존 성능·실패·정리 기준을 유지한다', () => {
+  const h = harness(undefined, '10VU_1800S_5S_WITH_GUARD'), sessions = h.api.setup();
+  for (let vu = 1; vu <= 10; vu++) { h.context.__VU = vu; h.api.iteration(sessions); }
+  h.api.teardown(sessions);
+  assert.equal(sessions.length, 10);
+  assert.equal(h.api.options.scenarios.ec2_read_10.duration, '1800s');
+  assert.equal(h.api.options.scenarios.ec2_read_10.gracefulStop, '5s');
+  assert.equal(JSON.stringify(h.api.options.thresholds), JSON.stringify(harness().api.options.thresholds));
+  assert.ok(h.metrics.cleanup_errors.every(m => !m.value));
+  assert.throws(() => harness('setup', '10VU_1800S_5S_WITH_GUARD').api.setup(), /EC2_SETUP_FAILED/);
+  const invalid = harness('read', '10VU_1800S_5S_WITH_GUARD');
+  invalid.api.iteration(invalid.api.setup());
+  assert.equal(invalid.metrics.read_errors[0].value, true);
+  assert.throws(() => resolveEc2ReadProfile(fixture(), baseUrl + '/', '10VU_1800S_5S_WITH_GUARD'));
 });
 
 test('인증 중간 실패 시 이미 로그인한 계정만 정리하고 조회를 시작하지 않는다', () => {
@@ -229,16 +258,18 @@ test('설치된 실제 k6가 외부 요청 없이 10 VU·60초와 30분 옵션�
     assert.equal(diagnosticOptions.scenarios.preparation_only.vus, 1);
     assert.equal(diagnosticOptions.scenarios.preparation_only.iterations, 1);
     assert.equal(diagnosticOptions.scenarios.ec2_read_10, undefined);
-    for (const approval of ['10ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD', '10VU_60S_5S_WITH_GUARD']) {
+    for (const approval of ['10ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD', '10VU_60S_5S_WITH_GUARD', '10VU_1800S_5S_WITH_GUARD']) {
       const r = spawnSync('k6', ['inspect', '--env', 'BASE_URL=' + baseUrl,
         '--env', 'FIXTURE_PATH=' + manifest, '--env', 'EC2_READ_APPROVAL=' + approval,
+        '--env', 'READ_P95_TARGET_MS=2000',
         fileURLToPath(new URL('./read-ec2.js', import.meta.url))], { encoding: 'utf8', timeout: 15000 });
       assert.equal(r.status, 0, '실제 k6 후속 5초 단계 옵션 해석 실패');
       const value = JSON.parse(r.stdout);
       if (approval.startsWith('10VU')) {
         assert.equal(value.scenarios.ec2_read_10.vus, 10);
-        assert.equal(value.scenarios.ec2_read_10.duration, '1m0s');
+        assert.equal(value.scenarios.ec2_read_10.duration, approval.includes('1800S') ? '30m0s' : '1m0s');
         assert.equal(value.scenarios.ec2_read_10.gracefulStop, '5s');
+        assert.equal(value.thresholds['http_req_duration{phase:read,endpoint:jar_list}'][0].threshold, 'p(95)<=2000');
       } else assert.equal(value.scenarios.preparation_only.iterations, 1);
     }
   } finally {

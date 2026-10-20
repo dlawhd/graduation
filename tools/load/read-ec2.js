@@ -11,6 +11,8 @@ const baseUrl = __ENV.BASE_URL || '';
 if (!__ENV.FIXTURE_PATH) throw new Error('EC2_FIXTURE_PATH_REQUIRED');
 const fixture = JSON.parse(open(__ENV.FIXTURE_PATH));
 const profile = resolveEc2ReadProfile(fixture, baseUrl, __ENV.EC2_READ_APPROVAL);
+// 성능 목표만 선택한다. 요청 제한·자원 감시·오류율·정리 기준은 바꾸지 않는다.
+const latencyThresholds = readThresholds('10s', __ENV.READ_P95_TARGET_MS);
 const readErrors = new Rate('read_errors');
 const readRequests = new Counter('read_requests');
 const cleanupErrors = new Rate('cleanup_errors');
@@ -25,7 +27,7 @@ export const options = {
   // 준비 전용에서는 조회를 보내지 않는다. 500ms 목표를 완화하는 대신 성능 합격 판정 자체를 하지 않는다.
   thresholds: profile.preparationOnly
     ? { 'http_req_failed{phase:prepare}': ['rate==0'], cleanup_errors: ['rate==0'] }
-    : Object.assign(readThresholds(), { cleanup_errors: ['rate==0'] }),
+    : Object.assign(latencyThresholds, { cleanup_errors: ['rate==0'] }),
 };
 
 function data(response) {

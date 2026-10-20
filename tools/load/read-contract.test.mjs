@@ -111,3 +111,19 @@ test('API별 p95·전체 오류율 자동 중단과 최소 관측 수를 설정�
     assert.deepEqual(thresholds['read_requests{endpoint:' + endpoint + '}'], ['count>0']);
   }
 });
+
+test('임시 2000ms는 명시적으로 선택하고 기존 500ms·오류율·관측 수 기준을 보존한다', () => {
+  const old = readThresholds();
+  for (const target of [2000, '2000', 5000, '5000']) {
+    const selected = readThresholds('10s', target);
+    assert.deepEqual(selected.read_errors, old.read_errors);
+    for (const endpoint of ENDPOINTS) {
+      assert.deepEqual(selected['http_req_duration{phase:read,endpoint:' + endpoint + '}'],
+        [{ threshold: 'p(95)<=' + target, abortOnFail: true, delayAbortEval: '10s' }]);
+      assert.deepEqual(selected['read_requests{endpoint:' + endpoint + '}'], ['count>0']);
+    }
+  }
+  for (const invalid of ['', null, true, {}, 0, -1, NaN, Infinity, 1000, 10000, '2000ms', ' 2000']) {
+    assert.throws(() => readThresholds('10s', invalid), /READ_P95_TARGET_MUST_BE_500_OR_2000_OR_5000/);
+  }
+});

@@ -45,7 +45,7 @@ test('묶음 사이 계정·저금통·쪽지 공유나 잘못된 범위를 거�
   }
 });
 
-function harness(stage, fault, approval = stage + 'VU_60S_WITH_GUARD') {
+function harness(stage, fault, approval = stage + 'VU_60S_WITH_GUARD', latencyTarget) {
   const f = family(), calls = [], metrics = {};
   class Jar {
     constructor() { this.values = {}; }
@@ -58,7 +58,7 @@ function harness(stage, fault, approval = stage + 'VU_60S_WITH_GUARD') {
   }
   const response = data => ({ status: 200, body: JSON.stringify({ data }) });
   function request(method, url, body, p) {
-    assert.equal(p.timeout, approval === '50VU_60S_5S_WITH_GUARD' ? '5s' : '3s'); assert.equal(p.redirects, 0);
+    assert.equal(p.timeout, ['50VU_60S_5S_WITH_GUARD', '100VU_60S_5S_WITH_GUARD'].includes(approval) ? '5s' : '3s'); assert.equal(p.redirects, 0);
     assert.ok(url.startsWith(baseUrl + '/api/v1/'));
     const route = url.slice(baseUrl.length); calls.push({ method, route, phase: p.tags.phase });
     if (route === '/api/v1/csrf') return response({ headerName: 'X-XSRF-TOKEN', token: 'fake-csrf' });
@@ -96,7 +96,7 @@ function harness(stage, fault, approval = stage + 'VU_60S_WITH_GUARD') {
         isEncrypted: false, attachments: [], reactionCounts: [], myReaction: null, commentCount: 0 })) });
   }
   const context = vm.createContext({ __ENV: { BASE_URL: baseUrl, FAMILY_PATH: 'fake', SCALE_VUS: stage,
-      SCALE_APPROVAL: approval }, __VU: 1, __ITER: 0,
+      SCALE_APPROVAL: approval, READ_P95_TARGET_MS: latencyTarget }, __VU: 1, __ITER: 0,
     open: () => JSON.stringify(f), validateScale, resolveScaleTimeout, operation, readThresholds, validResponse,
     http: { CookieJar: Jar, get: (u, p) => request('GET', u, null, p),
       post: (u, b, p) => request('POST', u, b, p) },
@@ -106,6 +106,23 @@ function harness(stage, fault, approval = stage + 'VU_60S_WITH_GUARD') {
   vm.runInContext(source + '\n globalThis.api = { options, setup, iteration, teardown };', context);
   return { api: context.api, context, calls, metrics };
 }
+
+test('임시 2000ms를 선택해도 50·100 VU의 5초 요청 제한·계정 분리·정리는 유지한다', () => {
+  for (const count of ['50', '100']) {
+    const h = harness(count, undefined, count + 'VU_60S_5S_WITH_GUARD', '2000');
+    const sessions = h.api.setup();
+    h.api.iteration(sessions);
+    h.api.teardown(sessions);
+    assert.equal(sessions.length, Number(count));
+    assert.equal(h.api.options.thresholds['http_req_duration{phase:read,endpoint:note_list}'][0].threshold, 'p(95)<=2000');
+    assert.ok(h.metrics.cleanup_errors.every(m => !m.value));
+  }
+  for (const count of ['50', '100']) {
+    const h = harness(count, undefined, count + 'VU_60S_5S_WITH_GUARD', '5000');
+    assert.equal(h.api.options.thresholds['http_req_duration{phase:read,endpoint:note_list}'][0].threshold, 'p(95)<=5000');
+  }
+  assert.throws(() => harness('50', undefined, '50VU_60S_5S_WITH_GUARD', '10000'));
+});
 
 test('50·100·200·300 VU마다 다른 계정과 자기 묶음을 사용하고 모두 정리한다', () => {
   for (const stage of ['50', '100', '200', '300']) {
@@ -134,17 +151,21 @@ test('중간 인증 실패·잘못된 조회·정리 실패는 성공으로 누�
   assert.ok(cleanup.metrics.cleanup_errors.every(m => m.value));
 });
 
-test('50 VU 5초 모드는 전용 50계정·동일 성능 목표를 유지하고 상위 5초 단계는 거절한다', () => {
-  const h = harness('50', undefined, '50VU_60S_5S_WITH_GUARD'), sessions = h.api.setup();
-  assert.equal(sessions.length, 50);
-  for (let vu = 1; vu <= 50; vu++) { h.context.__VU = vu; h.api.iteration(sessions); }
-  h.api.teardown(sessions);
-  assert.equal(h.metrics.read_requests.length, 50);
-  assert.equal(h.metrics.cleanup_errors.length, 50);
-  assert.ok(h.metrics.cleanup_errors.every(m => !m.value));
-  assert.equal(h.api.options.scenarios.ec2_read_50.gracefulStop, '5s');
-  assert.equal(JSON.stringify(h.api.options.thresholds), JSON.stringify(harness('50').api.options.thresholds));
-  for (const stage of ['100', '200', '300']) {
+test('50·100 VU 5초 모드는 VU당 별도 계정·동일 성능 목표를 유지하고 그 위 단계는 거절한다', () => {
+  for (const stage of ['50', '100']) {
+    const h = harness(stage, undefined, stage + 'VU_60S_5S_WITH_GUARD'), sessions = h.api.setup();
+    assert.equal(sessions.length, Number(stage));
+    assert.equal(new Set(sessions.map(s => s.userId)).size, Number(stage));
+    for (let vu = 1; vu <= Number(stage); vu++) { h.context.__VU = vu; h.api.iteration(sessions); }
+    h.api.teardown(sessions);
+    assert.equal(h.metrics.read_requests.length, Number(stage));
+    assert.equal(h.metrics.cleanup_errors.length, Number(stage));
+    assert.ok(h.metrics.cleanup_errors.every(m => !m.value));
+    assert.equal(h.api.options.scenarios['ec2_read_' + stage].gracefulStop, '5s');
+    assert.equal(JSON.stringify(h.api.options.thresholds), JSON.stringify(harness(stage).api.options.thresholds));
+  }
+  assert.throws(() => validateScale(family(), baseUrl, '100', '50VU_60S_5S_WITH_GUARD'));
+  for (const stage of ['200', '300']) {
     assert.throws(() => validateScale(family(), baseUrl, stage, stage + 'VU_60S_5S_WITH_GUARD'));
   }
 });
@@ -162,13 +183,17 @@ test('실제 k6에서 네트워크 없이 각 단계 옵션을 해석한다', ()
       assert.equal(options.scenarios['ec2_read_' + stage].vus, Number(stage));
       assert.equal(options.scenarios['ec2_read_' + stage].duration, '1m0s');
     }
-    const r = spawnSync('k6', ['inspect', '--env', 'BASE_URL=' + baseUrl, '--env', 'FAMILY_PATH=' + manifest,
-      '--env', 'SCALE_VUS=50', '--env', 'SCALE_APPROVAL=50VU_60S_5S_WITH_GUARD',
-      fileURLToPath(new URL('./read-scale.js', import.meta.url))], { encoding: 'utf8', timeout: 15000 });
-    assert.equal(r.status, 0, '실제 k6 50 VU·5초 옵션 해석 실패');
-    const value = JSON.parse(r.stdout);
-    assert.equal(value.scenarios.ec2_read_50.vus, 50);
-    assert.equal(value.scenarios.ec2_read_50.duration, '1m0s');
-    assert.equal(value.scenarios.ec2_read_50.gracefulStop, '5s');
+    for (const stage of ['50', '100']) {
+      const r = spawnSync('k6', ['inspect', '--env', 'BASE_URL=' + baseUrl, '--env', 'FAMILY_PATH=' + manifest,
+        '--env', 'SCALE_VUS=' + stage, '--env', 'SCALE_APPROVAL=' + stage + 'VU_60S_5S_WITH_GUARD',
+        '--env', 'READ_P95_TARGET_MS=5000',
+        fileURLToPath(new URL('./read-scale.js', import.meta.url))], { encoding: 'utf8', timeout: 15000 });
+      assert.equal(r.status, 0, '실제 k6 50·100 VU·5초 옵션 해석 실패');
+      const value = JSON.parse(r.stdout);
+      assert.equal(value.scenarios['ec2_read_' + stage].vus, Number(stage));
+      assert.equal(value.scenarios['ec2_read_' + stage].duration, '1m0s');
+      assert.equal(value.scenarios['ec2_read_' + stage].gracefulStop, '5s');
+      assert.equal(value.thresholds['http_req_duration{phase:read,endpoint:jar_list}'][0].threshold, 'p(95)<=5000');
+    }
   } finally { fs.rmSync(folder, { recursive: true }); }
 });

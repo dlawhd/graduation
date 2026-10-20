@@ -18,7 +18,7 @@ function validateEc2Target(fixture, baseUrl) {
 }
 
 export function resolveEc2ReadProfile(fixture, baseUrl, approval) {
-  // 5초는 최대 4계정의 순차 준비에만 적용한다. 반복 조회·상위 VU로 확장하지 않는다.
+  // 최초 5초 진단은 최대 4계정의 순차 준비에만 적용했다. 후속 조회 모드는 아래에서 별도 승인한다.
   if (approval === '4ACCOUNTS_5S_PREPARE_ONLY_WITH_GUARD') {
     validateEc2Target(fixture, baseUrl);
     return { preparationOnly: true, accountLimit: 4, timeout: '5s', duration: null };
@@ -31,6 +31,11 @@ export function resolveEc2ReadProfile(fixture, baseUrl, approval) {
   if (approval === '10VU_60S_5S_WITH_GUARD') {
     validateEc2Target(fixture, baseUrl);
     return { preparationOnly: false, accountLimit: 10, timeout: '5s', duration: '60s' };
+  }
+  // 60초 통과 뒤 승인한 지속 조회도 5초 제한을 유지한다. 임의 기간·VU 확대는 허용하지 않는다.
+  if (approval === '10VU_1800S_5S_WITH_GUARD') {
+    validateEc2Target(fixture, baseUrl);
+    return { preparationOnly: false, accountLimit: 10, timeout: '5s', duration: '1800s' };
   }
   return { preparationOnly: false, accountLimit: 10, timeout: '3s',
     duration: validateEc2Read(fixture, baseUrl, approval) };

@@ -29,8 +29,9 @@ export function validateScale(family, baseUrl, stage, approval) {
 }
 
 export function resolveScaleTimeout(stage, approval) {
-  // 이번에 승인한 5초 상위 부하는 50 VU까지만 허용한다. 기존 3초 모드는 보존한다.
-  if (stage === '50' && approval === '50VU_60S_5S_WITH_GUARD') return '5s';
+  // 기존 50 VU에 후속 승인한 100 VU만 추가한다. 200·300 VU 5초 모드와 임의 조합은 계속 거절한다.
+  // 이전 3초 모드는 과거 결과를 재현할 수 있도록 보존한다.
+  if (['50', '100'].includes(stage) && approval === stage + 'VU_60S_5S_WITH_GUARD') return '5s';
   if (['50', '100', '200', '300'].includes(stage) && approval === stage + 'VU_60S_WITH_GUARD') return '3s';
   throw new Error('SCALE_APPROVAL_REQUIRED');
 }

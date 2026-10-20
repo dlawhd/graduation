@@ -10,6 +10,8 @@ if (!__ENV.FAMILY_PATH) throw new Error('FAMILY_PATH_REQUIRED');
 const family = JSON.parse(open(__ENV.FAMILY_PATH));
 const groups = validateScale(family, baseUrl, __ENV.SCALE_VUS, __ENV.SCALE_APPROVAL);
 const timeout = resolveScaleTimeout(__ENV.SCALE_VUS, __ENV.SCALE_APPROVAL);
+// 이전 500ms 기준은 기본값으로 보존한다. 새 실행은 승인한 2000ms 또는 5000ms를 명시하고 기록한다.
+const latencyThresholds = readThresholds('10s', __ENV.READ_P95_TARGET_MS);
 const vus = Number(__ENV.SCALE_VUS);
 const readErrors = new Rate('read_errors'), readRequests = new Counter('read_requests');
 const cleanupErrors = new Rate('cleanup_errors');
@@ -17,7 +19,7 @@ const scenarios = {};
 scenarios['ec2_read_' + vus] = { executor: 'constant-vus', vus, duration: '60s', gracefulStop: timeout };
 export const options = { scenarios, setupTimeout: '20m', teardownTimeout: '15m', maxRedirects: 0,
   systemTags: ['status', 'method', 'name', 'scenario', 'expected_response'],
-  thresholds: Object.assign(readThresholds(), { cleanup_errors: ['rate==0'] }) };
+  thresholds: Object.assign(latencyThresholds, { cleanup_errors: ['rate==0'] }) };
 
 function data(response) {
   if (response.status !== 200) throw new Error('PREPARATION_HTTP_FAILED');

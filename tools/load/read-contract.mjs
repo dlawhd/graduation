@@ -97,11 +97,14 @@ export function validResponse(status, body, operation, fixture, userId) {
     && item.myReaction === null && item.commentCount === 0);
 }
 
-export function readThresholds(delay = '10s') {
+// 과거 500ms·2000ms 실행을 보존하고, 이번에 승인한 5000ms도 명시적으로만 선택한다.
+export function readThresholds(delay = '10s', p95Ms = 500) {
+  requireValue((typeof p95Ms === 'number' || typeof p95Ms === 'string')
+    && ['500', '2000', '5000'].includes(String(p95Ms)), 'READ_P95_TARGET_MUST_BE_500_OR_2000_OR_5000');
   const thresholds = { read_errors: [{ threshold: 'rate<0.01', abortOnFail: true, delayAbortEval: delay }] };
   ENDPOINTS.forEach(endpoint => {
     thresholds['http_req_duration{phase:read,endpoint:' + endpoint + '}'] = [
-      { threshold: 'p(95)<=500', abortOnFail: true, delayAbortEval: delay }];
+      { threshold: 'p(95)<=' + p95Ms, abortOnFail: true, delayAbortEval: delay }];
     // 아무것도 측정하지 않은 시험이 성공하지 않도록 API별 관측 수도 최종 검사한다.
     thresholds['read_requests{endpoint:' + endpoint + '}'] = ['count>0'];
   });
