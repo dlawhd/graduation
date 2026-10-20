@@ -6,6 +6,7 @@ import shop.esjh.memoryjar.dto.note.response.NoteDetailResponse;
 import shop.esjh.memoryjar.dto.note.response.NoteListResponse;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.note.NoteService;
+import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -105,9 +106,10 @@ public class NoteController {
         Long currentUserId = extractCurrentUserId(authentication);
 
         // 서비스에 쪽지 목록 조회를 맡긴다.
-        NoteListResponse response = q.isBlank() && tag.isBlank()
+        NoteListResponse response = LoginDiagnostics.measure(LoginDiagnostics.Stage.NOTE_LIST_SERVICE,
+                () -> q.isBlank() && tag.isBlank()
                 ? noteService.listNotes(currentUserId, jarId, page, size)
-                : noteService.listNotes(currentUserId, jarId, page, size, q, tag);
+                : noteService.listNotes(currentUserId, jarId, page, size, q, tag));
 
         // 공통 응답 형태로 감싸서 반환한다.
         return ApiResponse.of(response);

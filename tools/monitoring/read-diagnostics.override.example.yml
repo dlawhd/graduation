@@ -1,0 +1,7 @@
+# 별도 승인 후에만 사용한다. 조회·DB 계측은 기본 꺼짐이며 분석 완료 후 해제한다.
+# 기존 진단 파일에 병합할 때 이미지·DB·포트·볼륨은 변경하지 않는다.
+services:
+  api:
+    environment:
+      APP_MONITORING_LOGIN_DIAGNOSTICS_ENABLED: "true"
+      APP_MONITORING_READ_DIAGNOSTICS_ENABLED: "true"

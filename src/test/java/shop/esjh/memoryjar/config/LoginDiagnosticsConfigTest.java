@@ -9,7 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LoginDiagnosticsConfigTest {
     @Test void registrationIncludesOnlyApprovedPathsBeforeSecurity() {
         var registration = new LoginDiagnosticsConfig().loginDiagnosticsFilter(new LoginDiagnostics(true));
-        assertThat(registration.getUrlPatterns()).containsExactly("/api/v1/auth/login", "/api/v1/csrf");
+        assertThat(registration.getUrlPatterns()).containsExactly("/api/v1/auth/login", "/api/v1/csrf",
+                "/api/v1/me", "/api/v1/jars", "/api/v1/jars/*");
         assertThat(registration.getOrder()).isEqualTo(SecurityProperties.DEFAULT_FILTER_ORDER - 1);
     }
 }

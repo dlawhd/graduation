@@ -10,6 +10,7 @@ import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.dto.response.MeResponse;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.service.UserService;
+import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 
 import java.util.Map;
 
@@ -62,9 +63,9 @@ public class MeController {
 
 
         User user =
-                userService.getUser(
-                        userId
-                );
+                // 서비스 프록시 전체를 재므로 조회와 트랜잭션 경계를 포함한다.
+                LoginDiagnostics.measure(LoginDiagnostics.Stage.ME_SERVICE,
+                        () -> userService.getUser(userId));
 
 
         return ApiResponse.of(

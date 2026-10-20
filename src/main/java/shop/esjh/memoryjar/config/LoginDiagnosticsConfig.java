@@ -14,7 +14,7 @@ public class LoginDiagnosticsConfig {
     FilterRegistrationBean<LoginDiagnosticsFilter> loginDiagnosticsFilter(LoginDiagnostics diagnostics) {
         var registration = new FilterRegistrationBean<>(new LoginDiagnosticsFilter(diagnostics));
         registration.setName("loginDiagnosticsFilter");
-        registration.addUrlPatterns("/api/v1/auth/login", "/api/v1/csrf");
+        registration.addUrlPatterns("/api/v1/auth/login", "/api/v1/csrf", "/api/v1/me", "/api/v1/jars", "/api/v1/jars/*");
         registration.setOrder(SecurityProperties.DEFAULT_FILTER_ORDER - 1);
         return registration;
     }

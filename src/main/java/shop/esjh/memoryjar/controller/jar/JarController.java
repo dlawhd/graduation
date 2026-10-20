@@ -4,6 +4,7 @@ import shop.esjh.memoryjar.dto.jar.request.*;
 import shop.esjh.memoryjar.dto.jar.response.*;
 import shop.esjh.memoryjar.dto.response.ApiResponse;
 import shop.esjh.memoryjar.service.jar.JarService;
+import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -67,7 +68,8 @@ public class JarController {
         Long currentUserId = extractCurrentUserId(authentication);
 
         // 2. 서비스 호출해서 목록 조회
-        JarListResponse response = jarService.listMyJars(currentUserId, page, size);
+        JarListResponse response = LoginDiagnostics.measure(LoginDiagnostics.Stage.JAR_LIST_SERVICE,
+                () -> jarService.listMyJars(currentUserId, page, size));
 
         // 3. 공통 성공 응답으로 감싸서 반환
         return ApiResponse.of(response);
@@ -85,7 +87,8 @@ public class JarController {
         Long currentUserId = extractCurrentUserId(authentication);
 
         // 2. 서비스 호출해서 상세 조회
-        JarDetailResponse response = jarService.getJarDetail(currentUserId, jarId);
+        JarDetailResponse response = LoginDiagnostics.measure(LoginDiagnostics.Stage.JAR_DETAIL_SERVICE,
+                () -> jarService.getJarDetail(currentUserId, jarId));
 
         // 3. 공통 성공 응답으로 감싸서 반환
         return ApiResponse.of(response);

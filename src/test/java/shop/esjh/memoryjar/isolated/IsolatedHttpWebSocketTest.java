@@ -36,6 +36,7 @@ import static org.mockito.Mockito.*;
         properties = {"server.address=127.0.0.1", "spring.docker.compose.enabled=false",
                 "management.server.port=9091", "management.server.address=127.0.0.1",
                 "app.monitoring.login-diagnostics-enabled=true",
+                "app.monitoring.read-diagnostics-enabled=true",
                 "app.cookie.secure=false", "app.cookie.domain=", "app.cookie.same-site=Lax"})
 class IsolatedHttpWebSocketTest {
     @LocalServerPort int port;
@@ -61,6 +62,13 @@ class IsolatedHttpWebSocketTest {
         browser.okPost("/api/v1/auth/logout", Map.of(), 200);
         browser.okPost("/api/v1/auth/login", Map.of("loginId", account.login, "password", "Isolated123!"), 200);
         assertThat(browser.get("/api/v1/csrf").statusCode()).isEqualTo(200);
+        long diagnosticJar = browser.okPost("/api/v1/jars", Map.of("name", "조회 계측 시험", "theme", "SPRING", "maxMembers", 2,
+                "openAt", "2099-01-01T00:00:00", "openMode", "ALL_AT_ONCE", "lockLevel", "TITLE_ONLY"), 201)
+                .path("jarId").asLong();
+        for (String path : List.of("/api/v1/me", "/api/v1/jars", "/api/v1/jars/" + diagnosticJar,
+                "/api/v1/jars/" + diagnosticJar + "/notes")) {
+            assertThat(browser.get(path).statusCode()).isEqualTo(200);
+        }
         assertThat(browser.get("/actuator/resources").statusCode()).isEqualTo(403);
         var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         var response = client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:9091/actuator/resources"))
@@ -101,6 +109,22 @@ class IsolatedHttpWebSocketTest {
             assertThat(csrfAttempt.path("stages").path(stage).path("elapsedNanos").asLong()).isPositive();
         }
         assertThat(response.body()).doesNotContain(account.login, account.email, "Isolated123!", "accessToken", "refreshToken");
+        var reads = snapshot.path("loginDiagnostics").path("reads");
+        assertThat(reads.path("enabled").asBoolean()).isTrue();
+        var foundKinds = new HashSet<String>();
+        for (var attempt : reads.path("recent")) {
+            if (attempt.path("responseStatus").asInt() != 200) continue;
+            var kind = attempt.path("requestKind").asText();
+            foundKinds.add(kind);
+            assertThat(attempt.path("stages").path(kind + "_SERVICE").path("completed").asBoolean()).isTrue();
+            assertThat(attempt.path("stages").path("SESSION_VERSION_QUERY").path("completed").asBoolean()).isTrue();
+            assertThat(attempt.path("database").path("CONNECTION_ACQUIRE").path("count").asLong()).isPositive();
+            assertThat(attempt.path("database").path("STATEMENT_EXECUTE").path("count").asLong()).isPositive();
+            assertThat(attempt.path("databaseByStage").path(kind + "_SERVICE")
+                    .path("STATEMENT_EXECUTE").path("count").asLong()).isPositive();
+        }
+        assertThat(foundKinds).contains("ME", "JAR_LIST", "JAR_DETAIL", "NOTE_LIST");
+        assertThat(response.body()).doesNotContain("조회 계측 시험", "/api/v1/jars/", "SELECT ", "select ");
         var healthResponse = client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:9091/actuator/health"))
                 .GET().build(), HttpResponse.BodyHandlers.ofString());
         assertThat(healthResponse.statusCode()).isEqualTo(200);

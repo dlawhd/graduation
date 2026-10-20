@@ -23,8 +23,9 @@ OLD, NEW = 'sha256:' + 'c' * 64, 'sha256:' + 'd' * 64
 
 class FakeDocker:
     """허용된 읽기/교체 명령만 흉내 내며 DB 변경 명령이 호출되면 테스트를 실패시킨다."""
-    def __init__(self, root, fail=None, diagnostics=True):
+    def __init__(self, root, fail=None, diagnostics=True, read_diagnostics=False):
         self.root, self.fail, self.diagnostics = root, fail, diagnostics
+        self.read_diagnostics = read_diagnostics
         self.calls = []
         self.current = self.api(OLD)
         self.db = {'Id': 'db-original', 'Image': 'db-image', 'State': {'Running': True, 'OOMKilled': False, 'StartedAt': 'db-start'}, 'RestartCount': 0}
@@ -32,7 +33,8 @@ class FakeDocker:
     def api(self, image):
         return {'Id': 'old-api' if image == OLD else 'new-api', 'Image': image,
             'State': {'Running': True, 'OOMKilled': False, 'StartedAt': image, 'Pid': 123}, 'RestartCount': 0,
-            'Config': {'Env': ['PRIVATE_VALUE=must-not-appear', 'APP_MONITORING_LOGIN_DIAGNOSTICS_ENABLED=' + str(self.diagnostics).lower()],
+            'Config': {'Env': ['PRIVATE_VALUE=must-not-appear', 'APP_MONITORING_LOGIN_DIAGNOSTICS_ENABLED=' + str(self.diagnostics).lower(),
+                               'APP_MONITORING_READ_DIAGNOSTICS_ENABLED=' + str(self.read_diagnostics).lower()],
                 'Labels': {'com.docker.compose.service': 'api', 'com.docker.compose.project': 'deploy',
                     'org.opencontainers.image.revision': SHA if image == NEW else 'previous'}},
             'Mounts': [], 'HostConfig': {'PortBindings': {'8080/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '8080'}]}}}
@@ -50,6 +52,8 @@ class FakeDocker:
                 value = {'services': {'api': {'environment': {'PRIVATE_VALUE': 'must-not-appear'}}, 'db': {'image': 'unchanged'}}}
                 if str(self.root/'docker-compose.diagnostics.yml') in args:
                     value['services']['api']['environment']['APP_MONITORING_LOGIN_DIAGNOSTICS_ENABLED'] = 'true'
+                    if self.read_diagnostics:
+                        value['services']['api']['environment']['APP_MONITORING_READ_DIAGNOSTICS_ENABLED'] = 'true'
                     if self.fail == 'broad-override': value['services']['db']['image'] = 'unexpected'
                 return json.dumps(value)
             if 'pull' in args:
@@ -76,7 +80,8 @@ class FakeDocker:
             if url.endswith('/resources'):
                 if args[0] == 'curl': return '200' if self.fail == 'public' and self.current['Image'] == NEW else '403'
                 return json.dumps({'measurable': True, 'pools': [{'initialized': True, 'totalConnections': 10}],
-                    'loginDiagnostics': {'enabled': self.diagnostics}})
+                    'loginDiagnostics': {'enabled': self.diagnostics, 'reads': {'enabled': self.read_diagnostics
+                        and not (self.fail == 'read-disabled' and self.current['Image'] == NEW)}}})
             if url.endswith('/csrf'):
                 if self.current['Image'] == NEW and self.fail == 'csrf': raise deploy.DeployError('CSRF_FAILED')
                 return json.dumps({'data': {'headerName': 'X-XSRF-TOKEN', 'token': 'private-csrf'}})
@@ -84,14 +89,14 @@ class FakeDocker:
 
 
 class DeploymentTest(unittest.TestCase):
-    def run_case(self, fail=None, diagnostics=True, heads=None, change_manifest=None):
+    def run_case(self, fail=None, diagnostics=True, heads=None, change_manifest=None, read_diagnostics=False):
         with tempfile.TemporaryDirectory(prefix='memoryjar-deployment-test-') as directory:
             root = pathlib.Path(directory)
             (root/'docker-compose.prod.yml').write_text('services: {}')
             if diagnostics:
                 (root/'docker-compose.diagnostics.yml').write_text('services: {}')
                 os.chmod(root/'docker-compose.diagnostics.yml', 0o600)
-            fake = FakeDocker(root, fail, diagnostics)
+            fake = FakeDocker(root, fail, diagnostics, read_diagnostics)
             value = manifest.manifest('dlawhd/graduation', SHA, DIGEST)
             if change_manifest: change_manifest(value)
             iterator = iter(heads or [SHA, SHA])
@@ -114,6 +119,15 @@ class DeploymentTest(unittest.TestCase):
         result, _ = self.run_case(diagnostics=False)
         self.assertEqual(result['status'], 'DEPLOYED')
         self.assertFalse(result['diagnosticsEnabled'])
+
+    def test_explicit_read_diagnostics_is_preserved_without_other_changes(self):
+        result, _ = self.run_case(read_diagnostics=True)
+        self.assertEqual(result['status'], 'DEPLOYED')
+
+    def test_missing_read_diagnostics_causes_rollback(self):
+        result, _ = self.run_case(fail='read-disabled', read_diagnostics=True)
+        self.assertNotEqual(result['status'], 'DEPLOYED')
+        self.assertTrue(result['rollbackAttempted'])
 
     def test_stale_before_pull_has_no_mutation(self):
         result, calls = self.run_case(heads=['e'*40])

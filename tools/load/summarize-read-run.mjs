@@ -32,17 +32,29 @@ function p95(values) {
 const valid = resources.filter(s => s.application && s.application.measurable === true);
 // 같은 최근 기록이 5초마다 반복 수집되므로 JVM 내 진단 ID로 중복만 제거한다.
 const loginRecords = new Map();
+const readRecords = new Map(), readRetention = new Map();
 for (const s of valid) {
   const api = s.containers?.find(c => c.name === '/spring-api');
   const identity = api?.id || api?.startedAt || 'unknown';
   for (const sample of s.application.loginDiagnostics?.recent || []) {
     loginRecords.set(identity + ':' + sample.diagnosticId, { ...sample, jvmIdentity: identity });
   }
+  const diagnosticReads = s.application.loginDiagnostics?.reads;
+  if (diagnosticReads) {
+    // 느린 요청은 recent에서 밀려나도 slow에서 복구한다. 두 버퍼의 같은 요청은 한 번만 센다.
+    for (const sample of [...(diagnosticReads.recent || []), ...(diagnosticReads.slow || [])]) {
+      readRecords.set(identity + ':' + sample.diagnosticId, { ...sample, jvmIdentity: identity });
+    }
+    readRetention.set(identity, { jvmIdentity: identity, enabled: diagnosticReads.enabled,
+      completedCount: diagnosticReads.completedCount, recentEvictedCount: diagnosticReads.recentEvictedCount,
+      slowEvictedCount: diagnosticReads.slowEvictedCount });
+  }
 }
 const range = values => values.length ? { min: Math.min(...values), max: Math.max(...values) } : null;
 // 구버전은 로그인만 보존했다. 새 CSRF 기록을 로그인 성능에 합산하지 않는다.
 const loginSamples = [...loginRecords.values()].filter(s => !s.requestKind || s.requestKind === 'LOGIN');
 const csrfSamples = [...loginRecords.values()].filter(s => s.requestKind === 'CSRF');
+const readSamples = [...readRecords.values()];
 const endpoints = Object.fromEntries(['jar_list', 'jar_detail', 'note_list'].map(name => {
   const values = reads.filter(r => r.tags.endpoint === name).map(r => r.value);
   return [name, { count: values.length, p95ms: p95(values) }];
@@ -60,7 +72,9 @@ const windows = valid.map(s => {
     loginDiagnosticIds: loginSamples.filter(login => login.jvmIdentity === identity && Date.parse(login.startedAt) <= end
       && Date.parse(login.completedAt) >= start).map(login => login.diagnosticId),
     csrfDiagnosticIds: csrfSamples.filter(csrf => csrf.jvmIdentity === identity && Date.parse(csrf.startedAt) <= end
-      && Date.parse(csrf.completedAt) >= start).map(csrf => csrf.diagnosticId) };
+      && Date.parse(csrf.completedAt) >= start).map(csrf => csrf.diagnosticId),
+    readDiagnosticIds: readSamples.filter(read => read.jvmIdentity === identity && Date.parse(read.startedAt) <= end
+      && Date.parse(read.completedAt) >= start).map(read => read.diagnosticId) };
 });
 const result = { scope: 'OBSERVED_READ_TEST_NOT_GENERAL_USER_CAPACITY',
   guardStatus: guard.status, guardReason: guard.reason, loadExitCode: guard.loadExitCode ?? null,
@@ -77,5 +91,7 @@ const result = { scope: 'OBSERVED_READ_TEST_NOT_GENERAL_USER_CAPACITY',
   poolPending: range(valid.flatMap(s => s.application.pools.map(p => p.pendingRequests))),
   loginDiagnosticsEnabled: valid.at(-1)?.application.loginDiagnostics?.enabled ?? null,
   loginSamples, csrfSamples,
+  readDiagnosticsEnabled: valid.at(-1)?.application.loginDiagnostics?.reads?.enabled ?? null,
+  readSamples, readRetention: [...readRetention.values()],
   windows };
 console.log(JSON.stringify(result, null, 2));

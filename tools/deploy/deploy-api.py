@@ -131,6 +131,10 @@ class Deployer:
             allowed = json.loads(json.dumps(original))
             allowed['services']['api'].setdefault('environment', {})['APP_MONITORING_LOGIN_DIAGNOSTICS_ENABLED'] = 'true'
             # 진단 파일은 고정 경로다. 플래그 하나 이외의 이미지·DB·포트·볼륨 변경은 거절한다.
+            # 후속 조회 진단도 명시적인 true 추가만 허용한다. 다른 설정의 비교 범위는 그대로다.
+            read_key = 'APP_MONITORING_READ_DIAGNOSTICS_ENABLED'
+            if merged['services']['api'].get('environment', {}).get(read_key) == 'true':
+                allowed['services']['api']['environment'][read_key] = 'true'
             require(merged == allowed, 'DIAGNOSTICS_OVERRIDE_TOO_BROAD')
         else:
             merged = original
@@ -138,8 +142,13 @@ class Deployer:
         current_env = dict(x.split('=', 1) for x in self.api['Config']['Env'])
         require(all(current_env.get(k) == str(v) for k, v in expected_env.items()), 'RUNNING_ENV_DIFFERS_FROM_COMPOSE')
         self.diagnostic_enabled = str(expected_env.get('APP_MONITORING_LOGIN_DIAGNOSTICS_ENABLED', 'false')).lower() == 'true'
+        self.read_diagnostic_enabled = str(expected_env.get('APP_MONITORING_READ_DIAGNOSTICS_ENABLED', 'false')).lower() == 'true'
         self.before_cache = self.db_settings()
         require(self.private('health').get('status') == 'UP', 'BASELINE_HEALTH_FAILED')
+        if self.read_diagnostic_enabled:
+            # 새 플래그를 모르는 구버전 이미지로 원복해야 하는 상태에서는 활성 배포를 시작하지 않는다.
+            require(self.private('resources').get('loginDiagnostics', {}).get('reads', {}).get('enabled') is True,
+                    'READ_DIAGNOSTICS_BASELINE_UNSUPPORTED')
         require(shutil.disk_usage(self.root).free >= 1024**3, 'INSUFFICIENT_DISK_SPACE')
         self.record = pathlib.Path(tempfile.mkdtemp(prefix='api-deploy-' + self.expected_sha[:8] + '-', dir=str(self.root)))
         self.save('baseline.json', {'api': self.identity(self.api), 'db': self.identity(self.db), 'cache': self.before_cache,
@@ -163,6 +172,8 @@ class Deployer:
                 r = self.private('resources')
                 require(r.get('measurable') is True and r['loginDiagnostics']['enabled'] == self.diagnostic_enabled
                         and r.get('pools') and all(p['initialized'] and p['totalConnections'] > 0 for p in r['pools']), 'RESOURCE_CHECK_FAILED')
+                require(r['loginDiagnostics'].get('reads', {}).get('enabled', False)
+                        == getattr(self, 'read_diagnostic_enabled', False), 'READ_DIAGNOSTICS_CHECK_FAILED')
                 require(self.db_settings() == self.before_cache, 'DB_CACHE_CHANGED')
                 status = self.run(['curl', '--noproxy', '*', '--silent', '--max-time', '3', '--output', '/dev/null',
                     '--write-out', '%{http_code}', 'http://127.0.0.1:8080/actuator/resources'], timeout=5)
