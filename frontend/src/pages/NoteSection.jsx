@@ -1,7 +1,8 @@
 // src/pages/NoteSection.jsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import noteApi from "../api/noteApi";
+import FeedbackToast from "../components/feedback/FeedbackToast";
 import fileApi from "../api/fileApi";
 import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
 import NoteIntoJarIcon from "../components/icons/NoteIntoJarIcon";
@@ -445,6 +446,10 @@ function PaperComposeModal({
   // 사진/영상의 추억 설명을 변경하는 함수를 부모 NoteSection에서 전달받는다.
   handleChangeAttachmentCaption,
 }) {
+  // 선택 항목은 입력값을 지우지 않고 접기만 하며, 태그 오류가 있으면 바로 펼친다.
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  useEffect(() => { if (!open) setOptionsOpen(false); }, [open]);
+  useEffect(() => { if (formError?.tags) setOptionsOpen(true); }, [formError?.tags]);
   if (!open) return null;
 
   const tags = normalizeTags(form.tagsText);
@@ -522,7 +527,7 @@ function PaperComposeModal({
 
       {/* 종이 본체 */}
       <div className={`relative z-10 flex w-full max-w-2xl origin-top ${paperAnimationClass}`}>
-        <div className="relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-[34px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
+        <div role="dialog" aria-modal="true" aria-label="쪽지 작성" className="relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
           {/* 접힌 모서리 */}
           <div className="absolute right-0 top-0 h-16 w-16 rounded-bl-[28px] border-b border-l border-white/80 bg-white/80" />
 
@@ -534,7 +539,7 @@ function PaperComposeModal({
 
           <div className={`relative z-10 flex min-h-0 flex-1 flex-col ${contentAnimationClass}`}>
             {/* 헤더는 위에 고정된 영역처럼 분리 */}
-            <div className="shrink-0 border-b border-amber-100/70 bg-[#fffdf8]/95 px-6 pb-4 pt-6">
+            <div className="shrink-0 border-b border-amber-100/70 bg-[#fffdf8]/95 px-4 py-3 sm:px-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                 <p className="text-lg font-black text-slate-800">
@@ -545,7 +550,7 @@ function PaperComposeModal({
 
                 <p className="mt-1 text-sm text-slate-500">
                   {isFormStep &&
-                    "종이가 펴졌어요. 차근차근 적고 미리보기까지 확인한 뒤 넣으면 돼요."}
+                    "오늘 기억하고 싶은 순간을 적어주세요."}
                   {isPreviewStep &&
                     "실제로 들어갈 모양을 보고 마지막으로 한 번 더 확인해요."}
                   {isConfirmStep &&
@@ -557,15 +562,18 @@ function PaperComposeModal({
                 type="button"
                 onClick={onClose}
                 disabled={disableClose}
-                className="shrink-0 rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 shrink-0 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 닫기
               </button>
               </div>
+              <ol aria-label="쪽지 작성 순서" className="mt-3 flex gap-5 text-sm">
+                {[['form', '작성'], ['preview', '미리보기'], ['confirm', '확인']].map(([value, label], index) => <li key={value} aria-current={step === value ? "step" : undefined} className={step === value ? "border-b-2 border-emerald-800 pb-2 font-bold text-emerald-800" : "pb-2 text-slate-500"}>{index + 1}. {label}</li>)}
+              </ol>
             </div>
 
             {/* 아래 내용만 스크롤되는 영역 */}
-            <div className="paper-compose-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-5">
+            <div className="paper-compose-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-6">
 
 
             {/* 1단계: 작성 */}
@@ -589,10 +597,12 @@ function PaperComposeModal({
                     }}
                     placeholder="예: 우리 첫 여행"
                     required
+                    aria-invalid={Boolean(formError?.title)}
+                    aria-describedby={formError?.title ? "compose-title-error" : undefined}
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
                   {formError?.title && (
-                    <p className="mt-2 text-sm font-semibold text-rose-500">
+                    <p id="compose-title-error" role="alert" className="mt-2 text-sm font-semibold text-rose-700">
                       {formError.title}
                     </p>
                   )}
@@ -605,6 +615,8 @@ function PaperComposeModal({
                   <textarea
                     rows="7"
                     maxLength={300}
+                    aria-invalid={Boolean(formError?.content)}
+                    aria-describedby={formError?.content ? "compose-content-error" : undefined}
                     value={form.content}
                     onChange={(e) => {
                       const nextValue = e.target.value;
@@ -623,7 +635,7 @@ function PaperComposeModal({
                     {(form.content || "").length} / 300자
                   </p>
                   {formError?.content && (
-                    <p className="mt-2 text-sm font-semibold text-rose-500">
+                    <p id="compose-content-error" role="alert" className="mt-2 text-sm font-semibold text-rose-700">
                       {formError.content}
                     </p>
                   )}
@@ -652,7 +664,9 @@ function PaperComposeModal({
                 />
 
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <details open={optionsOpen} onToggle={(event) => setOptionsOpen(event.currentTarget.open)} className="rounded-2xl border border-slate-200 bg-white/60 px-4">
+                  <summary className="min-h-11 cursor-pointer py-3 text-sm font-bold text-slate-700">날짜·장소·태그 추가 <span className="font-normal text-slate-500">(선택)</span></summary>
+                <div className="grid gap-4 pb-4 pt-2 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold text-slate-500">
                       추억 날짜 (선택)
@@ -737,25 +751,7 @@ function PaperComposeModal({
                     )}
                 </label>
 
-                <div className="flex flex-wrap justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={disableClose}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${palette.outlineBtn}`}
-                  >
-                    취소
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onShowPreview}
-                    disabled={uploading || loading}
-                    className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 ${palette.primaryButton}`}
-                  >
-                    미리보기 보기
-                  </button>
-                </div>
+                </details>
               </div>
             )}
 
@@ -835,23 +831,6 @@ function PaperComposeModal({
                   )}
                 </div>
 
-                <div className="mt-5 flex flex-wrap justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={onBackToForm}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${palette.outlineBtn}`}
-                  >
-                    다시 수정하기
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onShowConfirm}
-                    className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] ${palette.primaryButton}`}
-                  >
-                    제출 확인으로
-                  </button>
-                </div>
               </div>
             )}
 
@@ -866,35 +845,24 @@ function PaperComposeModal({
                 />
 
                 <p className="text-sm leading-7 text-slate-500">
-                  저금통에 넣으면 쪽지 수정이나 삭제가 불가능해요!!!
+                  넣은 쪽지는 수정하거나 삭제할 수 없어요.
                 </p>
 
                 <h3 className="mb-2 text-xl font-black text-slate-800">
                     이 쪽지를 정말 넣을까요?
                 </h3>
 
-                <div className="mt-6 flex flex-wrap justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={onBackToPreview}
-                    disabled={loading}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${palette.outlineBtn}`}
-                  >
-                    다시 보기
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onSubmit}
-                    disabled={loading || uploading}
-                    className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-md transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 ${palette.primaryButton}`}
-                  >
-                    {uploading ? "파일 업로드 중..." : loading ? "넣는 중..." : "저금통에 넣기"}
-                  </button>
-                </div>
               </div>
             )}
           </div>
+          {/* 스크롤 영역 밖에 두어 PC·모바일 모두 다음 행동을 바로 찾을 수 있다. */}
+          <footer className="shrink-0 border-t border-amber-100 bg-[#fffdf8] px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:px-6">
+            {isFormStep && <p className="mb-2 text-xs leading-5 text-amber-900">넣은 쪽지는 수정하거나 삭제할 수 없어요. 미리보기에서 확인해 주세요.</p>}
+            <div className="flex justify-end gap-2">
+              <button type="button" disabled={disableClose} onClick={isFormStep ? onClose : isPreviewStep ? onBackToForm : onBackToPreview} className={`min-h-11 rounded-xl border px-4 py-3 text-sm font-bold disabled:opacity-50 ${palette.outlineBtn}`}>{isFormStep ? "취소" : isPreviewStep ? "다시 수정하기" : "다시 보기"}</button>
+              <button type="button" disabled={uploading || loading || isClosing} onClick={isFormStep ? onShowPreview : isPreviewStep ? onShowConfirm : onSubmit} className="min-h-11 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "파일 업로드 중..." : loading ? "넣는 중..." : isFormStep ? "미리보기 보기" : isPreviewStep ? "제출 확인으로" : "저금통에 넣기"}</button>
+            </div>
+          </footer>
         </div>
       </div>
     </div>
@@ -1203,6 +1171,8 @@ const [paperVisible, setPaperVisible] = useState(false);
 const [composerPhase, setComposerPhase] = useState("closed");
 const [composerStep, setComposerStep] = useState("form");
 const [createLoading, setCreateLoading] = useState(false);
+// 같은 프레임의 연속 클릭에서도 저장 요청은 하나만 보낸다.
+const createInFlight = useRef(false);
 const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
   // 저장 완료 후 저금통으로 날아가는 작은 쪽지 상태
@@ -1516,7 +1486,8 @@ function handleOpenPreview() {
   const isValid = validateWriteForm(writeForm);
 
   if (!isValid) {
-    showToast("error", "필수 입력값을 먼저 확인해 주세요.");
+    // 입력칸 옆 오류를 읽고 수정하도록 작성 단계에 머문다.
+    requestAnimationFrame(() => document.querySelector('[aria-label="쪽지 작성"] [aria-invalid="true"]')?.focus());
     return;
   }
 
@@ -1536,16 +1507,18 @@ function handleBackToPreview() {
 }
 
 async function handleCreateNote() {
+  if (createInFlight.current || createLoading || uploading) return;
   const isValid = validateWriteForm(writeForm);
 
   if (!isValid) {
-    showToast("error", "입력값을 확인한 뒤 다시 시도해 주세요.");
+    setComposerStep("form");
     return;
   }
 
 
   const payload = buildCreatePayload(writeForm);
 
+  createInFlight.current = true;
   setCreateLoading(true);
   setComposerPhase("submitting");
 
@@ -1554,9 +1527,8 @@ async function handleCreateNote() {
     const createPromise = noteApi.createNote(jar.jarId, payload);
 
     // 종이가 한 번 접히는 느낌을 잠깐 보여줌
-    await wait(420);
-
-    const createdNote = await createPromise;
+    // 저장 실패도 즉시 처리하도록 애니메이션과 저장 결과를 함께 기다린다.
+    const [createdNote] = await Promise.all([createPromise, wait(420)]);
     const createdNoteId = getNoteId(createdNote);
 
     // 모달은 먼저 닫아줘
@@ -1608,6 +1580,7 @@ async function handleCreateNote() {
 
     showToast("error", serverMessage);
   } finally {
+    createInFlight.current = false;
     setCreateLoading(false);
   }
 }
@@ -2553,22 +2526,7 @@ async function handleCreateNote() {
       />
       {/* 저금통으로 날아가는 쪽지도 같은 SVG를 사용하고, 화면 좌표에 맞춘 공통 이동 레이어에 표시한다. */}
       <FlyingNote flight={flyingNote} />
-      {toast.show && (
-        <div className="fixed right-6 top-6 z-[120]">
-          <div
-            className={`min-w-[260px] rounded-2xl border px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur-sm ${
-              toast.type === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-rose-200 bg-rose-50 text-rose-700"
-            }`}
-          >
-            <p className="text-sm font-bold">
-              {toast.type === "success" ? "완료" : "확인해 주세요"}
-            </p>
-            <p className="mt-1 text-sm">{toast.message}</p>
-          </div>
-        </div>
-      )}
+      <FeedbackToast message={toast.show ? toast.message : ""} type={toast.type} onClose={() => setToast((prev) => ({ ...prev, show: false }))} />
     </>
   );
 }

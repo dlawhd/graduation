@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import shop.esjh.memoryjar.enums.ai.JarAiStyle;
 import org.springframework.core.io.ClassPathResource;
 
@@ -20,6 +21,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AiPromptCatalogTest {
 
     private final AiPromptCatalog catalog = new AiPromptCatalog();
+
+    /** 새 스타일이 이름만 다르고 같은 표현을 요청하거나 기존 버전을 덮어쓰지 않게 한다. */
+    @ParameterizedTest
+    @CsvSource({
+            "NEON_DRAWING,NEON_DRAWING_V1,luminous contour linework",
+            "CHROME_MIRROR,CHROME_MIRROR_V1,tinted mirror chrome",
+            "RISO_PRINT,RISO_PRINT_V1,risograph ink print"
+    })
+    void resolve_distinctNewStylesKeepSourcePolicyAndMetadata(JarAiStyle style, String version, String rendering) {
+        var definition = catalog.resolve(style);
+        assertThat(definition.promptVersion()).isEqualTo("BASE_V3+" + version);
+        assertThat(definition.prompt()).contains(rendering, "preserve and restyle that background together with the subjects",
+                "Preserve the source hues and their locations", "Do not add a coin slot");
+        assertThat(definition.referenceImageVersion()).isNull();
+        assertThat(definition.postprocessVersion()).isNull();
+        assertThat(definition.referenceImageResourcePathOptional()).isEmpty();
+    }
 
     @Test
     @DisplayName("모든 AI 스타일은 서버가 관리하는 비어 있지 않은 프롬프트와 버전을 가진다")

@@ -126,7 +126,7 @@ Request는 서버에 보내는 데이터, Response는 서버가 돌려주는 데
 | ChatMessageType | `TEXT`, `SYSTEM` |
 | JarDraftStatus | `ACTIVE`, `FINALIZED`, `ABANDONED`, `EXPIRED` |
 | JarDraftDesignType | `ORIGINAL`, `AI`, `DEFAULT` |
-| JarAiStyle | `CUTE_2D`, `SOFT_25D`, `WATERCOLOR`, `HAND_DRAWN`, `WEIRDO`, `PIXEL` |
+| JarAiStyle | `CUTE_2D`, `SOFT_25D`, `WATERCOLOR`, `HAND_DRAWN`, `WEIRDO`, `PIXEL`, `NEON_DRAWING`, `CHROME_MIRROR`, `RISO_PRINT` |
 | JarAiGenerationStatus | `PROCESSING`, `SUCCEEDED`, `FAILED` |
 
 AI Draft의 Prompt·Prompt Version·S3 Key는 클라이언트 DTO로 받지 않는다. 서버 Catalog와 Service가 결정하며, 조회 DTO에도 Private S3 Key는 포함하지 않는다.

@@ -14,7 +14,6 @@ import JarChatPanel from "../../../pages/JarChatPanel";
 export default function JarChatModal({
   open,
   jar,
-  palette,
   currentUserId,
   onClose,
 }) {
@@ -23,7 +22,7 @@ export default function JarChatModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9992] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/55 px-4 py-4 sm:py-6"
+      className="fixed inset-0 z-[9992] flex items-center justify-center overscroll-contain bg-slate-900/55 p-2 sm:p-6"
       onMouseDown={onClose}
     >
       <style>
@@ -46,40 +45,38 @@ export default function JarChatModal({
       </style>
 
       <div
-        className="jar-chat-pop relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm sm:max-h-[calc(100dvh-3rem)]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${jar?.name || "저금통"} 채팅`}
+        className="jar-chat-pop relative z-10 flex h-[min(800px,calc(100dvh-1rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:h-[min(800px,calc(100dvh-3rem))] sm:rounded-3xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-start justify-between gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-6">
           <div>
             <p className="text-lg font-black text-slate-800">
-              저금통 채팅방
+              {jar?.name || "저금통 채팅방"}
             </p>
 
             <p className="mt-1 text-sm text-slate-500">
-              {jar?.name
-                ? `${jar.name} 멤버들과 대화할 수 있어요.`
-                : "저금통 멤버들과 대화할 수 있어요."}
+              저금통 멤버들과 나누는 이야기
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+            className="min-h-11 shrink-0 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
           >
             닫기
           </button>
         </div>
 
-        <section
-          className={`min-h-0 flex-1 overflow-hidden rounded-[30px] border p-4 shadow-sm ${palette.panel}`}
-        >
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-[24px] bg-white/70">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <JarChatPanel
               jarId={jar?.jarId}
               currentUserId={currentUserId}
+              embedded
             />
-          </div>
         </section>
       </div>
     </div>,

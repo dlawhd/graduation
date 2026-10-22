@@ -2253,6 +2253,8 @@ AI 입력·Presigned 이미지 URL은 그림만 포함하며 본체/투입구는
 
 AI 커스텀 디자인은 이미 생성된 Jar를 변경하는 API가 아니라, Jar 생성 전에 사용하는 Draft 흐름이다. 모든 경로는 인증과 CSRF 보호가 필요하며 Draft OWNER만 호출할 수 있다. Draft 상세 응답에는 Private S3 Object Key나 고정 URL을 포함하지 않는다.
 
+2026-10-22 V53: 생성 요청의 `style` 허용값은 기존 6종에 `NEON_DRAWING`, `CHROME_MIRROR`, `RISO_PRINT`를 더한 9종이다. 요청/응답 필드와 OWNER·CSRF·동시 생성 제한은 변경하지 않는다. V53 DB 변경과 새 백엔드를 먼저 적용한 뒤 새 프론트엔드를 배포한다. [스타일 계약·검증 범위](ai/AI_STYLES_V53.md)를 확인한다. 로컬 시험 통과는 운영 배포 완료를 뜻하지 않는다.
+
 | HTTP | 경로 | 현재 동작 |
 | --- | --- | --- |
 | `POST` | `/api/v1/design-drafts` | multipart `image` 원본을 검증·정규화해 Draft 생성 |

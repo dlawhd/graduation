@@ -1,5 +1,7 @@
 # Memory Jar AI 커스텀 디자인 — ERD 및 DB 계약 v1
 
+> 2026-10-22 V53: `jar_ai_generations`의 스타일 허용 CHECK와 PIXEL 버전 CHECK에 `NEON_DRAWING`, `CHROME_MIRROR`, `RISO_PRINT`를 추가한다. 새 컬럼·테이블은 없고 기존 후보를 재작성하지 않는다. 신규 세 스타일은 참조/후처리 버전이 NULL이어야 한다. [V53 계약](AI_STYLES_V53.md)을 확인한다. 운영 적용 완료를 뜻하지 않는다.
+
 > 2026-10-07 V51 증분: Draft/Design에 nullable `custom_body_json TEXT`와 CUSTOM 본체를 추가한다. 좌표/색상은 사진과 분리하여 저장하고 최종 스냅샷과 영구 Design에 복사한다. 과거 50종 ID/데이터는 보존하며 새 선택은 28종이다. [직접 만드는 틀 계약](AI_CUSTOM_BODY_V51.md)을 확인한다. 운영 적용 완료를 뜻하지 않는다.
 
 > 2026-10-05 V48 증분: FAILED의 기존 generated_s3_key=NULL 계약을 유지하면서 업로드 예약 키와 정리 완료 시각을 별도 컬럼으로 보존한다. [실패 후보 예약·재시도 계약](../WRITE_SAFETY_V48.md)을 확인한다. 기존에 잃어버린 키의 자동 복구는 포함하지 않는다.

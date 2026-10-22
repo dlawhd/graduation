@@ -1,0 +1,3 @@
+Render the same source as a risograph ink print: flat overlapping source-colored ink areas, fine halftone dot screens, dry ink grain and restrained off-register color edges within the existing silhouette. Keep every original hue family and its location; do not force a fixed palette, swap colors between subjects or fill intentional white regions.
+
+Simplify texture rather than subject structure. Preserve the same internal landmarks, background layout, source framing and white canvas margins. Misregistration must stay subtle and must not duplicate subjects, erase small accents or close open strokes. Avoid pencil contours, watercolor blooms, hand-cut paper layers, embroidery, glossy 3D volume, neon light, printed captions, poster borders and added decoration.

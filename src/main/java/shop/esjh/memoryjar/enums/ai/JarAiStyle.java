@@ -9,5 +9,8 @@ public enum JarAiStyle {
     WATERCOLOR,
     HAND_DRAWN,
     WEIRDO,
-    PIXEL
+    PIXEL,
+    NEON_DRAWING,
+    CHROME_MIRROR,
+    RISO_PRINT
 }

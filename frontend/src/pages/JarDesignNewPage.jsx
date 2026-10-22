@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import JarDesignCanvas from "../features/jarDesign/components/JarDesignCanvas";
 import AiCandidateGallery from "../features/jarDesign/components/AiCandidateGallery";
+import DesignProgress from "../features/jarDesign/components/DesignProgress";
 import JarBodyPicker from "../features/jarDesign/components/JarBodyPicker";
 import JarDesignImage from "../features/jarDesign/components/JarDesignImage";
 import { getJarBody } from "../features/jarDesign/jarBodies.mjs";
@@ -34,6 +35,7 @@ export default function JarDesignNewPage() {
   const sourceSelection = useRef(0);
   const [readingSource, setReadingSource] = useState(false);
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
+  const [galleryStep, setGalleryStep] = useState(3);
   const [previewControlsTarget, setPreviewControlsTarget] = useState(null);
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
   useEffect(() => {
@@ -123,8 +125,9 @@ export default function JarDesignNewPage() {
         <section className={studioPage ? "studio-intro mt-4 py-3" : "mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8"}>
           <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black tracking-wide text-emerald-800">MEMORY JAR · 작은 저금통 공방</span>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{draftId ? "우리의 그림에 분위기를 더해요" : imageStep ? "이 저금통에 어떤 추억을 담을까요?" : "우리만의 저금통 틀 만들기"}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">나만의 틀을 만들고 그 안에 그림이나 사진을 담아보세요. 기본 틀을 쓰거나 준비된 저금통으로 바꿔도 좋아요.<span className="block">AI 변환은 선택 사항이에요.</span></p>
-          <ol className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500" aria-label="디자인 제작 순서">{["틀 만들기 또는 선택", "그림 담기", "사진 배치와 AI 꾸미기", "투입구와 배경", "이름 붙이기"].map((label, i) => <li key={label} aria-current={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "step" : undefined} className={(draftId ? i === 2 : imageStep ? i === 1 : i === 0) ? "text-emerald-800" : ""}><span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{i + 1}</span>{label}</li>)}</ol>
+          <p className="mt-3 text-sm leading-6 text-slate-600">{draftId ? "원본을 그대로 쓰거나, 마음에 드는 AI 스타일을 골라보세요." : imageStep ? "직접 그리거나 사진을 골라 저금통을 채워요." : "기본 틀을 고르거나, 닫힌 테두리를 직접 그려보세요."}</p>
+          <details className="mt-2 max-w-3xl text-sm leading-6 text-slate-600"><summary className="min-h-11 cursor-pointer py-3 font-bold">만들기 도움말</summary><p>나만의 틀 안에 그림이나 사진을 담아요. 기본 틀을 쓰거나 준비된 저금통으로 바꿔도 좋아요. AI 변환은 선택 사항이고, 원본으로도 완성할 수 있어요.</p></details>
+          <DesignProgress activeStep={draftId ? galleryStep : imageStep ? 2 : 1} />
         </section>
 
         {/* 선택 목록이나 그림 담기로 이동해도 틀 그림판을 유지해 미완성 획과 실행 취소 이력을 보존한다. */}
@@ -188,7 +191,7 @@ export default function JarDesignNewPage() {
         )}
 
         {error && !(imageStep && inputMode === "UPLOAD") && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
-        {draftId && <AiCandidateGallery key={draftId} draftId={draftId} />}
+        {draftId && <AiCandidateGallery key={draftId} draftId={draftId} onStepChange={setGalleryStep} />}
       </main>
     </div>
   );

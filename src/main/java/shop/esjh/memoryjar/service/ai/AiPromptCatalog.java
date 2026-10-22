@@ -49,6 +49,14 @@ public class AiPromptCatalog {
                 base, "ai/prompts/pixel-v7.txt", "BASE_V3+PIXEL_V7",
                 null, PixelPostProcessor.POSTPROCESS_VERSION, null));
 
+        // 새 재료 표현도 원본 보존·배경 정책을 공유하고, 과거 여섯 스타일의 버전은 그대로 둔다.
+        catalog.put(JarAiStyle.NEON_DRAWING, definition(
+                base, "ai/prompts/neon-drawing-v1.txt", "BASE_V3+NEON_DRAWING_V1", null, null, null));
+        catalog.put(JarAiStyle.CHROME_MIRROR, definition(
+                base, "ai/prompts/chrome-mirror-v1.txt", "BASE_V3+CHROME_MIRROR_V1", null, null, null));
+        catalog.put(JarAiStyle.RISO_PRINT, definition(
+                base, "ai/prompts/riso-print-v1.txt", "BASE_V3+RISO_PRINT_V1", null, null, null));
+
         this.definitions = Map.copyOf(catalog);
     }
 

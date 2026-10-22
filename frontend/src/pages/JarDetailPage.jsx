@@ -9,6 +9,8 @@ import { getChatUnreadCount } from "../api/chatApi";
 import { getCommentPage } from "../api/noteApi";
 import { mergeCommentPages } from "../features/jarDetail/utils/commentPaging.mjs";
 import NoteSection from "./NoteSection";
+import FeedbackToast from "../components/feedback/FeedbackToast";
+import useFeedback from "../components/feedback/useFeedback";
 import InfoItem from "../features/jarDetail/components/InfoItem";
 import JarRoleGuide from "../features/jarDetail/components/JarRoleGuide";
 import JarMenuModal from "../features/jarDetail/components/JarMenuModal";
@@ -143,7 +145,10 @@ function getInviteStatus(invite, palette) {
   };
 }
 
-export default function JarDetailPage() {
+export default function JarDetailPage({ onSuccess }) {
+  const { feedback, notify, dismiss } = useFeedback();
+  const [editErrors, setEditErrors] = useState({});
+  const [editError, setEditError] = useState("");
   /*
    * 앱 전체 OnboardingProvider에서
    * 현재 사용자의 온보딩 상태와 저장 함수를 가져온다.
@@ -2463,7 +2468,7 @@ useEffect(() => {
       await fetchCsrf();
       await apiClient.delete(`/api/v1/jars/${jarId}`);
 
-      window.alert("저금통이 삭제되었어요.");
+      onSuccess?.("저금통이 삭제되었어요.");
       navigate("/jars", { replace: true });
     } catch (e) {
       const serverMessage =
@@ -2472,7 +2477,7 @@ useEffect(() => {
         e?.message ||
         "저금통 삭제에 실패했어요.";
 
-      window.alert(serverMessage);
+      notify(serverMessage);
     } finally {
       setDeleteLoading(false);
     }
@@ -2480,9 +2485,12 @@ useEffect(() => {
 
 async function handleUpdateJar(e) {
   e.preventDefault();
+  if (editLoading) return;
+  setEditError("");
+  setEditErrors({});
 
   if (!canEditJar) {
-    window.alert("저금통 수정은 방장 또는 관리자만 할 수 있어요.");
+    setEditError("저금통 수정은 방장 또는 관리자만 할 수 있어요.");
     return;
   }
 
@@ -2491,17 +2499,17 @@ async function handleUpdateJar(e) {
   const maxMembers = Number(editForm.maxMembers);
 
   if (!trimmedName) {
-    window.alert("저금통 이름을 입력해 주세요.");
+    setEditErrors({ name: "저금통 이름을 입력해 주세요." });
     return;
   }
 
   if (!Number.isFinite(maxMembers) || maxMembers < 2 || maxMembers > 50) {
-    window.alert("최대 인원은 2명 이상 50명 이하로 입력해 주세요.");
+    setEditErrors({ maxMembers: "최대 인원은 2명 이상 50명 이하로 입력해 주세요." });
     return;
   }
 
   if (!editForm.openAt) {
-    window.alert("오픈일을 입력해 주세요.");
+    setEditErrors({ openAt: "오픈일을 입력해 주세요." });
     return;
   }
 
@@ -2558,7 +2566,7 @@ async function handleUpdateJar(e) {
     await loadMembers();
 
     setEditOpen(false);
-    window.alert("저금통 설정을 수정했어요.");
+    notify("저금통 설정을 수정했어요.", "success");
   } catch (e) {
     const serverMessage =
       e?.response?.data?.error?.message ||
@@ -2566,7 +2574,7 @@ async function handleUpdateJar(e) {
       e?.message ||
       "저금통 수정에 실패했어요.";
 
-    window.alert(serverMessage);
+    setEditError(serverMessage);
   } finally {
     setEditLoading(false);
   }
@@ -2750,7 +2758,7 @@ async function handleReactInJarZoomDetail(noteId, emoji) {
   if (!jar?.jarId || !noteId) return;
 
   if (!jar?.isOpen) {
-    window.alert("저금통이 열린 뒤에 리액션을 남길 수 있어요.");
+    notify("저금통이 열린 뒤에 리액션을 남길 수 있어요.");
     return;
   }
 
@@ -2775,7 +2783,7 @@ async function handleReactInJarZoomDetail(noteId, emoji) {
       e?.message ||
       "리액션 처리에 실패했어요.";
 
-    window.alert(serverMessage);
+    notify(serverMessage);
   } finally {
     setJarZoomReactingNoteId(null);
   }
@@ -2972,7 +2980,7 @@ async function handleCreateReply(parentCommentId) {
   if (!noteId || !parentCommentId) return;
 
   if (!content) {
-    window.alert("답글 내용을 입력해 주세요.");
+    setJarZoomCommentsError("답글 내용을 입력해 주세요.");
     return;
   }
 
@@ -3043,7 +3051,7 @@ async function handleCreateReply(parentCommentId) {
       e?.message ||
       "답글 등록에 실패했어요.";
 
-    window.alert(serverMessage);
+    notify(serverMessage);
   } finally {
     setCommentSubmitting(false);
   }
@@ -3056,7 +3064,7 @@ async function handleCreateComment() {
   if (!noteId) return;
 
   if (!content) {
-    window.alert("댓글 내용을 입력해 주세요.");
+    setJarZoomCommentsError("댓글 내용을 입력해 주세요.");
     return;
   }
 
@@ -3079,7 +3087,7 @@ async function handleCreateComment() {
       e?.message ||
       "댓글 등록에 실패했어요.";
 
-    window.alert(serverMessage);
+    notify(serverMessage);
   } finally {
     setCommentSubmitting(false);
   }
@@ -3092,7 +3100,7 @@ async function handleUpdateComment(commentId) {
   if (!noteId || !commentId) return;
 
   if (!content) {
-    window.alert("댓글 내용을 입력해 주세요.");
+    setJarZoomCommentsError("댓글 내용을 입력해 주세요.");
     return;
   }
 
@@ -3116,7 +3124,7 @@ async function handleUpdateComment(commentId) {
       e?.message ||
       "댓글 수정에 실패했어요.";
 
-    window.alert(serverMessage);
+    notify(serverMessage);
   } finally {
     setCommentSubmitting(false);
   }
@@ -3152,7 +3160,7 @@ async function handleDeleteComment(commentId) {
       e?.message ||
       "댓글 삭제에 실패했어요.";
 
-    window.alert(serverMessage);
+    notify(serverMessage);
   } finally {
     setDeletingCommentId(null);
   }
@@ -5004,7 +5012,7 @@ async function handleViewOpenedJarNotes() {
       </div>
       {editOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4 py-6">
-          <div className="w-full max-w-2xl rounded-[32px] border border-white/70 bg-white p-6 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-label="저금통 설정 수정" className="max-h-[calc(100dvh-3rem)] w-full max-w-2xl overflow-y-auto rounded-[32px] border border-white/70 bg-white p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <p className="text-lg font-black text-slate-800">저금통 설정 수정</p>
@@ -5019,7 +5027,8 @@ async function handleViewOpenedJarNotes() {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateJar} className="space-y-4">
+            <form onSubmit={handleUpdateJar} className="space-y-4" onChange={() => { setEditErrors({}); setEditError(""); }}>
+              {editError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{editError}</p>}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold text-slate-500">
@@ -5028,11 +5037,14 @@ async function handleViewOpenedJarNotes() {
                   <input
                     type="text"
                     value={editForm.name}
+                    aria-invalid={Boolean(editErrors.name)}
+                    aria-describedby={editErrors.name ? "jar-name-error" : undefined}
                     onChange={(e) =>
                       setEditForm((prev) => ({ ...prev, name: e.target.value }))
                     }
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
+                  {editErrors.name && <span id="jar-name-error" role="alert" className="mt-2 block text-sm text-rose-700">{editErrors.name}</span>}
                 </label>
 
                 <label className="block">
@@ -5044,11 +5056,14 @@ async function handleViewOpenedJarNotes() {
                     min="2"
                     max="50"
                     value={editForm.maxMembers}
+                    aria-invalid={Boolean(editErrors.maxMembers)}
+                    aria-describedby={editErrors.maxMembers ? "jar-members-error" : undefined}
                     onChange={(e) =>
                       setEditForm((prev) => ({ ...prev, maxMembers: e.target.value }))
                     }
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
+                  {editErrors.maxMembers && <span id="jar-members-error" role="alert" className="mt-2 block text-sm text-rose-700">{editErrors.maxMembers}</span>}
                 </label>
               </div>
 
@@ -5105,11 +5120,14 @@ async function handleViewOpenedJarNotes() {
                   <input
                     type="datetime-local"
                     value={editForm.openAt}
+                    aria-invalid={Boolean(editErrors.openAt)}
+                    aria-describedby={editErrors.openAt ? "jar-open-error" : undefined}
                     onChange={(e) =>
                       setEditForm((prev) => ({ ...prev, openAt: e.target.value }))
                     }
                     className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
                   />
+                  {editErrors.openAt && <span id="jar-open-error" role="alert" className="mt-2 block text-sm text-rose-700">{editErrors.openAt}</span>}
                 </label>
               </div>
 
@@ -5134,6 +5152,7 @@ async function handleViewOpenedJarNotes() {
           </div>
         </div>
       )}
+      <FeedbackToast message={feedback?.message} type={feedback?.type} onClose={dismiss} />
       </div>
       </>
   );

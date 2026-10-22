@@ -12,6 +12,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./pages/Home";
+import StatusNotice from "./components/feedback/StatusNotice";
+import FeedbackToast from "./components/feedback/FeedbackToast";
 import LoginSuccess from "./pages/LoginSuccess";
 import JarsPage from "./pages/JarsPage";
 import JarsNewPage from "./pages/JarsNewPage";
@@ -201,6 +203,9 @@ export default function App() {
 
   // 로그인 직후 목적지 화면 위에 잠깐 보여줄 완료 알림
   const [loginToastMessage, setLoginToastMessage] = useState("");
+  const [headerError, setHeaderError] = useState("");
+  const [notificationSaving, setNotificationSaving] = useState(false);
+  const notificationWrite = useRef(false);
 
   // 내정보 패널 열림 상태
   const [profileOpen, setProfileOpen] = useState(false);
@@ -727,7 +732,10 @@ useEffect(() => {
       // - 그 다음 저금통 상세 페이지로 이동
       // --------------------------------------------------------
       const handleNotificationClick = async (item) => {
-        if (!item) return;
+        if (!item || notificationWrite.current) return;
+        notificationWrite.current = true;
+        setNotificationSaving(true);
+        setNotificationsError("");
 
         if (!item.isRead) {
           try {
@@ -752,10 +760,15 @@ useEffect(() => {
               e?.response?.data?.message ||
               "알림 읽음 처리 중 문제가 생겼어요.";
 
-            alert(serverMessage);
+            setNotificationsError(serverMessage);
+            notificationWrite.current = false;
+            setNotificationSaving(false);
+            return;
           }
         }
 
+        notificationWrite.current = false;
+        setNotificationSaving(false);
         setNotificationOpen(false);
 
         const inquiryPath = supportNotificationPath(item);
@@ -781,6 +794,11 @@ useEffect(() => {
       // 모두 읽음 처리
       // --------------------------------------------------------
       const handleReadAllNotifications = async () => {
+        // 상태 반영 전 연속 클릭도 하나의 읽음 요청만 보내도록 동기 잠금을 둔다.
+        if (notificationWrite.current) return;
+        notificationWrite.current = true;
+        setNotificationSaving(true);
+        setNotificationsError("");
         try {
           const result = await readAllNotifications();
 
@@ -799,7 +817,10 @@ useEffect(() => {
             e?.response?.data?.message ||
             "알림 전체 읽음 처리 중 문제가 생겼어요.";
 
-          alert(serverMessage);
+          setNotificationsError(serverMessage);
+        } finally {
+          notificationWrite.current = false;
+          setNotificationSaving(false);
         }
       };
 
@@ -808,6 +829,8 @@ useEffect(() => {
   // 로그아웃
   // --------------------------------------------------------
   const handleLogout = async () => {
+    if (loggingOut) return;
+    setHeaderError("");
     try {
       setLoggingOut(true);
 
@@ -835,7 +858,7 @@ useEffect(() => {
         e?.response?.data?.message ||
         "로그아웃 중 문제가 생겼어요.";
 
-      alert(serverMessage);
+      setHeaderError(serverMessage);
     } finally {
       setLoggingOut(false);
     }
@@ -845,13 +868,13 @@ useEffect(() => {
   // 메뉴 공통 스타일
   // --------------------------------------------------------
   const navButtonClass =
-    "rounded-full px-4 py-2 text-sm font-semibold transition";
+    "min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition";
 
   const inactiveNavClass =
     "bg-white/85 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50";
 
   const activeNavClass =
-    "bg-emerald-500 text-white shadow-sm";
+    "bg-emerald-800 text-white shadow-sm";
 
   /*
    * 모바일 메뉴를 닫는 공통 함수
@@ -931,7 +954,7 @@ useEffect(() => {
                       : inactiveNavClass,
                   ].join(" ")}
                 >
-                  Jars
+                  내 저금통
                 </Link>
 
                 {/* 알림 영역 */}
@@ -945,6 +968,8 @@ useEffect(() => {
                                   "relative inline-flex items-center justify-center",
                                 ].join(" ")}
                                 aria-label="알림 열기"
+                                aria-expanded={notificationOpen}
+                                aria-controls="header-notifications"
                               >
                                 {/* 종 아이콘 */}
                                 <svg
@@ -970,9 +995,9 @@ useEffect(() => {
 
                               {/* 알림 드롭다운 */}
                               {notificationOpen && (
-                                <div className="fixed left-4 right-4 top-[4.5rem] z-[70] overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:absolute sm:left-auto sm:right-0 sm:top-14 sm:w-[360px]">
+                                <div id="header-notifications" aria-label="알림 목록" className="fixed left-3 right-3 top-[4.5rem] z-[70] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-14 sm:w-[380px]">
                                   {/* 상단 제목 영역 */}
-                                  <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-cyan-50 px-5 py-4">
+                                  <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
                                     <div>
                                       <p className="text-base font-black text-slate-900">
                                         알림
@@ -985,39 +1010,33 @@ useEffect(() => {
                                     <button
                                       type="button"
                                       onClick={handleReadAllNotifications}
-                                      disabled={unreadCount <= 0}
-                                      className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-emerald-600 ring-1 ring-emerald-100 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      disabled={unreadCount <= 0 || notificationSaving}
+                                      className="min-h-11 rounded-xl px-3 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                       모두 읽음
                                     </button>
                                   </div>
 
                                   {/* 내용 영역 */}
-                                  <div className="max-h-[420px] overflow-y-auto px-3 py-3">
+                                  <div className="max-h-[min(480px,calc(100dvh-11rem))] overflow-y-auto overscroll-contain">
                                     {notificationsLoading && (
-                                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                                        알림을 불러오는 중이에요...
-                                      </div>
+                                      <StatusNotice type="loading" title="알림을 불러오고 있어요." />
                                     )}
 
                                     {!notificationsLoading && notificationsError && (
-                                      <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-4 text-sm text-rose-600">
-                                        {notificationsError}
-                                      </div>
+                                      <StatusNotice type="error" onRetry={() => loadNotifications(0, 10)}>{notificationsError}</StatusNotice>
                                     )}
 
                                     {!notificationsLoading &&
                                       !notificationsError &&
                                       notifications.length === 0 && (
-                                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                                          아직 도착한 알림이 없어요.
-                                        </div>
+                                        <div className="p-4"><StatusNotice title="아직 도착한 알림이 없어요.">새 소식이 오면 여기에 모아둘게요.</StatusNotice></div>
                                       )}
 
                                     {!notificationsLoading &&
                                       !notificationsError &&
                                       notifications.length > 0 && (
-                                        <div className="space-y-2">
+                                        <div className="divide-y divide-slate-100">
                                           {notifications.map((item) => {
                                             const displayMessage =
                                               item?.message?.trim() ||
@@ -1027,12 +1046,13 @@ useEffect(() => {
                                               <button
                                                 key={item.notificationId}
                                                 type="button"
+                                                disabled={notificationSaving}
                                                 onClick={() => handleNotificationClick(item)}
                                                 className={[
-                                                  "w-full rounded-2xl border px-4 py-3 text-left transition",
+                                                  "w-full px-4 py-4 text-left transition focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-60",
                                                   item.isRead
-                                                    ? "border-slate-200 bg-white hover:bg-slate-50"
-                                                    : "border-emerald-100 bg-emerald-50/60 hover:bg-emerald-50",
+                                                    ? "bg-white hover:bg-slate-50"
+                                                    : "bg-emerald-50/70 hover:bg-emerald-50",
                                                 ].join(" ")}
                                               >
                                                 <div className="flex items-start gap-3">
@@ -1043,11 +1063,11 @@ useEffect(() => {
 
                                                   {/* 가운데 문구 */}
                                                   <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-semibold leading-5 text-slate-800">
+                                                    <p className="break-words text-sm font-semibold leading-6 text-slate-800">
                                                       {displayMessage}
                                                     </p>
 
-                                                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                                                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                                                       {item.actorName && (
                                                         <span className="font-semibold text-slate-600">
                                                           {item.actorName}
@@ -1059,7 +1079,7 @@ useEffect(() => {
 
                                                   {/* 안 읽음 점 */}
                                                   {!item.isRead && (
-                                                    <span className="mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500" />
+                                                    <span className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-700"><span className="sr-only">안 읽음</span></span>
                                                   )}
                                                 </div>
                                               </button>
@@ -1084,6 +1104,8 @@ useEffect(() => {
                                   setProfileOpen((prev) => !prev);
                                   setNotificationOpen(false);
                                 }}
+                                aria-expanded={profileOpen}
+                                aria-controls="header-profile"
                                 className={[
                                   navButtonClass,
                                   profileOpen ? activeNavClass : inactiveNavClass,
@@ -1096,22 +1118,11 @@ useEffect(() => {
                                 <span>내정보</span>
                               </button>
 
-                              {/* 로그아웃 버튼 */}
-                              <button
-                                type="button"
-                                onClick={handleLogout}
-                                disabled={loggingOut}
-                                className={[
-                                  navButtonClass,
-                                  "bg-slate-900 text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70",
-                                ].join(" ")}
-                              >
-                                {loggingOut ? "로그아웃 중..." : "로그아웃"}
-                              </button>
-
                               {/* 내정보 패널 */}
                               {profileOpen && (
-                                <div className="absolute right-0 top-14 w-[320px] overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+                                <div id="header-profile" className="absolute right-0 top-14 max-h-[calc(100dvh-7rem)] w-[320px] overflow-y-auto rounded-[28px] border border-slate-200 bg-white shadow-xl">
+                                  {/* 로그아웃 버튼은 내정보 안에서만 보여 주요 메뉴와 구분한다. */}
+                                  <div className="border-b border-slate-100 px-5 py-2"><button type="button" onClick={handleLogout} disabled={loggingOut} className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">{loggingOut ? "로그아웃 중..." : "로그아웃"}</button></div>
                                   {/* 상단 사용자 영역 */}
                                   <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-cyan-50 px-5 py-5">
                                     <div className="flex items-center gap-3">
@@ -1357,28 +1368,8 @@ useEffect(() => {
     />
 
     {/* 로그인 직후 목적지 화면에서 잠깐 보여주는 완료 알림 */}
-    {loginToastMessage && (
-  <div
-    className="pointer-events-none fixed left-1/2 top-6 z-[200] w-[calc(100%-2rem)] max-w-md -translate-x-1/2"
-    role="status"
-    aria-live="polite"
-  >
-    <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-white/95 px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-      {/* 로그인 완료 체크 아이콘 */}
-      <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-base font-black text-white"
-        aria-hidden="true"
-      >
-        ✓
-      </span>
-
-      {/* LoginSuccess가 저장한 완료 문구 */}
-      <p className="text-sm font-bold text-slate-800">
-        {loginToastMessage}
-      </p>
-    </div>
-  </div>
-)}
+    {/* 로그인 완료 체크 아이콘과 LoginSuccess가 저장한 완료 문구를 공통 알림으로 표시한다. */}
+    <FeedbackToast message={headerError || loginToastMessage} type={headerError ? "error" : "success"} onClose={() => { setHeaderError(""); setLoginToastMessage(""); }} />
 
         {/* 페이지 본문 */}
         <main>
@@ -1448,7 +1439,7 @@ useEffect(() => {
           <Route path="/jars" element={<JarsPage />} />
           <Route path="/jars/new" element={<JarsNewPage />} />
           <Route path="/jars/design/new" element={<JarDesignNewPage />} />
-          <Route path="/jars/:jarId" element={<JarDetailPage />} />
+          <Route path="/jars/:jarId" element={<JarDetailPage onSuccess={setLoginToastMessage} />} />
           <Route path="/support/inquiries" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
           <Route path="/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
           <Route path="/admin/support/inquiries" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator /></Suspense>} />

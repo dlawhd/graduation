@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { getSupportInquiries, getSupportPermissions, supportError } from "../api/supportApi";
 import { SUPPORT_STATUS, SUPPORT_STYLE, supportTime, canViewSupportInquiries } from "../features/support/supportView.mjs";
 import SupportInquiryDetail from "../features/support/SupportInquiryDetail";
+import SupportStatusBadge from "../features/support/SupportStatusBadge";
+import StatusNotice from "../components/feedback/StatusNotice";
 
 /** 내 문의와 운영 문의함을 표시한다. 목록은 커서로 나누고 권한은 서버에서 다시 검사한다. */
 export default function SupportInquiriesPage({ me, checkingAuth, operator = false }) {
@@ -44,11 +46,11 @@ export default function SupportInquiriesPage({ me, checkingAuth, operator = fals
         {operator && <label className="text-sm font-semibold">처리 상태 <select value={status} onChange={(e) => { setStatus(e.target.value); setCursors([undefined]); setPage(0); }} className="ml-2 min-h-11 rounded-xl border border-slate-200 bg-white px-3"><option value="">전체</option>{["OPEN", "IN_PROGRESS", "ANSWERED"].map((key) => <option key={key} value={key}>{SUPPORT_STATUS[key]}</option>)}</select></label>}
         <button type="button" disabled={loading} onClick={() => setRefresh((n) => n + 1)} className={button}>새로고침</button>
       </div>
-      {loading && <p role="status" className="rounded-2xl bg-white p-6 text-sm text-slate-500">문의 목록을 불러오고 있어요.</p>}
-      {error && <p role="alert" className="rounded-2xl bg-rose-50 p-5 text-sm text-rose-700">{error}</p>}
-      {!loading && !error && result?.items?.length === 0 && <p className="rounded-2xl bg-white p-6 text-sm text-slate-500">{operator ? "해당 상태의 문의가 없습니다." : "아직 접수한 문의가 없어요. 실패한 AI 후보에서 문의할 수 있어요."}</p>}
+      {loading && <StatusNotice type="loading" title="문의 목록을 불러오고 있어요." />}
+      {error && <StatusNotice type="error" onRetry={() => setRefresh((n) => n + 1)} busy={loading}>{error}</StatusNotice>}
+      {!loading && !error && result?.items?.length === 0 && <StatusNotice>{operator ? "해당 상태의 문의가 없습니다." : "아직 접수한 문의가 없어요. 실패한 AI 후보에서 문의할 수 있어요."}</StatusNotice>}
       <div className="space-y-3">{result?.items?.map((ticket) => <Link key={ticket.inquiryId} to={`${base}/${ticket.inquiryId}`} className="block rounded-2xl border border-slate-200 bg-white p-5 hover:border-emerald-300">
-        <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold text-slate-800">문의 #{ticket.inquiryId} / {SUPPORT_STYLE[ticket.style] || ticket.style}</p><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">{SUPPORT_STATUS[ticket.status] || ticket.status}</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold text-slate-800">문의 #{ticket.inquiryId} / {SUPPORT_STYLE[ticket.style] || ticket.style}</p><SupportStatusBadge status={ticket.status} /></div>
         <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-slate-600">{ticket.contentExpired ? "문의 보관 기간이 지났습니다." : ticket.description}</p><p className="mt-3 text-xs text-slate-400">후보 #{ticket.generationId} / {supportTime(ticket.createdAt)}</p>
       </Link>)}</div>
       <nav aria-label="문의 목록 페이지" className="mt-6 flex items-center justify-center gap-4"><button type="button" disabled={loading || page === 0} onClick={() => setPage((n) => n - 1)} className={button}>← 이전</button><span className="text-sm text-slate-500">{page + 1} 페이지</span><button type="button" disabled={loading || !result?.nextBefore} onClick={() => { setCursors((prev) => [...prev.slice(0, page + 1), result.nextBefore]); setPage((n) => n + 1); }} className={button}>다음 →</button></nav>

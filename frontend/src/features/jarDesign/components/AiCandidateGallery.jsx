@@ -36,7 +36,7 @@ const DISCONNECTED_FALLBACK_REFRESH_MS = 3_000;
  * 하나의 Draft에 쌓인 AI 후보를 조회·생성·선택하는 보관함이다.
  * 이미지 URL은 DB 응답에 저장하지 않고, 성공 후보를 렌더링할 때만 별도 Presigned URL을 요청한다.
  */
-export default function AiCandidateGallery({ draftId }) {
+export default function AiCandidateGallery({ draftId, onStepChange }) {
   const navigate = useNavigate();
   const { connected, subscribe } = useStompClient();
   const [draft, setDraft] = useState(null);
@@ -361,6 +361,8 @@ export default function AiCandidateGallery({ draftId }) {
   const detailsReady = canEditDesignDetails(draft, confirmedSelectionKey);
   const selectedPreview = draft?.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft?.selectedGenerationId];
   const needsComposition = Boolean(draft?.status === "ACTIVE" && customSelected && (editingComposition || (body && !draft.photoFrame)));
+  // 이전 단계로 돌아오거나 저장된 Draft를 이어갈 때도 실제 편집 단계와 상단 표시를 맞춘다.
+  useEffect(() => { onStepChange?.(detailsReady && !needsComposition ? 4 : 3); }, [detailsReady, needsComposition, onStepChange]);
   // 사진 배치 단계가 열리거나 적용되어 AI 단계로 돌아오면 아래 슬롯 편집기가 아닌 첫 제목부터 읽는다.
   useLayoutEffect(() => {
     if (loading) return;
@@ -387,7 +389,7 @@ export default function AiCandidateGallery({ draftId }) {
   </div>;
 
   return (
-    <section inert={finalizing || undefined} className="mt-8 rounded-[28px] border border-violet-100 bg-white p-4 shadow-[0_12px_32px_rgba(76,29,149,0.08)] sm:p-8">
+    <section inert={finalizing || undefined} onFocusCapture={(event) => onStepChange?.(Number(event.target.closest("[data-design-step]")?.dataset.designStep || 3))} className="mt-8 rounded-[28px] border border-violet-100 bg-white p-4 shadow-[0_12px_32px_rgba(76,29,149,0.08)] sm:p-8">
       {inquiryGeneration && <SupportInquiryModal key={`${draftId}:${inquiryGeneration.generationId}`} draftId={draftId}
         generation={inquiryGeneration} existing={inquiries[inquiryGeneration.generationId]} originalUrl={originalPreviewUrl}
         onClose={() => setInquiryGeneration(null)}
@@ -523,6 +525,7 @@ export default function AiCandidateGallery({ draftId }) {
           onClick={() => { if (confirmDiscardEdits()) setEditingComposition(true); }} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-900 disabled:opacity-50">{body ? "사진 배치 · 모양 다시 조절" : "저금통 모양을 사용하기"}</button>
       </div>}
       {!loading && detailsReady && (
+        <div data-design-step="4">
         <SlotEditor
           key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${draft.slotCenterX}:${draft.slotCenterY}:${draft.slotSizeRatio}:${draft.slotStyle}`}
           draft={draft}
@@ -534,9 +537,10 @@ export default function AiCandidateGallery({ draftId }) {
           onSaved={(slot) => setDraft((current) => ({ ...current,
             slotCenterX: slot.centerX, slotCenterY: slot.centerY, slotSizeRatio: slot.sizeRatio, slotStyle: slot.slotStyle || "CAPSULE" }))}
         />
+        </div>
       )}
       {!loading && !body && detailsReady && (
-        <div>
+        <div data-design-step="4">
         <CutoutEditor
           key={`${draft.draftId}:${draft.selectedDesignType}:${draft.selectedGenerationId}:${JSON.stringify(draft.cutoutRegions || draft.cutoutPoints || [])}`}
           draft={draft}
@@ -550,6 +554,7 @@ export default function AiCandidateGallery({ draftId }) {
         </div>
       )}
       {!loading && draft && (draft.status === "FINALIZED" || detailsReady || (draft.status === "ACTIVE" && draft.selectedDesignType === "DEFAULT")) && (
+        <div data-design-step="5">
         <JarDesignFinalizePanel
           draft={draft}
           previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
@@ -561,6 +566,7 @@ export default function AiCandidateGallery({ draftId }) {
           onRefresh={() => void loadDraft()}
           onBusyChange={setFinalizing}
         />
+        </div>
       )}
     </section>
   );

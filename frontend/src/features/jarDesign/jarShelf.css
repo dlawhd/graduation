@@ -1,0 +1,34 @@
+/* 카드별 추가 API 없이 기존 목록 응답과 저장된 디자인을 그대로 사용하는 보관함이다. */
+.jar-shelf-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; }
+.jar-shelf-card { display:block; min-width:0; overflow:hidden; padding:7px; border:1px solid #dce6df; border-radius:20px; background:#fff; box-shadow:0 5px 18px #29403208; transition:transform .2s,box-shadow .2s,border-color .2s; }
+.jar-shelf-card:hover { transform:translateY(-4px); border-color:#9bb8a8; box-shadow:0 14px 30px #29403216; }
+.jar-shelf-card:focus-visible { outline:3px solid #27694e; outline-offset:4px; }
+.jar-shelf-layout { display:flex; flex-direction:column; }
+.jar-shelf-cover { position:relative; display:flex; align-items:center; justify-content:center; height:230px; overflow:hidden; border-radius:13px; background:radial-gradient(ellipse at 50% 30%,#fffefa,#eaf0e7); }
+.jar-shelf-cover > div { flex-shrink:0; }
+.jar-shelf-status { position:absolute; top:12px; right:12px; z-index:40; border:1px solid #fff9; border-radius:9px; padding:5px 9px; background:#fff4e3; color:#79572d; font-size:12px; font-weight:800; box-shadow:0 2px 7px #3b4a3010; }
+.jar-shelf-status.is-open { background:#d7efe5; color:#1b624a; }
+.jar-shelf-copy { display:flex; flex-direction:column; flex:1; padding:17px 12px 10px; }
+.jar-shelf-title-row { order:0; min-width:0; }
+.jar-shelf-title { display:flex; align-items:center; gap:7px; color:#20382b; font-size:18px; font-weight:900; letter-spacing:-.04em; line-height:1.5; }
+.jar-shelf-title > span:first-child { flex-shrink:0; }
+.jar-shelf-title > span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.jar-shelf-description { overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin-top:6px; min-height:44px; font-size:14px; line-height:22px; color:#52685b; overflow-wrap:anywhere; }
+.jar-shelf-desktop-action { display:none; }
+.jar-shelf-meta { order:3; display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.jar-shelf-meta > span:not(.jar-shelf-members):not(.sr-only) { padding:3px 7px; background:#f3f5f3; color:#607168; font-size:12px; font-weight:500; box-shadow:none; }
+.jar-shelf-members { order:2; display:flex; align-items:center; gap:7px; margin-top:8px; color:#526858; font-size:13px; font-weight:600; }
+.jar-shelf-people { display:flex; padding-left:5px; }
+.jar-shelf-people > span { display:flex; align-items:center; justify-content:center; width:25px; height:25px; margin-left:-5px; border:2px solid white; border-radius:50%; background:#dce9df; color:#4d735b; }
+.jar-shelf-people > span:nth-child(2) { background:#eee1d5; color:#957550; }
+.jar-shelf-people > span:nth-child(3) { background:#e5dfed; color:#7c668a; }
+.jar-shelf-date { order:1; margin-top:12px; }
+.jar-shelf-date > div { display:flex; gap:7px; align-items:baseline; flex-wrap:wrap; }
+.jar-shelf-date-label { color:#607168; font-size:12px; }
+.jar-shelf-date-value { color:#354e40; font-size:13px; line-height:1.7; font-weight:600; }
+.jar-shelf-action { order:4; margin-top:12px; }
+.jar-shelf-action > span { display:flex; justify-content:center; align-items:center; gap:8px; width:100%; min-height:44px; border-radius:10px; background:#edf3ee; color:#31634e; font-size:14px; font-weight:800; transition:background .2s,color .2s; }
+.jar-shelf-card:hover .jar-shelf-action > span { background:#2f6b51; color:white; }
+@media(max-width:900px) { .jar-shelf-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; } }
+@media(max-width:560px) { .jar-shelf-grid { grid-template-columns:1fr; gap:18px; } .jar-shelf-cover { height:238px; } .jar-shelf-copy { padding:15px 13px 11px; } }
+@media(prefers-reduced-motion:reduce) { .jar-shelf-card,.jar-shelf-action > span { transition:none; } .jar-shelf-card:hover { transform:none; } }

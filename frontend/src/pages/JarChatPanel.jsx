@@ -157,7 +157,7 @@ function isBlankMessage(value) {
   return typeof value !== "string" || value.trim().length === 0;
 }
 
-export default function JarChatPanel({ jarId, currentUserId }) {
+export default function JarChatPanel({ jarId, currentUserId, embedded = false }) {
 
   // 앱 전체가 공유하는 연결 상태, 구독 함수, 전송 함수를 사용한다.
   const {
@@ -913,20 +913,17 @@ export default function JarChatPanel({ jarId, currentUserId }) {
   }, [draft, sending]);
 
   return (
-    <section className="rounded-[32px] border border-emerald-100 bg-white/90 p-5 shadow-sm">
+    <section className={`flex min-h-0 flex-col bg-white ${embedded ? "flex-1" : "h-[min(720px,85dvh)] overflow-hidden rounded-2xl border border-slate-200"}`}>
       {/* 상단 제목 영역 */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-500">
-            Jar Chat
-          </p>
-          <h2 className="mt-1 text-2xl font-black text-slate-900">
+          {!embedded && <h2 className="text-lg font-bold text-slate-900">
             저금통 채팅
-          </h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
+          </h2>}
+          <p role="status" className="text-xs leading-5 text-slate-600">
             {webSocketConnected
-              ? ""
-              : "WebSocket 연결 전에는 Polling 방식으로 새 메시지를 확인하고 있어요."}
+              ? "실시간으로 새 메시지를 받아요."
+              : "새 메시지를 주기적으로 확인하고 있어요."}
           </p>
         </div>
 
@@ -941,7 +938,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
             type="button"
             onClick={loadInitialMessages}
             disabled={loading}
-            className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 rounded-xl px-3 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             새로고침
           </button>
@@ -950,7 +947,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
       {/* 에러 표시 */}
       {error && (
-        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">
+        <div role="alert" className="shrink-0 border-b border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           {error}
         </div>
       )}
@@ -958,7 +955,8 @@ export default function JarChatPanel({ jarId, currentUserId }) {
       {/* 채팅 메시지 영역 */}
       <div
         ref={scrollBoxRef}
-        className="h-[360px] overflow-y-auto rounded-[28px] border border-slate-100 bg-slate-50/70 p-4"
+        aria-label="채팅 메시지"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f5f7f4] p-4 sm:p-6"
       >
         {/* 이전 메시지 더 보기 */}
         {hasNext && (
@@ -985,7 +983,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
           </div>
         )}
 
-        {!loading && messages.length === 0 && (
+        {!loading && !error && messages.length === 0 && (
           <div className="flex h-full items-center justify-center text-center">
             <div>
               <p className="text-lg font-black text-slate-700">
@@ -1063,7 +1061,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
                     <div
                       className={`max-w-[78%] rounded-[24px] px-4 py-3 shadow-sm ${
                         isMine
-                          ? "rounded-br-md bg-emerald-500 text-white"
+                          ? "rounded-br-md bg-emerald-800 text-white"
                           : "rounded-bl-md bg-white text-slate-800"
                       }`}
                     >
@@ -1073,7 +1071,7 @@ export default function JarChatPanel({ jarId, currentUserId }) {
                         </p>
                       )}
 
-                      <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed">
+                      <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm font-medium leading-relaxed">
                         {message.content}
                       </p>
 
@@ -1107,8 +1105,9 @@ export default function JarChatPanel({ jarId, currentUserId }) {
     </div>
 
       {/* 입력창 */}
-      <form onSubmit={handleSubmit} className="mt-4 flex gap-3">
+      <form onSubmit={handleSubmit} className="flex shrink-0 gap-2 border-t border-slate-100 bg-white p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:p-4">
         <textarea
+          aria-label="채팅 메시지 입력"
           // 현재 입력한 채팅 내용을 보여준다.
           value={draft}
 
@@ -1126,13 +1125,13 @@ export default function JarChatPanel({ jarId, currentUserId }) {
 
           // 기존 채팅 입력창 디자인을 유지하면서
           // textarea 크기를 사용자가 임의로 잡아당기지 못하게 한다.
-          className="min-w-0 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-w-0 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-3 py-3 text-base text-slate-700 outline-none transition placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         <button
           type="submit"
           disabled={!canSend}
-          className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-white shadow-md transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="min-h-11 shrink-0 rounded-2xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           {sending ? "전송 중" : "전송"}
         </button>

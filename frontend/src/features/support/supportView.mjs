@@ -2,8 +2,19 @@
 export const SUPPORT_STATUS = {
   COPYING: "사진 보관 중", COPY_FAILED: "접수 미완료", OPEN: "접수", IN_PROGRESS: "확인 중", ANSWERED: "답변 완료",
 };
+/** 상태 색만으로 구분하지 않도록 아이콘도 함께 제공하며, 알 수 없는 상태는 중립색으로 표시한다. */
+export function supportStatusPresentation(status) {
+  return {
+    OPEN: { icon: "○", className: "border-slate-200 bg-slate-100 text-slate-700" },
+    COPYING: { icon: "…", className: "border-slate-200 bg-slate-100 text-slate-700" },
+    IN_PROGRESS: { icon: "◷", className: "border-amber-200 bg-amber-50 text-amber-900" },
+    ANSWERED: { icon: "✓", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+    COPY_FAILED: { icon: "!", className: "border-rose-200 bg-rose-50 text-rose-800" },
+  }[status] || { icon: "—", className: "border-slate-200 bg-slate-100 text-slate-700" };
+}
 export const SUPPORT_STYLE = {
   CUTE_2D: "귀여운 2D", SOFT_25D: "부드러운 3D", WATERCOLOR: "수채화", HAND_DRAWN: "손그림", WEIRDO: "기괴", PIXEL: "픽셀",
+  NEON_DRAWING: "네온 드로잉", CHROME_MIRROR: "크롬 미러", RISO_PRINT: "리소 프린트",
 };
 /** 로그인 전이나 계정 전환 중에는 이전 계정의 운영 권한을 재사용하지 않는다. 서버 권한 검사도 별도로 유지한다. */
 export function canViewSupportInquiries(operator, userId, permission) {

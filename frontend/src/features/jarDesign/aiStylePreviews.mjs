@@ -59,5 +59,35 @@ export const AI_STYLE_PREVIEWS = [
     "border": "#a5b4fc",
     "color": "#4338ca",
     "icon": "▦"
+  },
+  {
+    "id": "NEON_DRAWING",
+    "title": "네온 드로잉",
+    "description": "빛나는 윤곽선과 은은한 빛 번짐으로 원본을 새롭게 그려요.",
+    "image": "/images/ai-styles/neon-drawing.webp",
+    "background": "#ecfeff",
+    "border": "#67e8f9",
+    "color": "#155e75",
+    "icon": "ϟ"
+  },
+  {
+    "id": "CHROME_MIRROR",
+    "title": "크롬 미러",
+    "description": "원래 색 위에 거울 같은 금속 반사와 선명한 하이라이트를 입혀요.",
+    "image": "/images/ai-styles/chrome-mirror.webp",
+    "background": "#f1f5f9",
+    "border": "#94a3b8",
+    "color": "#334155",
+    "icon": "◇"
+  },
+  {
+    "id": "RISO_PRINT",
+    "title": "리소 프린트",
+    "description": "잉크의 작은 점과 살짝 어긋난 색 겹침으로 인쇄물의 매력을 더해요.",
+    "image": "/images/ai-styles/riso-print.webp",
+    "background": "#fff7ed",
+    "border": "#fdba74",
+    "color": "#9a3412",
+    "icon": "▧"
   }
 ];

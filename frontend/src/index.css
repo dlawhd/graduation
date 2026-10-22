@@ -3,6 +3,19 @@
 @import "tailwindcss";
 @import "./interactionFeedback.css";
 
+/* 같은 폰트를 직접 제공해 기기별 설치 여부와 외부 CDN 연결에 의존하지 않는다. */
+@font-face {
+  font-family: "Pretendard";
+  src: url("/fonts/pretendard/PretendardVariable-1.3.9.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Pretendard", "Noto Sans KR", sans-serif;
+}
+
 /* ✅ 화면 전체 기본 배경/글꼴을 살짝 정리 */
 html,
 body,
@@ -16,3 +29,10 @@ body {
   background: #f8f4ef;
   color: #1e293b;
 }
+
+button, input, textarea, select { font-family: inherit; }
+
+/* 종이 작성창만 조정한다. 다른 화면 입력 크기와 저장/접힘 애니메이션은 유지한다. */
+.paper-compose-scroll label > span { font-size:14px; color:#475569; }
+.paper-compose-scroll input, .paper-compose-scroll textarea { font-size:16px; }
+.paper-compose-scroll details > label { padding-bottom:16px; }

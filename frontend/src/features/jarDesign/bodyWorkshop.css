@@ -34,6 +34,12 @@
 .body-studio-canvas button:hover:not(:disabled) { border-color: #92bfae; }
 .body-studio-canvas canvas:focus-visible { outline-color: #11785f; }
 .body-studio-canvas canvas + .border-dashed { border-color: #bddacf; }
+/* 기본 도구는 바로 보이고 긴 선택 목록만 접는다. 캔버스는 재생성하지 않아 획과 이력을 보존한다. */
+.studio-template-options > summary, .studio-tool-options > summary { min-height:44px; padding:12px 0; cursor:pointer; font-size:13px; font-weight:700; color:#315b48; }
+.studio-template-options { margin-bottom:12px; }
+.studio-template-options[open] > .studio-basic-section { margin-top:12px; }
+.studio-template-options[open] > .studio-character-section { margin-bottom:8px; }
+.studio-tool-options { margin-top:8px; }
 dialog[data-character-tone="mint"] button[aria-pressed="true"] { border-color: #75b9a0; --tw-ring-color: #75b9a0; }
 .image-upload-studio { display: grid; gap: 16px; align-items: start; }
 .image-upload-studio > .image-source-options { margin: 0; border: 1px solid #dfe7e4; border-radius: 18px; background: white; padding: 18px; }
@@ -80,8 +86,12 @@ dialog[data-character-tone="mint"] button[aria-pressed="true"] { border-color: #
   .studio-preview { width: min(100%, 560px); justify-self: center; }
 }
 @media (max-width: 767px) {
-  .body-studio-canvas .studio-tools { grid-row: 1; margin-bottom: 16px; }
-  .body-studio-canvas .studio-canvas-heading { grid-row: 2; }
+  .body-studio-canvas .studio-canvas-heading { grid-row: 1; }
+  .body-studio-canvas .studio-tools { grid-row: 2; border-radius:0; padding:8px 12px; border-block:0; }
+  .body-studio-canvas .studio-tools h4 { display:none; }
+  .body-studio-canvas .studio-template-options { margin-bottom:4px; }
+  .body-studio-canvas .studio-quick-tools { display:flex; gap:6px; overflow-x:auto; padding:2px 0 6px; }
+  .body-studio-canvas .studio-quick-tools > button { min-height:48px; min-width:64px; flex:1 0 64px; }
   .body-studio-canvas .studio-canvas-toolbar { grid-row: 3; }
   .body-studio-canvas .studio-canvas-paper { grid-row: 4; padding: 12px; }
   .body-studio-canvas .studio-canvas-footer { grid-row: 5; }

@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canSubmitInquiry, inquiryButtonLabel, supportNotificationPath, SUPPORT_STATUS, canViewSupportInquiries } from "./supportView.mjs";
+import { canSubmitInquiry, inquiryButtonLabel, supportNotificationPath, SUPPORT_STATUS, canViewSupportInquiries, supportStatusPresentation } from "./supportView.mjs";
+
+test("접수·확인 중·답변 완료는 이름뿐 아니라 색과 아이콘도 구분한다", () => {
+  const states = ['OPEN', 'IN_PROGRESS', 'ANSWERED'].map(supportStatusPresentation);
+  assert.equal(new Set(states.map(item => item.className)).size, 3);
+  assert.equal(new Set(states.map(item => item.icon)).size, 3);
+  assert.match(supportStatusPresentation('COPY_FAILED').className, /rose/);
+  for (const status of [null, undefined, 'UNKNOWN']) assert.match(supportStatusPresentation(status).className, /slate/);
+});
 
 test("로그인과 운영 권한 확인 전에는 예외 없이 기본 차단", () => {
   for (const userId of [undefined, null, 3]) {

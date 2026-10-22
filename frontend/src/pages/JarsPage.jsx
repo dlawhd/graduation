@@ -30,7 +30,9 @@ import {
   isSessionExpiredError,
 } from "../api/authSessionUtils";
 import SessionExpiredPage from "../components/auth/SessionExpiredPage";
+import StatusNotice from "../components/feedback/StatusNotice";
 import JarCustomDesignVisual from "../features/jarDetail/components/JarCustomDesignVisual";
+import "../features/jarDesign/jarShelf.css";
 
 /*
   JarsPage 역할
@@ -61,7 +63,7 @@ const THEME_LABEL = {
 };
 
 // 한 페이지에서 보여줄 저금통 개수
-const PAGE_SIZE = 3;
+const PAGE_SIZE = 9;
 
 // 날짜를 보기 좋게 바꿔주는 함수
 function formatDate(dateTime) {
@@ -93,7 +95,7 @@ function parseDate(dateTime) {
 
 // D-day 텍스트를 만들어주는 함수
 function getDdayText(openAt, isOpen) {
-  if (isOpen) return "OPEN";
+  if (isOpen) return "열림";
 
   const openDate = parseDate(openAt);
   if (!openDate) return "날짜 미정";
@@ -107,25 +109,8 @@ function getDdayText(openAt, isOpen) {
   return `D-${days}`;
 }
 
-// 오픈까지 얼마나 가까운지 "느낌"으로 보여주는 진행 바 너비
-// 지금 API에는 createdAt이 항상 오지 않을 수 있어서
-// 아주 정확한 퍼센트보다 "곧 열림 / 아직 멂" 느낌을 보여주는 방식으로 만들었어.
-function getOpenProgressWidth(jar) {
-  if (jar?.isOpen) return 100;
-
-  const openDate = parseDate(jar?.openAt);
-  if (!openDate) return 14;
-
-  const diff = openDate.getTime() - Date.now();
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-  if (days <= 0) return 96;
-  if (days <= 3) return 84;
-  if (days <= 7) return 70;
-  if (days <= 14) return 56;
-  if (days <= 30) return 42;
-  return 24;
-}
+// createdAt이 항상 오지 않아 이전 막대는 실제 비율이 아닌 "진행 느낌"이었다.
+// 이제 추정 비율 대신 남은 날짜와 서버의 오픈 상태를 그대로 표시한다.
 
 /*
  * getThemeIcon 역할
@@ -358,7 +343,7 @@ function JarListVisual({ jar }) {
 
   if (jar?.design) {
     return (
-      <div className="relative mx-auto flex aspect-square w-full max-w-[280px] items-center justify-center">
+      <div className="relative mx-auto flex aspect-square h-full w-full max-w-[230px] items-center justify-center">
         <div className={`absolute inset-4 rounded-full blur-3xl ${palette.glow}`} />
         <JarCustomDesignVisual
           design={jar.design}
@@ -400,10 +385,10 @@ function JarListVisual({ jar }) {
 // 로딩 중일 때 보여줄 스켈레톤 카드
 function LoadingCard() {
   return (
-    <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white/80 p-5 shadow-sm">
+    <div className="jar-shelf-card" aria-hidden="true">
       <div className="animate-pulse">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center">
-          <div className="mx-auto h-40 w-32 rounded-[28px] bg-slate-100 md:mx-0" />
+        <div className="flex flex-col gap-5">
+          <div className="h-[230px] w-full rounded-xl bg-slate-100" />
 
           <div className="flex-1">
             <div className="mb-4 flex flex-wrap gap-2">
@@ -413,7 +398,7 @@ function LoadingCard() {
               <div className="h-7 w-16 rounded-full bg-slate-100" />
             </div>
 
-            <div className="h-8 w-64 rounded-xl bg-slate-100" />
+            <div className="h-8 w-3/4 rounded-xl bg-slate-100" />
             <div className="mt-3 h-4 w-full rounded bg-slate-100" />
             <div className="mt-2 h-4 w-4/5 rounded bg-slate-100" />
 
@@ -703,14 +688,14 @@ export default function JarsPage() {
             status === 401 ||
             status === 403
           ) {
-            alert(
+            setError(
               "로그인 후 저금통을 만들 수 있어요."
             );
 
             return;
           }
 
-          alert(
+          setError(
             "지금은 저금통 만들기 화면으로 이동할 수 없어요. 잠시 후 다시 시도해 주세요."
           );
         }
@@ -1035,7 +1020,7 @@ export default function JarsPage() {
               onClick={
                 handleCreateJarClick
               }
-              className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-r px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 ${primaryPalette.heroButton} ${
+              className={`inline-flex min-h-11 items-center justify-center rounded-2xl bg-emerald-800 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-900 ${
                 isJarListTutorialOpen
                   ? "relative ring-4 ring-white/90"
                   : ""
@@ -1048,14 +1033,12 @@ export default function JarsPage() {
 
         {/* 에러가 있을 때 보여주는 카드 */}
         {error && (
-          <div className="mb-6 rounded-[28px] border border-red-200 bg-red-50/90 p-5 text-sm text-red-700 shadow-sm">
-            {error}
-          </div>
+          <div className="mb-6"><StatusNotice type="error" onRetry={() => loadJars(page)} busy={loading}>{error}</StatusNotice></div>
         )}
 
         {/* 로딩 중 화면 */}
         {loading && (
-          <div className="grid gap-5">
+          <div className="jar-shelf-grid" aria-label="저금통 목록 불러오는 중" aria-busy="true">
             <LoadingCard />
             <LoadingCard />
             <LoadingCard />
@@ -1082,74 +1065,58 @@ export default function JarsPage() {
 
         {/* 실제 목록 카드 */}
         {!loading && items.length > 0 && (
-          <div className="grid gap-6">
+          <div className="jar-shelf-grid" aria-label="내 저금통 보관함">
             {items.map((jar) => {
               const palette = getThemePalette(jar.theme);
               const ddayText = getDdayText(jar.openAt, jar.isOpen);
-              const progressWidth = getOpenProgressWidth(jar);
 
               return (
                 <Link
                   key={jar.jarId}
                   to={`/jars/${jar.jarId}`}
-                  className={`group block overflow-hidden rounded-[32px] border p-5 transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(15,23,42,0.12)] md:p-6 ${palette.card} ${palette.cardShadow}`}
+                  className={`group jar-shelf-card ${palette.card}`}
+                  aria-label={`${jar.name} 상세 보기`}
                 >
                   <div className="relative">
                     {/* 카드 위쪽 장식용 은은한 원 */}
                     <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-white/40 blur-2xl" />
                     <div className="pointer-events-none absolute -bottom-8 left-1/3 h-16 w-16 rounded-full bg-white/30 blur-xl" />
 
-                    <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                    <div className="jar-shelf-layout">
                       {/* 왼쪽: 썸네일 */}
-                      <div className={jar.design ? "md:w-[280px] md:shrink-0" : "md:w-[170px] md:shrink-0"}>
+                      <div className={`jar-shelf-cover ${palette.previewBody}`}>
                         <JarListVisual jar={jar} />
+                        <span className={`jar-shelf-status ${jar.isOpen ? "is-open" : ""}`}>{ddayText}</span>
                       </div>
 
                       {/* 오른쪽: 정보 */}
-                      <div className="flex-1">
-                        {/* 맨 위 배지들 */}
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.soft}`}>
-                            {THEME_LABEL[jar.theme] || jar.theme}
-                          </span>
-                          <span className="rounded-full bg-white/85 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
-                            내 역할: {ROLE_LABEL[jar.myRole] || jar.myRole}
-                          </span>
-                          {/* 참여 인원 */}
-                          <span className="rounded-full bg-white/85 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
-                          {jar.memberCount}/{jar.maxMembers}명
-                          </span>
-                          <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.badge}`}>
-                            {ddayText}
-                          </span>
-                        </div>
-
+                      <div className="jar-shelf-copy">
                         {/* 제목 + 들어가기 표시 */}
-                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="jar-shelf-title-row">
                           <div className="min-w-0">
-                            <h2 className="truncate text-2xl font-black tracking-tight text-slate-900 md:text-[28px]">
-                              {jar.name}
+                            <h2 className="jar-shelf-title">
+                              <span aria-hidden="true">{getThemeIcon(jar.theme, 21)}</span><span>{jar.name}</span>
                             </h2>
 
-                            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                            <p className="jar-shelf-description">
                               {jar.description || "함께 모아 둔 추억을 열어볼 저금통이에요."}
                             </p>
                           </div>
 
                           {/* 카드 전체 클릭이 된다는 걸 보여주는 화살표 느낌 */}
                           <span
-                            className={`hidden shrink-0 rounded-2xl border px-4 py-2 text-sm font-bold transition duration-200 group-hover:translate-x-1 md:inline-flex ${palette.outline}`}
+                            className={`jar-shelf-desktop-action ${palette.outline}`}
                           >
                             상세 보기 →
                           </span>
                         </div>
                         {/* 날짜 정보 박스 */}
-                        <div className="mt-5 grid gap-3 md:grid-cols-2">
-                          <div className={`rounded-2xl border px-4 py-3 shadow-sm ${palette.infoBox}`}>
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                              OPEN DATE
+                        <div className="jar-shelf-date">
+                          <div>
+                            <p className="jar-shelf-date-label">
+                              {jar.isOpen ? "오픈 날짜" : "열리는 날"}
                             </p>
-                            <p className="mt-1 text-sm font-bold text-slate-700">
+                            <p className="jar-shelf-date-value">
                               {formatDate(jar.openAt)}
                             </p>
                           </div>
@@ -1157,25 +1124,29 @@ export default function JarsPage() {
 
                         </div>
 
-                        {/* 하단 진행 바 */}
-                        <div className="mt-5">
-                          <div className="mb-2 flex items-center justify-between text-[11px] font-bold">
-                            <span className="text-slate-500">오픈까지 진행 느낌</span>
-                            <span className="text-slate-700">{ddayText}</span>
-                          </div>
+                        {/* 하단 진행 바 대신 날짜 다음에 실제 참여 인원을 표시한다. */}
+                        <div className="jar-shelf-members">
+                          <span className="jar-shelf-people" aria-hidden="true">{Array.from({ length: Math.min(3, Math.max(0, jar.memberCount || 0)) }, (_, index) => <span key={index}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="8" r="3" /><path d="M5 20v-2a7 7 0 0 1 14 0v2" /></svg></span>)}</span>
+                          <span>{jar.memberCount}/{jar.maxMembers}명 참여</span>
+                        </div>
 
-                          <div className="h-2.5 overflow-hidden rounded-full bg-white/85 shadow-inner">
-                            <div
-                              className={`h-full rounded-full bg-gradient-to-r ${palette.progress} transition-all duration-500`}
-                              style={{ width: `${progressWidth}%` }}
-                            />
-                          </div>
+                        {/* 기존 맨 위 배지들은 보조 정보로 내려 화면 읽기 순서도 날짜·인원 뒤에 둔다. */}
+                        <div className="jar-shelf-meta">
+                          <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.soft}`}>
+                            {THEME_LABEL[jar.theme] || jar.theme}
+                          </span>
+                          <span className="rounded-full bg-white/85 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+                            내 역할: {ROLE_LABEL[jar.myRole] || jar.myRole}
+                          </span>
+                          <span className={`sr-only rounded-full px-3 py-1 text-[11px] font-bold ${palette.badge}`}>
+                            {ddayText}
+                          </span>
                         </div>
 
                         {/* 모바일에서는 아래쪽에 들어가기 문구 한 번 더 보여주기 */}
-                        <div className="mt-4 md:hidden">
-                          <span className={`inline-flex rounded-2xl border px-4 py-2 text-sm font-bold ${palette.outline}`}>
-                            상세 보기 →
+                        <div className="jar-shelf-action">
+                          <span>
+                            저금통 보기 <span aria-hidden="true">→</span>
                           </span>
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getSupportInquiry, getSupportImage, startSupportReview, replySupportInquiry, supportError } from "../../api/supportApi";
-import { SUPPORT_STATUS, SUPPORT_STYLE, supportTime } from "./supportView.mjs";
+import { SUPPORT_STYLE, supportTime } from "./supportView.mjs";
+import SupportStatusBadge from "./SupportStatusBadge";
 
 /** 내 문의와 운영자 상세에서 같은 내용을 표시한다. 사진은 사용자가 열기를 눌러야 요청한다. */
 export default function SupportInquiryDetail({ inquiryId, operator = false, onUpdated }) {
@@ -49,7 +50,7 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, onUp
     {loading && <p role="status" className="text-sm text-slate-500">문의 내용을 불러오고 있어요.</p>}
     {error && <div role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}<button type="button" onClick={() => setRefresh((n) => n + 1)} className="ml-3 underline">다시 확인</button></div>}
     {ticket && <>
-      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-black text-slate-900">문의 #{ticket.inquiryId}</h2><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{SUPPORT_STATUS[ticket.status] || ticket.status}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-black text-slate-900">문의 #{ticket.inquiryId}</h2><SupportStatusBadge status={ticket.status} /></div>
       <dl className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
         {[["선택한 스타일", SUPPORT_STYLE[ticket.style] || ticket.style], ["실패한 후보", `#${ticket.generationId}`], ["발생 시각", supportTime(ticket.failedAt)], ["확인 코드", ticket.errorCode]].map(([label, value]) => <div key={label}><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 break-words font-semibold text-slate-800">{value}</dd></div>)}
         {operator && <div className="sm:col-span-2"><dt className="text-xs text-slate-500">서버 생성 기록</dt><dd className="mt-1 break-all text-xs text-slate-700">{ticket.model} / {ticket.promptVersion} / Draft #{ticket.draftId}</dd></div>}

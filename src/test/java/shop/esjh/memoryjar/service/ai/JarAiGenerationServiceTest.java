@@ -49,7 +49,8 @@ class JarAiGenerationServiceTest {
     @Mock private JarAiGenerationRealtimeService realtimeService;
 
     @ParameterizedTest
-    @EnumSource(value = JarAiStyle.class, names = {"CUTE_2D", "SOFT_25D", "WATERCOLOR", "HAND_DRAWN", "WEIRDO"})
+    @EnumSource(value = JarAiStyle.class, names = {"CUTE_2D", "SOFT_25D", "WATERCOLOR", "HAND_DRAWN", "WEIRDO",
+            "NEON_DRAWING", "CHROME_MIRROR", "RISO_PRINT"})
     @DisplayName("일반 스타일은 검증된 후보를 S3에 저장한 뒤에만 성공 처리한다")
     void generate_savesNormalCandidateThenMarksSucceeded(JarAiStyle style) throws Exception {
         JarAiGenerationService service = service();

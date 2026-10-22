@@ -41,7 +41,7 @@ test('틀 그림판의 보조 안내는 제거하고 도구 설명과 사진 그
   const canvas=readFileSync(new URL('./components/JarDesignCanvas.jsx',import.meta.url),'utf8');
   assert.ok(!canvas.includes('닫힌 테두리로 연결된 틀 / 점선 안쪽에 그려주세요'));
   assert.ok(!canvas.includes('그린 테두리의 색과 굵기를 그대로 담아요.'));
-  assert.ok(canvas.includes('text-slate-600">{help}</p>'));
+  assert.match(canvas, /<details[^>]*>[\s\S]*선택한 도구 사용법[\s\S]*id=\{helpId\}[^>]*>\{help\}<\/p>/);
   assert.ok(canvas.includes('{!isBody && <p'));
   assert.ok(canvas.includes('480 × 480 PNG · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z'));
 });
@@ -52,8 +52,12 @@ test('완성 커스텀 저금통의 확대 상한과 쪽지 버튼 위치는 기
   assert.match(detail,/aspect-square w-full max-w-\[420px\]/);
   assert.match(detail,/hasCustomDesign \? "-bottom-7" : "bottom-2"/);
   assert.match(detail,/h-\[320px\] w-\[260px\]/);
-  assert.match(list,/max-w-\[280px\]/);
-  assert.match(list,/md:w-\[280px\] md:shrink-0/);
+  // 카드형 보관함에서는 230px 이미지 영역을 쓰며 상세의 확대 상한은 그대로 유지한다.
+  const shelf=readFileSync(new URL('./jarShelf.css',import.meta.url),'utf8');
+  assert.match(list,/max-w-\[230px\]/);
+  assert.ok(list.includes('jar-shelf-cover'));
+  assert.match(shelf,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(shelf,/height:230px/);
 });
 
 test('선택 미리보기를 확대하면서 아주 낮은 화면에서도 버튼 접근을 보장한다',()=>{
@@ -68,9 +72,10 @@ test('선택 미리보기를 확대하면서 아주 낮은 화면에서도 버�
   assert.match(picker,/이 저금통에 그림 담기/);
 });
 
-test('상단 AI 선택 안내는 화면 너비와 관계없이 새 줄에 표시한다',()=>{
+test('단계별 짧은 안내와 펼칠 수 있는 도움말에서 AI 선택 사항을 설명한다',()=>{
   const page=readFileSync(new URL('../../pages/JarDesignNewPage.jsx',import.meta.url),'utf8');
-  assert.ok(page.includes('<span className="block">AI 변환은 선택 사항이에요.</span>'));
+  assert.match(page, /<details[^>]*><summary[^>]*>만들기 도움말<\/summary><p>[^<]*AI 변환은 선택 사항/);
+  assert.ok(page.includes('직접 그리거나 사진을 골라 저금통을 채워요.'));
 });
 
 test('회전 안내는 작게 줄이되 두 방향 버튼과 설명을 유지한다',()=>{
