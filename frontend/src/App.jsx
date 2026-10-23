@@ -868,7 +868,7 @@ useEffect(() => {
   // 메뉴 공통 스타일
   // --------------------------------------------------------
   const navButtonClass =
-    "min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition";
+    "min-h-11 items-center justify-center rounded-full px-4 py-2 text-sm leading-none font-semibold transition";
 
   const inactiveNavClass =
     "bg-white/85 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50";
@@ -1120,11 +1120,9 @@ useEffect(() => {
 
                               {/* 내정보 패널 */}
                               {profileOpen && (
-                                <div id="header-profile" className="absolute right-0 top-14 max-h-[calc(100dvh-7rem)] w-[320px] overflow-y-auto rounded-[28px] border border-slate-200 bg-white shadow-xl">
-                                  {/* 로그아웃 버튼은 내정보 안에서만 보여 주요 메뉴와 구분한다. */}
-                                  <div className="border-b border-slate-100 px-5 py-2"><button type="button" onClick={handleLogout} disabled={loggingOut} className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">{loggingOut ? "로그아웃 중..." : "로그아웃"}</button></div>
+                                <div id="header-profile" className="profile-menu absolute right-0 top-14 max-h-[calc(100dvh-7rem)] w-[320px] overflow-y-auto rounded-[28px] border border-slate-200 bg-white shadow-xl">
                                   {/* 상단 사용자 영역 */}
-                                  <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-cyan-50 px-5 py-5">
+                                  <div className="profile-menu-account border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-cyan-50 px-5 py-5">
                                     <div className="flex items-center gap-3">
                                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-300 to-cyan-300 text-sm font-black text-slate-900">
                                         {(me?.name || "U").slice(0, 1)}
@@ -1158,7 +1156,7 @@ useEffect(() => {
                                    * 내정보 패널은 닫고,
                                    * 별도의 큰 선택창을 연다.
                                    */}
-                                  <div className="border-b border-slate-100 px-5 py-4">
+                                  <div className="profile-menu-help border-b border-slate-100 px-5 py-4">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1174,7 +1172,7 @@ useEffect(() => {
 
                                       <span className="min-w-0 flex-1">
                                         <span className="block text-sm font-black text-slate-800">
-                                          Memory Jar 이용 방법
+                                          이용 방법
                                         </span>
 
                                         <span className="mt-0.5 block text-xs font-medium text-slate-500">
@@ -1192,23 +1190,17 @@ useEffect(() => {
                                   </div>
 
                                   {/* 내가 참여한 저금통 */}
-                                  <div className="space-y-2 border-b border-slate-100 px-5 py-4">
+                                  <div className="profile-menu-support space-y-2 border-b border-slate-100 px-5 py-4">
                                     <Link to="/support/inquiries" onClick={() => setProfileOpen(false)} className="block rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">내 문의 <span className="ml-2 text-xs font-normal text-slate-500">접수 상태와 답변 확인</span></Link>
                                     {isSupportOperator && <Link to="/admin/support/inquiries" onClick={() => setProfileOpen(false)} className="block rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">운영 문의함</Link>}
                                   </div>
-                                  <div className="px-5 py-5">
-                                    <div className="mb-3 flex items-center justify-between">
+                                  <details className="profile-menu-jars px-5 py-5">
+                                    <summary className="mb-3 flex items-center justify-between">
                                       <p className="text-sm font-black text-slate-800">
                                         내가 참여한 저금통
                                       </p>
-                                      <Link
-                                        to="/jars"
-                                        onClick={() => setProfileOpen(false)}
-                                        className="text-xs font-bold text-emerald-600 hover:text-emerald-700"
-                                      >
-                                        전체 보기
-                                      </Link>
-                                    </div>
+                                      <span className="text-xs font-semibold text-emerald-700">최근 {myJarsPreview.length}개 <span aria-hidden="true">⌄</span></span>
+                                    </summary>
 
                                     {myJarsPreview.length > 0 ? (
                                       <div className="space-y-3">
@@ -1236,7 +1228,7 @@ useEffect(() => {
                                                     : "bg-amber-100 text-amber-700"
                                                 }`}
                                               >
-                                                {jar.isOpen ? "OPEN" : "LOCKED"}
+                                                {jar.isOpen ? "열림" : "열리기 전"}
                                               </span>
                                             </div>
                                           </Link>
@@ -1256,7 +1248,9 @@ useEffect(() => {
                                     >
                                       내 저금통 보러가기
                                     </Link>
-                                  </div>
+                                  </details>
+                                  {/* 로그아웃 버튼은 내정보 안에서만 보여 주요 메뉴와 구분한다. 키보드 이동도 화면 순서와 같다. */}
+                                  <div className="profile-menu-logout"><button type="button" onClick={handleLogout} disabled={loggingOut} className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M9 4H4v16h5m6-13 5 5-5 5m-6-5h11"/></svg>{loggingOut ? "로그아웃 중..." : "로그아웃"}</button></div>
                                 </div>
                                )}
                              </div>

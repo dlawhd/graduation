@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import noteApi from "../api/noteApi";
 import FeedbackToast from "../components/feedback/FeedbackToast";
+import NoteLocationField from "../features/note/components/NoteLocationField";
+import "../features/note/noteComposer.css";
 import fileApi from "../api/fileApi";
 import MemoryDrawNoteIcon from "../components/icons/MemoryDrawNoteIcon";
 import NoteIntoJarIcon from "../components/icons/NoteIntoJarIcon";
@@ -527,7 +529,7 @@ function PaperComposeModal({
 
       {/* 종이 본체 */}
       <div className={`relative z-10 flex w-full max-w-2xl origin-top ${paperAnimationClass}`}>
-        <div role="dialog" aria-modal="true" aria-label="쪽지 작성" className="relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
+        <div role="dialog" aria-modal="true" aria-label="쪽지 작성" className="note-composer relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8ef_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
           {/* 접힌 모서리 */}
           <div className="absolute right-0 top-0 h-16 w-16 rounded-bl-[28px] border-b border-l border-white/80 bg-white/80" />
 
@@ -539,16 +541,17 @@ function PaperComposeModal({
 
           <div className={`relative z-10 flex min-h-0 flex-1 flex-col ${contentAnimationClass}`}>
             {/* 헤더는 위에 고정된 영역처럼 분리 */}
-            <div className="shrink-0 border-b border-amber-100/70 bg-[#fffdf8]/95 px-4 py-3 sm:px-6">
-              <div className="flex items-start justify-between gap-3">
+            <div className="note-composer-header shrink-0 px-4 py-3 sm:px-6">
+              <div className="note-composer-titlebar">
+                <button type="button" className="note-composer-icon-button" aria-label={isFormStep ? "작성 취소" : "이전 단계"} disabled={disableClose} onClick={isFormStep ? onClose : isPreviewStep ? onBackToForm : onBackToPreview}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m14 5-7 7 7 7"/></svg></button>
                 <div className="min-w-0">
                 <p className="text-lg font-black text-slate-800">
-                  {isFormStep && "새 쪽지 넣기"}
+                  {isFormStep && "새 쪽지 쓰기"}
                   {isPreviewStep && "쪽지 미리보기"}
                   {isConfirmStep && "정말 넣을까요?"}
                 </p>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className={isFormStep ? "sr-only" : "mt-1 text-sm text-slate-500"}>
                   {isFormStep &&
                     "오늘 기억하고 싶은 순간을 적어주세요."}
                   {isPreviewStep &&
@@ -562,13 +565,14 @@ function PaperComposeModal({
                 type="button"
                 onClick={onClose}
                 disabled={disableClose}
-                className="min-h-11 shrink-0 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="닫기"
+                className="note-composer-icon-button"
               >
-                닫기
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
               </button>
               </div>
-              <ol aria-label="쪽지 작성 순서" className="mt-3 flex gap-5 text-sm">
-                {[['form', '작성'], ['preview', '미리보기'], ['confirm', '확인']].map(([value, label], index) => <li key={value} aria-current={step === value ? "step" : undefined} className={step === value ? "border-b-2 border-emerald-800 pb-2 font-bold text-emerald-800" : "pb-2 text-slate-500"}>{index + 1}. {label}</li>)}
+              <ol aria-label="쪽지 작성 순서" className="note-composer-steps">
+                {[['form', '작성'], ['preview', '미리보기'], ['confirm', '확인']].map(([value, label]) => <li key={value} aria-current={step === value ? "step" : undefined}>{label}</li>)}
               </ol>
             </div>
 
@@ -581,7 +585,7 @@ function PaperComposeModal({
               <div className="space-y-4">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold text-slate-500">
-                    제목 (필수)
+                    제목 <span className="sr-only">(필수)</span>
                   </span>
                   <input
                     type="text"
@@ -599,7 +603,8 @@ function PaperComposeModal({
                     required
                     aria-invalid={Boolean(formError?.title)}
                     aria-describedby={formError?.title ? "compose-title-error" : undefined}
-                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                    maxLength={100}
+                    className="note-composer-title w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition"
                   />
                   {formError?.title && (
                     <p id="compose-title-error" role="alert" className="mt-2 text-sm font-semibold text-rose-700">
@@ -609,7 +614,7 @@ function PaperComposeModal({
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-xs font-semibold text-slate-500">
+                  <span className="sr-only">
                     내용 (필수)
                   </span>
                   <textarea
@@ -629,7 +634,7 @@ function PaperComposeModal({
                     }}
                     placeholder="남기고 싶은 추억을 자유롭게 적어 주세요."
                     required
-                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
+                    className="note-composer-letter w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition"
                   />
                   <p className="mt-1 text-right text-xs text-slate-400" aria-live="polite">
                     {(form.content || "").length} / 300자
@@ -645,6 +650,7 @@ function PaperComposeModal({
                   첨부파일 선택, 개수 안내, 순서 변경, 삭제 UI를 NoteAttachmentPicker 컴포넌트에 맡긴다.
                 */}
                 <NoteAttachmentPicker
+                  compact
                   attachments={
                     Array.isArray(form.attachments)
                       ? form.attachments
@@ -664,8 +670,8 @@ function PaperComposeModal({
                 />
 
 
-                <details open={optionsOpen} onToggle={(event) => setOptionsOpen(event.currentTarget.open)} className="rounded-2xl border border-slate-200 bg-white/60 px-4">
-                  <summary className="min-h-11 cursor-pointer py-3 text-sm font-bold text-slate-700">날짜·장소·태그 추가 <span className="font-normal text-slate-500">(선택)</span></summary>
+                <details open={optionsOpen} onToggle={(event) => setOptionsOpen(event.currentTarget.open)} className="note-composer-options rounded-2xl border border-slate-200 bg-white/60 px-4">
+                  <summary className="min-h-11 cursor-pointer py-3 text-sm font-bold text-slate-700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/></svg><span>날짜·장소·태그 추가 <span className="sr-only">(선택)</span></span><span className="note-options-chevron" aria-hidden="true">⌄</span></summary>
                 <div className="grid gap-4 pb-4 pt-2 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold text-slate-500">
@@ -684,23 +690,7 @@ function PaperComposeModal({
                     />
                   </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-semibold text-slate-500">
-                      장소 (선택)
-                    </span>
-                    <input
-                      type="text"
-                      value={form.location}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          location: e.target.value,
-                        }))
-                      }
-                      placeholder="예: 서울숲"
-                      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition ${palette.input}`}
-                    />
-                  </label>
+                  <NoteLocationField value={form.location} disabled={disableClose} onChange={location => setForm(prev => ({ ...prev, location }))} />
                 </div>
 
                 <label className="block">
@@ -856,9 +846,9 @@ function PaperComposeModal({
             )}
           </div>
           {/* 스크롤 영역 밖에 두어 PC·모바일 모두 다음 행동을 바로 찾을 수 있다. */}
-          <footer className="shrink-0 border-t border-amber-100 bg-[#fffdf8] px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:px-6">
-            {isFormStep && <p className="mb-2 text-xs leading-5 text-amber-900">넣은 쪽지는 수정하거나 삭제할 수 없어요. 미리보기에서 확인해 주세요.</p>}
-            <div className="flex justify-end gap-2">
+          <footer className="note-composer-footer shrink-0 px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:px-6">
+            {isFormStep && <p className="note-composer-warning"><span aria-hidden="true">!</span>넣은 쪽지는 수정·삭제할 수 없어요.</p>}
+            <div className="note-composer-actions flex justify-end gap-2">
               <button type="button" disabled={disableClose} onClick={isFormStep ? onClose : isPreviewStep ? onBackToForm : onBackToPreview} className={`min-h-11 rounded-xl border px-4 py-3 text-sm font-bold disabled:opacity-50 ${palette.outlineBtn}`}>{isFormStep ? "취소" : isPreviewStep ? "다시 수정하기" : "다시 보기"}</button>
               <button type="button" disabled={uploading || loading || isClosing} onClick={isFormStep ? onShowPreview : isPreviewStep ? onShowConfirm : onSubmit} className="min-h-11 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "파일 업로드 중..." : loading ? "넣는 중..." : isFormStep ? "미리보기 보기" : isPreviewStep ? "제출 확인으로" : "저금통에 넣기"}</button>
             </div>

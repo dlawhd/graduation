@@ -57,7 +57,10 @@ const output = path.resolve(__dirname, '../../build/ui-readability');
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
   const noOverflow = async () => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, '페이지 가로 넘침 없음');
-  const capture = name => page.screenshot({ path: path.join(output, name + '.png'), fullPage: true });
+  const capture = async name => {
+    await page.evaluate(() => { window.scrollTo(0, 0); document.querySelector('.paper-compose-scroll')?.scrollTo(0, 0); });
+    await page.screenshot({ path: path.join(output, name + '.png'), fullPage: true });
+  };
   const inViewport = async locator => { const box = await locator.boundingBox(); assert.ok(box && box.y >= 0 && box.y + box.height <= page.viewportSize().height + 1, '버튼이 화면 안에 있음'); };
   try {
     for (const width of [1440, 768, 390, 320]) {
@@ -70,9 +73,19 @@ const output = path.resolve(__dirname, '../../build/ui-readability');
       assert.equal(await page.evaluate(() => [...document.fonts].some(f => f.family === 'Pretendard' && f.status === 'loaded')), true);
       if (width >= 640) {
         await page.getByRole('link', { name: '내 저금통', exact: true }).waitFor();
+        const centered = await page.getByRole('link', { name: '내 저금통', exact: true }).evaluate(n => { const text = document.createRange(); text.selectNodeContents(n); const a = n.getBoundingClientRect(), b = text.getBoundingClientRect(); return Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2); });
+        assert.ok(centered < 3, '내 저금통 글자 세로 중앙');
         assert.equal(await page.getByRole('button', { name: '로그아웃', exact: true }).count(), 0);
         await page.getByRole('button', { name: /내정보/ }).click();
         await page.locator('#header-profile').getByRole('button', { name: '로그아웃', exact: true }).waitFor();
+        const profile = page.locator('#header-profile');
+        assert.equal(await profile.locator('.profile-menu-jars').getAttribute('open'), null);
+        const accountBox = await profile.locator('.profile-menu-account').boundingBox();
+        const logoutBox = await profile.getByRole('button', { name: '로그아웃', exact: true }).boundingBox();
+        assert.ok(logoutBox.y > accountBox.y + accountBox.height);
+        await capture('profile-' + width);
+        await profile.locator('summary').click();
+        await profile.getByRole('link', { name: '내 저금통 보러가기', exact: true }).waitFor();
         await page.getByRole('button', { name: /내정보/ }).click();
       }
       await noOverflow(); await capture('shelf-' + width);
@@ -121,6 +134,10 @@ const output = path.resolve(__dirname, '../../build/ui-readability');
       await page.getByPlaceholder('남기고 싶은 추억을 자유롭게 적어 주세요.').fill('함께 웃었던 오늘을 오래 기억하고 싶어.');
       assert.equal(await page.getByPlaceholder('예: 서울숲').isVisible(), false);
       await dialog.locator('summary').click(); await page.getByPlaceholder('예: 서울숲').fill('서울숲');
+      await dialog.getByRole('button', { name: '지도에서 장소 선택' }).click();
+      await dialog.getByText('지도 선택을 준비하고 있어요. 지금은 장소를 직접 적어 주세요.', { exact: true }).waitFor();
+      assert.equal(await page.getByPlaceholder('예: 서울숲').inputValue(), '서울숲');
+      await dialog.getByRole('button', { name: '접기', exact: true }).click();
       await page.getByPlaceholder('예: 여행, 봄, 웃음').fill('추억, 행복');
       await dialog.locator('summary').click(); await capture('composer-' + width);
       await dialog.getByRole('button', { name: '미리보기 보기', exact: true }).click();

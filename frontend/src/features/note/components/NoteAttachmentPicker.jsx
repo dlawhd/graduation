@@ -421,6 +421,7 @@ function SortableAttachmentCard({
  * 첨부 선택·정렬·삭제 화면을 보여준다.
  */
 export default function NoteAttachmentPicker({
+  compact = false,
   attachments = [],
   palette,
   uploading,
@@ -546,11 +547,11 @@ export default function NoteAttachmentPicker({
 
   return (
     <section
-      className="space-y-3"
+      className={`note-attachments space-y-3 ${compact ? "is-compact" : ""}`}
       aria-labelledby="note-attachment-title"
     >
       {/* 첨부파일 제목, 현재 개수, 남은 개수 */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className={compact ? "sr-only" : "flex flex-wrap items-center justify-between gap-2"}>
         <div>
           <p
             id="note-attachment-title"
@@ -629,7 +630,7 @@ export default function NoteAttachmentPicker({
               onClick={handleOpenFilePicker}
               disabled={isDisabled || isLimitReached}
               className={`
-                group flex w-full items-center gap-4
+                note-attachment-add group flex w-full items-center gap-4
                 rounded-2xl border px-4 py-4
                 text-left outline-none transition
                 hover:-translate-y-0.5 hover:shadow-sm
@@ -649,7 +650,7 @@ export default function NoteAttachmentPicker({
               {/* 사진 아이콘 영역 */}
               <span
                 className="
-                  flex h-12 w-12 shrink-0
+                  note-attachment-add-icon flex h-12 w-12 shrink-0
                   items-center justify-center
                   rounded-2xl
                   bg-emerald-50
@@ -698,16 +699,17 @@ export default function NoteAttachmentPicker({
                 <span className="block text-sm font-black text-slate-700">
                   {isLimitReached
                     ? "사진과 영상을 모두 채웠어요"
-                    : "사진, 영상 추가하기"}
+                    : compact ? "사진·영상 추가" : "사진, 영상 추가하기"}
                 </span>
 
-                <span className="mt-1 block text-xs font-medium leading-5 text-slate-400">
+                <span className={compact ? "sr-only" : "mt-1 block text-xs font-medium leading-5 text-slate-400"}>
                   {isLimitReached
                     ? "다른 파일을 넣으려면 아래 첨부에서 하나를 삭제해 주세요."
                     : `눌러서 선택해 주세요. ${remainingCount}개 더 추가할 수 있어요.`}
                 </span>
               </span>
 
+              {compact && <span className="text-xs text-slate-500">{attachmentCount}/{NOTE_ATTACHMENT_LIMIT}</span>}
               {/* 오른쪽 화살표 */}
               {!isLimitReached && (
                 <span
@@ -726,12 +728,13 @@ export default function NoteAttachmentPicker({
             </button>
 
       {/* 첨부 순서 변경 방법 안내 */}
-      <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+      {(!compact || attachmentCount > 1) && <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
         <p className="text-xs font-semibold leading-5 text-amber-800">
           순서가 다르면 카드를 끌거나
           앞으로, 뒤로 버튼으로 바꿀 수 있어요.
         </p>
-      </div>
+      </div>}
+      {compact && attachmentCount > 0 && <p className="text-xs text-slate-500">사진 10MB · 영상 30MB까지, 최대 10개를 담을 수 있어요.</p>}
 
       {/* 10개를 모두 채웠을 때 보여주는 안내 */}
       {isLimitReached && (

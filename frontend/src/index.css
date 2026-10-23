@@ -36,3 +36,27 @@ button, input, textarea, select { font-family: inherit; }
 .paper-compose-scroll label > span { font-size:14px; color:#475569; }
 .paper-compose-scroll input, .paper-compose-scroll textarea { font-size:16px; }
 .paper-compose-scroll details > label { padding-bottom:16px; }
+
+/* 내정보는 짧은 메뉴로 먼저 보여주고 저금통 목록만 필요할 때 펼친다. */
+.profile-menu { display:flex; flex-direction:column; width:340px; max-width:calc(100vw - 32px); padding:8px 0; border-radius:22px; scrollbar-width:thin; }
+.profile-menu > * { flex-shrink:0; }
+.profile-menu-account { order:1; background:white; padding:16px 20px; }
+.profile-menu-account > div > div:first-child { background:#e2eee4; color:#32624b; }
+.profile-menu-help { order:2; padding:8px 12px 0; border:0; }
+.profile-menu-help > button { border:0; background:white; border-radius:12px; padding:10px; }
+.profile-menu-help > button > span:first-child { width:32px; height:32px; border-radius:10px; box-shadow:none; background:#f0f5ee; }
+.profile-menu-help > button > span:nth-child(2) > span:last-child { font-size:12px; margin-top:2px; }
+.profile-menu-support { order:3; padding:4px 12px 12px; }
+.profile-menu-support > a { min-height:48px; display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; background:white; padding:10px; }
+.profile-menu-support > a:hover { background:#f0f5ee; }
+.profile-menu-support > a > span { margin-left:0; }
+.profile-menu-jars { order:4; padding:0 20px; }
+.profile-menu-jars > summary { cursor:pointer; min-height:52px; margin-bottom:0; list-style:none; }
+.profile-menu-jars > summary::-webkit-details-marker { display:none; }
+.profile-menu-jars > .space-y-3 { margin-top:4px; }
+.profile-menu-jars > .space-y-3 > a { padding:10px; background:#f6f8f3; border:0; border-radius:12px; }
+.profile-menu-jars > .space-y-3 > a + a { margin-top:6px; }
+.profile-menu-jars > a { background:#edf3e9; color:#32624b; padding:10px; margin:10px 0 12px; min-height:44px; border-radius:12px; }
+.profile-menu-jars > a:hover { background:#e0ebdc; }
+.profile-menu-logout { order:5; margin-top:4px; border-top:1px solid #edf0e9; padding:6px 12px 0; }
+.profile-menu-logout > button { display:flex; align-items:center; gap:10px; }
