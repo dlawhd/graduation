@@ -2,7 +2,7 @@
 import { validateFixtureData } from './read-contract.mjs';
 
 export function validateScale(family, baseUrl, stage, approval) {
-  if (!['50', '100', '200', '300'].includes(stage)) throw new Error('INVALID_SCALE_STAGE');
+  if (!['50', '100', '150', '200', '300'].includes(stage)) throw new Error('INVALID_SCALE_STAGE');
   resolveScaleTimeout(stage, approval);
   if (baseUrl !== 'https://api.esjh.shop') throw new Error('EXACT_HTTPS_TARGET_REQUIRED');
   if (!family || family.schema !== 2 || family.scope !== 'ec2-grouped-read'
@@ -29,9 +29,9 @@ export function validateScale(family, baseUrl, stage, approval) {
 }
 
 export function resolveScaleTimeout(stage, approval) {
-  // 기존 50 VU에 후속 승인한 100 VU만 추가한다. 200·300 VU 5초 모드와 임의 조합은 계속 거절한다.
+  // 후속 승인 순서는 50→100→150→200→300이다. 이전 단계·회복 통과는 실행 제어기에서 별도로 확인한다.
   // 이전 3초 모드는 과거 결과를 재현할 수 있도록 보존한다.
-  if (['50', '100'].includes(stage) && approval === stage + 'VU_60S_5S_WITH_GUARD') return '5s';
+  if (['50', '100', '150', '200', '300'].includes(stage) && approval === stage + 'VU_60S_5S_WITH_GUARD') return '5s';
   if (['50', '100', '200', '300'].includes(stage) && approval === stage + 'VU_60S_WITH_GUARD') return '3s';
   throw new Error('SCALE_APPROVAL_REQUIRED');
 }

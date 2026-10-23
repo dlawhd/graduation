@@ -58,7 +58,7 @@ function harness(stage, fault, approval = stage + 'VU_60S_WITH_GUARD', latencyTa
   }
   const response = data => ({ status: 200, body: JSON.stringify({ data }) });
   function request(method, url, body, p) {
-    assert.equal(p.timeout, ['50VU_60S_5S_WITH_GUARD', '100VU_60S_5S_WITH_GUARD'].includes(approval) ? '5s' : '3s'); assert.equal(p.redirects, 0);
+    assert.equal(p.timeout, approval.endsWith('VU_60S_5S_WITH_GUARD') ? '5s' : '3s'); assert.equal(p.redirects, 0);
     assert.ok(url.startsWith(baseUrl + '/api/v1/'));
     const route = url.slice(baseUrl.length); calls.push({ method, route, phase: p.tags.phase });
     if (route === '/api/v1/csrf') return response({ headerName: 'X-XSRF-TOKEN', token: 'fake-csrf' });
@@ -75,7 +75,8 @@ function harness(stage, fault, approval = stage + 'VU_60S_WITH_GUARD', latencyTa
     }
     assert.equal(method, 'GET');
     const user = Number(p.cookies ? p.cookies.accessToken : p.jar.values.accessToken[0]);
-    if (route === '/api/v1/me') return response({ userId: user });
+    if (route === '/api/v1/me') return fault === 'prepare-timeout' && user === 2
+      ? { status: 0, body: '' } : response({ userId: user });
     if (fault === 'setup' && p.tags.phase === 'prepare' && user === 23) return { status: 500 };
     if (fault === 'read' && p.tags.phase === 'read') return response(null);
     const group = f.groups[Math.floor((user - 1) / 10)];
@@ -145,14 +146,27 @@ test('중간 인증 실패·잘못된 조회·정리 실패는 성공으로 누�
   const h = harness('50', 'setup');
   assert.throws(() => h.api.setup(), /SCALE_SETUP_FAILED/);
   assert.equal(h.metrics.cleanup_errors.length, 23); assert.equal(h.metrics.read_requests.length, 0);
+  assert.equal(h.metrics.preparation_accounts.length, 22);
+  assert.equal(h.metrics.preparation_ready.length, 0);
+  assert.equal(h.metrics.preparation_failures.length, 1);
   const bad = harness('50', 'read'), sessions = bad.api.setup();
   bad.api.iteration(sessions); assert.equal(bad.metrics.read_errors[0].value, true);
   const cleanup = harness('50', 'cleanup'); cleanup.api.teardown(cleanup.api.setup());
   assert.ok(cleanup.metrics.cleanup_errors.every(m => m.value));
 });
 
-test('50·100 VU 5초 모드는 VU당 별도 계정·동일 성능 목표를 유지하고 그 위 단계는 거절한다', () => {
-  for (const stage of ['50', '100']) {
+test('두 번째 계정의 내 정보 시간 초과는 준비 실패로 끝내고 조회하지 않는다', () => {
+  const h = harness('50', 'prepare-timeout', '50VU_60S_5S_WITH_GUARD', '5000');
+  assert.throws(() => h.api.setup(), /SCALE_SETUP_FAILED/);
+  assert.equal(h.metrics.preparation_accounts.length, 1);
+  assert.equal(h.metrics.preparation_ready.length, 0);
+  assert.equal(h.metrics.preparation_failures.length, 1);
+  assert.equal(h.metrics.read_requests.length, 0);
+  assert.equal(h.metrics.cleanup_errors.length, 2);
+});
+
+test('승인한 50→100→150→200→300의 5초 모드와 별도 준비 표식을 검증한다', () => {
+  for (const stage of ['50', '100', '150', '200', '300']) {
     const h = harness(stage, undefined, stage + 'VU_60S_5S_WITH_GUARD'), sessions = h.api.setup();
     assert.equal(sessions.length, Number(stage));
     assert.equal(new Set(sessions.map(s => s.userId)).size, Number(stage));
@@ -161,11 +175,14 @@ test('50·100 VU 5초 모드는 VU당 별도 계정·동일 성능 목표를 유
     assert.equal(h.metrics.read_requests.length, Number(stage));
     assert.equal(h.metrics.cleanup_errors.length, Number(stage));
     assert.ok(h.metrics.cleanup_errors.every(m => !m.value));
+    assert.equal(h.metrics.preparation_accounts.length, Number(stage));
+    assert.equal(h.metrics.preparation_ready.length, 1);
+    assert.equal(h.metrics.preparation_failures.length, 0);
     assert.equal(h.api.options.scenarios['ec2_read_' + stage].gracefulStop, '5s');
-    assert.equal(JSON.stringify(h.api.options.thresholds), JSON.stringify(harness(stage).api.options.thresholds));
+    assert.equal(JSON.stringify(h.api.options.thresholds), JSON.stringify(harness('50').api.options.thresholds));
   }
   assert.throws(() => validateScale(family(), baseUrl, '100', '50VU_60S_5S_WITH_GUARD'));
-  for (const stage of ['200', '300']) {
+  for (const stage of ['125', '250', '400']) {
     assert.throws(() => validateScale(family(), baseUrl, stage, stage + 'VU_60S_5S_WITH_GUARD'));
   }
 });
@@ -183,7 +200,7 @@ test('실제 k6에서 네트워크 없이 각 단계 옵션을 해석한다', ()
       assert.equal(options.scenarios['ec2_read_' + stage].vus, Number(stage));
       assert.equal(options.scenarios['ec2_read_' + stage].duration, '1m0s');
     }
-    for (const stage of ['50', '100']) {
+    for (const stage of ['50', '100', '150', '200', '300']) {
       const r = spawnSync('k6', ['inspect', '--env', 'BASE_URL=' + baseUrl, '--env', 'FAMILY_PATH=' + manifest,
         '--env', 'SCALE_VUS=' + stage, '--env', 'SCALE_APPROVAL=' + stage + 'VU_60S_5S_WITH_GUARD',
         '--env', 'READ_P95_TARGET_MS=5000',

@@ -15,6 +15,10 @@ const latencyThresholds = readThresholds('10s', __ENV.READ_P95_TARGET_MS);
 const vus = Number(__ENV.SCALE_VUS);
 const readErrors = new Rate('read_errors'), readRequests = new Counter('read_requests');
 const cleanupErrors = new Rate('cleanup_errors');
+// 준비 실패를 조회 오류율에 섞거나 조회 0건을 합격으로 보지 않도록 독립된 완료 표식을 남긴다.
+const preparationAccounts = new Counter('preparation_accounts');
+const preparationReady = new Counter('preparation_ready');
+const preparationFailures = new Counter('preparation_failures');
 const scenarios = {};
 scenarios['ec2_read_' + vus] = { executor: 'constant-vus', vus, duration: '60s', gracefulStop: timeout };
 export const options = { scenarios, setupTimeout: '20m', teardownTimeout: '15m', maxRedirects: 0,
@@ -29,6 +33,12 @@ function data(response) {
 function get(path, params) {
   sleep(0.5);
   return http.get(baseUrl + path, params);
+}
+
+function preparationParams(params, step, accountIndex) {
+  // 실제 사용자 ID·URL·쿠키 대신 고정 단계명과 순번만 기록한다. 준비 요청 제한은 그대로다.
+  return Object.assign({}, params, { tags: { phase: 'prepare', name: 'prepare',
+    step, account_index: String(accountIndex) } });
 }
 
 function closeSession(session) {
@@ -50,23 +60,27 @@ export function setup() {
     groups.forEach((group, groupIndex) => group.accounts.forEach(account => {
       const jar = new http.CookieJar();
       const params = { jar, redirects: 0, timeout, tags: { phase: 'prepare', name: 'prepare' } };
-      const csrf = data(get('/api/v1/csrf', params));
+      const accountIndex = sessions.length;
+      const csrf = data(get('/api/v1/csrf', preparationParams(params, 'CSRF', accountIndex)));
       if (!csrf || csrf.headerName !== 'X-XSRF-TOKEN' || !csrf.token) throw new Error('INVALID_CSRF');
       params.headers = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf.token };
       sleep(0.5);
       const login = data(http.post(baseUrl + '/api/v1/auth/login', JSON.stringify({
-        loginId: account.loginId, password: account.password }), params));
+        loginId: account.loginId, password: account.password }), preparationParams(params, 'LOGIN', accountIndex)));
       const cookies = jar.cookiesForURL(baseUrl + '/api/v1/me');
       sessions.push({ groupIndex, userId: account.userId, cookies });
       if (login.userId !== account.userId || !cookies.accessToken || !cookies.refreshToken) throw new Error('INVALID_LOGIN');
-      if (data(get('/api/v1/me', params)).userId !== account.userId) throw new Error('INVALID_ME');
-      const listed = get('/api/v1/jars?page=0&size=20', params);
+      if (data(get('/api/v1/me', preparationParams(params, 'ME', accountIndex))).userId !== account.userId) throw new Error('INVALID_ME');
+      const listed = get('/api/v1/jars?page=0&size=20', preparationParams(params, 'JAR_LIST', accountIndex));
       if (!validResponse(listed.status, listed.body, { endpoint: 'jar_list' }, group, account.userId)) {
         throw new Error('INVALID_MEMBERSHIP');
       }
+      preparationAccounts.add(1);
     }));
+    preparationReady.add(1);
     return sessions;
   } catch (_) {
+    preparationFailures.add(1);
     sessions.forEach(closeSession);
     throw new Error('SCALE_SETUP_FAILED_CHECK_SCOPED_SESSIONS');
   }
