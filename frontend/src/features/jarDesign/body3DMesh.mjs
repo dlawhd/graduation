@@ -3,7 +3,9 @@ import { flatBodyBase } from "./body3DBase.mjs";
 import { bodyWorldPoint, body3DProfile, bodyDomeDepth, canExtrudeHollowBody, BODY_3D_DEPTH, BODY_3D_EDGE_DEPTH, BODY_3D_PHOTO_BULGE } from "./body3DGeometry.mjs";
 
 /** 저장 외곽선 안에서 앞뒤 몸통과 사진 면을 함께 부풀린다. 외곽과 사진 경계는 그대로 연결한다. */
-export function roundedBodyGeometry(value, hollow = false, profile = body3DProfile(value)) {
+export function roundedBodyGeometry(value, hollow = false, profile = body3DProfile(value), timing = null) {
+  // 진단 화면만 선택적으로 같은 계산을 계측한다. 저장 좌표·분할 횟수·표면 품질은 바꾸지 않는다.
+  const measure=(name,task)=>timing?timing.measure(name,task):task();
   const body = profile;
   if (!body || !body.photoSafe) throw new Error("Unsupported outline");
   const insetFits = canExtrudeHollowBody(body);
@@ -48,22 +50,22 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
     geometry.setAttribute("uv",new Float32BufferAttribute(uv,2));
     geometry.computeBoundingBox();
     // 2D 저장 외곽은 그대로 둔다. 법선/구는 바닥을 닫은 뒤 한 번만 계산하고 중간 geometry도 정리한다.
-    try {return flatBodyBase(geometry,holes);} finally {geometry.dispose();}
+    try {return measure("flatBase",()=>flatBodyBase(geometry,holes));} finally {geometry.dispose();}
   };
   const center=bodyWorldPoint({x:(body.window.x+body.window.width/2)/480,y:(body.window.y+body.window.height/2)/480});
   const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   const direction=ShapeUtils.isClockWise(outer)?-1:1;
   /** 사진 면도 내부 정점으로 나눠 앞뒤 대칭으로 부풀린다. 구멍의 XY 경계/사진 UV는 움직이지 않는다. */
   function addPhotoCaps(polygons) {
-    photoHeight=photoDomeField(holes,distance);
+    photoHeight=measure("photoHeightField",()=>photoDomeField(holes,distance));
     for(const polygon of polygons) {
-      const cap=tessellateSurface(polygon,ShapeUtils.triangulateShape(polygon,[]));
-      for(const triangle of cap.triangles) {
+      const cap=measure("photoTessellation",()=>tessellateSurface(polygon,ShapeUtils.triangulateShape(polygon,[])));
+      measure("photoSurfaceVertices",()=>{for(const triangle of cap.triangles) {
         const points=triangle.map(i=>cap.points[i]);
         const front=points.map(p=>vertex(p,photoHeight(p))),back=points.map(p=>vertex(p,-photoHeight(p)));
         const ccw=cross(...points)>0;
         photoIndices.push(...(ccw?front:[front[0],front[2],front[1]]),...(ccw?[back[0],back[2],back[1]]:back));
-      }
+      }});
     }
   }
   /** 넓은 옆벽 대신 앞뒤 곡면 사이에 아주 얇은 연결 띠만 만든다. 빈 틀도 외부 옆면은 닫아 준다. */
@@ -142,10 +144,10 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
   // Earcut으로 먼저 나눠 귀/골짜기를 보존한다. 중심점 팬 방식은 오목한 틀 밖을 덮을 수 있어 쓰지 않는다.
   const rimPoints=[...outer,...holes.flat()];
   const rimTriangles=ShapeUtils.triangulateShape(outer,holes);
-  smoothHeight=smoothedDomeField(outer,holes,distance);
+  smoothHeight=measure("rimHeightField",()=>smoothedDomeField(outer,holes,distance));
   // 긴 삼각형을 그대로 등분하면 가는 팔다리에 주름이 생긴다. 경계는 고정하고 내부 대각선을 다듬는다.
-  const surface=tessellateSurface(rimPoints,rimTriangles);
-  for (const triangle of surface.triangles) face(...triangle.map(i=>surface.points[i]));
+  const surface=measure("rimTessellation",()=>tessellateSurface(rimPoints,rimTriangles));
+  measure("rimSurfaceVertices",()=>{for (const triangle of surface.triangles) face(...triangle.map(i=>surface.points[i]));});
   if (insetFits && !hollow) {
     addPhotoCaps(holes);
   } else if (hollow) {

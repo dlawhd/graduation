@@ -1,7 +1,8 @@
-import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { customJarBody } from "../customJarBody.mjs";
 import { BODY_3D_FAILURE } from "../body3DGeometry.mjs";
+import { createBody3DTiming } from "../body3DTiming.mjs";
 
 const CustomJarBody3D=lazy(()=>import("./CustomJarBody3D"));
 
@@ -17,6 +18,15 @@ class ViewerBoundary extends Component {
 export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,imageStyle,imageRendering,
   outlineOnly,slot,children,className="h-full w-full",frontViewRequest=0,disabled=false,preparedBody=null,controlsOutside=false,viewerStageStyle,viewControlsTarget=null,imageTextureUrl,bodyArtworkTextureUrl,imageOnly=false }) {
   const [mode,setMode]=useState("2D"),[failure,setFailure]=useState(""),[resetKey,setResetKey]=useState(0);
+  const timingRef=useRef(null);
+  /** 진단 URL에서만 계측한다. 일반 개발 화면과 운영 빌드에서는 타이머를 만들지 않는다. */
+  function toggleMode() {
+    if(import.meta.env.DEV && window.location.pathname==="/tests/jar-3d-timing.html") {
+      timingRef.current?.cancel();
+      timingRef.current=mode==="2D"?createBody3DTiming({enabled:true}):null;
+    }
+    setFailure("");setMode(m=>m==="3D"?"2D":"3D");
+  }
   const body=useMemo(()=>imageOnly?Boolean(imageUrl):preparedBody || customJarBody(customBody),[customBody,preparedBody,imageOnly,imageUrl]);
   const onFailure=useCallback(message=>{setMode("2D");setFailure(message || BODY_3D_FAILURE);},[]);
   // 쪽지 작성 창을 열기 전에 정면으로 복귀한다. 기존 입구 위치 측정/애니메이션을 그대로 사용한다.
@@ -24,7 +34,7 @@ export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,ima
   useEffect(()=>{if(disabled)setMode("2D");},[disabled]);
   // 상세 화면의 장식 레이어는 pointer-events:none이다. 실제 조작 영역만 다시 활성화한다.
   const controls=body && <div data-view-controls className={`pointer-events-auto ${viewControlsTarget?"flex min-h-8 flex-wrap items-center justify-end gap-1":controlsOutside?"flex min-h-8 shrink-0 flex-wrap items-center justify-end gap-1 pb-2":"absolute right-2 top-2 z-20 flex flex-wrap justify-end gap-1 rounded-full border border-stone-200 bg-white/95 p-0.5 shadow-sm"}`}>
-    <button type="button" disabled={disabled} aria-pressed={mode==="3D"} onClick={()=>{setFailure("");setMode(m=>m==="3D"?"2D":"3D");}}
+    <button type="button" disabled={disabled} aria-pressed={mode==="3D"} onClick={toggleMode}
       className="min-h-8 min-w-8 rounded-full border border-stone-200 bg-white px-2.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-40">{mode==="3D"?"2D로 보기":"3D로 보기"}</button>
     {mode==="3D" && <button type="button" onClick={()=>setResetKey(k=>k+1)} className="min-h-8 min-w-8 rounded-full bg-stone-100 px-2.5 text-[11px] font-bold text-stone-600 hover:bg-stone-200">정면으로</button>}
   </div>;
@@ -37,7 +47,7 @@ export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,ima
     <div className="h-full w-full" hidden={mode==="3D"}>{children}</div>
     {mode==="3D" && <div className="pointer-events-auto absolute inset-0">
       <ViewerBoundary onFailure={onFailure}><Suspense fallback={<div role="status" className="flex h-full items-center justify-center bg-white/80 text-xs text-stone-500">3D를 불러오고 있어요…</div>}>
-        <CustomJarBody3D {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,slot,resetKey,onFailure,preparedBody,imageTextureUrl,bodyArtworkTextureUrl,imageOnly}}/>
+        <CustomJarBody3D {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,slot,resetKey,onFailure,preparedBody,imageTextureUrl,bodyArtworkTextureUrl,imageOnly}} timing={timingRef.current}/>
       </Suspense></ViewerBoundary>
     </div>}
     {!viewControlsTarget && !controlsOutside && controls}

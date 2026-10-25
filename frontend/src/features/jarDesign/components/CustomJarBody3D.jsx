@@ -17,14 +17,20 @@ import {IMAGE_ONLY_PROFILE,IMAGE_ONLY_DEPTH,drawImageOnlyPhoto,imageOnlyGeometry
 
 /** 외곽선과 사진 면을 둥근 몸통으로 만들고 입구도 같은 카메라로 투영한다. 사진 속 인물을 3D로 바꾸지는 않는다. */
 export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imageStyle, imageRendering,
-  outlineOnly, slot, resetKey, onFailure, preparedBody = null, imageTextureUrl, bodyArtworkTextureUrl, imageOnly=false }) {
+  outlineOnly, slot, resetKey, onFailure, preparedBody = null, imageTextureUrl, bodyArtworkTextureUrl, imageOnly=false, timing:devTiming=null }) {
+  const timing=import.meta.env.DEV?devTiming:null;
   const stageRef=useRef(null), surfaceRef=useRef(null), slotRef=useRef(null), controllerRef=useRef(null);
   const slotValueRef=useRef(slot);
   // 곡선과 안전한 사진 창 탐색은 틀이 바뀔 때만 수행한다. 회전/사진 배치 변경에서는 재사용한다.
-  const renderProfile=useMemo(()=>imageOnly?IMAGE_ONLY_PROFILE:preparedBody?preparedBodyProfile(customBody,preparedBody):body3DProfile(customBody),[customBody,preparedBody,imageOnly]);
+  const measure=(name,task)=>timing?timing.measure(name,task):task();
+  const renderProfile=useMemo(()=>{
+    timing?.mark("componentRender");
+    return measure("profile",()=>imageOnly?IMAGE_ONLY_PROFILE:preparedBody?preparedBodyProfile(customBody,preparedBody):body3DProfile(customBody));
+  },[customBody,preparedBody,imageOnly,timing]);
   const [ready,setReady]=useState(false);
   useEffect(() => {
     const stage=stageRef.current, surface=surfaceRef.current;
+    timing?.mark("effectStart");
     const body=renderProfile, points=body?.renderOutline.map(bodyWorldPoint);
     const rasterHollow=!imageOnly&&!preparedBody&&outlineOnly&&!imageUrl&&Boolean(customBody?.artworkUrl);
     let renderer, geometry, faceMaterial, photoMaterial, backMaterial, reliefCleanup, bodyMesh, observer, texture, textureImage, photoTexture, photoImage, photoVersion=0, frame=0, disposed=false;
@@ -33,11 +39,12 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
     const borderAbort=new AbortController();
     const fetchBlob=async(path,signal)=>(await apiClient.get(path,{responseType:"blob",signal,timeout:15000})).data;
     let borderReady=!customBody?.artworkUrl,photoReady=!imageUrl;
-    const refreshReady=()=>{if(!disposed)setReady(borderReady&&photoReady);};
+    const refreshReady=()=>{if(!disposed){if(borderReady&&photoReady)timing?.mark("texturesReady");setReady(borderReady&&photoReady);}};
     let gesture=null, yaw=.35, pitch=-.12;
     const cleanup = () => {
       if (disposed) return;
       disposed=true;
+      timing?.cancel();
       photoAbort?.abort();borderAbort.abort();photoSource?.dispose();borderSource?.dispose();
       cancelAnimationFrame(frame);
       observer?.disconnect();
@@ -97,7 +104,14 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
           camera.top=view;camera.bottom=-view;camera.left=-view*aspect;camera.right=view*aspect;
           camera.updateProjectionMatrix();
         }
-        renderer.render(scene,camera);
+        measure("renderSubmit",()=>renderer.render(scene,camera));
+        // 빈 몸통의 첫 그리기가 아니라 사진/테두리까지 적용한 render가 끝난 결과만 공개한다.
+        // render 반환은 GPU 완료 신호가 아니므로 진단 화면에서도 그 한계를 명시한다.
+        if(timing && borderReady && photoReady) {
+          const result=timing.finish();
+          if(result)stage.dataset.body3dTiming=JSON.stringify({...result,triangles:geometry.index?.count/3||0,
+            viewport:{width:stage.clientWidth,height:stage.clientHeight,pixelRatio:renderer.getPixelRatio()}});
+        }
         const photoSurface=bodyPhotoSurface(yaw,pitch);
         const currentSlot=slotValueRef.current;
         const center=currentSlot?{x:currentSlot.centerX,y:currentSlot.centerY}:null;
@@ -134,7 +148,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         fail("이 빈 틀은 굴곡이 깊어 2D로 보여드려요. 사진을 담은 뒤에는 3D로 돌려볼 수 있어요.");
         return cleanup;
       }
-      renderer=new WebGLRenderer({alpha:true,antialias:true,powerPreference:"low-power"});
+      renderer=measure("rendererInit",()=>new WebGLRenderer({alpha:true,antialias:true,powerPreference:"low-power"}));
       // 작은 모바일 화면에서 과도한 GPU 메모리 사용을 막는다. 최대 840x840 drawing buffer.
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1,2));
       renderer.setClearColor(0xffffff,0);
@@ -146,12 +160,12 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       camera=new OrthographicCamera(-BODY_3D_VIEW,BODY_3D_VIEW,BODY_3D_VIEW,-BODY_3D_VIEW,.1,20);
       camera.position.set(0,0,5);
       // 빈 틀에는 실제 구멍을 낸다. 사진이 있으면 앞뒤 표면 위에 같은 사진을 투영하고 옆면 두께는 유지한다.
-      geometry=imageOnly||rasterHollow?new BufferGeometry():roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl),renderProfile);
+      geometry=measure("bodyGeometry",()=>imageOnly||rasterHollow?new BufferGeometry():roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl),renderProfile,timing));
       faceMaterial=new MeshStandardMaterial({color:customBody?.color||0xffffff,roughness:.55,metalness:0});
       photoMaterial=new MeshStandardMaterial({color:0xffffff,roughness:.55,metalness:0,alphaTest:imageOnly ? .02 : 0});
       if(preparedBody) {
-        thickenPreparedBody(geometry);
-        preparedMaterialGroups(geometry);
+        measure("preparedVolume",()=>thickenPreparedBody(geometry));
+        measure("materialGroups",()=>preparedMaterialGroups(geometry));
         backMaterial=new MeshStandardMaterial({color:preparedBody.colors.base,roughness:.48});
       }
       bodyMesh=new Mesh(geometry,imageOnly?[photoMaterial,faceMaterial]:preparedBody?[faceMaterial,photoMaterial,backMaterial]:[faceMaterial,photoMaterial]);
@@ -182,12 +196,15 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         if(!reuse){photoAbort?.abort();photoSource?.dispose();photoSource=null;}
         photoReady=!url;refreshReady();
         if(!url)return;
+        const endPhotoLoad=timing?.start("photoLoadToOnload");
         // 기존 배경 편집 마스크를 무시해서 보여주지 않는다. 이런 Draft는 기존 2D에서 정확히 표시한다.
         if(!imageOnly&&style&&Object.values(style).some(v=>v!=null&&v!=="")) {
           fail("배경 편집이 있는 디자인은 원본 편집을 유지한 2D로 보여드려요.");return;
         }
         const paint=()=>{
           if(disposed||version!==photoVersion)return;
+          endPhotoLoad?.();
+          const endPhotoPaint=timing?.start("photoCanvasAndTexture");
           try {
             // 슬라이더로 배치만 바꾸면 같은 디코딩 이미지/Canvas/텍스처를 재사용해 반복 GET과 GPU 할당을 막는다.
             const canvas=photoTexture?.image||document.createElement("canvas");canvas.width=canvas.height=480;
@@ -196,12 +213,12 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
               // 원본 해상도가 커도 윤곽 계산은 128px로 제한한다. 2D 원본/저장 파일은 바꾸지 않는다.
               const mask=document.createElement("canvas");mask.width=mask.height=128;
               const context=mask.getContext("2d");context.drawImage(canvas,0,0,128,128);
-              const next=imageOnlyGeometry(context.getImageData(0,0,128,128));
+              const next=measure("imageOnlyGeometry",()=>imageOnlyGeometry(context.getImageData(0,0,128,128)));
               bodyMesh.geometry=next;geometry.dispose();geometry=next;
               faceMaterial.color.setRGB(...geometry.userData.sideColor,SRGBColorSpace);
               // 투명 영역은 geometry가 비운다. 경계 텍스처는 기존 색 확장기를 재사용해 검은 틈을 막는다.
               const photoContext=canvas.getContext("2d"),pixels=photoContext.getImageData(0,0,480,480);
-              pixels.data.set(bodyArtworkPixels(pixels));photoContext.putImageData(pixels,0,0);
+              pixels.data.set(measure("photoPixelExpansion",()=>bodyArtworkPixels(pixels)));photoContext.putImageData(pixels,0,0);
               stage.dataset.imageOnlyTriangles=String(geometry.index.count/3);
             } else if(preparedBody) {
               const context=canvas.getContext("2d"),r=preparedPhotoLayout(preparedBody.window,placement,photoImage);
@@ -221,13 +238,16 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
             photoMaterial.map=photoTexture;photoMaterial.needsUpdate=true;
             photoReady=true;refreshReady();schedule();
           } catch {fail("사진을 곡면에 불러오지 못했어요. 원본 배치를 유지한 2D로 보여드려요.");}
+          finally {endPhotoPaint?.();}
         };
         if(reuse){paint();return;}
         photoImage=new Image();photoImage.crossOrigin="anonymous";photoUrl=url;
         photoImage.onload=paint;
         photoImage.onerror=()=>{if(!disposed&&version===photoVersion)fail("3D 사진을 불러오지 못했어요. 기존 2D로 보여드려요.");};
         photoAbort=new AbortController();
+        const endPhotoSource=timing?.start("photoSource");
         openTextureSource(url,imageTextureUrl,{fetchBlob,signal:photoAbort.signal}).then(source=>{
+          endPhotoSource?.();
           if(disposed||version!==photoVersion){source.dispose();return;}
           photoSource=source;photoImage.src=source.url;
         }).catch(()=>{if(!disposed&&version===photoVersion)photoImage.onerror?.();});
@@ -236,8 +256,11 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       if(customBody?.artworkUrl) {
         // 권한 확인 뒤 발급한 PNG만 읽는다. 읽기/CORS 실패 시 단색으로 속이지 않고 원본을 보존한 2D로 복구한다.
         textureImage=new Image();textureImage.crossOrigin="anonymous";
+        const endBorderLoad=timing?.start("borderLoadToOnload");
         textureImage.onload=()=>{
           if(disposed) return;
+          endBorderLoad?.();
+          const endBorderPaint=timing?.start("borderCanvasAndDecorations");
           try {
             const canvas=document.createElement("canvas");canvas.width=canvas.height=480;
             if(textureImage.naturalWidth!==480||textureImage.naturalHeight!==480) throw new Error("Invalid body artwork");
@@ -246,21 +269,21 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
               const pixels=context.getImageData(0,0,480,480);
               if(rasterHollow){
                 // 사진 창의 안전 여백으로 획을 두껍게 만들지 않고 실제 PNG의 1px 선까지 입체 경계로 쓴다.
-                const next=imageOnlyGeometry(pixels,{fullResolution:true});
+                const next=measure("hollowImageGeometry",()=>imageOnlyGeometry(pixels,{fullResolution:true}));
                 bodyMesh.geometry=next;geometry.dispose();geometry=next;
                 bodyMesh.material=[faceMaterial,faceMaterial];stage.dataset.originalStrokeGeometry="true";
                 stage.dataset.strokeDepth=String(geometry.userData.extrusionDepth);
                 stage.dataset.strokeWidth=String(geometry.userData.strokeWidth);
               }
-              pixels.data.set(bodyArtworkPixels(pixels));context.putImageData(pixels,0,0);
+              pixels.data.set(measure("borderPixelExpansion",()=>bodyArtworkPixels(pixels)));context.putImageData(pixels,0,0);
             }
             texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;
             faceMaterial.color.set(0xffffff);faceMaterial.map=texture;faceMaterial.needsUpdate=true;
             if(preparedBody) {
               if(!imageUrl){photoMaterial.map=texture;photoMaterial.needsUpdate=true;}
-              reliefCleanup=addPreparedBodyRelief(group,bodyMesh,preparedBody,texture);
+              reliefCleanup=measure("preparedRelief",()=>addPreparedBodyRelief(group,bodyMesh,preparedBody,texture));
               const innerCleanup=reliefCleanup;
-              const decorationCleanup=addPreparedBodyDecorations(group,preparedBody,customBody,texture);
+              const decorationCleanup=measure("preparedDecorations",()=>addPreparedBodyDecorations(group,preparedBody,customBody,texture));
               reliefCleanup=()=>{innerCleanup();decorationCleanup();};
               stage.dataset.externalDecorationCount=String(decorationCleanup.count);
             } else if(imageUrl) {
@@ -269,16 +292,19 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
             }
             borderReady=true;refreshReady();schedule();
           } catch {fail("테두리 색을 3D로 불러오지 못했어요. 원본 색을 유지한 2D로 보여드려요.");}
+          finally {endBorderPaint?.();}
         };
         textureImage.onerror=()=>{if(!disposed)fail("테두리 그림을 불러오지 못했어요. 2D로 돌아가 다시 확인해 주세요.");};
+        const endBorderSource=timing?.start("borderSource");
         openTextureSource(customBody.artworkUrl,bodyArtworkTextureUrl,{fetchBlob,signal:borderAbort.signal}).then(source=>{
+          endBorderSource?.();
           if(disposed){source.dispose();return;}
           borderSource=source;textureImage.src=source.url;
         }).catch(()=>{if(!disposed)textureImage.onerror?.();});
       } else refreshReady();
     } catch { fail(); }
     return cleanup;
-  },[customBody,renderProfile,Boolean(imageUrl),outlineOnly,onFailure,preparedBody,imageTextureUrl,bodyArtworkTextureUrl,imageOnly]);
+  },[customBody,renderProfile,Boolean(imageUrl),outlineOnly,onFailure,preparedBody,imageTextureUrl,bodyArtworkTextureUrl,imageOnly,timing]);
   useEffect(()=>{controllerRef.current?.updatePhoto(imageUrl,photoFrame,imageStyle,imageRendering);},[imageUrl,photoFrame,imageStyle,imageRendering,renderProfile,outlineOnly,imageTextureUrl,bodyArtworkTextureUrl]);
   useEffect(()=>{if(resetKey)controllerRef.current?.reset();},[resetKey]);
   // 회전 중 입구 prop이 바뀌어도 새 DOM의 앞/뒤 표시를 한 프레임 안에 맞춘다.

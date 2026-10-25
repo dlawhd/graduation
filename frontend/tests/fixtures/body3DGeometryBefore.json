@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "beforeMeshSha256": "3e80d94f435db1fd82d45041328d4d5d7149a65fc93112e6ff07c31b9eb12084",
+  "cases": {
+    "ROUND:filled": {
+      "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+      "vertices": 16122,
+      "triangles": 31980
+    },
+    "ROUND:hollow": {
+      "sha256": "a45a1ae8129311c8f91f8604e2166860aecb17e872dec4c83696fbd095b902e8",
+      "vertices": 6336,
+      "triangles": 12412
+    },
+    "JAR:filled": {
+      "sha256": "aac7e5a6f24d83c33b325c79338439ee150444757ae3f1c8052101a9f1a2c040",
+      "vertices": 7018,
+      "triangles": 13644
+    },
+    "JAR:hollow": {
+      "sha256": "23fe4376b64c75f63b60954aed5490a945b2f91673e33e945911701bd11024ea",
+      "vertices": 1356,
+      "triangles": 2588
+    },
+    "SQUARE:filled": {
+      "sha256": "4b2d4c80329d6ad3cc26294a50425acbf2cf128446fac52b1375a0aea58a31a2",
+      "vertices": 6644,
+      "triangles": 12904
+    },
+    "SQUARE:hollow": {
+      "sha256": "ffb579188479f3cdfa858795b0185ffddd53a3162f01576859af04f058d07883",
+      "vertices": 1096,
+      "triangles": 2068
+    },
+    "IRREGULAR:filled": {
+      "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+      "vertices": 14196,
+      "triangles": 28160
+    },
+    "IRREGULAR:hollow": {
+      "sha256": "2bbc3efd8f20cd32e9f018a7fd33418fe072789866c369c93b94e61d08ed4474",
+      "vertices": 6720,
+      "triangles": 13268
+    },
+    "DEEP:filled": {
+      "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+      "vertices": 16988,
+      "triangles": 33628
+    },
+    "DEEP:hollow": {
+      "sha256": "414a2dc235c70d82a07d07f287324f4038fa0d83dac2b17c0763e9583325ac40",
+      "vertices": 6424,
+      "triangles": 12504
+    },
+    "POINTED:filled": {
+      "sha256": "211b26dde3e6536405da16d455facb27fcaeb4eb44f3a7ed215e0787913326b4",
+      "vertices": 7750,
+      "triangles": 15112
+    },
+    "POINTED:hollow": {
+      "sha256": "bc12d57f48a3b03ec7f970649f6065eee410f90ab547f5da7b09bbd74362d118",
+      "vertices": 970,
+      "triangles": 1848
+    },
+    "NARROW:filled": {
+      "sha256": "4da283a858b64fae69d967ac682f701d882df42500ce011ec151b08b15fa2742",
+      "vertices": 9636,
+      "triangles": 19196
+    },
+    "NARROW:hollow": {
+      "sha256": "05cefe6a9409ecc8e34ab3eca056557fc1e036da53559e0f0c3d7756d3465dbe",
+      "vertices": 2828,
+      "triangles": 5584
+    },
+    "IRREGULAR:reversed": {
+      "sha256": "1b2bae7cad9eece7d9f7513ac7cad5f885b81abfc8a693463581dcfda4bdadae",
+      "vertices": 14204,
+      "triangles": 28168
+    }
+  }
+}

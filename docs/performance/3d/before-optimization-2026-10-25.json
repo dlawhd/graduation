@@ -1,0 +1,4009 @@
+{
+  "environment": "Local Vite development build; same connected browser; synthetic 480px PNG; no operational API requests",
+  "limitations": [
+    "Render return measures CPU submission, not GPU completion or physical display.",
+    "Spans may overlap or contain child spans. Do not sum arbitrary phase durations or phase medians.",
+    "Each case has six runs; warm median excludes its first observed run. Download cache was not cleared.",
+    "Provided photo-style fixture uses rendered 53-point outline only, not original private image."
+  ],
+  "summary": [
+    {
+      "caseId": "detail-prepared",
+      "firstMs": 846.1,
+      "warmMedianMs": 441.4,
+      "bodyGeometry": 365.2,
+      "photoLoad": 20.3,
+      "borderLoad": 17.3,
+      "rendererInit": 9.2,
+      "renderSubmit": 47.4,
+      "photoSurfaceVertices": 25.2,
+      "photoTessellation": 14,
+      "flatBase": 73.7
+    },
+    {
+      "caseId": "create-prepared",
+      "firstMs": 423.2,
+      "warmMedianMs": 414.5,
+      "bodyGeometry": 351.1,
+      "photoLoad": 0,
+      "borderLoad": 16.6,
+      "rendererInit": 6.6,
+      "renderSubmit": 36.1,
+      "photoSurfaceVertices": 24.2,
+      "photoTessellation": 14.2,
+      "flatBase": 62.2
+    },
+    {
+      "caseId": "detail-custom",
+      "firstMs": 727.7,
+      "warmMedianMs": 711.1,
+      "bodyGeometry": 654.4,
+      "photoLoad": 16.2,
+      "borderLoad": 0,
+      "rendererInit": 8.7,
+      "renderSubmit": 24.8,
+      "photoSurfaceVertices": 356.1,
+      "photoTessellation": 173,
+      "flatBase": 104.5
+    },
+    {
+      "caseId": "create-custom",
+      "firstMs": 74,
+      "warmMedianMs": 72.6,
+      "bodyGeometry": 46.2,
+      "photoLoad": 0,
+      "borderLoad": 0,
+      "rendererInit": 6.6,
+      "renderSubmit": 11.3,
+      "photoSurfaceVertices": 0,
+      "photoTessellation": 0,
+      "flatBase": 40.4
+    },
+    {
+      "caseId": "detail-image",
+      "firstMs": 76.5,
+      "warmMedianMs": 75.5,
+      "bodyGeometry": 0,
+      "photoLoad": 2.1,
+      "borderLoad": 0,
+      "rendererInit": 9.9,
+      "renderSubmit": 18.6,
+      "photoSurfaceVertices": 0,
+      "photoTessellation": 0,
+      "flatBase": 0
+    },
+    {
+      "caseId": "detail-irregular",
+      "firstMs": 645.2,
+      "warmMedianMs": 581.1,
+      "bodyGeometry": 532,
+      "photoLoad": 17,
+      "borderLoad": 0,
+      "rendererInit": 9.8,
+      "renderSubmit": 24.7,
+      "photoSurfaceVertices": 304.9,
+      "photoTessellation": 110,
+      "flatBase": 99.7
+    },
+    {
+      "caseId": "create-irregular",
+      "firstMs": 77.5,
+      "warmMedianMs": 75.3,
+      "bodyGeometry": 48,
+      "photoLoad": 0,
+      "borderLoad": 0,
+      "rendererInit": 5.7,
+      "renderSubmit": 12.6,
+      "photoSurfaceVertices": 0,
+      "photoTessellation": 0,
+      "flatBase": 42.7
+    }
+  ],
+  "localRuns": [
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 27.399999976158142,
+        "effectStart": 303.60000002384186,
+        "texturesReady": 802.8999999761581,
+        "texturedRenderEnd": 846.1000000238419
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 27.399999976158142,
+          "endMs": 28,
+          "durationMs": 0.6000000238418579
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 303.60000002384186,
+          "endMs": 316.89999997615814,
+          "durationMs": 13.299999952316284
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 324.8000000715256,
+          "endMs": 361.5,
+          "durationMs": 36.699999928474426
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 361.5,
+          "endMs": 497.5,
+          "durationMs": 136
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 497.5,
+          "endMs": 618.6000000238419,
+          "durationMs": 121.10000002384186
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 618.6000000238419,
+          "endMs": 632.5,
+          "durationMs": 13.899999976158142
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 632.5,
+          "endMs": 654.2000000476837,
+          "durationMs": 21.700000047683716
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 654.2000000476837,
+          "endMs": 686.3000000715256,
+          "durationMs": 32.10000002384186
+        },
+        {
+          "name": "flatBase",
+          "startMs": 691.1000000238419,
+          "endMs": 766.6000000238419,
+          "durationMs": 75.5
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 324.2000000476837,
+          "endMs": 766.7000000476837,
+          "durationMs": 442.5
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 766.8999999761581,
+          "endMs": 770.3999999761581,
+          "durationMs": 3.5
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 770.3999999761581,
+          "endMs": 773.8999999761581,
+          "durationMs": 3.5
+        },
+        {
+          "name": "borderSource",
+          "startMs": 778,
+          "endMs": 778.3000000715256,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "photoSource",
+          "startMs": 778,
+          "endMs": 778.3000000715256,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 779,
+          "endMs": 793.3000000715256,
+          "durationMs": 14.300000071525574
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 778,
+          "endMs": 796.1000000238419,
+          "durationMs": 18.100000023841858
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 796.3000000715256,
+          "endMs": 796.3000000715256,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 796.3000000715256,
+          "endMs": 802.5,
+          "durationMs": 6.199999928474426
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 796.1000000238419,
+          "endMs": 802.6000000238419,
+          "durationMs": 6.5
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 778,
+          "endMs": 802.7000000476837,
+          "durationMs": 24.700000047683716
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 802.8000000715256,
+          "endMs": 803,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 812,
+          "endMs": 846.1000000238419,
+          "durationMs": 34.10000002384186
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 380,
+        "height": 380,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.5,
+        "effectStart": 1.100000023841858,
+        "texturesReady": 439.1999999284744,
+        "texturedRenderEnd": 482.60000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.5,
+          "endMs": 0.6000000238418579,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 1.100000023841858,
+          "endMs": 10.799999952316284,
+          "durationMs": 9.699999928474426
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 13.399999976158142,
+          "endMs": 42.299999952316284,
+          "durationMs": 28.899999976158142
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 42.299999952316284,
+          "endMs": 142.39999997615814,
+          "durationMs": 100.10000002384186
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 142.5,
+          "endMs": 268.60000002384186,
+          "durationMs": 126.10000002384186
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 268.60000002384186,
+          "endMs": 275.7999999523163,
+          "durationMs": 7.199999928474426
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 275.89999997615814,
+          "endMs": 288.5,
+          "durationMs": 12.600000023841858
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 288.5,
+          "endMs": 313.6999999284744,
+          "durationMs": 25.199999928474426
+        },
+        {
+          "name": "flatBase",
+          "startMs": 316.2999999523163,
+          "endMs": 402.6999999284744,
+          "durationMs": 86.39999997615814
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 13.100000023841858,
+          "endMs": 402.7999999523163,
+          "durationMs": 389.6999999284744
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 402.89999997615814,
+          "endMs": 407.10000002384186,
+          "durationMs": 4.200000047683716
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 407.10000002384186,
+          "endMs": 409.5,
+          "durationMs": 2.399999976158142
+        },
+        {
+          "name": "borderSource",
+          "startMs": 414.39999997615814,
+          "endMs": 414.6999999284744,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "photoSource",
+          "startMs": 414.5,
+          "endMs": 414.6999999284744,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 415.60000002384186,
+          "endMs": 432.5,
+          "durationMs": 16.899999976158142
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 414.39999997615814,
+          "endMs": 434.39999997615814,
+          "durationMs": 20
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 434.6999999284744,
+          "endMs": 434.6999999284744,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 434.6999999284744,
+          "endMs": 439,
+          "durationMs": 4.300000071525574
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 434.39999997615814,
+          "endMs": 439,
+          "durationMs": 4.600000023841858
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 414.5,
+          "endMs": 439.10000002384186,
+          "durationMs": 24.600000023841858
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 439.10000002384186,
+          "endMs": 439.1999999284744,
+          "durationMs": 0.09999990463256836
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 441.1999999284744,
+          "endMs": 482.60000002384186,
+          "durationMs": 41.40000009536743
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 380,
+        "height": 380,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1.100000023841858,
+        "texturesReady": 440.2000000476837,
+        "texturedRenderEnd": 474.7999999523163
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 0.7000000476837158,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 1.100000023841858,
+          "endMs": 10.399999976158142,
+          "durationMs": 9.299999952316284
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 13.100000023841858,
+          "endMs": 44.60000002384186,
+          "durationMs": 31.5
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 44.60000002384186,
+          "endMs": 157.70000004768372,
+          "durationMs": 113.10000002384186
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 157.79999995231628,
+          "endMs": 270.60000002384186,
+          "durationMs": 112.80000007152557
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 270.60000002384186,
+          "endMs": 282.89999997615814,
+          "durationMs": 12.299999952316284
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 283,
+          "endMs": 298.10000002384186,
+          "durationMs": 15.100000023841858
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 298.10000002384186,
+          "endMs": 321.89999997615814,
+          "durationMs": 23.799999952316284
+        },
+        {
+          "name": "flatBase",
+          "startMs": 324.89999997615814,
+          "endMs": 403.7999999523163,
+          "durationMs": 78.89999997615814
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.899999976158142,
+          "endMs": 403.7999999523163,
+          "durationMs": 390.89999997615814
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 403.89999997615814,
+          "endMs": 408.7999999523163,
+          "durationMs": 4.899999976158142
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 408.7999999523163,
+          "endMs": 411.5,
+          "durationMs": 2.700000047683716
+        },
+        {
+          "name": "borderSource",
+          "startMs": 415.39999997615814,
+          "endMs": 415.5,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "photoSource",
+          "startMs": 415.39999997615814,
+          "endMs": 415.60000002384186,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 416.39999997615814,
+          "endMs": 431.60000002384186,
+          "durationMs": 15.200000047683716
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 415.2999999523163,
+          "endMs": 433.2999999523163,
+          "durationMs": 18
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 433.60000002384186,
+          "endMs": 433.60000002384186,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 433.60000002384186,
+          "endMs": 439.7999999523163,
+          "durationMs": 6.199999928474426
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 433.2999999523163,
+          "endMs": 439.7999999523163,
+          "durationMs": 6.5
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 415.39999997615814,
+          "endMs": 439.89999997615814,
+          "durationMs": 24.5
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 439.89999997615814,
+          "endMs": 440.2000000476837,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 442,
+          "endMs": 474.7999999523163,
+          "durationMs": 32.799999952316284
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 380,
+        "height": 380,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 0.8999999761581421,
+        "texturesReady": 405.2999999523163,
+        "texturedRenderEnd": 441.39999997615814
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 0.5,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8999999761581421,
+          "endMs": 10.100000023841858,
+          "durationMs": 9.200000047683716
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 12.5,
+          "endMs": 47.700000047683716,
+          "durationMs": 35.200000047683716
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 47.700000047683716,
+          "endMs": 140.5,
+          "durationMs": 92.79999995231628
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 140.5,
+          "endMs": 251.60000002384186,
+          "durationMs": 111.10000002384186
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 251.60000002384186,
+          "endMs": 264,
+          "durationMs": 12.399999976158142
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 264,
+          "endMs": 278,
+          "durationMs": 14
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 278,
+          "endMs": 303.2000000476837,
+          "durationMs": 25.200000047683716
+        },
+        {
+          "name": "flatBase",
+          "startMs": 305.60000002384186,
+          "endMs": 377.39999997615814,
+          "durationMs": 71.79999995231628
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.299999952316284,
+          "endMs": 377.5,
+          "durationMs": 365.2000000476837
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 377.5,
+          "endMs": 380.39999997615814,
+          "durationMs": 2.899999976158142
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 380.39999997615814,
+          "endMs": 381.5,
+          "durationMs": 1.100000023841858
+        },
+        {
+          "name": "borderSource",
+          "startMs": 385.2000000476837,
+          "endMs": 385.39999997615814,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "photoSource",
+          "startMs": 385.2000000476837,
+          "endMs": 385.5,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 386.7000000476837,
+          "endMs": 399.7999999523163,
+          "durationMs": 13.099999904632568
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 385.2000000476837,
+          "endMs": 401.5,
+          "durationMs": 16.299999952316284
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 401.7999999523163,
+          "endMs": 401.7999999523163,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 401.7999999523163,
+          "endMs": 405,
+          "durationMs": 3.200000047683716
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 401.5,
+          "endMs": 405,
+          "durationMs": 3.5
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 385.2000000476837,
+          "endMs": 405.10000002384186,
+          "durationMs": 19.899999976158142
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 405.10000002384186,
+          "endMs": 405.2999999523163,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 407.10000002384186,
+          "endMs": 441.39999997615814,
+          "durationMs": 34.299999952316284
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 380,
+        "height": 380,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.5,
+        "effectStart": 1,
+        "texturesReady": 393.60000002384186,
+        "texturedRenderEnd": 427.2999999523163
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.5,
+          "endMs": 0.5,
+          "durationMs": 0
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 1,
+          "endMs": 9.799999952316284,
+          "durationMs": 8.799999952316284
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 12.199999928474426,
+          "endMs": 38.5,
+          "durationMs": 26.300000071525574
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 38.5,
+          "endMs": 137.39999997615814,
+          "durationMs": 98.89999997615814
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 137.39999997615814,
+          "endMs": 246,
+          "durationMs": 108.60000002384186
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 246,
+          "endMs": 253.19999992847443,
+          "durationMs": 7.199999928474426
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 253.19999992847443,
+          "endMs": 265.5,
+          "durationMs": 12.300000071525574
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 265.5,
+          "endMs": 289.2999999523163,
+          "durationMs": 23.799999952316284
+        },
+        {
+          "name": "flatBase",
+          "startMs": 291.1999999284744,
+          "endMs": 364.89999997615814,
+          "durationMs": 73.70000004768372
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12,
+          "endMs": 364.89999997615814,
+          "durationMs": 352.89999997615814
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 364.89999997615814,
+          "endMs": 367.1999999284744,
+          "durationMs": 2.299999952316284
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 367.1999999284744,
+          "endMs": 368.39999997615814,
+          "durationMs": 1.2000000476837158
+        },
+        {
+          "name": "borderSource",
+          "startMs": 373.1999999284744,
+          "endMs": 373.39999997615814,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "photoSource",
+          "startMs": 373.1999999284744,
+          "endMs": 373.5,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 374.39999997615814,
+          "endMs": 388.1999999284744,
+          "durationMs": 13.799999952316284
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 373.1999999284744,
+          "endMs": 390.5,
+          "durationMs": 17.300000071525574
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 390.7999999523163,
+          "endMs": 390.7999999523163,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 390.7999999523163,
+          "endMs": 393.2999999523163,
+          "durationMs": 2.5
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 390.5,
+          "endMs": 393.39999997615814,
+          "durationMs": 2.899999976158142
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 373.1999999284744,
+          "endMs": 393.5,
+          "durationMs": 20.300000071525574
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 393.5,
+          "endMs": 393.6999999284744,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 394.89999997615814,
+          "endMs": 427.1999999284744,
+          "durationMs": 32.299999952316284
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 380,
+        "height": 380,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1,
+        "texturesReady": 387.39999997615814,
+        "texturedRenderEnd": 419.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 0.5,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 1,
+          "endMs": 9.699999928474426,
+          "durationMs": 8.699999928474426
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 12.199999928474426,
+          "endMs": 37.5,
+          "durationMs": 25.300000071525574
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 37.5,
+          "endMs": 127.39999997615814,
+          "durationMs": 89.89999997615814
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 127.39999997615814,
+          "endMs": 246.29999995231628,
+          "durationMs": 118.89999997615814
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 246.29999995231628,
+          "endMs": 253.29999995231628,
+          "durationMs": 7
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 253.29999995231628,
+          "endMs": 268.2999999523163,
+          "durationMs": 15
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 268.2999999523163,
+          "endMs": 293.60000002384186,
+          "durationMs": 25.300000071525574
+        },
+        {
+          "name": "flatBase",
+          "startMs": 296.7999999523163,
+          "endMs": 358.60000002384186,
+          "durationMs": 61.800000071525574
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 11.899999976158142,
+          "endMs": 358.60000002384186,
+          "durationMs": 346.7000000476837
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 358.60000002384186,
+          "endMs": 361.2999999523163,
+          "durationMs": 2.6999999284744263
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 361.2999999523163,
+          "endMs": 362.39999997615814,
+          "durationMs": 1.100000023841858
+        },
+        {
+          "name": "borderSource",
+          "startMs": 366.7999999523163,
+          "endMs": 367.10000002384186,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "photoSource",
+          "startMs": 366.7999999523163,
+          "endMs": 367.1999999284744,
+          "durationMs": 0.3999999761581421
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 368.1999999284744,
+          "endMs": 380.6999999284744,
+          "durationMs": 12.5
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 366.7999999523163,
+          "endMs": 382.2999999523163,
+          "durationMs": 15.5
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 382.5,
+          "endMs": 382.5,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 382.5,
+          "endMs": 386.89999997615814,
+          "durationMs": 4.399999976158142
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 382.2999999523163,
+          "endMs": 387,
+          "durationMs": 4.700000047683716
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 366.7999999523163,
+          "endMs": 387.10000002384186,
+          "durationMs": 20.300000071525574
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 387.10000002384186,
+          "endMs": 387.5,
+          "durationMs": 0.3999999761581421
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 389,
+          "endMs": 419.5,
+          "durationMs": 30.5
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 380,
+        "height": 380,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1.5,
+        "texturesReady": 395.1999999284744,
+        "texturedRenderEnd": 423.1999999284744
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 0.7999999523162842,
+          "durationMs": 0.3999999761581421
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 1.600000023841858,
+          "endMs": 7.899999976158142,
+          "durationMs": 6.299999952316284
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 10.399999976158142,
+          "endMs": 33.60000002384186,
+          "durationMs": 23.200000047683716
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 33.60000002384186,
+          "endMs": 141.29999995231628,
+          "durationMs": 107.69999992847443
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 141.29999995231628,
+          "endMs": 253.79999995231628,
+          "durationMs": 112.5
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 253.79999995231628,
+          "endMs": 259.5,
+          "durationMs": 5.700000047683716
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 259.5,
+          "endMs": 272.6999999284744,
+          "durationMs": 13.199999928474426
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 272.6999999284744,
+          "endMs": 296.6999999284744,
+          "durationMs": 24
+        },
+        {
+          "name": "flatBase",
+          "startMs": 299.7999999523163,
+          "endMs": 365.6999999284744,
+          "durationMs": 65.89999997615814
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 10,
+          "endMs": 365.6999999284744,
+          "durationMs": 355.6999999284744
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 365.7999999523163,
+          "endMs": 368.89999997615814,
+          "durationMs": 3.100000023841858
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 368.89999997615814,
+          "endMs": 370,
+          "durationMs": 1.100000023841858
+        },
+        {
+          "name": "borderSource",
+          "startMs": 373.89999997615814,
+          "endMs": 374.1999999284744,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 375.10000002384186,
+          "endMs": 388.89999997615814,
+          "durationMs": 13.799999952316284
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 373.89999997615814,
+          "endMs": 390.89999997615814,
+          "durationMs": 17
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 391.1999999284744,
+          "endMs": 391.1999999284744,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 391.1999999284744,
+          "endMs": 395.10000002384186,
+          "durationMs": 3.9000000953674316
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 390.89999997615814,
+          "endMs": 395.1999999284744,
+          "durationMs": 4.299999952316284
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 397.89999997615814,
+          "endMs": 423.1999999284744,
+          "durationMs": 25.299999952316284
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.40000009536743164,
+        "effectStart": 0.8000000715255737,
+        "texturesReady": 390.10000002384186,
+        "texturedRenderEnd": 414.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.40000009536743164,
+          "endMs": 0.5,
+          "durationMs": 0.09999990463256836
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8000000715255737,
+          "endMs": 7.800000071525574,
+          "durationMs": 7
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 10.200000047683716,
+          "endMs": 34.90000009536743,
+          "durationMs": 24.700000047683716
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 35,
+          "endMs": 131.60000002384186,
+          "durationMs": 96.60000002384186
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 131.60000002384186,
+          "endMs": 244.70000004768372,
+          "durationMs": 113.10000002384186
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 244.70000004768372,
+          "endMs": 250.40000009536743,
+          "durationMs": 5.700000047683716
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 250.40000009536743,
+          "endMs": 267.60000002384186,
+          "durationMs": 17.199999928474426
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 267.60000002384186,
+          "endMs": 291.90000009536743,
+          "durationMs": 24.300000071525574
+        },
+        {
+          "name": "flatBase",
+          "startMs": 294,
+          "endMs": 361,
+          "durationMs": 67
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 9.900000095367432,
+          "endMs": 361,
+          "durationMs": 351.09999990463257
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 361.10000002384186,
+          "endMs": 363.60000002384186,
+          "durationMs": 2.5
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 363.60000002384186,
+          "endMs": 366.40000009536743,
+          "durationMs": 2.8000000715255737
+        },
+        {
+          "name": "borderSource",
+          "startMs": 371,
+          "endMs": 371.2000000476837,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 372,
+          "endMs": 384.2000000476837,
+          "durationMs": 12.200000047683716
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 371,
+          "endMs": 386.60000002384186,
+          "durationMs": 15.600000023841858
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 386.90000009536743,
+          "endMs": 386.90000009536743,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 386.90000009536743,
+          "endMs": 390.10000002384186,
+          "durationMs": 3.1999999284744263
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 386.60000002384186,
+          "endMs": 390.10000002384186,
+          "durationMs": 3.5
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 391.7000000476837,
+          "endMs": 414.5,
+          "durationMs": 22.799999952316284
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 0.8999999761581421,
+        "texturesReady": 376.2999999523163,
+        "texturedRenderEnd": 399.09999990463257
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 0.5,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8999999761581421,
+          "endMs": 7.5,
+          "durationMs": 6.600000023841858
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 9.899999976158142,
+          "endMs": 34.39999997615814,
+          "durationMs": 24.5
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 34.39999997615814,
+          "endMs": 128,
+          "durationMs": 93.60000002384186
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 128,
+          "endMs": 238.59999990463257,
+          "durationMs": 110.59999990463257
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 238.59999990463257,
+          "endMs": 244.89999997615814,
+          "durationMs": 6.300000071525574
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 244.89999997615814,
+          "endMs": 259.7999999523163,
+          "durationMs": 14.899999976158142
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 259.7999999523163,
+          "endMs": 283.2999999523163,
+          "durationMs": 23.5
+        },
+        {
+          "name": "flatBase",
+          "startMs": 285.6999999284744,
+          "endMs": 347.5,
+          "durationMs": 61.800000071525574
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 9.699999928474426,
+          "endMs": 347.5,
+          "durationMs": 337.8000000715256
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 347.5,
+          "endMs": 349.2999999523163,
+          "durationMs": 1.7999999523162842
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 349.2999999523163,
+          "endMs": 351.1999999284744,
+          "durationMs": 1.899999976158142
+        },
+        {
+          "name": "borderSource",
+          "startMs": 356.5,
+          "endMs": 356.89999997615814,
+          "durationMs": 0.3999999761581421
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 357.5,
+          "endMs": 371.39999997615814,
+          "durationMs": 13.899999976158142
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 356.5,
+          "endMs": 373.5,
+          "durationMs": 17
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 373.7999999523163,
+          "endMs": 373.7999999523163,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 373.7999999523163,
+          "endMs": 376.1999999284744,
+          "durationMs": 2.399999976158142
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 373.5,
+          "endMs": 376.39999997615814,
+          "durationMs": 2.899999976158142
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 377.7999999523163,
+          "endMs": 399.09999990463257,
+          "durationMs": 21.299999952316284
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 0.8000000715255737,
+        "texturesReady": 463.39999997615814,
+        "texturedRenderEnd": 489.7000000476837
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 0.5,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8999999761581421,
+          "endMs": 7.700000047683716,
+          "durationMs": 6.800000071525574
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 10,
+          "endMs": 37.60000002384186,
+          "durationMs": 27.600000023841858
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 37.60000002384186,
+          "endMs": 207.5,
+          "durationMs": 169.89999997615814
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 207.5,
+          "endMs": 325.8000000715256,
+          "durationMs": 118.30000007152557
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 325.8000000715256,
+          "endMs": 332.3000000715256,
+          "durationMs": 6.5
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 332.3000000715256,
+          "endMs": 346.2000000476837,
+          "durationMs": 13.899999976158142
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 346.2000000476837,
+          "endMs": 371.5,
+          "durationMs": 25.299999952316284
+        },
+        {
+          "name": "flatBase",
+          "startMs": 373.39999997615814,
+          "endMs": 435.60000002384186,
+          "durationMs": 62.200000047683716
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 9.899999976158142,
+          "endMs": 435.60000002384186,
+          "durationMs": 425.7000000476837
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 435.7000000476837,
+          "endMs": 437.8000000715256,
+          "durationMs": 2.100000023841858
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 437.8000000715256,
+          "endMs": 438.89999997615814,
+          "durationMs": 1.0999999046325684
+        },
+        {
+          "name": "borderSource",
+          "startMs": 442.5,
+          "endMs": 442.8000000715256,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 443.5,
+          "endMs": 458.8000000715256,
+          "durationMs": 15.300000071525574
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 442.5,
+          "endMs": 460.7000000476837,
+          "durationMs": 18.200000047683716
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 460.89999997615814,
+          "endMs": 460.89999997615814,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 461,
+          "endMs": 463.39999997615814,
+          "durationMs": 2.399999976158142
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 460.7000000476837,
+          "endMs": 463.39999997615814,
+          "durationMs": 2.6999999284744263
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 465.2000000476837,
+          "endMs": 489.7000000476837,
+          "durationMs": 24.5
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.40000009536743164,
+        "effectStart": 1.100000023841858,
+        "texturesReady": 403.10000002384186,
+        "texturedRenderEnd": 429.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.40000009536743164,
+          "endMs": 0.6000000238418579,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 1.2000000476837158,
+          "endMs": 7,
+          "durationMs": 5.799999952316284
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 9.300000071525574,
+          "endMs": 38.200000047683716,
+          "durationMs": 28.899999976158142
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 38.200000047683716,
+          "endMs": 146.70000004768372,
+          "durationMs": 108.5
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 146.70000004768372,
+          "endMs": 257.40000009536743,
+          "durationMs": 110.70000004768372
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 257.40000009536743,
+          "endMs": 263.8000000715256,
+          "durationMs": 6.399999976158142
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 263.8000000715256,
+          "endMs": 277.60000002384186,
+          "durationMs": 13.799999952316284
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 277.60000002384186,
+          "endMs": 301.8000000715256,
+          "durationMs": 24.200000047683716
+        },
+        {
+          "name": "flatBase",
+          "startMs": 305.3000000715256,
+          "endMs": 374.2000000476837,
+          "durationMs": 68.89999997615814
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 9,
+          "endMs": 374.3000000715256,
+          "durationMs": 365.3000000715256
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 374.40000009536743,
+          "endMs": 376.90000009536743,
+          "durationMs": 2.5
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 376.90000009536743,
+          "endMs": 379,
+          "durationMs": 2.0999999046325684
+        },
+        {
+          "name": "borderSource",
+          "startMs": 383.90000009536743,
+          "endMs": 384.2000000476837,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 385.10000002384186,
+          "endMs": 397,
+          "durationMs": 11.899999976158142
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 383.90000009536743,
+          "endMs": 398.5,
+          "durationMs": 14.599999904632568
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 398.7000000476837,
+          "endMs": 398.7000000476837,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 398.7000000476837,
+          "endMs": 403,
+          "durationMs": 4.299999952316284
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 398.5,
+          "endMs": 403.10000002384186,
+          "durationMs": 4.600000023841858
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 405.3000000715256,
+          "endMs": 429.5,
+          "durationMs": 24.199999928474426
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 0.8000000715255737,
+        "texturesReady": 375.8000000715256,
+        "texturedRenderEnd": 404.60000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 0.3999999761581421,
+          "durationMs": 0.09999990463256836
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8000000715255737,
+          "endMs": 6.800000071525574,
+          "durationMs": 6
+        },
+        {
+          "name": "rimHeightField",
+          "startMs": 9,
+          "endMs": 32.39999997615814,
+          "durationMs": 23.399999976158142
+        },
+        {
+          "name": "rimTessellation",
+          "startMs": 32.39999997615814,
+          "endMs": 127.60000002384186,
+          "durationMs": 95.20000004768372
+        },
+        {
+          "name": "rimSurfaceVertices",
+          "startMs": 127.60000002384186,
+          "endMs": 238.30000007152557,
+          "durationMs": 110.70000004768372
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 238.30000007152557,
+          "endMs": 244.39999997615814,
+          "durationMs": 6.099999904632568
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 244.39999997615814,
+          "endMs": 258.60000002384186,
+          "durationMs": 14.200000047683716
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 258.60000002384186,
+          "endMs": 282.60000002384186,
+          "durationMs": 24
+        },
+        {
+          "name": "flatBase",
+          "startMs": 285.3000000715256,
+          "endMs": 347.39999997615814,
+          "durationMs": 62.09999990463257
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 8.800000071525574,
+          "endMs": 347.39999997615814,
+          "durationMs": 338.59999990463257
+        },
+        {
+          "name": "preparedVolume",
+          "startMs": 347.39999997615814,
+          "endMs": 350.2000000476837,
+          "durationMs": 2.8000000715255737
+        },
+        {
+          "name": "materialGroups",
+          "startMs": 350.3000000715256,
+          "endMs": 351.60000002384186,
+          "durationMs": 1.2999999523162842
+        },
+        {
+          "name": "borderSource",
+          "startMs": 356.2000000476837,
+          "endMs": 356.39999997615814,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 357.3000000715256,
+          "endMs": 370.89999997615814,
+          "durationMs": 13.599999904632568
+        },
+        {
+          "name": "borderLoadToOnload",
+          "startMs": 356.2000000476837,
+          "endMs": 372.8000000715256,
+          "durationMs": 16.600000023841858
+        },
+        {
+          "name": "preparedRelief",
+          "startMs": 373,
+          "endMs": 373,
+          "durationMs": 0
+        },
+        {
+          "name": "preparedDecorations",
+          "startMs": 373,
+          "endMs": 375.8000000715256,
+          "durationMs": 2.8000000715255737
+        },
+        {
+          "name": "borderCanvasAndDecorations",
+          "startMs": 372.8000000715256,
+          "endMs": 375.8000000715256,
+          "durationMs": 3
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 377.5,
+          "endMs": 404.60000002384186,
+          "durationMs": 27.100000023841858
+        }
+      ],
+      "triangles": 19288,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-prepared"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.5,
+        "effectStart": 4.5,
+        "texturesReady": 712.6999999284744,
+        "texturedRenderEnd": 727.6999999284744
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.5,
+          "endMs": 3.5,
+          "durationMs": 3
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 4.599999904632568,
+          "endMs": 11.599999904632568,
+          "durationMs": 7
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 20.09999990463257,
+          "endMs": 34.39999997615814,
+          "durationMs": 14.300000071525574
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 34.39999997615814,
+          "endMs": 215.29999995231628,
+          "durationMs": 180.89999997615814
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 215.29999995231628,
+          "endMs": 583.6999999284744,
+          "durationMs": 368.39999997615814
+        },
+        {
+          "name": "flatBase",
+          "startMs": 586.5999999046326,
+          "endMs": 691.2999999523163,
+          "durationMs": 104.70000004768372
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 13.699999928474426,
+          "endMs": 691.2999999523163,
+          "durationMs": 677.6000000238419
+        },
+        {
+          "name": "photoSource",
+          "startMs": 694.7999999523163,
+          "endMs": 694.8999999761581,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 695.7999999523163,
+          "endMs": 710.5999999046326,
+          "durationMs": 14.799999952316284
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 694.7999999523163,
+          "endMs": 712.3999999761581,
+          "durationMs": 17.600000023841858
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 712.3999999761581,
+          "endMs": 712.6999999284744,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 715.0999999046326,
+          "endMs": 727.6999999284744,
+          "durationMs": 12.600000023841858
+        }
+      ],
+      "triangles": 31980,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 2.299999952316284,
+        "texturesReady": 685.7999999523163,
+        "texturedRenderEnd": 700.0999999046326
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.7999999523162842,
+          "durationMs": 1.399999976158142
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.299999952316284,
+          "endMs": 11.399999976158142,
+          "durationMs": 9.100000023841858
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 18.699999928474426,
+          "endMs": 30.59999990463257,
+          "durationMs": 11.899999976158142
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 30.59999990463257,
+          "endMs": 203.89999997615814,
+          "durationMs": 173.30000007152557
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 203.89999997615814,
+          "endMs": 560,
+          "durationMs": 356.10000002384186
+        },
+        {
+          "name": "flatBase",
+          "startMs": 561.8999999761581,
+          "endMs": 665.3999999761581,
+          "durationMs": 103.5
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 13.5,
+          "endMs": 665.3999999761581,
+          "durationMs": 651.8999999761581
+        },
+        {
+          "name": "photoSource",
+          "startMs": 669.5999999046326,
+          "endMs": 669.7999999523163,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 670.6999999284744,
+          "endMs": 683.3999999761581,
+          "durationMs": 12.700000047683716
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 669.5,
+          "endMs": 685.6999999284744,
+          "durationMs": 16.199999928474426
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 685.6999999284744,
+          "endMs": 685.8999999761581,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 689,
+          "endMs": 700.0999999046326,
+          "durationMs": 11.099999904632568
+        }
+      ],
+      "triangles": 31980,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 5.600000023841858,
+        "texturesReady": 695.1000000238419,
+        "texturedRenderEnd": 711.1000000238419
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 4.600000023841858,
+          "durationMs": 4.299999952316284
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 5.600000023841858,
+          "endMs": 12.5,
+          "durationMs": 6.899999976158142
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 20.700000047683716,
+          "endMs": 35.300000071525574,
+          "durationMs": 14.600000023841858
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 35.300000071525574,
+          "endMs": 208.30000007152557,
+          "durationMs": 173
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 208.30000007152557,
+          "endMs": 558.3000000715256,
+          "durationMs": 350
+        },
+        {
+          "name": "flatBase",
+          "startMs": 560.8999999761581,
+          "endMs": 669,
+          "durationMs": 108.10000002384186
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 14.600000023841858,
+          "endMs": 669,
+          "durationMs": 654.3999999761581
+        },
+        {
+          "name": "photoSource",
+          "startMs": 675.5,
+          "endMs": 675.8000000715256,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 676.8000000715256,
+          "endMs": 692.8000000715256,
+          "durationMs": 16
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 675.5,
+          "endMs": 694.8999999761581,
+          "durationMs": 19.399999976158142
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 694.8999999761581,
+          "endMs": 695.1000000238419,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 696.8999999761581,
+          "endMs": 711.1000000238419,
+          "durationMs": 14.200000047683716
+        }
+      ],
+      "triangles": 31980,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.2999999523162842,
+        "effectStart": 2.700000047683716,
+        "texturesReady": 699.8999999761581,
+        "texturedRenderEnd": 713.6000000238419
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.2999999523162842,
+          "endMs": 1.7999999523162842,
+          "durationMs": 1.5
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.700000047683716,
+          "endMs": 12.299999952316284,
+          "durationMs": 9.599999904632568
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 18.700000047683716,
+          "endMs": 31.700000047683716,
+          "durationMs": 13
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 31.700000047683716,
+          "endMs": 210.20000004768372,
+          "durationMs": 178.5
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 210.20000004768372,
+          "endMs": 573.2000000476837,
+          "durationMs": 363
+        },
+        {
+          "name": "flatBase",
+          "startMs": 575.7000000476837,
+          "endMs": 680.2000000476837,
+          "durationMs": 104.5
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 14.299999952316284,
+          "endMs": 680.2000000476837,
+          "durationMs": 665.9000000953674
+        },
+        {
+          "name": "photoSource",
+          "startMs": 684.5,
+          "endMs": 684.7000000476837,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 685.7999999523163,
+          "endMs": 698.1000000238419,
+          "durationMs": 12.300000071525574
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 684.3999999761581,
+          "endMs": 699.7000000476837,
+          "durationMs": 15.300000071525574
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 699.7000000476837,
+          "endMs": 700,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 701.1000000238419,
+          "endMs": 713.6000000238419,
+          "durationMs": 12.5
+        }
+      ],
+      "triangles": 31980,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 2,
+        "texturesReady": 742.3999999761581,
+        "texturedRenderEnd": 755.0999999046326
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.399999976158142,
+          "durationMs": 1
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.0999999046325684,
+          "endMs": 7.799999952316284,
+          "durationMs": 5.700000047683716
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 14.899999976158142,
+          "endMs": 28.699999928474426,
+          "durationMs": 13.799999952316284
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 28.699999928474426,
+          "endMs": 200.59999990463257,
+          "durationMs": 171.89999997615814
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 200.59999990463257,
+          "endMs": 601.0999999046326,
+          "durationMs": 400.5
+        },
+        {
+          "name": "flatBase",
+          "startMs": 603.6999999284744,
+          "endMs": 722.8999999761581,
+          "durationMs": 119.20000004768372
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 10,
+          "endMs": 722.8999999761581,
+          "durationMs": 712.8999999761581
+        },
+        {
+          "name": "photoSource",
+          "startMs": 726.1999999284744,
+          "endMs": 726.5,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 727.5,
+          "endMs": 740.8999999761581,
+          "durationMs": 13.399999976158142
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 726.1999999284744,
+          "endMs": 742.1999999284744,
+          "durationMs": 16
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 742.1999999284744,
+          "endMs": 742.5,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 743.8999999761581,
+          "endMs": 755.0999999046326,
+          "durationMs": 11.199999928474426
+        }
+      ],
+      "triangles": 31980,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 2.399999976158142,
+        "texturesReady": 677.5999999046326,
+        "texturedRenderEnd": 690.8999999761581
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.5999999046325684,
+          "durationMs": 1.1999999284744263
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.5,
+          "endMs": 11.199999928474426,
+          "durationMs": 8.699999928474426
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 17.5,
+          "endMs": 30.299999952316284,
+          "durationMs": 12.799999952316284
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 30.299999952316284,
+          "endMs": 196.79999995231628,
+          "durationMs": 166.5
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 196.79999995231628,
+          "endMs": 548.2999999523163,
+          "durationMs": 351.5
+        },
+        {
+          "name": "flatBase",
+          "startMs": 550.1999999284744,
+          "endMs": 653.5,
+          "durationMs": 103.30000007152557
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 13.299999952316284,
+          "endMs": 653.5,
+          "durationMs": 640.2000000476837
+        },
+        {
+          "name": "photoSource",
+          "startMs": 658.5,
+          "endMs": 658.7999999523163,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 659.8999999761581,
+          "endMs": 675.6999999284744,
+          "durationMs": 15.799999952316284
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 658.5,
+          "endMs": 677.3999999761581,
+          "durationMs": 18.899999976158142
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 677.5,
+          "endMs": 677.6999999284744,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 678.8999999761581,
+          "endMs": 690.8999999761581,
+          "durationMs": 12
+        }
+      ],
+      "triangles": 31980,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.2999999523162842,
+        "effectStart": 2.700000047683716,
+        "texturesReady": 62.10000002384186,
+        "texturedRenderEnd": 74
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.2999999523162842,
+          "endMs": 2.100000023841858,
+          "durationMs": 1.8000000715255737
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 3.200000047683716,
+          "endMs": 9.299999952316284,
+          "durationMs": 6.099999904632568
+        },
+        {
+          "name": "flatBase",
+          "startMs": 17.299999952316284,
+          "endMs": 58.700000047683716,
+          "durationMs": 41.40000009536743
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 11.5,
+          "endMs": 58.700000047683716,
+          "durationMs": 47.200000047683716
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 62.89999997615814,
+          "endMs": 74,
+          "durationMs": 11.100000023841858
+        }
+      ],
+      "triangles": 12412,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 1.600000023841858,
+        "texturesReady": 61.5,
+        "texturedRenderEnd": 75
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 1.2000000476837158,
+          "durationMs": 0.8999999761581421
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.100000023841858,
+          "endMs": 8.700000047683716,
+          "durationMs": 6.600000023841858
+        },
+        {
+          "name": "flatBase",
+          "startMs": 17.600000023841858,
+          "endMs": 58,
+          "durationMs": 40.39999997615814
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 11.800000071525574,
+          "endMs": 58,
+          "durationMs": 46.199999928474426
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 62.39999997615814,
+          "endMs": 75,
+          "durationMs": 12.600000023841858
+        }
+      ],
+      "triangles": 12412,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 1.600000023841858,
+        "texturesReady": 59.700000047683716,
+        "texturedRenderEnd": 71.80000007152557
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 1.2000000476837158,
+          "durationMs": 0.8999999761581421
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.100000023841858,
+          "endMs": 8.400000095367432,
+          "durationMs": 6.300000071525574
+        },
+        {
+          "name": "flatBase",
+          "startMs": 16.300000071525574,
+          "endMs": 56.200000047683716,
+          "durationMs": 39.89999997615814
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 10.400000095367432,
+          "endMs": 56.300000071525574,
+          "durationMs": 45.89999997615814
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 60.5,
+          "endMs": 71.80000007152557,
+          "durationMs": 11.300000071525574
+        }
+      ],
+      "triangles": 12412,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1.7000000476837158,
+        "texturesReady": 61.700000047683716,
+        "texturedRenderEnd": 74.60000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.2000000476837158,
+          "durationMs": 0.8000000715255737
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.100000023841858,
+          "endMs": 8.200000047683716,
+          "durationMs": 6.100000023841858
+        },
+        {
+          "name": "flatBase",
+          "startMs": 16.399999976158142,
+          "endMs": 57.60000002384186,
+          "durationMs": 41.200000047683716
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 11.200000047683716,
+          "endMs": 57.60000002384186,
+          "durationMs": 46.39999997615814
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 62.5,
+          "endMs": 74.60000002384186,
+          "durationMs": 12.100000023841858
+        }
+      ],
+      "triangles": 12412,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1.7000000476837158,
+        "texturesReady": 60.5,
+        "texturedRenderEnd": 72.60000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.3000000715255737,
+          "durationMs": 0.9000000953674316
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.200000047683716,
+          "endMs": 9.100000023841858,
+          "durationMs": 6.899999976158142
+        },
+        {
+          "name": "flatBase",
+          "startMs": 16.800000071525574,
+          "endMs": 56.89999997615814,
+          "durationMs": 40.09999990463257
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 11.200000047683716,
+          "endMs": 56.89999997615814,
+          "durationMs": 45.699999928474426
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 61.300000071525574,
+          "endMs": 72.60000002384186,
+          "durationMs": 11.299999952316284
+        }
+      ],
+      "triangles": 12412,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1.7000000476837158,
+        "texturesReady": 61,
+        "texturedRenderEnd": 72.60000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.2000000476837158,
+          "durationMs": 0.8000000715255737
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.100000023841858,
+          "endMs": 8.799999952316284,
+          "durationMs": 6.699999928474426
+        },
+        {
+          "name": "flatBase",
+          "startMs": 15.899999976158142,
+          "endMs": 57.200000047683716,
+          "durationMs": 41.300000071525574
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 11,
+          "endMs": 57.200000047683716,
+          "durationMs": 46.200000047683716
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 61.700000047683716,
+          "endMs": 72.60000002384186,
+          "durationMs": 10.899999976158142
+        }
+      ],
+      "triangles": 12412,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-custom"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.2999999523162842,
+        "effectStart": 0.7000000476837158,
+        "texturesReady": 55.200000047683716,
+        "texturedRenderEnd": 76.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.2999999523162842,
+          "endMs": 0.2999999523162842,
+          "durationMs": 0
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.7000000476837158,
+          "endMs": 10.299999952316284,
+          "durationMs": 9.599999904632568
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.5,
+          "endMs": 12.5,
+          "durationMs": 0
+        },
+        {
+          "name": "photoSource",
+          "startMs": 14.799999952316284,
+          "endMs": 15.100000023841858,
+          "durationMs": 0.30000007152557373
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 15.700000047683716,
+          "endMs": 15.899999976158142,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 14.799999952316284,
+          "endMs": 17,
+          "durationMs": 2.200000047683716
+        },
+        {
+          "name": "imageOnlyGeometry",
+          "startMs": 17.5,
+          "endMs": 23.399999976158142,
+          "durationMs": 5.899999976158142
+        },
+        {
+          "name": "photoPixelExpansion",
+          "startMs": 30.100000023841858,
+          "endMs": 54.89999997615814,
+          "durationMs": 24.799999952316284
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 17,
+          "endMs": 55.39999997615814,
+          "durationMs": 38.39999997615814
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 55.60000002384186,
+          "endMs": 76.5,
+          "durationMs": 20.899999976158142
+        }
+      ],
+      "triangles": 108,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-image"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 0.8000000715255737,
+        "texturesReady": 61,
+        "texturedRenderEnd": 91.60000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 0.30000007152557373,
+          "durationMs": 0
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8999999761581421,
+          "endMs": 11.300000071525574,
+          "durationMs": 10.400000095367432
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 13.5,
+          "endMs": 13.5,
+          "durationMs": 0
+        },
+        {
+          "name": "photoSource",
+          "startMs": 16.300000071525574,
+          "endMs": 16.5,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 17.300000071525574,
+          "endMs": 17.399999976158142,
+          "durationMs": 0.09999990463256836
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 19.200000047683716,
+          "endMs": 19.300000071525574,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 16.300000071525574,
+          "endMs": 19.5,
+          "durationMs": 3.1999999284744263
+        },
+        {
+          "name": "imageOnlyGeometry",
+          "startMs": 19.600000023841858,
+          "endMs": 27,
+          "durationMs": 7.399999976158142
+        },
+        {
+          "name": "photoPixelExpansion",
+          "startMs": 28.700000047683716,
+          "endMs": 60.800000071525574,
+          "durationMs": 32.10000002384186
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 19.5,
+          "endMs": 61.10000002384186,
+          "durationMs": 41.60000002384186
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 69.80000007152557,
+          "endMs": 91.60000002384186,
+          "durationMs": 21.799999952316284
+        }
+      ],
+      "triangles": 108,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-image"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.19999992847442627,
+        "effectStart": 0.5999999046325684,
+        "texturesReady": 46.09999990463257,
+        "texturedRenderEnd": 64.89999997615814
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.19999992847442627,
+          "endMs": 0.19999992847442627,
+          "durationMs": 0
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.5999999046325684,
+          "endMs": 10.399999976158142,
+          "durationMs": 9.800000071525574
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.399999976158142,
+          "endMs": 12.399999976158142,
+          "durationMs": 0
+        },
+        {
+          "name": "photoSource",
+          "startMs": 14.899999976158142,
+          "endMs": 15,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 15.699999928474426,
+          "endMs": 15.799999952316284,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 14.799999952316284,
+          "endMs": 16.899999976158142,
+          "durationMs": 2.100000023841858
+        },
+        {
+          "name": "imageOnlyGeometry",
+          "startMs": 17.09999990463257,
+          "endMs": 22.09999990463257,
+          "durationMs": 5
+        },
+        {
+          "name": "photoPixelExpansion",
+          "startMs": 26.899999976158142,
+          "endMs": 46,
+          "durationMs": 19.100000023841858
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 16.899999976158142,
+          "endMs": 46.299999952316284,
+          "durationMs": 29.399999976158142
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 46.59999990463257,
+          "endMs": 64.79999995231628,
+          "durationMs": 18.200000047683716
+        }
+      ],
+      "triangles": 108,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-image"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 0.7000000476837158,
+        "texturesReady": 44.39999997615814,
+        "texturedRenderEnd": 63.10000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 0.30000007152557373,
+          "durationMs": 0
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.7000000476837158,
+          "endMs": 10.600000023841858,
+          "durationMs": 9.899999976158142
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.5,
+          "endMs": 12.5,
+          "durationMs": 0
+        },
+        {
+          "name": "photoSource",
+          "startMs": 14.899999976158142,
+          "endMs": 15.100000023841858,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 15.899999976158142,
+          "endMs": 16,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 14.899999976158142,
+          "endMs": 17,
+          "durationMs": 2.100000023841858
+        },
+        {
+          "name": "imageOnlyGeometry",
+          "startMs": 17.200000047683716,
+          "endMs": 21.100000023841858,
+          "durationMs": 3.899999976158142
+        },
+        {
+          "name": "photoPixelExpansion",
+          "startMs": 25.600000023841858,
+          "endMs": 44.200000047683716,
+          "durationMs": 18.600000023841858
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 17,
+          "endMs": 44.5,
+          "durationMs": 27.5
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 44.800000071525574,
+          "endMs": 63,
+          "durationMs": 18.199999928474426
+        }
+      ],
+      "triangles": 108,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-image"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 0.8000000715255737,
+        "texturesReady": 60.10000002384186,
+        "texturedRenderEnd": 79
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 0.30000007152557373,
+          "durationMs": 0
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8000000715255737,
+          "endMs": 10.5,
+          "durationMs": 9.699999928474426
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.700000047683716,
+          "endMs": 12.700000047683716,
+          "durationMs": 0
+        },
+        {
+          "name": "photoSource",
+          "startMs": 15.200000047683716,
+          "endMs": 15.300000071525574,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 16,
+          "endMs": 16.100000023841858,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 15,
+          "endMs": 17.100000023841858,
+          "durationMs": 2.100000023841858
+        },
+        {
+          "name": "imageOnlyGeometry",
+          "startMs": 17.300000071525574,
+          "endMs": 21.899999976158142,
+          "durationMs": 4.599999904632568
+        },
+        {
+          "name": "photoPixelExpansion",
+          "startMs": 25.800000071525574,
+          "endMs": 59.89999997615814,
+          "durationMs": 34.09999990463257
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 17.100000023841858,
+          "endMs": 60.200000047683716,
+          "durationMs": 43.10000002384186
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 60.5,
+          "endMs": 79,
+          "durationMs": 18.5
+        }
+      ],
+      "triangles": 108,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-image"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 0.8000000715255737,
+        "texturesReady": 51.300000071525574,
+        "texturedRenderEnd": 75.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 0.3999999761581421,
+          "durationMs": 0
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 0.8000000715255737,
+          "endMs": 11.100000023841858,
+          "durationMs": 10.299999952316284
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 13.899999976158142,
+          "endMs": 13.899999976158142,
+          "durationMs": 0
+        },
+        {
+          "name": "photoSource",
+          "startMs": 16.600000023841858,
+          "endMs": 16.800000071525574,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 17.600000023841858,
+          "endMs": 17.700000047683716,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 19.700000047683716,
+          "endMs": 19.800000071525574,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 16.600000023841858,
+          "endMs": 20.100000023841858,
+          "durationMs": 3.5
+        },
+        {
+          "name": "imageOnlyGeometry",
+          "startMs": 20.300000071525574,
+          "endMs": 25.5,
+          "durationMs": 5.199999928474426
+        },
+        {
+          "name": "photoPixelExpansion",
+          "startMs": 28.600000023841858,
+          "endMs": 51.10000002384186,
+          "durationMs": 22.5
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 20.100000023841858,
+          "endMs": 51.39999997615814,
+          "durationMs": 31.299999952316284
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 55,
+          "endMs": 75.5,
+          "durationMs": 20.5
+        }
+      ],
+      "triangles": 108,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-image"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 3.5,
+        "texturesReady": 630.1000000238419,
+        "texturedRenderEnd": 645.2000000476837
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 2.899999976158142,
+          "durationMs": 2.5999999046325684
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 3.5,
+          "endMs": 13.800000071525574,
+          "durationMs": 10.300000071525574
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 23.100000023841858,
+          "endMs": 40.10000002384186,
+          "durationMs": 17
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 40.10000002384186,
+          "endMs": 165.80000007152557,
+          "durationMs": 125.70000004768372
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 165.80000007152557,
+          "endMs": 485.7000000476837,
+          "durationMs": 319.89999997615814
+        },
+        {
+          "name": "flatBase",
+          "startMs": 488.89999997615814,
+          "endMs": 607.1000000238419,
+          "durationMs": 118.20000004768372
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 16.300000071525574,
+          "endMs": 607.1000000238419,
+          "durationMs": 590.7999999523163
+        },
+        {
+          "name": "photoSource",
+          "startMs": 611.2000000476837,
+          "endMs": 611.3999999761581,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 612.3999999761581,
+          "endMs": 628.1000000238419,
+          "durationMs": 15.700000047683716
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 611.2000000476837,
+          "endMs": 630,
+          "durationMs": 18.799999952316284
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 630,
+          "endMs": 630.1000000238419,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 631.3999999761581,
+          "endMs": 645.2000000476837,
+          "durationMs": 13.800000071525574
+        }
+      ],
+      "triangles": 28160,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.30000007152557373,
+        "effectStart": 4.300000071525574,
+        "texturesReady": 608.3000000715256,
+        "texturedRenderEnd": 618
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.30000007152557373,
+          "endMs": 3.600000023841858,
+          "durationMs": 3.299999952316284
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 4.300000071525574,
+          "endMs": 12.100000023841858,
+          "durationMs": 7.799999952316284
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 20,
+          "endMs": 33.700000047683716,
+          "durationMs": 13.700000047683716
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 33.700000047683716,
+          "endMs": 155,
+          "durationMs": 121.29999995231628
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 155,
+          "endMs": 467.3000000715256,
+          "durationMs": 312.3000000715256
+        },
+        {
+          "name": "flatBase",
+          "startMs": 470.8000000715256,
+          "endMs": 584,
+          "durationMs": 113.19999992847443
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 14.100000023841858,
+          "endMs": 584,
+          "durationMs": 569.8999999761581
+        },
+        {
+          "name": "photoSource",
+          "startMs": 591.1000000238419,
+          "endMs": 591.6000000238419,
+          "durationMs": 0.5
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 592.5,
+          "endMs": 606.1000000238419,
+          "durationMs": 13.600000023841858
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 591.1000000238419,
+          "endMs": 608.1000000238419,
+          "durationMs": 17
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 608.1000000238419,
+          "endMs": 608.3000000715256,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 609.5,
+          "endMs": 618,
+          "durationMs": 8.5
+        }
+      ],
+      "triangles": 28160,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.20000004768371582,
+        "effectStart": 2,
+        "texturesReady": 567.2999999523163,
+        "texturedRenderEnd": 581.1000000238419
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.20000004768371582,
+          "endMs": 1.5,
+          "durationMs": 1.2999999523162842
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2,
+          "endMs": 11.799999952316284,
+          "durationMs": 9.799999952316284
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 18.299999952316284,
+          "endMs": 32.10000002384186,
+          "durationMs": 13.800000071525574
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 32.10000002384186,
+          "endMs": 142.10000002384186,
+          "durationMs": 110
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 142.20000004768372,
+          "endMs": 444.39999997615814,
+          "durationMs": 302.1999999284744
+        },
+        {
+          "name": "flatBase",
+          "startMs": 446.10000002384186,
+          "endMs": 545.7999999523163,
+          "durationMs": 99.69999992847443
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 13.899999976158142,
+          "endMs": 545.7999999523163,
+          "durationMs": 531.8999999761581
+        },
+        {
+          "name": "photoSource",
+          "startMs": 549.5,
+          "endMs": 549.7000000476837,
+          "durationMs": 0.20000004768371582
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 550.6000000238419,
+          "endMs": 565.6000000238419,
+          "durationMs": 15
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 549.5,
+          "endMs": 567.1000000238419,
+          "durationMs": 17.600000023841858
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 567.1000000238419,
+          "endMs": 567.3999999761581,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 568.7000000476837,
+          "endMs": 581.1000000238419,
+          "durationMs": 12.399999976158142
+        }
+      ],
+      "triangles": 28160,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 2.600000023841858,
+        "texturesReady": 568.3999999761581,
+        "texturedRenderEnd": 582.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 2,
+          "durationMs": 1.600000023841858
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.600000023841858,
+          "endMs": 12.700000047683716,
+          "durationMs": 10.100000023841858
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 19.5,
+          "endMs": 32.200000047683716,
+          "durationMs": 12.700000047683716
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 32.300000071525574,
+          "endMs": 137.20000004768372,
+          "durationMs": 104.89999997615814
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 137.20000004768372,
+          "endMs": 446.39999997615814,
+          "durationMs": 309.1999999284744
+        },
+        {
+          "name": "flatBase",
+          "startMs": 447.8000000715256,
+          "endMs": 547.3999999761581,
+          "durationMs": 99.59999990463257
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 15,
+          "endMs": 547.3999999761581,
+          "durationMs": 532.3999999761581
+        },
+        {
+          "name": "photoSource",
+          "startMs": 551.3999999761581,
+          "endMs": 551.5,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 552.7000000476837,
+          "endMs": 566.2000000476837,
+          "durationMs": 13.5
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 551.3000000715256,
+          "endMs": 567.8999999761581,
+          "durationMs": 16.59999990463257
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 567.8999999761581,
+          "endMs": 568.3999999761581,
+          "durationMs": 0.5
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 571.3000000715256,
+          "endMs": 582.5,
+          "durationMs": 11.199999928474426
+        }
+      ],
+      "triangles": 28160,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.20000004768371582,
+        "effectStart": 2.299999952316284,
+        "texturesReady": 566.2000000476837,
+        "texturedRenderEnd": 579.2999999523163
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.20000004768371582,
+          "endMs": 1.7000000476837158,
+          "durationMs": 1.5
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.399999976158142,
+          "endMs": 12.200000047683716,
+          "durationMs": 9.800000071525574
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 20,
+          "endMs": 33,
+          "durationMs": 13
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 33,
+          "endMs": 136.79999995231628,
+          "durationMs": 103.79999995231628
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 136.79999995231628,
+          "endMs": 441.7000000476837,
+          "durationMs": 304.90000009536743
+        },
+        {
+          "name": "flatBase",
+          "startMs": 443.10000002384186,
+          "endMs": 546.7000000476837,
+          "durationMs": 103.60000002384186
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 14.700000047683716,
+          "endMs": 546.7000000476837,
+          "durationMs": 532
+        },
+        {
+          "name": "photoSource",
+          "startMs": 550.5,
+          "endMs": 550.7999999523163,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 552.2000000476837,
+          "endMs": 564.6000000238419,
+          "durationMs": 12.399999976158142
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 550.5,
+          "endMs": 566,
+          "durationMs": 15.5
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 566,
+          "endMs": 566.2999999523163,
+          "durationMs": 0.2999999523162842
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 567.6000000238419,
+          "endMs": 579.2999999523163,
+          "durationMs": 11.699999928474426
+        }
+      ],
+      "triangles": 28160,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.19999992847442627,
+        "effectStart": 1.7999999523162842,
+        "texturesReady": 562.2999999523163,
+        "texturedRenderEnd": 577.1999999284744
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.19999992847442627,
+          "endMs": 1.2999999523162842,
+          "durationMs": 1.100000023841858
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 1.7999999523162842,
+          "endMs": 10.199999928474426,
+          "durationMs": 8.399999976158142
+        },
+        {
+          "name": "photoHeightField",
+          "startMs": 16.899999976158142,
+          "endMs": 30.600000023841858,
+          "durationMs": 13.700000047683716
+        },
+        {
+          "name": "photoTessellation",
+          "startMs": 30.600000023841858,
+          "endMs": 142.10000002384186,
+          "durationMs": 111.5
+        },
+        {
+          "name": "photoSurfaceVertices",
+          "startMs": 142.19999992847443,
+          "endMs": 441.5,
+          "durationMs": 299.3000000715256
+        },
+        {
+          "name": "flatBase",
+          "startMs": 442.89999997615814,
+          "endMs": 538.5,
+          "durationMs": 95.60000002384186
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.5,
+          "endMs": 538.6000000238419,
+          "durationMs": 526.1000000238419
+        },
+        {
+          "name": "photoSource",
+          "startMs": 543,
+          "endMs": 543.1999999284744,
+          "durationMs": 0.19999992847442627
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 544.1000000238419,
+          "endMs": 560.6999999284744,
+          "durationMs": 16.59999990463257
+        },
+        {
+          "name": "photoLoadToOnload",
+          "startMs": 542.8999999761581,
+          "endMs": 562.1999999284744,
+          "durationMs": 19.299999952316284
+        },
+        {
+          "name": "photoCanvasAndTexture",
+          "startMs": 562.1999999284744,
+          "endMs": 562.2999999523163,
+          "durationMs": 0.10000002384185791
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 564.1000000238419,
+          "endMs": 577.1999999284744,
+          "durationMs": 13.099999904632568
+        }
+      ],
+      "triangles": 28160,
+      "viewport": {
+        "width": 420,
+        "height": 420,
+        "pixelRatio": 1.25
+      },
+      "caseId": "detail-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.2999999523162842,
+        "effectStart": 3.5,
+        "texturesReady": 65.10000002384186,
+        "texturedRenderEnd": 77.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.2999999523162842,
+          "endMs": 2.799999952316284,
+          "durationMs": 2.5
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 4.100000023841858,
+          "endMs": 10.600000023841858,
+          "durationMs": 6.5
+        },
+        {
+          "name": "flatBase",
+          "startMs": 18.699999928474426,
+          "endMs": 61.60000002384186,
+          "durationMs": 42.90000009536743
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 12.699999928474426,
+          "endMs": 61.60000002384186,
+          "durationMs": 48.90000009536743
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 66.10000002384186,
+          "endMs": 77.5,
+          "durationMs": 11.399999976158142
+        }
+      ],
+      "triangles": 13268,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.2999999523162842,
+        "effectStart": 1.899999976158142,
+        "texturesReady": 62.60000002384186,
+        "texturedRenderEnd": 76.10000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.2999999523162842,
+          "endMs": 1.5,
+          "durationMs": 1.2000000476837158
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.5,
+          "endMs": 8.899999976158142,
+          "durationMs": 6.399999976158142
+        },
+        {
+          "name": "flatBase",
+          "startMs": 16.399999976158142,
+          "endMs": 59.10000002384186,
+          "durationMs": 42.700000047683716
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 11.100000023841858,
+          "endMs": 59.10000002384186,
+          "durationMs": 48
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 63.5,
+          "endMs": 76.10000002384186,
+          "durationMs": 12.600000023841858
+        }
+      ],
+      "triangles": 13268,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.20000004768371582,
+        "effectStart": 1.8000000715255737,
+        "texturesReady": 62,
+        "texturedRenderEnd": 75.40000009536743
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.20000004768371582,
+          "endMs": 1.5,
+          "durationMs": 1.2999999523162842
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.700000047683716,
+          "endMs": 8.400000095367432,
+          "durationMs": 5.700000047683716
+        },
+        {
+          "name": "flatBase",
+          "startMs": 15.800000071525574,
+          "endMs": 58.60000002384186,
+          "durationMs": 42.799999952316284
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 10.600000023841858,
+          "endMs": 58.60000002384186,
+          "durationMs": 48
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 62.800000071525574,
+          "endMs": 75.40000009536743,
+          "durationMs": 12.600000023841858
+        }
+      ],
+      "triangles": 13268,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1.899999976158142,
+        "texturesReady": 62,
+        "texturedRenderEnd": 75.29999995231628
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.399999976158142,
+          "durationMs": 1
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.5,
+          "endMs": 8.100000023841858,
+          "durationMs": 5.600000023841858
+        },
+        {
+          "name": "flatBase",
+          "startMs": 15.299999952316284,
+          "endMs": 58.299999952316284,
+          "durationMs": 43
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 10.299999952316284,
+          "endMs": 58.299999952316284,
+          "durationMs": 48
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 62.799999952316284,
+          "endMs": 75.29999995231628,
+          "durationMs": 12.5
+        }
+      ],
+      "triangles": 13268,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.3999999761581421,
+        "effectStart": 1.7999999523162842,
+        "texturesReady": 61.09999990463257,
+        "texturedRenderEnd": 74.5
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.3999999761581421,
+          "endMs": 1.399999976158142,
+          "durationMs": 1
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.5,
+          "endMs": 8.5,
+          "durationMs": 6
+        },
+        {
+          "name": "flatBase",
+          "startMs": 15.799999952316284,
+          "endMs": 57.59999990463257,
+          "durationMs": 41.799999952316284
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 10.5,
+          "endMs": 57.59999990463257,
+          "durationMs": 47.09999990463257
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 61.799999952316284,
+          "endMs": 74.5,
+          "durationMs": 12.700000047683716
+        }
+      ],
+      "triangles": 13268,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-irregular"
+    },
+    {
+      "version": 1,
+      "status": "complete",
+      "marks": {
+        "componentRender": 0.40000009536743164,
+        "effectStart": 1.8000000715255737,
+        "texturesReady": 59.90000009536743,
+        "texturedRenderEnd": 73.10000002384186
+      },
+      "spans": [
+        {
+          "name": "profile",
+          "startMs": 0.40000009536743164,
+          "endMs": 1.4000000953674316,
+          "durationMs": 1
+        },
+        {
+          "name": "rendererInit",
+          "startMs": 2.5,
+          "endMs": 8.200000047683716,
+          "durationMs": 5.700000047683716
+        },
+        {
+          "name": "flatBase",
+          "startMs": 15.300000071525574,
+          "endMs": 56.5,
+          "durationMs": 41.199999928474426
+        },
+        {
+          "name": "bodyGeometry",
+          "startMs": 10.200000047683716,
+          "endMs": 56.5,
+          "durationMs": 46.299999952316284
+        },
+        {
+          "name": "renderSubmit",
+          "startMs": 60.700000047683716,
+          "endMs": 73.10000002384186,
+          "durationMs": 12.399999976158142
+        }
+      ],
+      "triangles": 13268,
+      "viewport": {
+        "width": 456,
+        "height": 456,
+        "pixelRatio": 1.25
+      },
+      "caseId": "create-irregular"
+    }
+  ],
+  "productionPortraitObservation": {
+    "includesAutomationOverhead": true,
+    "trials": [
+      {
+        "run": 1,
+        "observedMs": 1621,
+        "ready": true
+      },
+      {
+        "run": 2,
+        "observedMs": 1608,
+        "ready": true
+      },
+      {
+        "run": 3,
+        "observedMs": 1387,
+        "ready": true
+      },
+      {
+        "run": 4,
+        "observedMs": 1469,
+        "ready": true
+      },
+      {
+        "run": 5,
+        "observedMs": 1265,
+        "ready": true
+      },
+      {
+        "run": 6,
+        "observedMs": 1322,
+        "ready": true
+      }
+    ]
+  }
+}
