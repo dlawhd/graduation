@@ -1,0 +1,1983 @@
+{
+  "version": 1,
+  "baselineRef": "504f3b6",
+  "environment": {
+    "node": "v24.14.0",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "method": "같은 Node 프로세스에서 각 구현 3회 예열 후 순서를 번갈아 7쌍 실행. CPU 모양 계산만 측정하며 이미지 요청·GPU·화면 전환은 제외.",
+  "results": [
+    {
+      "caseId": "ROUND:filled",
+      "beforeMedianMs": 977.8163999999997,
+      "afterMedianMs": 1184.3774000000012,
+      "reductionPercent": -21.12472239164751,
+      "photoVerticesBeforeMs": 549.1645000000026,
+      "photoVerticesAfterMs": 105.06710000000021,
+      "geometryIdentical": true,
+      "before": [
+        {
+          "durationMs": 934.7285000000002,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 6.9570999999996275,
+              "endMs": 24.6862000000001,
+              "durationMs": 17.72910000000047
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 24.701900000000023,
+              "endMs": 221.48160000000007,
+              "durationMs": 196.77970000000005
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 221.49079999999958,
+              "endMs": 741.7496000000001,
+              "durationMs": 520.2588000000005
+            },
+            {
+              "name": "flatBase",
+              "startMs": 749.5245999999997,
+              "endMs": 934.7107999999998,
+              "durationMs": 185.1862000000001
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.008299999999508145,
+              "endMs": 934.7309999999998,
+              "durationMs": 934.7227000000003
+            }
+          ]
+        },
+        {
+          "durationMs": 1694.0087999999996,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 13.558500000001004,
+              "endMs": 45.08470000000125,
+              "durationMs": 31.526200000000244
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 45.11230000000069,
+              "endMs": 411.3493000000017,
+              "durationMs": 366.237000000001
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 411.3665000000001,
+              "endMs": 1135.0179000000007,
+              "durationMs": 723.6514000000006
+            },
+            {
+              "name": "flatBase",
+              "startMs": 1145.4051,
+              "endMs": 1693.9847000000009,
+              "durationMs": 548.5796000000009
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.014100000000325963,
+              "endMs": 1694.0139,
+              "durationMs": 1693.9997999999996
+            }
+          ]
+        },
+        {
+          "durationMs": 3270.027899999999,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 37.26100000000042,
+              "endMs": 90.0560000000005,
+              "durationMs": 52.79500000000007
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 90.07389999999941,
+              "endMs": 815.4547999999995,
+              "durationMs": 725.3809000000001
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 815.4784,
+              "endMs": 2479.7829999999994,
+              "durationMs": 1664.3045999999995
+            },
+            {
+              "name": "flatBase",
+              "startMs": 2490.5118999999995,
+              "endMs": 3270.008,
+              "durationMs": 779.4961000000003
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.006199999999807915,
+              "endMs": 3270.0300000000007,
+              "durationMs": 3270.023800000001
+            }
+          ]
+        },
+        {
+          "durationMs": 2217.892999999998,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 24.749300000001313,
+              "endMs": 73.19040000000132,
+              "durationMs": 48.441100000000006
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 73.23070000000189,
+              "endMs": 682.2421000000013,
+              "durationMs": 609.0113999999994
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 682.2577000000001,
+              "endMs": 2067.1345999999994,
+              "durationMs": 1384.8768999999993
+            },
+            {
+              "name": "flatBase",
+              "startMs": 2071.223200000002,
+              "endMs": 2217.883200000002,
+              "durationMs": 146.65999999999985
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0033999999996012775,
+              "endMs": 2217.892600000001,
+              "durationMs": 2217.8892000000014
+            }
+          ]
+        },
+        {
+          "durationMs": 896.6195999999982,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 16.316800000000512,
+              "endMs": 39.18710000000283,
+              "durationMs": 22.870300000002317
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 39.19920000000275,
+              "endMs": 239.6205000000009,
+              "durationMs": 200.42129999999815
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 239.63030000000072,
+              "endMs": 756.6741000000002,
+              "durationMs": 517.0437999999995
+            },
+            {
+              "name": "flatBase",
+              "startMs": 761.9197000000022,
+              "endMs": 896.6074000000008,
+              "durationMs": 134.68769999999859
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0020000000004074536,
+              "endMs": 896.6188000000002,
+              "durationMs": 896.6167999999998
+            }
+          ]
+        },
+        {
+          "durationMs": 977.8163999999997,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 7.63010000000213,
+              "endMs": 25.51380000000063,
+              "durationMs": 17.8836999999985
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 25.523300000000745,
+              "endMs": 235.8104999999996,
+              "durationMs": 210.28719999999885
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 235.821899999999,
+              "endMs": 784.9864000000016,
+              "durationMs": 549.1645000000026
+            },
+            {
+              "name": "flatBase",
+              "startMs": 788.175900000002,
+              "endMs": 977.8017,
+              "durationMs": 189.62579999999798
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.00210000000151922,
+              "endMs": 977.8126000000011,
+              "durationMs": 977.8104999999996
+            }
+          ]
+        },
+        {
+          "durationMs": 925.2013000000006,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 17.377800000002026,
+              "endMs": 37.76339999999982,
+              "durationMs": 20.385599999997794
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 37.77340000000186,
+              "endMs": 262.1892000000007,
+              "durationMs": 224.41579999999885
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 262.20130000000063,
+              "endMs": 778.4766000000018,
+              "durationMs": 516.2753000000012
+            },
+            {
+              "name": "flatBase",
+              "startMs": 782.5133000000023,
+              "endMs": 925.190300000002,
+              "durationMs": 142.67699999999968
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.00210000000151922,
+              "endMs": 925.1990000000005,
+              "durationMs": 925.196899999999
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "durationMs": 1343.0659999999998,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 38.11120000000028,
+              "endMs": 156.78710000000046,
+              "durationMs": 118.67590000000018
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 156.82360000000062,
+              "endMs": 771.1190999999999,
+              "durationMs": 614.2954999999993
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 771.2259000000004,
+              "endMs": 919.4324999999999,
+              "durationMs": 148.20659999999953
+            },
+            {
+              "name": "flatBase",
+              "startMs": 929.3726999999999,
+              "endMs": 1343.0602,
+              "durationMs": 413.6875
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.011199999999917054,
+              "endMs": 1343.0722000000005,
+              "durationMs": 1343.0610000000006
+            }
+          ]
+        },
+        {
+          "durationMs": 1194.3905000000004,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 32.27590000000055,
+              "endMs": 76.85490000000027,
+              "durationMs": 44.57899999999972
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 76.88040000000001,
+              "endMs": 857.5599000000011,
+              "durationMs": 780.6795000000011
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 857.6536000000006,
+              "endMs": 962.7207000000008,
+              "durationMs": 105.06710000000021
+            },
+            {
+              "name": "flatBase",
+              "startMs": 972.9978999999994,
+              "endMs": 1194.4124999999995,
+              "durationMs": 221.41460000000006
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.042699999999967986,
+              "endMs": 1194.4250999999995,
+              "durationMs": 1194.3823999999995
+            }
+          ]
+        },
+        {
+          "durationMs": 1505.0702,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 34.141200000000026,
+              "endMs": 87.3716000000004,
+              "durationMs": 53.23040000000037
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 87.40910000000076,
+              "endMs": 732.2579000000005,
+              "durationMs": 644.8487999999998
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 732.3449999999993,
+              "endMs": 942.4626000000007,
+              "durationMs": 210.1176000000014
+            },
+            {
+              "name": "flatBase",
+              "startMs": 968.5357000000004,
+              "endMs": 1505.0429000000004,
+              "durationMs": 536.5072
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.002300000000104774,
+              "endMs": 1505.0686000000005,
+              "durationMs": 1505.0663000000004
+            }
+          ]
+        },
+        {
+          "durationMs": 1184.3774000000012,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 26.568299999999,
+              "endMs": 83.26499999999942,
+              "durationMs": 56.69670000000042
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 83.29500000000007,
+              "endMs": 667.7374,
+              "durationMs": 584.4423999999999
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 668.0720000000001,
+              "endMs": 819.3940999999995,
+              "durationMs": 151.3220999999994
+            },
+            {
+              "name": "flatBase",
+              "startMs": 831.7572,
+              "endMs": 1184.3482999999997,
+              "durationMs": 352.59109999999964
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0033999999996012775,
+              "endMs": 1184.3636000000006,
+              "durationMs": 1184.360200000001
+            }
+          ]
+        },
+        {
+          "durationMs": 449.2662999999993,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 8.665399999998044,
+              "endMs": 26.701099999998405,
+              "durationMs": 18.03570000000036
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 26.71059999999852,
+              "endMs": 253.6788000000015,
+              "durationMs": 226.96820000000298
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 253.7471000000005,
+              "endMs": 314.33480000000054,
+              "durationMs": 60.58770000000004
+            },
+            {
+              "name": "flatBase",
+              "startMs": 320.9965999999986,
+              "endMs": 449.255799999999,
+              "durationMs": 128.25920000000042
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0017000000007101335,
+              "endMs": 449.26550000000134,
+              "durationMs": 449.26380000000063
+            }
+          ]
+        },
+        {
+          "durationMs": 488.11359999999695,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 6.165999999997439,
+              "endMs": 24.252300000000105,
+              "durationMs": 18.086300000002666
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 24.262299999998504,
+              "endMs": 246.02279999999882,
+              "durationMs": 221.76050000000032
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 246.09219999999914,
+              "endMs": 311.23409999999785,
+              "durationMs": 65.14189999999871
+            },
+            {
+              "name": "flatBase",
+              "startMs": 316.400999999998,
+              "endMs": 488.09709999999905,
+              "durationMs": 171.69610000000102
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0017000000007101335,
+              "endMs": 488.1100000000006,
+              "durationMs": 488.1082999999999
+            }
+          ]
+        },
+        {
+          "durationMs": 475.4715999999971,
+          "signature": {
+            "sha256": "f344dd5580b6be1d73d59a0c28651cf6343e3262ab1d6de27682b3d3630130ff",
+            "vertices": 16122,
+            "triangles": 31980
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 10.420999999998457,
+              "endMs": 26.945499999997992,
+              "durationMs": 16.524499999999534
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 26.95550000000003,
+              "endMs": 259.35979999999836,
+              "durationMs": 232.40429999999833
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 259.4044999999969,
+              "endMs": 318.7603999999992,
+              "durationMs": 59.35590000000229
+            },
+            {
+              "name": "flatBase",
+              "startMs": 326.0298999999977,
+              "endMs": 475.4607999999971,
+              "durationMs": 149.43089999999938
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.002099999997881241,
+              "endMs": 475.47099999999773,
+              "durationMs": 475.46889999999985
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "IRREGULAR:filled",
+      "beforeMedianMs": 2023.4599999999991,
+      "afterMedianMs": 997.634100000003,
+      "reductionPercent": 50.69662360511187,
+      "photoVerticesBeforeMs": 1259.484000000004,
+      "photoVerticesAfterMs": 135.65380000000005,
+      "geometryIdentical": true,
+      "before": [
+        {
+          "durationMs": 851.9890000000014,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 9.266200000001845,
+              "endMs": 27.00500000000102,
+              "durationMs": 17.738799999999173
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 27.014999999999418,
+              "endMs": 200.5145999999986,
+              "durationMs": 173.4995999999992
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 200.52520000000004,
+              "endMs": 698.4494999999988,
+              "durationMs": 497.92429999999877
+            },
+            {
+              "name": "flatBase",
+              "startMs": 704.3198000000011,
+              "endMs": 851.9658000000018,
+              "durationMs": 147.64600000000064
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0020000000004074536,
+              "endMs": 851.9864000000016,
+              "durationMs": 851.9844000000012
+            }
+          ]
+        },
+        {
+          "durationMs": 2765.398100000002,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 59.138199999997596,
+              "endMs": 229.8827999999994,
+              "durationMs": 170.7446000000018
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 229.8953999999976,
+              "endMs": 947.1937999999973,
+              "durationMs": 717.2983999999997
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 947.2070999999996,
+              "endMs": 2302.615899999997,
+              "durationMs": 1355.4087999999974
+            },
+            {
+              "name": "flatBase",
+              "startMs": 2313.7971999999972,
+              "endMs": 2765.382599999997,
+              "durationMs": 451.58539999999994
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.006599999996979022,
+              "endMs": 2765.3993999999984,
+              "durationMs": 2765.3928000000014
+            }
+          ]
+        },
+        {
+          "durationMs": 2586.6487000000016,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 75.18239999999787,
+              "endMs": 124.73629999999685,
+              "durationMs": 49.553899999998976
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 124.75019999999859,
+              "endMs": 583.0318999999981,
+              "durationMs": 458.28169999999955
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 583.0535999999993,
+              "endMs": 2173.270499999995,
+              "durationMs": 1590.2168999999958
+            },
+            {
+              "name": "flatBase",
+              "startMs": 2181.4480000000003,
+              "endMs": 2586.627199999999,
+              "durationMs": 405.1791999999987
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.002799999998387648,
+              "endMs": 2586.647000000001,
+              "durationMs": 2586.6442000000025
+            }
+          ]
+        },
+        {
+          "durationMs": 2004.8459000000003,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 24.373500000001513,
+              "endMs": 69.13840000000346,
+              "durationMs": 44.764900000001944
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 69.15770000000339,
+              "endMs": 494.22260000000097,
+              "durationMs": 425.0648999999976
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 494.2367000000013,
+              "endMs": 1701.2597000000023,
+              "durationMs": 1207.023000000001
+            },
+            {
+              "name": "flatBase",
+              "startMs": 1711.3373000000065,
+              "endMs": 2004.823900000003,
+              "durationMs": 293.48659999999654
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0029000000067753717,
+              "endMs": 2004.8442000000068,
+              "durationMs": 2004.8413
+            }
+          ]
+        },
+        {
+          "durationMs": 2019.7464000000036,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 22.243200000004435,
+              "endMs": 60.804700000000594,
+              "durationMs": 38.56149999999616
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 60.823199999998906,
+              "endMs": 422.7095000000045,
+              "durationMs": 361.8863000000056
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 422.72269999999844,
+              "endMs": 1682.2067000000025,
+              "durationMs": 1259.484000000004
+            },
+            {
+              "name": "flatBase",
+              "startMs": 1693.4386999999988,
+              "endMs": 2019.7325000000055,
+              "durationMs": 326.29380000000674
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.008600000001024455,
+              "endMs": 2019.7418000000034,
+              "durationMs": 2019.7332000000024
+            }
+          ]
+        },
+        {
+          "durationMs": 2023.4599999999991,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 29.302300000003015,
+              "endMs": 74.39390000000276,
+              "durationMs": 45.091599999999744
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 74.40669999999955,
+              "endMs": 482.3076000000001,
+              "durationMs": 407.90090000000055
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 482.3292999999976,
+              "endMs": 1706.4963999999964,
+              "durationMs": 1224.1670999999988
+            },
+            {
+              "name": "flatBase",
+              "startMs": 1729.1489999999976,
+              "endMs": 2023.4449000000022,
+              "durationMs": 294.2959000000046
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.005700000001525041,
+              "endMs": 2023.4614999999976,
+              "durationMs": 2023.455799999996
+            }
+          ]
+        },
+        {
+          "durationMs": 2100.9216000000015,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 24.85190000000148,
+              "endMs": 75.65320000000065,
+              "durationMs": 50.80129999999917
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 75.67089999999735,
+              "endMs": 419.129399999998,
+              "durationMs": 343.45850000000064
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 419.1635000000024,
+              "endMs": 1704.6500000000015,
+              "durationMs": 1285.486499999999
+            },
+            {
+              "name": "flatBase",
+              "startMs": 1720.1515999999974,
+              "endMs": 2100.895900000003,
+              "durationMs": 380.74430000000575
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.006800000002840534,
+              "endMs": 2100.923799999997,
+              "durationMs": 2100.916999999994
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "durationMs": 492.1972999999998,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 14.234599999999773,
+              "endMs": 37.8791999999994,
+              "durationMs": 23.644599999999627
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 37.88940000000002,
+              "endMs": 189.88450000000012,
+              "durationMs": 151.9951000000001
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 189.95669999999882,
+              "endMs": 241.6222999999991,
+              "durationMs": 51.66560000000027
+            },
+            {
+              "name": "flatBase",
+              "startMs": 248.5083999999988,
+              "endMs": 492.1833000000006,
+              "durationMs": 243.6749000000018
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0021999999989930075,
+              "endMs": 492.19650000000183,
+              "durationMs": 492.19430000000284
+            }
+          ]
+        },
+        {
+          "durationMs": 996.2382999999973,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 24.745199999997567,
+              "endMs": 72.56869999999981,
+              "durationMs": 47.82350000000224
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 72.58269999999902,
+              "endMs": 447.4100999999973,
+              "durationMs": 374.8273999999983
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 447.52160000000003,
+              "endMs": 564.0036999999975,
+              "durationMs": 116.48209999999744
+            },
+            {
+              "name": "flatBase",
+              "startMs": 571.582699999999,
+              "endMs": 996.2095999999983,
+              "durationMs": 424.6268999999993
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0026999999972758815,
+              "endMs": 996.2375999999967,
+              "durationMs": 996.2348999999995
+            }
+          ]
+        },
+        {
+          "durationMs": 1197.1407999999938,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 29.127700000004552,
+              "endMs": 86.42109999999957,
+              "durationMs": 57.29339999999502
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 86.43940000000293,
+              "endMs": 553.7410000000018,
+              "durationMs": 467.30159999999887
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 553.9573999999993,
+              "endMs": 764.7387000000017,
+              "durationMs": 210.78130000000237
+            },
+            {
+              "name": "flatBase",
+              "startMs": 785.1531000000032,
+              "endMs": 1197.1131000000023,
+              "durationMs": 411.9599999999991
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.003500000006170012,
+              "endMs": 1197.1391000000003,
+              "durationMs": 1197.1355999999942
+            }
+          ]
+        },
+        {
+          "durationMs": 908.0779000000039,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 28.742900000004738,
+              "endMs": 86.57400000000052,
+              "durationMs": 57.831099999995786
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 86.58529999999882,
+              "endMs": 450.89360000000306,
+              "durationMs": 364.30830000000424
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 450.975400000003,
+              "endMs": 586.629200000003,
+              "durationMs": 135.65380000000005
+            },
+            {
+              "name": "flatBase",
+              "startMs": 600.2255000000005,
+              "endMs": 908.0621000000028,
+              "durationMs": 307.83660000000236
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.00420000000303844,
+              "endMs": 908.0780999999988,
+              "durationMs": 908.0738999999958
+            }
+          ]
+        },
+        {
+          "durationMs": 1301.2885999999999,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 29.71440000000439,
+              "endMs": 81.61460000000079,
+              "durationMs": 51.9001999999964
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 81.63490000000456,
+              "endMs": 509.2243000000017,
+              "durationMs": 427.5893999999971
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 509.292300000001,
+              "endMs": 789.6477000000014,
+              "durationMs": 280.3554000000004
+            },
+            {
+              "name": "flatBase",
+              "startMs": 808.5738000000056,
+              "endMs": 1301.2655999999988,
+              "durationMs": 492.69179999999324
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0030000000042491592,
+              "endMs": 1301.2880000000005,
+              "durationMs": 1301.2849999999962
+            }
+          ]
+        },
+        {
+          "durationMs": 1038.9565999999977,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 28.225299999998242,
+              "endMs": 74.19789999999921,
+              "durationMs": 45.972600000000966
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 74.21129999999539,
+              "endMs": 526.3706999999995,
+              "durationMs": 452.1594000000041
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 526.426099999997,
+              "endMs": 669.4026000000013,
+              "durationMs": 142.9765000000043
+            },
+            {
+              "name": "flatBase",
+              "startMs": 680.6121999999959,
+              "endMs": 1038.929799999998,
+              "durationMs": 358.31760000000213
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.003299999996670522,
+              "endMs": 1038.9547999999995,
+              "durationMs": 1038.9515000000029
+            }
+          ]
+        },
+        {
+          "durationMs": 997.634100000003,
+          "signature": {
+            "sha256": "ea055c402c2aae9dcfef2d50c51c8a6b770143a4c5bcf59846e72f6cd4d792c5",
+            "vertices": 14196,
+            "triangles": 28160
+          },
+          "spans": [
+            {
+              "name": "photoHeightField",
+              "startMs": 18.982700000000477,
+              "endMs": 77.0821999999971,
+              "durationMs": 58.099499999996624
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 77.10779999999795,
+              "endMs": 469.8151999999973,
+              "durationMs": 392.7073999999993
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 469.9018999999971,
+              "endMs": 594.7460999999967,
+              "durationMs": 124.84419999999955
+            },
+            {
+              "name": "flatBase",
+              "startMs": 608.2736999999979,
+              "endMs": 997.6039999999994,
+              "durationMs": 389.33030000000144
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.004399999997986015,
+              "endMs": 997.6342999999979,
+              "durationMs": 997.6298999999999
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "DEEP:filled",
+      "beforeMedianMs": 571.3595999999961,
+      "afterMedianMs": 473.9521999999997,
+      "reductionPercent": 17.048352736174742,
+      "photoVerticesBeforeMs": 130.56179999999586,
+      "photoVerticesAfterMs": 26.33079999999609,
+      "geometryIdentical": true,
+      "before": [
+        {
+          "durationMs": 526.9687999999951,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.21230000000650762,
+              "endMs": 13.991200000004028,
+              "durationMs": 13.77889999999752
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 14.001600000003236,
+              "endMs": 91.04970000000321,
+              "durationMs": 77.04809999999998
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 91.0590000000011,
+              "endMs": 157.95060000000376,
+              "durationMs": 66.89160000000265
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 157.95820000000094,
+              "endMs": 164.9213000000018,
+              "durationMs": 6.96310000000085
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 164.93130000000383,
+              "endMs": 254.26950000000215,
+              "durationMs": 89.33819999999832
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 254.28100000000268,
+              "endMs": 373.9132000000027,
+              "durationMs": 119.63220000000001
+            },
+            {
+              "name": "flatBase",
+              "startMs": 382.3110000000015,
+              "endMs": 526.9530000000013,
+              "durationMs": 144.64199999999983
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0029000000067753717,
+              "endMs": 526.9601000000039,
+              "durationMs": 526.9571999999971
+            }
+          ]
+        },
+        {
+          "durationMs": 558.2677999999942,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.08929999999963911,
+              "endMs": 9.509200000000419,
+              "durationMs": 9.41990000000078
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 9.516600000002654,
+              "endMs": 82.52309999999852,
+              "durationMs": 73.00649999999587
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 82.53009999999631,
+              "endMs": 149.39809999999852,
+              "durationMs": 66.86800000000221
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 149.40550000000076,
+              "endMs": 158.20410000000265,
+              "durationMs": 8.798600000001898
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 158.23070000000007,
+              "endMs": 251.0147999999972,
+              "durationMs": 92.78409999999712
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 251.02449999999953,
+              "endMs": 376.806700000001,
+              "durationMs": 125.78220000000147
+            },
+            {
+              "name": "flatBase",
+              "startMs": 381.6186000000016,
+              "endMs": 558.2506999999969,
+              "durationMs": 176.63209999999526
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0011999999987892807,
+              "endMs": 558.2606999999989,
+              "durationMs": 558.2595000000001
+            }
+          ]
+        },
+        {
+          "durationMs": 847.0717000000004,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.15580000000045402,
+              "endMs": 9.74829999999929,
+              "durationMs": 9.592499999998836
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 9.762800000004063,
+              "endMs": 91.3836999999985,
+              "durationMs": 81.62089999999444
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 91.39110000000073,
+              "endMs": 159.72000000000116,
+              "durationMs": 68.32890000000043
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 159.7294000000038,
+              "endMs": 168.4285000000018,
+              "durationMs": 8.699099999997998
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 168.43970000000263,
+              "endMs": 251.8191999999981,
+              "durationMs": 83.37949999999546
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 251.82920000000013,
+              "endMs": 373.25650000000314,
+              "durationMs": 121.42730000000302
+            },
+            {
+              "name": "flatBase",
+              "startMs": 379.67089999999735,
+              "endMs": 847.0403000000006,
+              "durationMs": 467.3694000000032
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0028000000020256266,
+              "endMs": 847.053700000004,
+              "durationMs": 847.050900000002
+            }
+          ]
+        },
+        {
+          "durationMs": 696.5632000000041,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.3080000000045402,
+              "endMs": 16.851800000004005,
+              "durationMs": 16.543799999999464
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 16.85960000000341,
+              "endMs": 148.36100000000442,
+              "durationMs": 131.501400000001
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 148.3721000000005,
+              "endMs": 238.76130000000558,
+              "durationMs": 90.38920000000508
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 238.76810000000114,
+              "endMs": 253.21970000000147,
+              "durationMs": 14.451600000000326
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 253.24079999999958,
+              "endMs": 353.1667000000016,
+              "durationMs": 99.925900000002
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 353.17490000000544,
+              "endMs": 504.51510000000417,
+              "durationMs": 151.34019999999873
+            },
+            {
+              "name": "flatBase",
+              "startMs": 520.3847000000023,
+              "endMs": 696.5538000000015,
+              "durationMs": 176.16909999999916
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.008300000001327135,
+              "endMs": 696.563900000001,
+              "durationMs": 696.5555999999997
+            }
+          ]
+        },
+        {
+          "durationMs": 615.104800000001,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.10089999999763677,
+              "endMs": 12.025900000000547,
+              "durationMs": 11.92500000000291
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 12.035799999997835,
+              "endMs": 104.22269999999844,
+              "durationMs": 92.1869000000006
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 104.23300000000017,
+              "endMs": 184.9262000000017,
+              "durationMs": 80.69320000000153
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 184.93940000000293,
+              "endMs": 200.70870000000286,
+              "durationMs": 15.76929999999993
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 200.72559999999794,
+              "endMs": 308.67199999999866,
+              "durationMs": 107.94640000000072
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 308.6814000000013,
+              "endMs": 446.0287000000026,
+              "durationMs": 137.34730000000127
+            },
+            {
+              "name": "flatBase",
+              "startMs": 455.425900000002,
+              "endMs": 615.0823999999993,
+              "durationMs": 159.65649999999732
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0025000000023283064,
+              "endMs": 615.1048999999985,
+              "durationMs": 615.1023999999961
+            }
+          ]
+        },
+        {
+          "durationMs": 571.3595999999961,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.1574999999938882,
+              "endMs": 10.436799999995856,
+              "durationMs": 10.279300000001967
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 10.441899999997986,
+              "endMs": 90.70190000000002,
+              "durationMs": 80.26000000000204
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 90.70910000000003,
+              "endMs": 162.44839999999385,
+              "durationMs": 71.73929999999382
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 162.45509999999922,
+              "endMs": 171.7580999999991,
+              "durationMs": 9.302999999999884
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 171.7699999999968,
+              "endMs": 269.45390000000043,
+              "durationMs": 97.68390000000363
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 269.463499999998,
+              "endMs": 401.1313999999984,
+              "durationMs": 131.66790000000037
+            },
+            {
+              "name": "flatBase",
+              "startMs": 408.7850999999937,
+              "endMs": 571.3492999999944,
+              "durationMs": 162.5642000000007
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0018999999956577085,
+              "endMs": 571.3551999999981,
+              "durationMs": 571.3533000000025
+            }
+          ]
+        },
+        {
+          "durationMs": 546.2356999999975,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.14010000000416767,
+              "endMs": 8.724800000003597,
+              "durationMs": 8.58469999999943
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 8.732300000003306,
+              "endMs": 84.52120000000286,
+              "durationMs": 75.78889999999956
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 84.526300000005,
+              "endMs": 151.1808000000019,
+              "durationMs": 66.65449999999691
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 151.18760000000475,
+              "endMs": 161.6800000000003,
+              "durationMs": 10.492399999995541
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 161.69600000000355,
+              "endMs": 248.38230000000476,
+              "durationMs": 86.68630000000121
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 248.38980000000447,
+              "endMs": 378.9516000000003,
+              "durationMs": 130.56179999999586
+            },
+            {
+              "name": "flatBase",
+              "startMs": 385.7349000000031,
+              "endMs": 546.2173000000039,
+              "durationMs": 160.48240000000078
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.001600000003236346,
+              "endMs": 546.2335999999996,
+              "durationMs": 546.2319999999963
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "durationMs": 446.7433000000019,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.24979999999777647,
+              "endMs": 23.079899999996996,
+              "durationMs": 22.83009999999922
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 23.086100000000442,
+              "endMs": 104.18119999999908,
+              "durationMs": 81.09509999999864
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 104.18660000000091,
+              "endMs": 174.63870000000315,
+              "durationMs": 70.45210000000225
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 174.6449999999968,
+              "endMs": 183.31229999999778,
+              "durationMs": 8.667300000000978
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 183.32489999999962,
+              "endMs": 263.2451000000001,
+              "durationMs": 79.92020000000048
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 263.3107000000018,
+              "endMs": 289.8850999999995,
+              "durationMs": 26.574399999997695
+            },
+            {
+              "name": "flatBase",
+              "startMs": 301.27470000000176,
+              "endMs": 446.72789999999804,
+              "durationMs": 145.4531999999963
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0022000000026309863,
+              "endMs": 446.7418000000034,
+              "durationMs": 446.7396000000008
+            }
+          ]
+        },
+        {
+          "durationMs": 426.4119999999966,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.12950000000273576,
+              "endMs": 8.28009999999631,
+              "durationMs": 8.150599999993574
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 8.286999999996624,
+              "endMs": 83.64110000000073,
+              "durationMs": 75.35410000000411
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 83.648199999996,
+              "endMs": 143.26699999999983,
+              "durationMs": 59.61880000000383
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 143.28609999999753,
+              "endMs": 152.9962000000014,
+              "durationMs": 9.710100000003877
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 153.00800000000163,
+              "endMs": 238.72189999999682,
+              "durationMs": 85.71389999999519
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 238.75920000000042,
+              "endMs": 259.0864999999976,
+              "durationMs": 20.327299999997194
+            },
+            {
+              "name": "flatBase",
+              "startMs": 274.6330999999991,
+              "endMs": 426.405399999996,
+              "durationMs": 151.7722999999969
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.001799999998183921,
+              "endMs": 426.4116999999969,
+              "durationMs": 426.40989999999874
+            }
+          ]
+        },
+        {
+          "durationMs": 1298.6881999999969,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.3948999999993248,
+              "endMs": 43.04819999999745,
+              "durationMs": 42.653299999998126
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 43.06499999999505,
+              "endMs": 304.71889999999985,
+              "durationMs": 261.6539000000048
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 304.72669999999925,
+              "endMs": 504.6490999999951,
+              "durationMs": 199.92239999999583
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 504.65869999999995,
+              "endMs": 535.9928999999975,
+              "durationMs": 31.33419999999751
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 536.0066000000006,
+              "endMs": 784.9278999999951,
+              "durationMs": 248.92129999999452
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 785.0070999999953,
+              "endMs": 842.9099999999962,
+              "durationMs": 57.902900000000955
+            },
+            {
+              "name": "flatBase",
+              "startMs": 866.9975999999951,
+              "endMs": 1298.6578999999983,
+              "durationMs": 431.6603000000032
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.004600000000209548,
+              "endMs": 1298.6858999999968,
+              "durationMs": 1298.6812999999966
+            }
+          ]
+        },
+        {
+          "durationMs": 824.5011999999988,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.2760999999954947,
+              "endMs": 35.85109999999986,
+              "durationMs": 35.575000000004366
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 35.86119999999937,
+              "endMs": 281.56579999999667,
+              "durationMs": 245.7045999999973
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 281.5820999999996,
+              "endMs": 485.8839999999982,
+              "durationMs": 204.30189999999857
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 485.8935999999958,
+              "endMs": 499.4959999999992,
+              "durationMs": 13.6024000000034
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 499.5083000000013,
+              "endMs": 594.7574000000022,
+              "durationMs": 95.24910000000091
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 594.8127999999997,
+              "endMs": 621.1435999999958,
+              "durationMs": 26.33079999999609
+            },
+            {
+              "name": "flatBase",
+              "startMs": 629.7390000000014,
+              "endMs": 824.4904999999999,
+              "durationMs": 194.7514999999985
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.004000000000814907,
+              "endMs": 824.4954999999973,
+              "durationMs": 824.4914999999964
+            }
+          ]
+        },
+        {
+          "durationMs": 543.9579000000012,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.1661999999996624,
+              "endMs": 12.983200000002398,
+              "durationMs": 12.817000000002736
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 12.992500000000291,
+              "endMs": 96.31840000000375,
+              "durationMs": 83.32590000000346
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 96.32459999999992,
+              "endMs": 176.6736000000019,
+              "durationMs": 80.34900000000198
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 176.67979999999807,
+              "endMs": 187.78050000000076,
+              "durationMs": 11.10070000000269
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 187.79529999999795,
+              "endMs": 278.85519999999815,
+              "durationMs": 91.0599000000002
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 278.9029999999984,
+              "endMs": 311.6608000000051,
+              "durationMs": 32.75780000000668
+            },
+            {
+              "name": "flatBase",
+              "startMs": 317.6071000000011,
+              "endMs": 543.9521000000022,
+              "durationMs": 226.34500000000116
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0033000000039464794,
+              "endMs": 543.9561000000031,
+              "durationMs": 543.9527999999991
+            }
+          ]
+        },
+        {
+          "durationMs": 473.9521999999997,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.10160000000178115,
+              "endMs": 11.137300000002142,
+              "durationMs": 11.03570000000036
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 11.145100000001548,
+              "endMs": 106.25299999999697,
+              "durationMs": 95.10789999999542
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 106.26230000000214,
+              "endMs": 190.03360000000248,
+              "durationMs": 83.77130000000034
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 190.04239999999845,
+              "endMs": 199.90159999999742,
+              "durationMs": 9.859199999998964
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 199.92809999999736,
+              "endMs": 294.816899999998,
+              "durationMs": 94.88880000000063
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 294.8663000000015,
+              "endMs": 314.1146000000008,
+              "durationMs": 19.24829999999929
+            },
+            {
+              "name": "flatBase",
+              "startMs": 319.6345999999976,
+              "endMs": 473.9409999999989,
+              "durationMs": 154.3064000000013
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0017000000007101335,
+              "endMs": 473.9472999999998,
+              "durationMs": 473.9455999999991
+            }
+          ]
+        },
+        {
+          "durationMs": 472.26580000000104,
+          "signature": {
+            "sha256": "19f1cc1b0761b4568b838f67b2e3e0d3ae56c3454852809b182ca2f73bce1055",
+            "vertices": 16988,
+            "triangles": 33628
+          },
+          "spans": [
+            {
+              "name": "rimHeightField",
+              "startMs": 0.16040000000066357,
+              "endMs": 13.07999999999447,
+              "durationMs": 12.919599999993807
+            },
+            {
+              "name": "rimTessellation",
+              "startMs": 13.090700000000652,
+              "endMs": 112.1794000000009,
+              "durationMs": 99.08870000000024
+            },
+            {
+              "name": "rimSurfaceVertices",
+              "startMs": 112.18769999999495,
+              "endMs": 188.56029999999737,
+              "durationMs": 76.37260000000242
+            },
+            {
+              "name": "photoHeightField",
+              "startMs": 188.56669999999576,
+              "endMs": 199.71979999999894,
+              "durationMs": 11.153100000003178
+            },
+            {
+              "name": "photoTessellation",
+              "startMs": 199.73309999999765,
+              "endMs": 285.11249999999563,
+              "durationMs": 85.37939999999799
+            },
+            {
+              "name": "photoSurfaceVertices",
+              "startMs": 285.16419999999925,
+              "endMs": 309.75739999999496,
+              "durationMs": 24.593199999995704
+            },
+            {
+              "name": "flatBase",
+              "startMs": 319.57159999999567,
+              "endMs": 472.2572,
+              "durationMs": 152.68560000000434
+            },
+            {
+              "name": "bodyGeometry",
+              "startMs": 0.0021999999953550287,
+              "endMs": 472.2653999999966,
+              "durationMs": 472.26320000000123
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

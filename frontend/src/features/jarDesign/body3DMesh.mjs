@@ -60,11 +60,22 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
     photoHeight=measure("photoHeightField",()=>photoDomeField(holes,distance));
     for(const polygon of polygons) {
       const cap=measure("photoTessellation",()=>tessellateSurface(polygon,ShapeUtils.triangulateShape(polygon,[])));
+      // 같은 정점을 여러 삼각형과 앞/뒷면이 공유한다. 비싼 경계 거리/높이와 정점 키 계산은 한 번만 한다.
+      // 좌표를 반올림해 묶지 않고 분할기의 정점 번호를 쓰므로 가까운 서로 다른 점은 합쳐지지 않는다.
+      // 캐시는 이 사진 면 생성 중에만 쓰고 버려서 사진 교체·다른 틀·회전 이후에 오래된 값이 남지 않는다.
+      const heights=new Float64Array(cap.points.length),ready=new Uint8Array(cap.points.length);
+      const frontVertices=new Uint32Array(cap.points.length),backVertices=new Uint32Array(cap.points.length);
       measure("photoSurfaceVertices",()=>{for(const triangle of cap.triangles) {
-        const points=triangle.map(i=>cap.points[i]);
-        const front=points.map(p=>vertex(p,photoHeight(p))),back=points.map(p=>vertex(p,-photoHeight(p)));
-        const ccw=cross(...points)>0;
-        photoIndices.push(...(ccw?front:[front[0],front[2],front[1]]),...(ccw?[back[0],back[2],back[1]]:back));
+        // 기존과 같은 '삼각형 앞면 전체 → 뒷면 전체' 순서로 등록해 정점/인덱스 바이트도 유지한다.
+        for(const i of triangle) if(!(ready[i]&1)) {
+          heights[i]=photoHeight(cap.points[i]);frontVertices[i]=vertex(cap.points[i],heights[i]);ready[i]|=1;
+        }
+        for(const i of triangle) if(!(ready[i]&2)) {
+          backVertices[i]=vertex(cap.points[i],-heights[i]);ready[i]|=2;
+        }
+        const [a,b,c]=triangle,ccw=cross(cap.points[a],cap.points[b],cap.points[c])>0;
+        if(ccw)photoIndices.push(frontVertices[a],frontVertices[b],frontVertices[c],backVertices[a],backVertices[c],backVertices[b]);
+        else photoIndices.push(frontVertices[a],frontVertices[c],frontVertices[b],backVertices[a],backVertices[b],backVertices[c]);
       }});
     }
   }

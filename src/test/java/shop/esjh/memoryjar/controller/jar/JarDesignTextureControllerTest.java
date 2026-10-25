@@ -37,4 +37,19 @@ class JarDesignTextureControllerTest {
         mvc.perform(get("/api/v1/jars/2/design/texture?part=BODY").principal(user)).andExpect(status().isOk());
         verify(service).read(1L,2L,JarDesignTextureService.Part.BODY);
     }
+
+    @Test void malformedPrincipalCannotReachService() throws Exception {
+        var malformed=new TestingAuthenticationToken(Map.of("userId","invalid"),null);
+        mvc.perform(get("/api/v1/jars/2/design/texture").principal(malformed)).andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+    }
+
+    @Test void bodyPngBytesAndPrivateHeadersArePreserved() throws Exception {
+        byte[] png={(byte)0x89,'P','N','G',13,10,26,10};
+        when(service.read(1L,2L,JarDesignTextureService.Part.BODY)).thenReturn(png);
+        mvc.perform(get("/api/v1/jars/2/design/texture?part=BODY").principal(user)).andExpect(status().isOk())
+                .andExpect(content().contentType("image/png")).andExpect(content().bytes(png))
+                .andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(header().string("X-Content-Type-Options","nosniff"));
+    }
 }

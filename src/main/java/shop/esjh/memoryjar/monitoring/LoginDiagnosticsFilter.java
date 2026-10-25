@@ -12,6 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class LoginDiagnosticsFilter extends OncePerRequestFilter {
     private static final Pattern JAR_DETAIL = Pattern.compile("/api/v1/jars/[1-9][0-9]{0,18}");
     private static final Pattern NOTE_LIST = Pattern.compile("/api/v1/jars/[1-9][0-9]{0,18}/notes");
+    private static final Pattern TEXTURE = Pattern.compile("/api/v1/jars/[1-9][0-9]{0,18}/design/texture");
     private final LoginDiagnostics diagnostics;
     public LoginDiagnosticsFilter(LoginDiagnostics diagnostics) { this.diagnostics = diagnostics; }
 
@@ -36,6 +37,12 @@ public class LoginDiagnosticsFilter extends OncePerRequestFilter {
             if (path.equals("/api/v1/jars")) return LoginDiagnostics.RequestKind.JAR_LIST;
             if (JAR_DETAIL.matcher(path).matches()) return LoginDiagnostics.RequestKind.JAR_DETAIL;
             if (NOTE_LIST.matcher(path).matches()) return LoginDiagnostics.RequestKind.NOTE_LIST;
+            if (TEXTURE.matcher(path).matches()) {
+                // 허용된 분류만 남긴다. 실제 번호·쿼리 문자열·쿠키는 진단 저장소로 넘기지 않는다.
+                String part = request.getParameter("part");
+                if (part == null || part.isEmpty() || part.equals("IMAGE")) return LoginDiagnostics.RequestKind.TEXTURE_IMAGE;
+                if (part.equals("BODY")) return LoginDiagnostics.RequestKind.TEXTURE_BODY;
+            }
         }
         return null;
     }

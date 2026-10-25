@@ -31,7 +31,7 @@ class JarDesignTextureServiceTest {
     @BeforeEach void setup(){
         var properties=new S3Properties();properties.setBucket("test-bucket");
         when(tx.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        service=new JarDesignTextureService(members,designs,s3,properties,tx);
+        service=new JarDesignTextureService(members,designs,s3,properties,tx,new JarDesignTextureCache(true));
     }
     void member(String key){
         when(members.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(2L,1L)).thenReturn(true);
@@ -70,5 +70,54 @@ class JarDesignTextureServiceTest {
         member("private-key.png");
         when(s3.getObject(any(GetObjectRequest.class))).thenThrow(S3Exception.builder().message("private-key.png").statusCode(403).build());
         assertThatThrownBy(()->service.read(1L,2L,JarDesignTextureService.Part.BODY)).isInstanceOf(ResponseStatusException.class).hasMessageNotContaining("private-key");
+    }
+
+    @Test void cacheHitStillChecksMembershipAndDesignOnEveryRequest(){
+        member("image.png");
+        when(s3.getObject(any(GetObjectRequest.class))).thenAnswer(call->new ResponseInputStream<>(
+                GetObjectResponse.builder().contentLength(8L).build(),new ByteArrayInputStream(png)));
+        assertThat(service.read(1L,2L,JarDesignTextureService.Part.IMAGE)).isEqualTo(png);
+        assertThat(service.read(1L,2L,JarDesignTextureService.Part.IMAGE)).isEqualTo(png);
+        verify(members,times(2)).existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(2L,1L);
+        verify(designs,times(2)).findByJar_JarId(2L);
+        verify(s3,times(1)).getObject(any(GetObjectRequest.class));
+        when(members.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(2L,1L)).thenReturn(false);
+        assertThatThrownBy(()->service.read(1L,2L,JarDesignTextureService.Part.IMAGE)).isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verify(s3,times(1)).getObject(any(GetObjectRequest.class));
+    }
+
+    @Test void differentUserCannotUseAnotherMembersCachedImage(){
+        member("image.png");
+        when(s3.getObject(any(GetObjectRequest.class))).thenAnswer(call->new ResponseInputStream<>(
+                GetObjectResponse.builder().contentLength(8L).build(),new ByteArrayInputStream(png)));
+        service.read(1L,2L,JarDesignTextureService.Part.IMAGE);
+        assertThatThrownBy(()->service.read(99L,2L,JarDesignTextureService.Part.IMAGE)).isInstanceOf(ResponseStatusException.class);
+        verify(s3,times(1)).getObject(any(GetObjectRequest.class));
+    }
+
+    @Test void removedDesignDoesNotReturnOldCacheAndNewDesignKeyLoadsNewImage(){
+        member("old-image.png");
+        when(s3.getObject(any(GetObjectRequest.class))).thenAnswer(call->new ResponseInputStream<>(
+                GetObjectResponse.builder().contentLength(8L).build(),new ByteArrayInputStream(png)));
+        service.read(1L,2L,JarDesignTextureService.Part.IMAGE);
+        when(designs.findByJar_JarId(2L)).thenReturn(Optional.empty());
+        assertThatThrownBy(()->service.read(1L,2L,JarDesignTextureService.Part.IMAGE)).isInstanceOf(ResponseStatusException.class);
+        member("new-image.png"); service.read(1L,2L,JarDesignTextureService.Part.IMAGE);
+        verify(s3,times(2)).getObject(any(GetObjectRequest.class));
+    }
+
+    @Test void bodyAndImageUseSeparateCacheEntriesAndInvalidPngIsNeverCached(){
+        member("image.png");
+        when(s3.getObject(any(GetObjectRequest.class))).thenAnswer(call->new ResponseInputStream<>(
+                GetObjectResponse.builder().contentLength(8L).build(),new ByteArrayInputStream(png)));
+        service.read(1L,2L,JarDesignTextureService.Part.IMAGE); service.read(1L,2L,JarDesignTextureService.Part.BODY);
+        service.read(1L,2L,JarDesignTextureService.Part.IMAGE); service.read(1L,2L,JarDesignTextureService.Part.BODY);
+        verify(s3,times(2)).getObject(any(GetObjectRequest.class));
+        member("invalid.png");
+        when(s3.getObject(any(GetObjectRequest.class))).thenAnswer(call->new ResponseInputStream<>(
+                GetObjectResponse.builder().contentLength(8L).build(),new ByteArrayInputStream(new byte[8])));
+        for(int i=0;i<2;i++)assertThatThrownBy(()->service.read(1L,2L,JarDesignTextureService.Part.IMAGE)).isInstanceOf(ResponseStatusException.class);
+        verify(s3,times(4)).getObject(any(GetObjectRequest.class));
     }
 }

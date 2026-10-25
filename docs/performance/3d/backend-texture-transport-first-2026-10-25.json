@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "title": "실제 연결 수립·GET 송신·송신 후 응답 헤더 수신을 분리한 첫 로컬 이미지 요청",
+  "observedWindowKst": {
+    "start": "2026-10-25T17:41:20.5354228+09:00",
+    "end": "2026-10-25T17:41:21.5219811+09:00"
+  },
+  "workspace": "C:\\Users\\whdgu\\Desktop\\graduation",
+  "branch": "main",
+  "headBeforeCommit": "504f3b6",
+  "method": "사용자가 기존 local 진단 인수를 유지하고 백엔드를 재시작한 뒤 같은 저금통에서 첫 3D 표시를 수행했다고 보고. 기존 loopback 관리 API의 textures 숫자만 수집.",
+  "validation": {
+    "completedCount": 1,
+    "evictedCount": 0,
+    "httpStatus": 200,
+    "completed": true,
+    "cache": "MISS",
+    "observerInstalled": true,
+    "sdkPublications": 1,
+    "truncated": false,
+    "retryCount": 0
+  },
+  "summaryMilliseconds": {
+    "records": 1,
+    "evicted": 0,
+    "status": 200,
+    "completed": true,
+    "observer": [
+      1
+    ],
+    "truncated": false,
+    "serverMs": 985.1369,
+    "dbMs": 16.8891,
+    "s3OpenMs": 886.3358,
+    "s3ReadMs": 62.0126,
+    "connectMs": 463.4855,
+    "sendMs": 2.86,
+    "receiveHeadersMs": 102.4003,
+    "poolAcquireMs": 26.7585,
+    "credentialsMs": 0.0996,
+    "sdkApiMs": 781.4534,
+    "sdkServiceMs": 662.7466,
+    "retry": [
+      0
+    ],
+    "connectFractionOfServerPercent": 47.0478265508073,
+    "connectFractionOfServicePercent": 69.93404417314251,
+    "stagesAreNestedDoNotSumWithParents": true
+  },
+  "findings": [
+    "이번 단일 요청에서 가장 큰 관찰 구간은 실제 연결 수립 463.4855ms다.",
+    "연결 후 요청 송신은 2.86ms, 응답 헤더 수신 대기는 102.4003ms다.",
+    "인증정보 준비는 0.0996ms, DB는 16.8891ms로 이번 요청의 주 병목이 아니다."
+  ],
+  "limitations": [
+    "관찰된 첫 IMAGE 요청이며 SDK의 모든 서비스 호출/OS/DNS/HTTP 상태까지 초기화된 완전한 콜드 상태를 보장하지 않는다.",
+    "HTTP_CONNECT는 직접 HTTPS의 DNS/TCP/TLS와 그 실행 중 초기 준비를 합친 시간이다. 각각의 원인은 미분리다.",
+    "HTTP_RECEIVE_HEADERS는 flush 뒤 응답 대기와 헤더 해석/스트림 준비를 포함하며 순수 S3 서버 처리 시간이나 정확한 첫 바이트만의 시간이 아니다.",
+    "HTTP_SEND의 flush 반환은 실제 패킷 송신 완료를 보장하지 않는다.",
+    "상위 SDK/OPEN/서버 구간은 중첩된다. 표의 모든 값을 더해 전체 시간으로 계산하지 않는다. 표 밖의 추가 준비/처리 구간도 있다.",
+    "서버 이미지 API 985.1369ms이며 실제 브라우저 2D→3D 전체 전환/GPU/물리 화면 출력 시간이 아니다.",
+    "앞선 첫 요청 1598.5606ms보다 짧지만 각 조건 단일 표본이고 이번 변경은 계측이므로 약 38%를 보장된 최적화 성과로 주장하지 않는다.",
+    "개인 사진·객체 키·요청 URL·쿠키·토큰·사용자 ID·예외 원문은 포함하지 않는다."
+  ],
+  "sourceSha256": {
+    "build.gradle.kts": "A08F159895501C88ABF1A3CB63AEDB02BAB913EDABC59848123788AA672CB5F9",
+    "src/main/java/shop/esjh/memoryjar/config/S3Config.java": "0BFCC07B4DA9C15B9934D24B964161B4E0681B96AAD4012A35351B4053FC8DF2",
+    "src/main/java/shop/esjh/memoryjar/monitoring/LoginDiagnostics.java": "909EDA67F2CC714CECB21410FB9BE327C35B5802013966A03EFAEAD3163311CF",
+    "src/main/java/shop/esjh/memoryjar/monitoring/TextureHttpTransportDiagnostics.java": "DD57E44099767E761DF636C5BAF16F8AAE3C8CD26EAE95F5F51B59E18E8C588B",
+    "src/main/java/shop/esjh/memoryjar/monitoring/TextureS3Diagnostics.java": "451FE78333EC8DFB7E1EB5B13922AAFB85FF3894CCC8A1566E6A3066A0602679",
+    "src/main/java/shop/esjh/memoryjar/service/jar/JarDesignTextureService.java": "F6EB344EE41C55DCF4E9B0497B82DB538ADF43D5A5B351E5F83816873723EF74",
+    "src/main/java/shop/esjh/memoryjar/service/jar/JarDesignTextureCache.java": "8146AA2D0850F024E5395A88647F53F3A1A791ABD1DFB62FFB2412E1C0CD3F41"
+  },
+  "raw": {
+    "enabled": true,
+    "capacity": 64,
+    "completedCount": 1,
+    "evictedCount": 0,
+    "recent": [
+      {
+        "diagnosticId": 1,
+        "startedAt": "2026-10-25T08:41:20.535422800Z",
+        "completedAt": "2026-10-25T08:41:21.521981100Z",
+        "elapsedNanos": 985136900,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 886335800,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 4291300,
+            "completed": true
+          },
+          "TEXTURE_S3_REQUEST_BUILD": {
+            "elapsedNanos": 11276100,
+            "completed": true
+          },
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 62012600,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 16889100,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 6213100,
+            "completed": true
+          },
+          "TEXTURE_CACHE_MISS": {
+            "elapsedNanos": 949011000,
+            "completed": true
+          },
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 4339800,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1939800,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 741200,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {},
+        "s3Sdk": {
+          "publications": 1,
+          "truncated": false,
+          "durations": {
+            "HTTP_RECEIVE_HEADERS": {
+              "count": 1,
+              "totalNanos": 102400300,
+              "maxNanos": 102400300
+            },
+            "CONNECTION_ACQUIRE": {
+              "count": 1,
+              "totalNanos": 26758500,
+              "maxNanos": 26758500
+            },
+            "SERVICE_CALL": {
+              "count": 1,
+              "totalNanos": 662746600,
+              "maxNanos": 662746600
+            },
+            "HTTP_SEND": {
+              "count": 1,
+              "totalNanos": 2860000,
+              "maxNanos": 2860000
+            },
+            "HTTP_CONNECT": {
+              "count": 1,
+              "totalNanos": 463485500,
+              "maxNanos": 463485500
+            },
+            "BACKOFF_DELAY": {
+              "count": 1,
+              "totalNanos": 0,
+              "maxNanos": 0
+            },
+            "ENDPOINT_RESOLVE": {
+              "count": 1,
+              "totalNanos": 107800,
+              "maxNanos": 107800
+            },
+            "API_CALL": {
+              "count": 1,
+              "totalNanos": 781453400,
+              "maxNanos": 781453400
+            },
+            "TIME_TO_FIRST_BYTE": {
+              "count": 1,
+              "totalNanos": 662746600,
+              "maxNanos": 662746600
+            },
+            "UNMARSHALLING": {
+              "count": 1,
+              "totalNanos": 59629000,
+              "maxNanos": 59629000
+            },
+            "CREDENTIALS_FETCH": {
+              "count": 1,
+              "totalNanos": 99600,
+              "maxNanos": 99600
+            },
+            "MARSHALLING": {
+              "count": 1,
+              "totalNanos": 154400,
+              "maxNanos": 154400
+            },
+            "TIME_TO_LAST_BYTE": {
+              "count": 1,
+              "totalNanos": 734747900,
+              "maxNanos": 734747900
+            },
+            "SIGNING": {
+              "count": 1,
+              "totalNanos": 8977500,
+              "maxNanos": 8977500
+            }
+          },
+          "counters": {
+            "PENDING_CONCURRENCY_ACQUIRES": [
+              0
+            ],
+            "AVAILABLE_CONCURRENCY": [
+              0
+            ],
+            "HTTP_TRANSPORT_OBSERVER": [
+              1
+            ],
+            "RETRY_COUNT": [
+              0
+            ],
+            "LEASED_CONCURRENCY": [
+              1
+            ],
+            "MAX_CONCURRENCY": [
+              50
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,548 @@
+[
+  {
+    "version": 1,
+    "status": "complete",
+    "marks": {
+      "componentRender": 102.59999990463257,
+      "effectStart": 315.39999997615814,
+      "texturesReady": 873.1999999284744,
+      "texturedRenderEnd": 888.5
+    },
+    "spans": [
+      {
+        "name": "profile",
+        "startMs": 102.59999990463257,
+        "endMs": 109.19999992847443,
+        "durationMs": 6.600000023841858
+      },
+      {
+        "name": "rendererInit",
+        "startMs": 315.5,
+        "endMs": 343.5,
+        "durationMs": 28
+      },
+      {
+        "name": "photoHeightField",
+        "startMs": 361.1999999284744,
+        "endMs": 393,
+        "durationMs": 31.800000071525574
+      },
+      {
+        "name": "photoTessellation",
+        "startMs": 393,
+        "endMs": 624.0999999046326,
+        "durationMs": 231.09999990463257
+      },
+      {
+        "name": "photoSurfaceVertices",
+        "startMs": 624.1999999284744,
+        "endMs": 673.3999999761581,
+        "durationMs": 49.200000047683716
+      },
+      {
+        "name": "flatBase",
+        "startMs": 679.5,
+        "endMs": 831.7999999523163,
+        "durationMs": 152.29999995231628
+      },
+      {
+        "name": "bodyGeometry",
+        "startMs": 348.5,
+        "endMs": 831.7999999523163,
+        "durationMs": 483.2999999523163
+      },
+      {
+        "name": "photoSource",
+        "startMs": 837.7999999523163,
+        "endMs": 838.0999999046326,
+        "durationMs": 0.2999999523162842
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 839,
+        "endMs": 868.6999999284744,
+        "durationMs": 29.699999928474426
+      },
+      {
+        "name": "photoLoadToOnload",
+        "startMs": 837.7999999523163,
+        "endMs": 872.7999999523163,
+        "durationMs": 35
+      },
+      {
+        "name": "photoCanvasAndTexture",
+        "startMs": 872.7999999523163,
+        "endMs": 873.2999999523163,
+        "durationMs": 0.5
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 875.5,
+        "endMs": 888.5,
+        "durationMs": 13
+      }
+    ],
+    "triangles": 28160,
+    "viewport": {
+      "width": 420,
+      "height": 420,
+      "pixelRatio": 1.25
+    },
+    "caseId": "detail-irregular"
+  },
+  {
+    "version": 1,
+    "status": "complete",
+    "marks": {
+      "componentRender": 0.6999999284744263,
+      "effectStart": 9.699999928474426,
+      "texturesReady": 495.5,
+      "texturedRenderEnd": 512.7999999523163
+    },
+    "spans": [
+      {
+        "name": "profile",
+        "startMs": 0.7999999523162842,
+        "endMs": 8.299999952316284,
+        "durationMs": 7.5
+      },
+      {
+        "name": "rendererInit",
+        "startMs": 9.799999952316284,
+        "endMs": 29.600000023841858,
+        "durationMs": 19.800000071525574
+      },
+      {
+        "name": "photoHeightField",
+        "startMs": 44.39999997615814,
+        "endMs": 74.5,
+        "durationMs": 30.100000023841858
+      },
+      {
+        "name": "photoTessellation",
+        "startMs": 74.60000002384186,
+        "endMs": 261.39999997615814,
+        "durationMs": 186.79999995231628
+      },
+      {
+        "name": "photoSurfaceVertices",
+        "startMs": 261.5,
+        "endMs": 309.10000002384186,
+        "durationMs": 47.60000002384186
+      },
+      {
+        "name": "flatBase",
+        "startMs": 313.7999999523163,
+        "endMs": 465.10000002384186,
+        "durationMs": 151.30000007152557
+      },
+      {
+        "name": "bodyGeometry",
+        "startMs": 32.60000002384186,
+        "endMs": 465.10000002384186,
+        "durationMs": 432.5
+      },
+      {
+        "name": "photoSource",
+        "startMs": 473,
+        "endMs": 473.2999999523163,
+        "durationMs": 0.2999999523162842
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 474.60000002384186,
+        "endMs": 492.5,
+        "durationMs": 17.899999976158142
+      },
+      {
+        "name": "photoLoadToOnload",
+        "startMs": 473,
+        "endMs": 494.5,
+        "durationMs": 21.5
+      },
+      {
+        "name": "photoCanvasAndTexture",
+        "startMs": 494.5,
+        "endMs": 495.60000002384186,
+        "durationMs": 1.100000023841858
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 503.10000002384186,
+        "endMs": 512.7999999523163,
+        "durationMs": 9.699999928474426
+      }
+    ],
+    "triangles": 28160,
+    "viewport": {
+      "width": 420,
+      "height": 420,
+      "pixelRatio": 1.25
+    },
+    "caseId": "detail-irregular"
+  },
+  {
+    "version": 1,
+    "status": "complete",
+    "marks": {
+      "componentRender": 1.0999999046325684,
+      "effectStart": 6.599999904632568,
+      "texturesReady": 565.2999999523163,
+      "texturedRenderEnd": 582.5
+    },
+    "spans": [
+      {
+        "name": "profile",
+        "startMs": 1.1999999284744263,
+        "endMs": 5.599999904632568,
+        "durationMs": 4.399999976158142
+      },
+      {
+        "name": "rendererInit",
+        "startMs": 6.599999904632568,
+        "endMs": 16.699999928474426,
+        "durationMs": 10.100000023841858
+      },
+      {
+        "name": "photoHeightField",
+        "startMs": 36.89999997615814,
+        "endMs": 78.19999992847443,
+        "durationMs": 41.299999952316284
+      },
+      {
+        "name": "photoTessellation",
+        "startMs": 78.19999992847443,
+        "endMs": 325.39999997615814,
+        "durationMs": 247.20000004768372
+      },
+      {
+        "name": "photoSurfaceVertices",
+        "startMs": 325.39999997615814,
+        "endMs": 368.59999990463257,
+        "durationMs": 43.199999928474426
+      },
+      {
+        "name": "flatBase",
+        "startMs": 373.5,
+        "endMs": 540.7999999523163,
+        "durationMs": 167.29999995231628
+      },
+      {
+        "name": "bodyGeometry",
+        "startMs": 24.5,
+        "endMs": 540.7999999523163,
+        "durationMs": 516.2999999523163
+      },
+      {
+        "name": "photoSource",
+        "startMs": 544.7999999523163,
+        "endMs": 545,
+        "durationMs": 0.20000004768371582
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 546.1999999284744,
+        "endMs": 563.1999999284744,
+        "durationMs": 17
+      },
+      {
+        "name": "photoLoadToOnload",
+        "startMs": 544.7999999523163,
+        "endMs": 565.0999999046326,
+        "durationMs": 20.299999952316284
+      },
+      {
+        "name": "photoCanvasAndTexture",
+        "startMs": 565.0999999046326,
+        "endMs": 565.2999999523163,
+        "durationMs": 0.20000004768371582
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 568.0999999046326,
+        "endMs": 582.5,
+        "durationMs": 14.400000095367432
+      }
+    ],
+    "triangles": 28160,
+    "viewport": {
+      "width": 420,
+      "height": 420,
+      "pixelRatio": 1.25
+    },
+    "caseId": "detail-irregular"
+  },
+  {
+    "version": 1,
+    "status": "complete",
+    "marks": {
+      "componentRender": 0.8000000715255737,
+      "effectStart": 3.700000047683716,
+      "texturesReady": 478.90000009536743,
+      "texturedRenderEnd": 494.40000009536743
+    },
+    "spans": [
+      {
+        "name": "profile",
+        "startMs": 0.8000000715255737,
+        "endMs": 2.8000000715255737,
+        "durationMs": 2
+      },
+      {
+        "name": "rendererInit",
+        "startMs": 3.700000047683716,
+        "endMs": 12.400000095367432,
+        "durationMs": 8.700000047683716
+      },
+      {
+        "name": "photoHeightField",
+        "startMs": 22.700000047683716,
+        "endMs": 48.5,
+        "durationMs": 25.799999952316284
+      },
+      {
+        "name": "photoTessellation",
+        "startMs": 48.5,
+        "endMs": 215.70000004768372,
+        "durationMs": 167.20000004768372
+      },
+      {
+        "name": "photoSurfaceVertices",
+        "startMs": 215.70000004768372,
+        "endMs": 265.90000009536743,
+        "durationMs": 50.200000047683716
+      },
+      {
+        "name": "flatBase",
+        "startMs": 269.40000009536743,
+        "endMs": 450.8000000715256,
+        "durationMs": 181.39999997615814
+      },
+      {
+        "name": "bodyGeometry",
+        "startMs": 15.5,
+        "endMs": 450.8000000715256,
+        "durationMs": 435.3000000715256
+      },
+      {
+        "name": "photoSource",
+        "startMs": 457.10000002384186,
+        "endMs": 457.40000009536743,
+        "durationMs": 0.30000007152557373
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 458.7000000476837,
+        "endMs": 476.7000000476837,
+        "durationMs": 18
+      },
+      {
+        "name": "photoLoadToOnload",
+        "startMs": 457.10000002384186,
+        "endMs": 478.60000002384186,
+        "durationMs": 21.5
+      },
+      {
+        "name": "photoCanvasAndTexture",
+        "startMs": 478.60000002384186,
+        "endMs": 478.90000009536743,
+        "durationMs": 0.30000007152557373
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 482.3000000715256,
+        "endMs": 494.40000009536743,
+        "durationMs": 12.100000023841858
+      }
+    ],
+    "triangles": 28160,
+    "viewport": {
+      "width": 420,
+      "height": 420,
+      "pixelRatio": 1.25
+    },
+    "caseId": "detail-irregular"
+  },
+  {
+    "version": 1,
+    "status": "complete",
+    "marks": {
+      "componentRender": 0.5,
+      "effectStart": 2.9000000953674316,
+      "texturesReady": 419.5,
+      "texturedRenderEnd": 434.3000000715256
+    },
+    "spans": [
+      {
+        "name": "profile",
+        "startMs": 0.5,
+        "endMs": 2.3000000715255737,
+        "durationMs": 1.8000000715255737
+      },
+      {
+        "name": "rendererInit",
+        "startMs": 3.100000023841858,
+        "endMs": 12.600000023841858,
+        "durationMs": 9.5
+      },
+      {
+        "name": "photoHeightField",
+        "startMs": 23.800000071525574,
+        "endMs": 44.300000071525574,
+        "durationMs": 20.5
+      },
+      {
+        "name": "photoTessellation",
+        "startMs": 44.40000009536743,
+        "endMs": 213.80000007152557,
+        "durationMs": 169.39999997615814
+      },
+      {
+        "name": "photoSurfaceVertices",
+        "startMs": 213.90000009536743,
+        "endMs": 255.60000002384186,
+        "durationMs": 41.699999928474426
+      },
+      {
+        "name": "flatBase",
+        "startMs": 257.7000000476837,
+        "endMs": 393.7000000476837,
+        "durationMs": 136
+      },
+      {
+        "name": "bodyGeometry",
+        "startMs": 15.800000071525574,
+        "endMs": 393.7000000476837,
+        "durationMs": 377.89999997615814
+      },
+      {
+        "name": "photoSource",
+        "startMs": 397.8000000715256,
+        "endMs": 398,
+        "durationMs": 0.19999992847442627
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 399.10000002384186,
+        "endMs": 416.5,
+        "durationMs": 17.399999976158142
+      },
+      {
+        "name": "photoLoadToOnload",
+        "startMs": 397.8000000715256,
+        "endMs": 418.90000009536743,
+        "durationMs": 21.100000023841858
+      },
+      {
+        "name": "photoCanvasAndTexture",
+        "startMs": 418.90000009536743,
+        "endMs": 419.5,
+        "durationMs": 0.5999999046325684
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 423.5,
+        "endMs": 434.3000000715256,
+        "durationMs": 10.800000071525574
+      }
+    ],
+    "triangles": 28160,
+    "viewport": {
+      "width": 420,
+      "height": 420,
+      "pixelRatio": 1.25
+    },
+    "caseId": "detail-irregular"
+  },
+  {
+    "version": 1,
+    "status": "complete",
+    "marks": {
+      "componentRender": 0.8000000715255737,
+      "effectStart": 5.900000095367432,
+      "texturesReady": 461.10000002384186,
+      "texturedRenderEnd": 475.10000002384186
+    },
+    "spans": [
+      {
+        "name": "profile",
+        "startMs": 0.8000000715255737,
+        "endMs": 4.900000095367432,
+        "durationMs": 4.100000023841858
+      },
+      {
+        "name": "rendererInit",
+        "startMs": 5.900000095367432,
+        "endMs": 13.600000023841858,
+        "durationMs": 7.699999928474426
+      },
+      {
+        "name": "photoHeightField",
+        "startMs": 25.90000009536743,
+        "endMs": 49.200000047683716,
+        "durationMs": 23.299999952316284
+      },
+      {
+        "name": "photoTessellation",
+        "startMs": 49.200000047683716,
+        "endMs": 228.30000007152557,
+        "durationMs": 179.10000002384186
+      },
+      {
+        "name": "photoSurfaceVertices",
+        "startMs": 228.30000007152557,
+        "endMs": 272.3000000715256,
+        "durationMs": 44
+      },
+      {
+        "name": "flatBase",
+        "startMs": 275.10000002384186,
+        "endMs": 434.5,
+        "durationMs": 159.39999997615814
+      },
+      {
+        "name": "bodyGeometry",
+        "startMs": 16.700000047683716,
+        "endMs": 434.5,
+        "durationMs": 417.7999999523163
+      },
+      {
+        "name": "photoSource",
+        "startMs": 440.5,
+        "endMs": 440.8000000715256,
+        "durationMs": 0.30000007152557373
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 441.90000009536743,
+        "endMs": 458.90000009536743,
+        "durationMs": 17
+      },
+      {
+        "name": "photoLoadToOnload",
+        "startMs": 440.5,
+        "endMs": 460.8000000715256,
+        "durationMs": 20.300000071525574
+      },
+      {
+        "name": "photoCanvasAndTexture",
+        "startMs": 460.8000000715256,
+        "endMs": 461.10000002384186,
+        "durationMs": 0.2999999523162842
+      },
+      {
+        "name": "renderSubmit",
+        "startMs": 463.60000002384186,
+        "endMs": 475.10000002384186,
+        "durationMs": 11.5
+      }
+    ],
+    "triangles": 28160,
+    "viewport": {
+      "width": 420,
+      "height": 420,
+      "pixelRatio": 1.25
+    },
+    "caseId": "detail-irregular"
+  }
+]

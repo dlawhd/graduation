@@ -59,6 +59,8 @@ dependencies {
 	// ✅ S3 업로드용
 	implementation(platform("software.amazon.awssdk:bom:2.31.67"))
 	implementation("software.amazon.awssdk:s3")
+	// 이미 S3 런타임에 포함된 같은 버전의 HTTP 클라이언트를 로컬 구간 관찰에서도 컴파일 참조한다.
+	implementation("software.amazon.awssdk:apache-client")
 	implementation("software.amazon.awssdk:sts")
 	// AI Draft 원본 이미지를 동기 심사할 때 AWS Rekognition을 사용한다.
 	implementation("software.amazon.awssdk:rekognition")

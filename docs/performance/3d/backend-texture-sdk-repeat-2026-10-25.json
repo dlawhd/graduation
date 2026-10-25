@@ -1,0 +1,436 @@
+{
+  "title": "HTTP 전송 경계 세분화 전 로컬 S3 재현성 추가 관찰",
+  "workspace": "C:\\Users\\whdgu\\Desktop\\graduation",
+  "dateKst": "2026-10-25",
+  "head": "504f3b6",
+  "measurementWindowKst": {
+    "start": "2026-10-25T17:18:00.7352426+09:00",
+    "end": "2026-10-25T17:19:20.0161844+09:00"
+  },
+  "protocol": "사용자는 3회 수행했다고 보고했으나 서버에는 4건(MISS,HIT,HIT,MISS)이 기록됐다. 추가 1건 원인은 식별자 없는 계측으로 확정하지 않았다.",
+  "scope": "이번 HTTP_CONNECT/HTTP_SEND/HTTP_RECEIVE_HEADERS 관찰자 추가 전의 이전 SDK 숫자 계측",
+  "summaryMilliseconds": [
+    {
+      "diagnosticId": 1,
+      "cache": "MISS",
+      "server": 1344.1203,
+      "db": 18.675,
+      "s3Open": 1161.8173,
+      "s3Read": 90.7168,
+      "credentials": 0.0562,
+      "poolAcquire": 47.6184,
+      "serviceCall": 800.9662
+    },
+    {
+      "diagnosticId": 2,
+      "cache": "HIT",
+      "server": 41.1889,
+      "db": 23.6045,
+      "s3Open": null,
+      "s3Read": null,
+      "credentials": null,
+      "poolAcquire": null,
+      "serviceCall": null
+    },
+    {
+      "diagnosticId": 3,
+      "cache": "HIT",
+      "server": 31.8385,
+      "db": 17.5017,
+      "s3Open": null,
+      "s3Read": null,
+      "credentials": null,
+      "poolAcquire": null,
+      "serviceCall": null
+    },
+    {
+      "diagnosticId": 4,
+      "cache": "MISS",
+      "server": 286.4939,
+      "db": 18.7249,
+      "s3Open": 149.6857,
+      "s3Read": 99.5227,
+      "credentials": 0.0433,
+      "poolAcquire": 0,
+      "serviceCall": 140.5484
+    }
+  ],
+  "limitations": [
+    "각 조건 1회이며 이번 한 서버 기록과 이전 한 서버 기록을 합쳐도 재시작 표본은 2개다.",
+    "현재 Apache 구현의 CONNECTION_ACQUIRE는 ConnectionRequest.get 구간이고 실제 연결 수립은 그 뒤에 실행된다. TLS 비용이 47.62ms 이하라는 뜻이 아니다.",
+    "이 숫자만으로 DNS/TCP/TLS/응답 대기 원인을 확정하지 않는다.",
+    "새 HTTP 경계 계측의 실측 결과가 아니다. 쿠키/사진/객체 키/URL/사용자 ID는 포함하지 않는다."
+  ],
+  "raw": {
+    "enabled": true,
+    "capacity": 64,
+    "completedCount": 4,
+    "evictedCount": 0,
+    "recent": [
+      {
+        "diagnosticId": 1,
+        "startedAt": "2026-10-25T08:18:00.735242600Z",
+        "completedAt": "2026-10-25T08:18:02.082444700Z",
+        "elapsedNanos": 1344120300,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 90716800,
+            "completed": true
+          },
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 4866200,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 1324500,
+            "completed": true
+          },
+          "TEXTURE_S3_REQUEST_BUILD": {
+            "elapsedNanos": 17206100,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 6828200,
+            "completed": true
+          },
+          "TEXTURE_CACHE_MISS": {
+            "elapsedNanos": 1253304000,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 1161817300,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 5303100,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 18675000,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 2866800,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {},
+        "s3Sdk": {
+          "publications": 1,
+          "truncated": false,
+          "durations": {
+            "CREDENTIALS_FETCH": {
+              "count": 1,
+              "totalNanos": 56200,
+              "maxNanos": 56200
+            },
+            "API_CALL": {
+              "count": 1,
+              "totalNanos": 1013001700,
+              "maxNanos": 1013001700
+            },
+            "SIGNING": {
+              "count": 1,
+              "totalNanos": 25366900,
+              "maxNanos": 25366900
+            },
+            "CONNECTION_ACQUIRE": {
+              "count": 1,
+              "totalNanos": 47618400,
+              "maxNanos": 47618400
+            },
+            "BACKOFF_DELAY": {
+              "count": 1,
+              "totalNanos": 0,
+              "maxNanos": 0
+            },
+            "SERVICE_CALL": {
+              "count": 1,
+              "totalNanos": 800966200,
+              "maxNanos": 800966200
+            },
+            "ENDPOINT_RESOLVE": {
+              "count": 1,
+              "totalNanos": 99600,
+              "maxNanos": 99600
+            },
+            "UNMARSHALLING": {
+              "count": 1,
+              "totalNanos": 84895200,
+              "maxNanos": 84895200
+            },
+            "MARSHALLING": {
+              "count": 1,
+              "totalNanos": 402700,
+              "maxNanos": 402700
+            },
+            "TIME_TO_LAST_BYTE": {
+              "count": 1,
+              "totalNanos": 902301800,
+              "maxNanos": 902301800
+            },
+            "TIME_TO_FIRST_BYTE": {
+              "count": 1,
+              "totalNanos": 800966200,
+              "maxNanos": 800966200
+            }
+          },
+          "counters": {
+            "MAX_CONCURRENCY": [
+              50
+            ],
+            "RETRY_COUNT": [
+              0
+            ],
+            "PENDING_CONCURRENCY_ACQUIRES": [
+              0
+            ],
+            "LEASED_CONCURRENCY": [
+              1
+            ],
+            "AVAILABLE_CONCURRENCY": [
+              0
+            ]
+          }
+        }
+      },
+      {
+        "diagnosticId": 2,
+        "startedAt": "2026-10-25T08:18:04.290328900Z",
+        "completedAt": "2026-10-25T08:18:04.331691300Z",
+        "elapsedNanos": 41188900,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 4314300,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 23604500,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 638800,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 9899600,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1377200,
+            "completed": true
+          },
+          "TEXTURE_CACHE_HIT": {
+            "elapsedNanos": 90800,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 7845700,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {},
+        "s3Sdk": {
+          "publications": 0,
+          "truncated": false,
+          "durations": {},
+          "counters": {}
+        }
+      },
+      {
+        "diagnosticId": 3,
+        "startedAt": "2026-10-25T08:18:08.280025800Z",
+        "completedAt": "2026-10-25T08:18:08.313212400Z",
+        "elapsedNanos": 31838500,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 3938400,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 17501700,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 677400,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 7307600,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1161300,
+            "completed": true
+          },
+          "TEXTURE_CACHE_HIT": {
+            "elapsedNanos": 51300,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 5152800,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {},
+        "s3Sdk": {
+          "publications": 0,
+          "truncated": false,
+          "durations": {},
+          "counters": {}
+        }
+      },
+      {
+        "diagnosticId": 4,
+        "startedAt": "2026-10-25T08:19:19.729302100Z",
+        "completedAt": "2026-10-25T08:19:20.016184400Z",
+        "elapsedNanos": 286493900,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 99522700,
+            "completed": true
+          },
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 4829300,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 439200,
+            "completed": true
+          },
+          "TEXTURE_S3_REQUEST_BUILD": {
+            "elapsedNanos": 163200,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 8403900,
+            "completed": true
+          },
+          "TEXTURE_CACHE_MISS": {
+            "elapsedNanos": 249395600,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 149685700,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 5304000,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 18724900,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 783300,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {},
+        "s3Sdk": {
+          "publications": 1,
+          "truncated": false,
+          "durations": {
+            "CREDENTIALS_FETCH": {
+              "count": 1,
+              "totalNanos": 43300,
+              "maxNanos": 43300
+            },
+            "API_CALL": {
+              "count": 1,
+              "totalNanos": 146999100,
+              "maxNanos": 146999100
+            },
+            "SIGNING": {
+              "count": 1,
+              "totalNanos": 1648900,
+              "maxNanos": 1648900
+            },
+            "CONNECTION_ACQUIRE": {
+              "count": 1,
+              "totalNanos": 0,
+              "maxNanos": 0
+            },
+            "BACKOFF_DELAY": {
+              "count": 1,
+              "totalNanos": 0,
+              "maxNanos": 0
+            },
+            "SERVICE_CALL": {
+              "count": 1,
+              "totalNanos": 140548400,
+              "maxNanos": 140548400
+            },
+            "ENDPOINT_RESOLVE": {
+              "count": 1,
+              "totalNanos": 248400,
+              "maxNanos": 248400
+            },
+            "UNMARSHALLING": {
+              "count": 1,
+              "totalNanos": 730400,
+              "maxNanos": 730400
+            },
+            "MARSHALLING": {
+              "count": 1,
+              "totalNanos": 415200,
+              "maxNanos": 415200
+            },
+            "TIME_TO_LAST_BYTE": {
+              "count": 1,
+              "totalNanos": 141753700,
+              "maxNanos": 141753700
+            },
+            "TIME_TO_FIRST_BYTE": {
+              "count": 1,
+              "totalNanos": 140548400,
+              "maxNanos": 140548400
+            }
+          },
+          "counters": {
+            "MAX_CONCURRENCY": [
+              50
+            ],
+            "RETRY_COUNT": [
+              0
+            ],
+            "PENDING_CONCURRENCY_ACQUIRES": [
+              0
+            ],
+            "LEASED_CONCURRENCY": [
+              1
+            ],
+            "AVAILABLE_CONCURRENCY": [
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

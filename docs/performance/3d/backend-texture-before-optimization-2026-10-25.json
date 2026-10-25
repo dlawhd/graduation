@@ -1,0 +1,337 @@
+{
+  "version": 1,
+  "observedEnvironment": "local-backend",
+  "observedAtKst": "2026-10-25T16:19:15+09:00",
+  "method": "사용자가 같은 상세 화면에서 2D→3D를 6회 실행. 별도 loopback 관리 API의 고정 분류·시간·성공 상태만 수집. Jar/User ID·사진·키·인증정보는 수집하지 않음. 첫 관찰 요청 1회와 이후 5회를 분리.",
+  "limits": [
+    "전체 시간은 서버 필터 범위이며 브라우저 전체 전환·GPU 완료 시간이 아니다.",
+    "같은 저금통 사용 여부는 사용자 실행 절차에 의존한다. 계측 데이터에는 식별자를 보존하지 않는다.",
+    "S3 OPEN은 인증정보 준비·연결·재시도·응답 헤더 수신 등을 포함한다.",
+    "DB 하위 조회 시간은 DB 전체 시간에 포함되므로 중복 합산하지 않는다.",
+    "각 구간 중앙값은 서로 더하지 않는다. S3 합계는 요청별 OPEN+READ를 먼저 계산한 중앙값이다.",
+    "샘플의 GC 증가량은 전체 JVM 관찰값이며 해당 요청에만 귀속되는 비용이 아니다.",
+    "단일 기기·단일 이미지의 6회 관찰이며 운영 환경이나 다른 이미지에 일반화하지 않는다."
+  ],
+  "summary": {
+    "api": {
+      "firstMs": 1412.5686,
+      "repeatedMedianMs": 270.1152,
+      "minMs": 179.3143,
+      "maxMs": 709.0771
+    },
+    "db": {
+      "firstMs": 27.2115,
+      "repeatedMedianMs": 21.28,
+      "minMs": 20.3898,
+      "maxMs": 30.2006
+    },
+    "s3Open": {
+      "firstMs": 1146.723,
+      "repeatedMedianMs": 70.3116,
+      "minMs": 62.2886,
+      "maxMs": 90.3074
+    },
+    "s3Read": {
+      "firstMs": 216.9221,
+      "repeatedMedianMs": 154.5137,
+      "minMs": 61.9486,
+      "maxMs": 605.4286
+    },
+    "s3Total": {
+      "firstMs": 1363.6451,
+      "repeatedMedianMs": 228.39260000000002,
+      "minMs": 132.2602,
+      "maxMs": 667.7171999999999
+    }
+  },
+  "raw": {
+    "enabled": true,
+    "capacity": 64,
+    "completedCount": 6,
+    "evictedCount": 0,
+    "recent": [
+      {
+        "diagnosticId": 1,
+        "startedAt": "2026-10-25T07:19:00.410614200Z",
+        "completedAt": "2026-10-25T07:19:01.823387100Z",
+        "elapsedNanos": 1412568600,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 4409400,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 27211500,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 10862900,
+            "completed": true
+          },
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 216922100,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 1146723000,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 705400,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 3875900,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1005300,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {}
+      },
+      {
+        "diagnosticId": 2,
+        "startedAt": "2026-10-25T07:19:03.566227800Z",
+        "completedAt": "2026-10-25T07:19:04.276406200Z",
+        "elapsedNanos": 709077100,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 5211200,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 22196500,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 10721500,
+            "completed": true
+          },
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 605428600,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 62288600,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 1513400,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 6029700,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1119000,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {}
+      },
+      {
+        "diagnosticId": 3,
+        "startedAt": "2026-10-25T07:19:06.597453100Z",
+        "completedAt": "2026-10-25T07:19:06.851691200Z",
+        "elapsedNanos": 253942400,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 4709500,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 21280000,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 10863800,
+            "completed": true
+          },
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 126051200,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 90307400,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 781600,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 4657300,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 2301400,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {}
+      },
+      {
+        "diagnosticId": 4,
+        "startedAt": "2026-10-25T07:19:09.111175100Z",
+        "completedAt": "2026-10-25T07:19:09.382414400Z",
+        "elapsedNanos": 270115200,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 5629300,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 20389800,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 8665900,
+            "completed": true
+          },
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 154513700,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 73878900,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 842600,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 6506900,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1727500,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {}
+      },
+      {
+        "diagnosticId": 5,
+        "startedAt": "2026-10-25T07:19:11.953945800Z",
+        "completedAt": "2026-10-25T07:19:12.133388Z",
+        "elapsedNanos": 179314300,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 5533900,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 30200600,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 20405800,
+            "completed": true
+          },
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 61948600,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 70311600,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 617800,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 4967900,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1092500,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {}
+      },
+      {
+        "diagnosticId": 6,
+        "startedAt": "2026-10-25T07:19:14.767275500Z",
+        "completedAt": "2026-10-25T07:19:15.216132300Z",
+        "elapsedNanos": 447698500,
+        "responseStatus": 200,
+        "completed": true,
+        "stages": {
+          "SESSION_VERSION_QUERY": {
+            "elapsedNanos": 5092900,
+            "completed": true
+          },
+          "TEXTURE_DB": {
+            "elapsedNanos": 20837900,
+            "completed": true
+          },
+          "TEXTURE_DESIGN_LOOKUP": {
+            "elapsedNanos": 10621500,
+            "completed": true
+          },
+          "TEXTURE_S3_READ": {
+            "elapsedNanos": 340748600,
+            "completed": true
+          },
+          "TEXTURE_S3_OPEN": {
+            "elapsedNanos": 67325000,
+            "completed": true
+          },
+          "JWT_CLAIMS_PARSE": {
+            "elapsedNanos": 839900,
+            "completed": true
+          },
+          "TEXTURE_MEMBER_LOOKUP": {
+            "elapsedNanos": 4534800,
+            "completed": true
+          },
+          "JWT_VALIDATE": {
+            "elapsedNanos": 1520900,
+            "completed": true
+          }
+        },
+        "jvmGcCountDelta": 0,
+        "jvmGcTimeMillisDelta": 0,
+        "requestKind": "TEXTURE_IMAGE",
+        "database": {},
+        "databaseByStage": {}
+      }
+    ]
+  }
+}
