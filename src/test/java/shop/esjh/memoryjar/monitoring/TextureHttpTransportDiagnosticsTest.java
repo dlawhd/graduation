@@ -170,6 +170,7 @@ class TextureHttpTransportDiagnosticsTest {
         try (var client = S3Client.builder().region(Region.US_EAST_1).forcePathStyle(true)
                 .endpointOverride(URI.create("http://127.0.0.1:" + server.getAddress().getPort()))
                 .credentialsProvider(() -> AwsBasicCredentials.create("fixture", "fixture-secret"))
+                .overrideConfiguration(config -> config.addExecutionInterceptor(new TextureS3ExecutionDiagnostics()))
                 .httpClientBuilder(new TextureHttpTransportDiagnostics()).build()) {
             var first = workers.submit(() -> readFixture(client, diagnostics, png));
             assertThat(arrived.await(5, TimeUnit.SECONDS)).isTrue();
@@ -181,6 +182,9 @@ class TextureHttpTransportDiagnosticsTest {
                     LoginDiagnostics.S3SdkDuration.HTTP_SEND, LoginDiagnostics.S3SdkDuration.HTTP_RECEIVE_HEADERS);
             assertThat(samples.get(1).s3Sdk().durations()).containsKeys(LoginDiagnostics.S3SdkDuration.HTTP_SEND,
                     LoginDiagnostics.S3SdkDuration.HTTP_RECEIVE_HEADERS).doesNotContainKey(LoginDiagnostics.S3SdkDuration.HTTP_CONNECT);
+            assertThat(samples.get(0).s3Sdk().durations()).containsKeys(LoginDiagnostics.S3SdkDuration.HTTP_TCP_CONNECT,
+                    LoginDiagnostics.S3SdkDuration.SDK_CALL_ENTRY, LoginDiagnostics.S3SdkDuration.SDK_UNMARSHALLING_PIPELINE);
+            assertThat(samples.get(0).s3Sdk().counters()).doesNotContainKey(LoginDiagnostics.S3SdkCounter.SDK_PHASE_INCOMPLETE);
             assertThat(json.writeValueAsString(samples)).doesNotContain("fixture-secret", "private-key", "127.0.0.1");
         } finally { allowHeaders.countDown(); server.stop(0); workers.shutdownNow(); }
     }
@@ -222,7 +226,12 @@ class TextureHttpTransportDiagnosticsTest {
                 assertThat(readFixture(client, diagnostics, png)).isTrue();
                 assertThat(diagnostics.snapshot().textures().recent().get(0).s3Sdk().durations())
                         .containsKeys(LoginDiagnostics.S3SdkDuration.HTTP_CONNECT, LoginDiagnostics.S3SdkDuration.HTTP_SEND,
-                                LoginDiagnostics.S3SdkDuration.HTTP_RECEIVE_HEADERS);
+                                LoginDiagnostics.S3SdkDuration.HTTP_RECEIVE_HEADERS, LoginDiagnostics.S3SdkDuration.HTTP_DNS,
+                                LoginDiagnostics.S3SdkDuration.HTTP_TCP_CONNECT, LoginDiagnostics.S3SdkDuration.HTTP_TLS_SOCKET_CREATE,
+                                LoginDiagnostics.S3SdkDuration.HTTP_TLS_HANDSHAKE, LoginDiagnostics.S3SdkDuration.HTTP_TLS_HOSTNAME_VERIFY,
+                                LoginDiagnostics.S3SdkDuration.SDK_CALL_ENTRY, LoginDiagnostics.S3SdkDuration.SDK_RETURN);
+                assertThat(diagnostics.snapshot().textures().recent().get(0).s3Sdk().counters())
+                        .doesNotContainKey(LoginDiagnostics.S3SdkCounter.SDK_PHASE_INCOMPLETE);
             }
             // 인증서를 신뢰하더라도 SAN이 localhost뿐이면 IP 이름 불일치는 거절해야 한다.
             try (var http = new TextureHttpTransportDiagnostics().buildWithDefaults(options);
@@ -239,7 +248,8 @@ class TextureHttpTransportDiagnosticsTest {
                 .endpointOverride(URI.create("https://" + host + ":" + port))
                 .credentialsProvider(() -> AwsBasicCredentials.create("fixture", "fixture-secret"))
                 .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(8))
-                        .retryStrategy(software.amazon.awssdk.core.retry.RetryMode.STANDARD))
+                        .retryStrategy(software.amazon.awssdk.core.retry.RetryMode.STANDARD)
+                        .addExecutionInterceptor(new TextureS3ExecutionDiagnostics()))
                 .httpClient(http).build();
     }
 
@@ -253,7 +263,8 @@ class TextureHttpTransportDiagnosticsTest {
     private boolean readFixture(S3Client client, LoginDiagnostics diagnostics, byte[] expected) throws IOException {
         var attempt = diagnostics.start(LoginDiagnostics.RequestKind.TEXTURE_IMAGE);
         boolean completed = false;
-        try (var stream = client.getObject(TextureS3Diagnostics.instrument(GetObjectRequest.builder().bucket("fixture").key("private-key")))) {
+        var request = TextureS3Diagnostics.instrument(GetObjectRequest.builder().bucket("fixture").key("private-key"));
+        try (var stream = TextureS3ExecutionDiagnostics.call(() -> client.getObject(request))) {
             assertThat(stream.readAllBytes()).isEqualTo(expected); completed = true; return true;
         } finally { diagnostics.finish(attempt, completed ? 200 : 502, completed); }
     }

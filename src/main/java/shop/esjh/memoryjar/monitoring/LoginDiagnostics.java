@@ -26,9 +26,13 @@ public class LoginDiagnostics {
         TEXTURE_CACHE_HIT, TEXTURE_CACHE_MISS, TEXTURE_CACHE_WAIT, TEXTURE_CACHE_BYPASS, TEXTURE_S3_REQUEST_BUILD }
     public enum S3SdkDuration { API_CALL, CREDENTIALS_FETCH, TOKEN_FETCH, ENDPOINT_RESOLVE, MARSHALLING,
         SIGNING, SERVICE_CALL, UNMARSHALLING, TIME_TO_FIRST_BYTE, TIME_TO_LAST_BYTE, CONNECTION_ACQUIRE, BACKOFF_DELAY,
-        HTTP_CONNECT, HTTP_TLS_UPGRADE, HTTP_SEND, HTTP_RECEIVE_HEADERS }
+        HTTP_CONNECT, HTTP_TLS_UPGRADE, HTTP_SEND, HTTP_RECEIVE_HEADERS,
+        HTTP_DNS, HTTP_SOCKET_CREATE, HTTP_TCP_CONNECT, HTTP_TLS_SOCKET_CREATE, HTTP_TLS_HANDSHAKE, HTTP_TLS_HOSTNAME_VERIFY,
+        SDK_CALL_ENTRY, SDK_BEFORE_MARSHALLING, SDK_MARSHALLING_PIPELINE, SDK_PRE_TRANSMISSION,
+        SDK_POST_TRANSMISSION, SDK_UNMARSHALLING_PIPELINE, SDK_AFTER_UNMARSHALLING, SDK_RETURN, SDK_GET_OBJECT }
     public enum S3SdkCounter { RETRY_COUNT, MAX_CONCURRENCY, AVAILABLE_CONCURRENCY, LEASED_CONCURRENCY, PENDING_CONCURRENCY_ACQUIRES,
-        HTTP_TRANSPORT_OBSERVER, HTTP_TRANSPORT_FAILURE }
+        HTTP_TRANSPORT_OBSERVER, HTTP_TRANSPORT_FAILURE, HTTP_SOCKET_OBSERVER,
+        SDK_PHASE_OBSERVER, SDK_PHASE_INCOMPLETE }
     public enum DatabaseOperation { CONNECTION_ACQUIRE, STATEMENT_PREPARE, STATEMENT_EXECUTE, BATCH_EXECUTE }
     private static final ThreadLocal<Attempt> CURRENT = new ThreadLocal<>();
     private static final int CAPACITY = 64;
@@ -204,6 +208,14 @@ public class LoginDiagnostics {
                 : new SdkDuration(old.count() + 1, Math.addExact(old.totalNanos(), nanos), Math.max(old.maxNanos(), nanos)));
     }
 
+    /** 지원되는 현재 스레드 CPU 시간만 받는다. 경과 시간과 다르며 미지원 값을 0으로 채우지 않는다. */
+    static void recordS3CpuDuration(Attempt owner, S3SdkDuration metric, long nanos) {
+        if (!ownsTextureSdk(owner) || nanos < 0) return;
+        var old = owner.s3CpuDurations.get(metric);
+        owner.s3CpuDurations.put(metric, old == null ? new SdkDuration(1, nanos, nanos)
+                : new SdkDuration(old.count() + 1, Math.addExact(old.totalNanos(), nanos), Math.max(old.maxNanos(), nanos)));
+    }
+
     static void recordS3Counter(Attempt owner, S3SdkCounter metric, int value) {
         if (!ownsTextureSdk(owner) || value < 0) return;
         var values = owner.s3Counters.computeIfAbsent(metric, ignored -> new ArrayList<>());
@@ -213,7 +225,8 @@ public class LoginDiagnostics {
     private static S3SdkSnapshot copyS3Sdk(Attempt attempt) {
         var counters = new EnumMap<S3SdkCounter, List<Integer>>(S3SdkCounter.class);
         attempt.s3Counters.forEach((key, values) -> counters.put(key, List.copyOf(values)));
-        return new S3SdkSnapshot(attempt.s3Publications, attempt.s3Truncated, Map.copyOf(attempt.s3Durations), Map.copyOf(counters));
+        return new S3SdkSnapshot(attempt.s3Publications, attempt.s3Truncated, Map.copyOf(attempt.s3Durations),
+                Map.copyOf(counters), Map.copyOf(attempt.s3CpuDurations));
     }
 
     /** Hibernate 콜백은 SQL·파라미터 없이 시간만 받는다. 요청 밖의 DB 작업은 기록하지 않는다. */
@@ -272,6 +285,7 @@ public class LoginDiagnostics {
         final EnumMap<DatabaseOperation, DatabaseTiming> database = new EnumMap<>(DatabaseOperation.class);
         final EnumMap<Stage, Map<DatabaseOperation, DatabaseTiming>> databaseByStage = new EnumMap<>(Stage.class);
         final EnumMap<S3SdkDuration, SdkDuration> s3Durations = new EnumMap<>(S3SdkDuration.class);
+        final EnumMap<S3SdkDuration, SdkDuration> s3CpuDurations = new EnumMap<>(S3SdkDuration.class);
         final EnumMap<S3SdkCounter, List<Integer>> s3Counters = new EnumMap<>(S3SdkCounter.class);
         int s3Publications;
         boolean s3Truncated;
@@ -289,7 +303,7 @@ public class LoginDiagnostics {
                          Map<Stage, Map<DatabaseOperation, DatabaseTiming>> databaseByStage, S3SdkSnapshot s3Sdk) { }
     public record SdkDuration(long count, long totalNanos, long maxNanos) { }
     public record S3SdkSnapshot(int publications, boolean truncated, Map<S3SdkDuration, SdkDuration> durations,
-                                Map<S3SdkCounter, List<Integer>> counters) { }
+                                Map<S3SdkCounter, List<Integer>> counters, Map<S3SdkDuration, SdkDuration> cpuDurations) { }
     public record ReadSnapshot(boolean enabled, int capacity, int slowCapacity, long slowThresholdNanos,
                                long completedCount, long recentEvictedCount, long slowEvictedCount,
                                List<Sample> recent, List<Sample> slow) { }

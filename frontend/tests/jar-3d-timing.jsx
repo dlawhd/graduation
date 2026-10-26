@@ -4,10 +4,12 @@ import "../src/index.css";
 import JarBodyStage from "../src/features/jarDesign/components/JarBodyStage";
 import CustomJarBodyViewer from "../src/features/jarDesign/components/CustomJarBodyViewer";
 import CustomJarBodyArtwork from "../src/features/jarDesign/components/CustomJarBodyArtwork";
+import LocalBody3DTimingPanel from "../src/features/jarDesign/components/LocalBody3DTimingPanel";
 import JarVisual from "../src/features/jarDetail/components/JarVisual";
 import { getJarBody } from "../src/features/jarDesign/jarBodies.mjs";
 import { basicBodyOutline } from "../src/features/jarDesign/customJarBody.mjs";
 import { IRREGULAR_BODY_OUTLINE } from "./fixtures/irregularBodyOutline.mjs";
+import { preparedBodyOutline } from "../src/features/jarDesign/preparedBody3D.mjs";
 
 // 테스트 화면은 배포 진입점이 아니다. 로그인·운영 API·AI 생성·외부 이미지 요청을 하지 않는다.
 if(!import.meta.env.DEV)throw new Error("로컬 개발 전용 진단 화면");
@@ -62,6 +64,10 @@ function syntheticPhoto() {
 
 /** 클릭 한 번의 완료 결과를 보존한다. React 갱신/회전으로 같은 측정이 중복 집계되지 않게 한다. */
 function TimingPage() {
+  // 카탈로그의 실제 SVG 96점만 검증용으로 노출한다. 개인 사진/로그인 데이터는 읽지 않는다.
+  const benchmarkOutlines=useMemo(()=>new URLSearchParams(window.location.search).get("benchmark-outlines")==="1"
+    ?["FOX","RED_PANDA"].map(id=>{const body=getJarBody(id),path=document.createElementNS("http://www.w3.org/2000/svg","path");
+      return {id,catalogPath:body.path,value:preparedBodyOutline(body,path)};}):null,[]);
   const [caseId,setCaseId]=useState("detail-prepared"),[results,setResults]=useState([]),[failure,setFailure]=useState("");
   const stageRef=useRef(null),jarRef=useRef(null),photo=useMemo(syntheticPhoto,[]),outline=useMemo(()=>basicBodyOutline("ROUND"),[]);
   const selectedOutline=caseId.includes("irregular")?IRREGULAR_BODY_OUTLINE:outline;
@@ -93,7 +99,9 @@ function TimingPage() {
     customBody:selectedOutline,imageUrl:photo,
   }}),[caseId,selectedOutline,photo]);
   return <main className="mx-auto max-w-5xl p-5 text-stone-800">
+    {new URLSearchParams(window.location.search).get("live-panel")==="1"&&<LocalBody3DTimingPanel key={`panel-${caseId}`} rootRef={stageRef}/>}
     <h1 className="text-2xl font-black">저금통 3D 구간별 성능 진단</h1>
+    {benchmarkOutlines&&<details><summary>합성 카탈로그 윤곽 검증 데이터</summary><pre data-benchmark-outlines>{JSON.stringify(benchmarkOutlines)}</pre></details>}
     <p className="mt-3 text-sm leading-6">운영 요청 없는 로컬 합성 데이터입니다. 첫 실행은 코드 로딩을 포함할 수 있고, 반복 실행은 같은 페이지에서 2D → 3D로 전환합니다. 새로고침은 다운로드 캐시를 비우지 않습니다.</p>
     <p className="mt-2 text-sm leading-6 text-amber-900">완료 기준은 모든 사진/테두리를 사용한 renderer.render 반환입니다. GPU 완료·실제 모니터 출력 시간은 측정하지 않습니다. 로딩 구간에는 이미지 해석과 메인 스레드 대기가 포함되고, 중첩 구간은 서로 더하면 안 됩니다.</p>
     <label className="mt-4 block font-bold">측정 대상<select className="ml-2 max-w-full rounded border bg-white p-2" value={caseId} onChange={event=>{setFailure("");setCaseId(event.target.value);}}>{CASES.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
@@ -119,4 +127,6 @@ function TimingPage() {
 }
 const root=import.meta.hot?.data.root||createRoot(document.getElementById("root"));
 if(import.meta.hot)import.meta.hot.data.root=root;
-root.render(<TimingPage/>);
+// 실제 개발 앱의 StrictMode(효과를 정리하고 다시 실행하는 검사)도 같은 합성 데이터로 재현한다.
+root.render(new URLSearchParams(window.location.search).get("strict-mode")==="1"
+  ?<React.StrictMode><TimingPage/></React.StrictMode>:<TimingPage/>);

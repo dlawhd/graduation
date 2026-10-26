@@ -11,6 +11,7 @@ import shop.esjh.memoryjar.repository.ai.JarDesignRepository;
 import shop.esjh.memoryjar.repository.jar.JarMemberRepository;
 import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 import shop.esjh.memoryjar.monitoring.TextureS3Diagnostics;
+import shop.esjh.memoryjar.monitoring.TextureS3ExecutionDiagnostics;
 import static shop.esjh.memoryjar.monitoring.LoginDiagnostics.Stage.*;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -54,7 +55,7 @@ public class JarDesignTextureService {
         try(var stream=LoginDiagnostics.measure(TEXTURE_S3_OPEN,()->{
             var request=LoginDiagnostics.measure(TEXTURE_S3_REQUEST_BUILD,
                     ()->TextureS3Diagnostics.instrument(GetObjectRequest.builder().bucket(bucket).key(key)));
-            return s3.getObject(request);
+            return TextureS3ExecutionDiagnostics.call(() -> s3.getObject(request));
         })) {
             // 잘못된 저장 객체가 서버 메모리를 무제한 사용하지 않도록 응답 헤더와 실제 바이트를 모두 제한한다.
             Long length=stream.response().contentLength();

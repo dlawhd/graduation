@@ -1,0 +1,792 @@
+{
+  "dateKst": "2026-10-26",
+  "kind": "로컬 실제 이미지 진단",
+  "limits": [
+    "프론트 결과는 사용자가 전달한 숫자이며 완료 시각·서버 요청 대응 정보가 없어 특정 서버 기록과 일대일 매칭하지 않음",
+    "서버 기록은 수집 당시 전체 IMAGE 4건, 축출 0건",
+    "첫 연결 463ms 표본과 날짜·실행 상태·GC 조건이 달라 개선율로 비교하지 않음",
+    "StrictMode 개발 검사 비용 포함; 운영 전체 속도·GPU 완료 아님",
+    "cpuDurations의 0은 CPU 작업 없음의 증거가 아님; 관찰 값은 15.625ms 단위로 나타나 짧은 구간 해석 제한"
+  ],
+  "userProvidedFrontend": {
+    "version": 1,
+    "completion": "renderer.render-return",
+    "timingsMs": {
+      "clickToRenderReturn": 1194.8999999761581,
+      "clickToComponent": 46.89999997615814,
+      "profile": 1.8000000715255737,
+      "rendererInit": 27.299999952316284,
+      "bodyGeometry": 625.6999999284744,
+      "photoSource": 162.69999992847443,
+      "photoLoadToOnload": 165.29999995231628,
+      "photoCanvasAndTexture": 0.7000000476837158,
+      "borderLoadToOnload": 67.10000002384186,
+      "renderSubmitCpu": 141.60000002384186
+    },
+    "viewport": {
+      "width": 380,
+      "height": 380,
+      "pixelRatio": 1.25
+    },
+    "triangles": 18308
+  },
+  "backend": {
+    "observedAt": "2026-10-26T10:14:40.767154700Z",
+    "textures": {
+      "enabled": true,
+      "capacity": 64,
+      "completedCount": 4,
+      "evictedCount": 0,
+      "recent": [
+        {
+          "diagnosticId": 1,
+          "startedAt": "2026-10-26T10:05:51.662208800Z",
+          "completedAt": "2026-10-26T10:05:52.240654500Z",
+          "elapsedNanos": 575375600,
+          "responseStatus": 200,
+          "completed": true,
+          "stages": {
+            "TEXTURE_DESIGN_LOOKUP": {
+              "elapsedNanos": 6899700,
+              "completed": true
+            },
+            "TEXTURE_CACHE_MISS": {
+              "elapsedNanos": 536077100,
+              "completed": true
+            },
+            "TEXTURE_S3_READ": {
+              "elapsedNanos": 49851600,
+              "completed": true
+            },
+            "JWT_CLAIMS_PARSE": {
+              "elapsedNanos": 777100,
+              "completed": true
+            },
+            "TEXTURE_S3_REQUEST_BUILD": {
+              "elapsedNanos": 11964100,
+              "completed": true
+            },
+            "SESSION_VERSION_QUERY": {
+              "elapsedNanos": 4032000,
+              "completed": true
+            },
+            "TEXTURE_DB": {
+              "elapsedNanos": 16146600,
+              "completed": true
+            },
+            "JWT_VALIDATE": {
+              "elapsedNanos": 3956900,
+              "completed": true
+            },
+            "TEXTURE_MEMBER_LOOKUP": {
+              "elapsedNanos": 3570800,
+              "completed": true
+            },
+            "TEXTURE_S3_OPEN": {
+              "elapsedNanos": 464170500,
+              "completed": true
+            }
+          },
+          "jvmGcCountDelta": 1,
+          "jvmGcTimeMillisDelta": 21,
+          "requestKind": "TEXTURE_IMAGE",
+          "database": {},
+          "databaseByStage": {},
+          "s3Sdk": {
+            "publications": 1,
+            "truncated": false,
+            "durations": {
+              "CREDENTIALS_FETCH": {
+                "count": 1,
+                "totalNanos": 39500,
+                "maxNanos": 39500
+              },
+              "HTTP_SEND": {
+                "count": 1,
+                "totalNanos": 1743300,
+                "maxNanos": 1743300
+              },
+              "SDK_RETURN": {
+                "count": 1,
+                "totalNanos": 1189200,
+                "maxNanos": 1189200
+              },
+              "BACKOFF_DELAY": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_MARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 989100,
+                "maxNanos": 989100
+              },
+              "SDK_PRE_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 84319100,
+                "maxNanos": 84319100
+              },
+              "TIME_TO_FIRST_BYTE": {
+                "count": 1,
+                "totalNanos": 228199200,
+                "maxNanos": 228199200
+              },
+              "SDK_UNMARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 45564800,
+                "maxNanos": 45564800
+              },
+              "SDK_GET_OBJECT": {
+                "count": 1,
+                "totalNanos": 449756100,
+                "maxNanos": 449756100
+              },
+              "HTTP_RECEIVE_HEADERS": {
+                "count": 1,
+                "totalNanos": 47354100,
+                "maxNanos": 47354100
+              },
+              "SDK_POST_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 5972200,
+                "maxNanos": 5972200
+              },
+              "HTTP_CONNECT": {
+                "count": 1,
+                "totalNanos": 87416400,
+                "maxNanos": 87416400
+              },
+              "HTTP_TCP_CONNECT": {
+                "count": 1,
+                "totalNanos": 7092200,
+                "maxNanos": 7092200
+              },
+              "API_CALL": {
+                "count": 1,
+                "totalNanos": 344619600,
+                "maxNanos": 344619600
+              },
+              "ENDPOINT_RESOLVE": {
+                "count": 1,
+                "totalNanos": 243900,
+                "maxNanos": 243900
+              },
+              "MARSHALLING": {
+                "count": 1,
+                "totalNanos": 207400,
+                "maxNanos": 207400
+              },
+              "SIGNING": {
+                "count": 1,
+                "totalNanos": 12340000,
+                "maxNanos": 12340000
+              },
+              "HTTP_DNS": {
+                "count": 1,
+                "totalNanos": 35383800,
+                "maxNanos": 35383800
+              },
+              "SDK_AFTER_UNMARSHALLING": {
+                "count": 1,
+                "totalNanos": 8873500,
+                "maxNanos": 8873500
+              },
+              "TIME_TO_LAST_BYTE": {
+                "count": 1,
+                "totalNanos": 284271200,
+                "maxNanos": 284271200
+              },
+              "HTTP_TLS_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 1014600,
+                "maxNanos": 1014600
+              },
+              "HTTP_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 267100,
+                "maxNanos": 267100
+              },
+              "UNMARSHALLING": {
+                "count": 1,
+                "totalNanos": 41478400,
+                "maxNanos": 41478400
+              },
+              "SERVICE_CALL": {
+                "count": 1,
+                "totalNanos": 228199200,
+                "maxNanos": 228199200
+              },
+              "HTTP_TLS_HOSTNAME_VERIFY": {
+                "count": 1,
+                "totalNanos": 3418800,
+                "maxNanos": 3418800
+              },
+              "SDK_BEFORE_MARSHALLING": {
+                "count": 1,
+                "totalNanos": 29014500,
+                "maxNanos": 29014500
+              },
+              "SDK_CALL_ENTRY": {
+                "count": 1,
+                "totalNanos": 32662300,
+                "maxNanos": 32662300
+              },
+              "HTTP_TLS_HANDSHAKE": {
+                "count": 1,
+                "totalNanos": 34436600,
+                "maxNanos": 34436600
+              },
+              "CONNECTION_ACQUIRE": {
+                "count": 1,
+                "totalNanos": 28890400,
+                "maxNanos": 28890400
+              }
+            },
+            "counters": {
+              "SDK_PHASE_OBSERVER": [
+                1
+              ],
+              "MAX_CONCURRENCY": [
+                50
+              ],
+              "RETRY_COUNT": [
+                0
+              ],
+              "HTTP_SOCKET_OBSERVER": [
+                1
+              ],
+              "HTTP_TRANSPORT_OBSERVER": [
+                1
+              ],
+              "AVAILABLE_CONCURRENCY": [
+                0
+              ],
+              "LEASED_CONCURRENCY": [
+                1
+              ],
+              "PENDING_CONCURRENCY_ACQUIRES": [
+                0
+              ]
+            },
+            "cpuDurations": {
+              "SDK_BEFORE_MARSHALLING": {
+                "count": 1,
+                "totalNanos": 15625000,
+                "maxNanos": 15625000
+              },
+              "SDK_RETURN": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_CALL_ENTRY": {
+                "count": 1,
+                "totalNanos": 31250000,
+                "maxNanos": 31250000
+              },
+              "SDK_GET_OBJECT": {
+                "count": 1,
+                "totalNanos": 296875000,
+                "maxNanos": 296875000
+              },
+              "SDK_MARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_RECEIVE_HEADERS": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_PRE_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 62500000,
+                "maxNanos": 62500000
+              },
+              "HTTP_TLS_HOSTNAME_VERIFY": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_CONNECT": {
+                "count": 1,
+                "totalNanos": 31250000,
+                "maxNanos": 31250000
+              },
+              "HTTP_TLS_HANDSHAKE": {
+                "count": 1,
+                "totalNanos": 31250000,
+                "maxNanos": 31250000
+              },
+              "SDK_POST_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_DNS": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_SEND": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_TLS_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_AFTER_UNMARSHALLING": {
+                "count": 1,
+                "totalNanos": 15625000,
+                "maxNanos": 15625000
+              },
+              "HTTP_TCP_CONNECT": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_UNMARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 31250000,
+                "maxNanos": 31250000
+              }
+            }
+          }
+        },
+        {
+          "diagnosticId": 2,
+          "startedAt": "2026-10-26T10:06:08.358352Z",
+          "completedAt": "2026-10-26T10:06:08.383342200Z",
+          "elapsedNanos": 24566200,
+          "responseStatus": 200,
+          "completed": true,
+          "stages": {
+            "TEXTURE_DESIGN_LOOKUP": {
+              "elapsedNanos": 4944800,
+              "completed": true
+            },
+            "SESSION_VERSION_QUERY": {
+              "elapsedNanos": 3576700,
+              "completed": true
+            },
+            "TEXTURE_DB": {
+              "elapsedNanos": 12686700,
+              "completed": true
+            },
+            "TEXTURE_CACHE_HIT": {
+              "elapsedNanos": 54300,
+              "completed": true
+            },
+            "JWT_CLAIMS_PARSE": {
+              "elapsedNanos": 317200,
+              "completed": true
+            },
+            "JWT_VALIDATE": {
+              "elapsedNanos": 657600,
+              "completed": true
+            },
+            "TEXTURE_MEMBER_LOOKUP": {
+              "elapsedNanos": 3378600,
+              "completed": true
+            }
+          },
+          "jvmGcCountDelta": 0,
+          "jvmGcTimeMillisDelta": 0,
+          "requestKind": "TEXTURE_IMAGE",
+          "database": {},
+          "databaseByStage": {},
+          "s3Sdk": {
+            "publications": 0,
+            "truncated": false,
+            "durations": {},
+            "counters": {},
+            "cpuDurations": {}
+          }
+        },
+        {
+          "diagnosticId": 3,
+          "startedAt": "2026-10-26T10:13:30.249633200Z",
+          "completedAt": "2026-10-26T10:13:30.491311800Z",
+          "elapsedNanos": 240681000,
+          "responseStatus": 200,
+          "completed": true,
+          "stages": {
+            "TEXTURE_DESIGN_LOOKUP": {
+              "elapsedNanos": 6367200,
+              "completed": true
+            },
+            "TEXTURE_CACHE_MISS": {
+              "elapsedNanos": 210905600,
+              "completed": true
+            },
+            "TEXTURE_S3_READ": {
+              "elapsedNanos": 47595000,
+              "completed": true
+            },
+            "JWT_CLAIMS_PARSE": {
+              "elapsedNanos": 259500,
+              "completed": true
+            },
+            "TEXTURE_S3_REQUEST_BUILD": {
+              "elapsedNanos": 66100,
+              "completed": true
+            },
+            "SESSION_VERSION_QUERY": {
+              "elapsedNanos": 5185000,
+              "completed": true
+            },
+            "TEXTURE_DB": {
+              "elapsedNanos": 16722800,
+              "completed": true
+            },
+            "JWT_VALIDATE": {
+              "elapsedNanos": 471700,
+              "completed": true
+            },
+            "TEXTURE_MEMBER_LOOKUP": {
+              "elapsedNanos": 3582400,
+              "completed": true
+            },
+            "TEXTURE_S3_OPEN": {
+              "elapsedNanos": 163237400,
+              "completed": true
+            }
+          },
+          "jvmGcCountDelta": 0,
+          "jvmGcTimeMillisDelta": 0,
+          "requestKind": "TEXTURE_IMAGE",
+          "database": {},
+          "databaseByStage": {},
+          "s3Sdk": {
+            "publications": 1,
+            "truncated": false,
+            "durations": {
+              "CREDENTIALS_FETCH": {
+                "count": 1,
+                "totalNanos": 52500,
+                "maxNanos": 52500
+              },
+              "HTTP_SEND": {
+                "count": 1,
+                "totalNanos": 407500,
+                "maxNanos": 407500
+              },
+              "SDK_RETURN": {
+                "count": 1,
+                "totalNanos": 152300,
+                "maxNanos": 152300
+              },
+              "BACKOFF_DELAY": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_MARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 253200,
+                "maxNanos": 253200
+              },
+              "SDK_PRE_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 2853300,
+                "maxNanos": 2853300
+              },
+              "TIME_TO_FIRST_BYTE": {
+                "count": 1,
+                "totalNanos": 157418300,
+                "maxNanos": 157418300
+              },
+              "SDK_UNMARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 722200,
+                "maxNanos": 722200
+              },
+              "SDK_GET_OBJECT": {
+                "count": 1,
+                "totalNanos": 163139100,
+                "maxNanos": 163139100
+              },
+              "HTTP_RECEIVE_HEADERS": {
+                "count": 1,
+                "totalNanos": 40368900,
+                "maxNanos": 40368900
+              },
+              "SDK_POST_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 146000,
+                "maxNanos": 146000
+              },
+              "HTTP_CONNECT": {
+                "count": 1,
+                "totalNanos": 114962700,
+                "maxNanos": 114962700
+              },
+              "HTTP_TCP_CONNECT": {
+                "count": 1,
+                "totalNanos": 7566000,
+                "maxNanos": 7566000
+              },
+              "API_CALL": {
+                "count": 1,
+                "totalNanos": 161445600,
+                "maxNanos": 161445600
+              },
+              "ENDPOINT_RESOLVE": {
+                "count": 1,
+                "totalNanos": 77600,
+                "maxNanos": 77600
+              },
+              "MARSHALLING": {
+                "count": 1,
+                "totalNanos": 193800,
+                "maxNanos": 193800
+              },
+              "SIGNING": {
+                "count": 1,
+                "totalNanos": 1312800,
+                "maxNanos": 1312800
+              },
+              "HTTP_DNS": {
+                "count": 1,
+                "totalNanos": 84440000,
+                "maxNanos": 84440000
+              },
+              "SDK_AFTER_UNMARSHALLING": {
+                "count": 1,
+                "totalNanos": 258500,
+                "maxNanos": 258500
+              },
+              "TIME_TO_LAST_BYTE": {
+                "count": 1,
+                "totalNanos": 158464300,
+                "maxNanos": 158464300
+              },
+              "HTTP_TLS_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 339800,
+                "maxNanos": 339800
+              },
+              "HTTP_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 19400,
+                "maxNanos": 19400
+              },
+              "UNMARSHALLING": {
+                "count": 1,
+                "totalNanos": 618600,
+                "maxNanos": 618600
+              },
+              "SERVICE_CALL": {
+                "count": 1,
+                "totalNanos": 157418300,
+                "maxNanos": 157418300
+              },
+              "HTTP_TLS_HOSTNAME_VERIFY": {
+                "count": 1,
+                "totalNanos": 126600,
+                "maxNanos": 126600
+              },
+              "SDK_BEFORE_MARSHALLING": {
+                "count": 1,
+                "totalNanos": 241000,
+                "maxNanos": 241000
+              },
+              "SDK_CALL_ENTRY": {
+                "count": 1,
+                "totalNanos": 770500,
+                "maxNanos": 770500
+              },
+              "HTTP_TLS_HANDSHAKE": {
+                "count": 1,
+                "totalNanos": 21980400,
+                "maxNanos": 21980400
+              },
+              "CONNECTION_ACQUIRE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              }
+            },
+            "counters": {
+              "SDK_PHASE_OBSERVER": [
+                1
+              ],
+              "MAX_CONCURRENCY": [
+                50
+              ],
+              "RETRY_COUNT": [
+                0
+              ],
+              "HTTP_SOCKET_OBSERVER": [
+                1
+              ],
+              "HTTP_TRANSPORT_OBSERVER": [
+                1
+              ],
+              "AVAILABLE_CONCURRENCY": [
+                0
+              ],
+              "LEASED_CONCURRENCY": [
+                1
+              ],
+              "PENDING_CONCURRENCY_ACQUIRES": [
+                0
+              ]
+            },
+            "cpuDurations": {
+              "SDK_BEFORE_MARSHALLING": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_RETURN": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_CALL_ENTRY": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_GET_OBJECT": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_MARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_RECEIVE_HEADERS": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_PRE_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_TLS_HOSTNAME_VERIFY": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_CONNECT": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_TLS_HANDSHAKE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_POST_TRANSMISSION": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_DNS": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_SEND": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_TLS_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_SOCKET_CREATE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_AFTER_UNMARSHALLING": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "HTTP_TCP_CONNECT": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              },
+              "SDK_UNMARSHALLING_PIPELINE": {
+                "count": 1,
+                "totalNanos": 0,
+                "maxNanos": 0
+              }
+            }
+          }
+        },
+        {
+          "diagnosticId": 4,
+          "startedAt": "2026-10-26T10:14:00.019037700Z",
+          "completedAt": "2026-10-26T10:14:00.047533500Z",
+          "elapsedNanos": 28837100,
+          "responseStatus": 200,
+          "completed": true,
+          "stages": {
+            "TEXTURE_DESIGN_LOOKUP": {
+              "elapsedNanos": 4473500,
+              "completed": true
+            },
+            "SESSION_VERSION_QUERY": {
+              "elapsedNanos": 5289100,
+              "completed": true
+            },
+            "TEXTURE_DB": {
+              "elapsedNanos": 15755400,
+              "completed": true
+            },
+            "TEXTURE_CACHE_HIT": {
+              "elapsedNanos": 72500,
+              "completed": true
+            },
+            "JWT_CLAIMS_PARSE": {
+              "elapsedNanos": 164200,
+              "completed": true
+            },
+            "JWT_VALIDATE": {
+              "elapsedNanos": 416100,
+              "completed": true
+            },
+            "TEXTURE_MEMBER_LOOKUP": {
+              "elapsedNanos": 5953600,
+              "completed": true
+            }
+          },
+          "jvmGcCountDelta": 0,
+          "jvmGcTimeMillisDelta": 0,
+          "requestKind": "TEXTURE_IMAGE",
+          "database": {},
+          "databaseByStage": {},
+          "s3Sdk": {
+            "publications": 0,
+            "truncated": false,
+            "durations": {},
+            "counters": {},
+            "cpuDurations": {}
+          }
+        }
+      ]
+    }
+  }
+}

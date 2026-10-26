@@ -1,0 +1,73 @@
+{
+  "dateKst": "2026-10-26",
+  "source": "사용자가 실제 로컬 저금통 상세에서 보낸 숫자 기록",
+  "limits": [
+    "완료 시각·서버 요청 식별 정보 없음",
+    "개발 빌드 StrictMode가 켜진 상태의 경과 시간",
+    "폐기된 준비를 전체에서 빼도 운영 성능 예측값이 되지 않음",
+    "앞선 1194.9ms와 단일 표본 전후 개선율 비교 불가; 값 차이 원인 미분리",
+    "사진·쿠키·개인정보 제외"
+  ],
+  "report": {
+    "version": 1,
+    "completion": "renderer.render-return",
+    "timingsMs": {
+      "clickToRenderReturn": 2434.1999999284744,
+      "clickToComponent": 112.5,
+      "profile": 7.100000023841858,
+      "rendererInit": 46.10000002384186,
+      "bodyGeometry": 1725.5,
+      "photoSource": 226.89999997615814,
+      "photoLoadToOnload": 232.89999997615814,
+      "photoCanvasAndTexture": 0.6000000238418579,
+      "borderLoadToOnload": 119.20000004768372,
+      "renderSubmitCpu": 175.19999992847443
+    },
+    "viewport": {
+      "width": 380,
+      "height": 380,
+      "pixelRatio": 1.25
+    },
+    "triangles": 18308,
+    "effectBreakdown": {
+      "observedEffectCount": 2,
+      "discardedEffectCount": 1,
+      "unresolvedEffectCount": 0,
+      "renderedEffect": {
+        "id": 2,
+        "setupMs": 771.7000000476837,
+        "cleanupMs": null,
+        "bodyGeometryMs": 729.7999999523163,
+        "rendererInitMs": 17.600000023841858,
+        "geometryStagesMs": {
+          "rimTessellation": 225.70000004768372,
+          "rimHeightField": 68.60000002384186,
+          "rimSurfaceVertices": 247,
+          "photoTessellation": 32.90000009536743,
+          "photoHeightField": 32.799999952316284,
+          "photoSurfaceVertices": 9,
+          "flatBase": 102.19999992847443
+        }
+      },
+      "discardedEffects": {
+        "setupMs": 1075.1999999284744,
+        "cleanupMs": 4.5,
+        "bodyGeometryMs": 995.7000000476837,
+        "rendererInitMs": 28.5,
+        "geometryStagesMs": {
+          "rimTessellation": 319.2999999523163,
+          "rimHeightField": 102.70000004768372,
+          "rimSurfaceVertices": 317.39999997615814,
+          "photoTessellation": 45.800000071525574,
+          "photoHeightField": 36.299999952316284,
+          "photoSurfaceVertices": 11.5,
+          "flatBase": 132.19999992847443
+        }
+      },
+      "profileComputations": {
+        "count": 2,
+        "totalMs": 7.100000023841858
+      }
+    }
+  }
+}

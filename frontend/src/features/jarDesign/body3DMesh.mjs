@@ -137,20 +137,29 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
     joinEdge(contour);
     return finish();
   }
+  // 삼각형들이 같은 Vector2 정점을 공유한다. 좌표 반올림으로 묶지 않고 원래 점별 높이/번호만 재사용한다.
+  // 보조 중심점도 같은 방식으로 다루되 앞면 세 점→뒷면 세 점의 등록 순서는 유지한다.
+  const rimSamples=new WeakMap(),flatSamples=new WeakMap();
+  const rimSample=(point,flat)=>{
+    const samples=flat?flatSamples:rimSamples;
+    let sample=samples.get(point);
+    if(!sample){sample={height:flat?halfDepth:height(point)};samples.set(point,sample);}
+    return sample;
+  };
   const face = (a,b,c,flat=false) => {
-    const heights=[a,b,c].map(p=>flat?halfDepth:height(p));
+    const sa=rimSample(a,flat),sb=rimSample(b,flat),sc=rimSample(c,flat);
     // 좁은 모서리의 세 점이 모두 경계면이면 앞뒤가 겹쳐 법선이 상쇄된다. 내부 점을 하나 넣어 부피를 남긴다.
-    if (!flat && Math.max(...heights)<1e-10) {
+    if (!flat && Math.max(sa.height,sb.height,sc.height)<1e-10) {
       const middle=new Vector2((a.x+b.x+c.x)/3,(a.y+b.y+c.y)/3);
-      if (height(middle)>1e-10) { face(a,b,middle);face(b,c,middle);face(c,a,middle); }
+      if (rimSample(middle,false).height>1e-10) { face(a,b,middle);face(b,c,middle);face(c,a,middle); }
       return;
     }
-    const front=[a,b,c].map((p,i)=>vertex(p,heights[i]));
-    const back=[a,b,c].map((p,i)=>vertex(p,-heights[i]));
+    const fa=sa.front??(sa.front=vertex(a,sa.height)),fb=sb.front??(sb.front=vertex(b,sb.height)),fc=sc.front??(sc.front=vertex(c,sc.height));
+    const ba=sa.back??(sa.back=vertex(a,-sa.height)),bb=sb.back??(sb.back=vertex(b,-sb.height)),bc=sc.back??(sc.back=vertex(c,-sc.height));
     // 앞면은 +Z, 뒷면은 -Z를 향한다. 외곽의 공통 점은 법선을 공유해 둥근 옆면을 만든다.
     const ccw=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)>0;
-    indices.push(...(ccw?front:[front[0],front[2],front[1]]));
-    indices.push(...(ccw?[back[0],back[2],back[1]]:back));
+    if(ccw)indices.push(fa,fb,fc,ba,bc,bb);
+    else indices.push(fa,fc,fb,ba,bb,bc);
   };
   // Earcut으로 먼저 나눠 귀/골짜기를 보존한다. 중심점 팬 방식은 오목한 틀 밖을 덮을 수 있어 쓰지 않는다.
   const rimPoints=[...outer,...holes.flat()];
@@ -158,7 +167,7 @@ export function roundedBodyGeometry(value, hollow = false, profile = body3DProfi
   smoothHeight=measure("rimHeightField",()=>smoothedDomeField(outer,holes,distance));
   // 긴 삼각형을 그대로 등분하면 가는 팔다리에 주름이 생긴다. 경계는 고정하고 내부 대각선을 다듬는다.
   const surface=measure("rimTessellation",()=>tessellateSurface(rimPoints,rimTriangles));
-  measure("rimSurfaceVertices",()=>{for (const triangle of surface.triangles) face(...triangle.map(i=>surface.points[i]));});
+  measure("rimSurfaceVertices",()=>{for (const [a,b,c] of surface.triangles) face(surface.points[a],surface.points[b],surface.points[c]);});
   if (insetFits && !hollow) {
     addPhotoCaps(holes);
   } else if (hollow) {
@@ -273,35 +282,43 @@ function tessellateSurface(source,faces) {
   const points=source.map(p=>p.clone()),cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   let triangles=faces.map(([a,b,c])=>cross(points[a],points[b],points[c])>0?[a,b,c]:[a,c,b]);
   const key=(a,b)=>a<b?`${a},${b}`:`${b},${a}`;
+  let edgeCache=null;
   const edges=()=>{
+    // 삼각형이 바뀌지 않은 마지막 개선 패스의 연결 정보는 다음 분할/경계 찾기에서도 동일하다.
+    if(edgeCache)return edgeCache;
     const result=new Map();
-    triangles.forEach((t,i)=>t.forEach((a,j)=>{
-      const b=t[(j+1)%3],c=t[(j+2)%3],id=key(a,b);
-      if(!result.has(id)) result.set(id,[]);result.get(id).push({a,b,c,i});
-    }));return result;
+    for(let i=0;i<triangles.length;i++)for(let j=0;j<3;j++){
+      const t=triangles[i],a=t[j],b=t[(j+1)%3],c=t[(j+2)%3],id=key(a,b),edge=result.get(id);
+      // 변의 첫 방향/방문 순서는 보존한다. 인접 배열과 두 번째 삼각형 객체는 만들지 않는다.
+      if(!edge)result.set(id,{a,b,c,i,count:1});
+      else {edge.count++;if(edge.count===2){edge.otherC=c;edge.otherI=i;}}
+    }
+    edgeCache=result;return result;
   };
   const improve=()=>{
     // 경계는 인접 삼각형이 하나뿐이므로 이동하지 않는다. 같은 패스의 정점을 중복 교체하지 않는다.
     for(let pass=0;pass<8;pass++) {
-      const used=new Set();let changed=false;
-      for(const adjacent of edges().values()) {
-        if(adjacent.length!==2) continue;
-        const [first,second]=adjacent,{a,b,c,i}=first,d=second.c,j=second.i;
-        if(used.has(i)||used.has(j)) continue;
+      const used=new Uint8Array(triangles.length);let changed=false;
+      for(const edge of edges().values()) {
+        if(edge.count!==2) continue;
+        const {a,b,c,i,otherC:d,otherI:j}=edge;
+        if(used[i]||used[j]) continue;
         const pa=points[a],pb=points[b],pc=points[c],pd=points[d];
         if(cross(pc,pa,pd)<=1e-12 || cross(pc,pd,pb)<=1e-12) continue;
         const ax=pa.x-pd.x,ay=pa.y-pd.y,bx=pb.x-pd.x,by=pb.y-pd.y,cx=pc.x-pd.x,cy=pc.y-pd.y;
         const inCircle=(ax*ax+ay*ay)*(bx*cy-by*cx)-(bx*bx+by*by)*(ax*cy-ay*cx)+(cx*cx+cy*cy)*(ax*by-ay*bx);
         if(inCircle<=1e-12) continue;
-        triangles[i]=[c,a,d];triangles[j]=[c,d,b];used.add(i);used.add(j);changed=true;
+        triangles[i]=[c,a,d];triangles[j]=[c,d,b];used[i]=used[j]=1;changed=true;
       }
+      // 한 패스는 원래 연결 스냅샷으로 끝낸다. 변경이 있으면 다음 패스에서만 새 연결을 만든다.
+      if(changed)edgeCache=null;
       if(!changed) break;
     }
   };
   improve();
   for(let round=0;round<7;round++) {
     const midpoints=new Map();
-    for(const [id,[edge]] of edges()) {
+    for(const [id,edge] of edges()) {
       const a=points[edge.a],b=points[edge.b];
       if(a.distanceTo(b)>.035) { midpoints.set(id,points.length);points.push(a.clone().lerp(b,.5)); }
     }
@@ -326,7 +343,7 @@ function tessellateSurface(source,faces) {
     }
     // 비정상적으로 복잡한 모델이 UI를 장시간 막지 않도록 한 면의 계산량에 상한을 둔다.
     if(refined.length>16000) throw new Error("Surface budget exceeded");
-    triangles=refined;improve();
+    triangles=refined;edgeCache=null;improve();
   }
-  return {points,triangles,boundaries:[...edges().values()].filter(list=>list.length===1).map(([edge])=>[edge.a,edge.b])};
+  return {points,triangles,boundaries:[...edges().values()].filter(edge=>edge.count===1).map(edge=>[edge.a,edge.b])};
 }

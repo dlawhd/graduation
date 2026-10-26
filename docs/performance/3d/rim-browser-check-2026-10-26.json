@@ -1,0 +1,139 @@
+{
+  "dateKst": "2026-10-26",
+  "kind": "최적화 후 합성 레서판다 화면과 오류 복구 동작 확인",
+  "limits": [
+    "속도 개선율용 전후 비교가 아님",
+    "이전 별도 실행보다 느린 구간도 관찰; 첫 로딩·JIT·기기 부하의 차이를 분리하지 못함",
+    "CPU 벤치마크와 별개로 보관",
+    "실제 개인 사진·S3 요청·GPU 완료 제외"
+  ],
+  "first": {
+    "version": 1,
+    "completion": "renderer.render-return",
+    "timingsMs": {
+      "clickToRenderReturn": 3016.7999999523163,
+      "clickToComponent": 441.7000000476837,
+      "profile": 5.600000023841858,
+      "rendererInit": 86.60000002384186,
+      "bodyGeometry": 2087.3000000715256,
+      "photoSource": 0.9000000953674316,
+      "photoLoadToOnload": 93.89999997615814,
+      "photoCanvasAndTexture": 2,
+      "borderLoadToOnload": 101.20000004768372,
+      "renderSubmitCpu": 191.40000009536743
+    },
+    "viewport": {
+      "width": 380,
+      "height": 380,
+      "pixelRatio": 1.25
+    },
+    "triangles": 19288,
+    "effectBreakdown": {
+      "observedEffectCount": 2,
+      "discardedEffectCount": 1,
+      "unresolvedEffectCount": 0,
+      "renderedEffect": {
+        "id": 2,
+        "setupMs": 1007.1000000238419,
+        "cleanupMs": null,
+        "bodyGeometryMs": 942,
+        "rendererInitMs": 30.600000023841858,
+        "geometryStagesMs": {
+          "rimTessellation": 360.10000002384186,
+          "rimHeightField": 138.5,
+          "rimSurfaceVertices": 108.19999992847443,
+          "photoTessellation": 36.199999928474426,
+          "photoHeightField": 45,
+          "photoSurfaceVertices": 17.800000071525574,
+          "flatBase": 217.89999997615814
+        }
+      },
+      "discardedEffects": {
+        "setupMs": 1273.1000000238419,
+        "cleanupMs": 4.300000071525574,
+        "bodyGeometryMs": 1145.3000000715256,
+        "rendererInitMs": 56,
+        "geometryStagesMs": {
+          "rimTessellation": 422.6999999284744,
+          "rimHeightField": 175.5,
+          "rimSurfaceVertices": 96.60000002384186,
+          "photoTessellation": 63.299999952316284,
+          "photoHeightField": 60.39999997615814,
+          "photoSurfaceVertices": 25.100000023841858,
+          "flatBase": 272.5
+        }
+      },
+      "profileComputations": {
+        "count": 2,
+        "totalMs": 5.600000023841858
+      }
+    }
+  },
+  "afterErrorRecovery": {
+    "version": 1,
+    "completion": "renderer.render-return",
+    "timingsMs": {
+      "clickToRenderReturn": 2244.600000023842,
+      "clickToComponent": 4.5,
+      "profile": 2.399999976158142,
+      "rendererInit": 60.799999952316284,
+      "bodyGeometry": 1859,
+      "photoSource": 2,
+      "photoLoadToOnload": 101.19999992847443,
+      "photoCanvasAndTexture": 1,
+      "borderLoadToOnload": 64,
+      "renderSubmitCpu": 150.30000007152557
+    },
+    "viewport": {
+      "width": 380,
+      "height": 380,
+      "pixelRatio": 1.25
+    },
+    "triangles": 19288,
+    "effectBreakdown": {
+      "observedEffectCount": 2,
+      "discardedEffectCount": 1,
+      "unresolvedEffectCount": 0,
+      "renderedEffect": {
+        "id": 2,
+        "setupMs": 816.3000000715256,
+        "cleanupMs": null,
+        "bodyGeometryMs": 751.5,
+        "rendererInitMs": 29.399999976158142,
+        "geometryStagesMs": {
+          "rimTessellation": 278.5,
+          "rimHeightField": 119.20000004768372,
+          "rimSurfaceVertices": 99.60000002384186,
+          "photoTessellation": 38.300000071525574,
+          "photoHeightField": 47.90000009536743,
+          "photoSurfaceVertices": 12.600000023841858,
+          "flatBase": 142.69999992847443
+        }
+      },
+      "discardedEffects": {
+        "setupMs": 1201.8999999761581,
+        "cleanupMs": 3.899999976158142,
+        "bodyGeometryMs": 1107.5,
+        "rendererInitMs": 31.399999976158142,
+        "geometryStagesMs": {
+          "rimTessellation": 386.39999997615814,
+          "rimHeightField": 159.39999997615814,
+          "rimSurfaceVertices": 133,
+          "photoTessellation": 54.10000002384186,
+          "photoHeightField": 71.19999992847443,
+          "photoSurfaceVertices": 21,
+          "flatBase": 260.40000009536743
+        }
+      },
+      "profileComputations": {
+        "count": 2,
+        "totalMs": 2.399999976158142
+      }
+    }
+  },
+  "checks": {
+    "webglFailureReturnedTo2D": true,
+    "failedAttemptExcluded": true,
+    "recoveryCompleted": true
+  }
+}

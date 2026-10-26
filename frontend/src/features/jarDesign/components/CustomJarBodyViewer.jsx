@@ -2,7 +2,8 @@ import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, use
 import { createPortal } from "react-dom";
 import { customJarBody } from "../customJarBody.mjs";
 import { BODY_3D_FAILURE } from "../body3DGeometry.mjs";
-import { createBody3DTiming } from "../body3DTiming.mjs";
+import { createBody3DTiming,localBody3DTimingEnabled } from "../body3DTiming.mjs";
+import LocalBody3DTimingPanel from "./LocalBody3DTimingPanel";
 
 const CustomJarBody3D=lazy(()=>import("./CustomJarBody3D"));
 
@@ -19,9 +20,13 @@ export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,ima
   outlineOnly,slot,children,className="h-full w-full",frontViewRequest=0,disabled=false,preparedBody=null,controlsOutside=false,viewerStageStyle,viewControlsTarget=null,imageTextureUrl,bodyArtworkTextureUrl,imageOnly=false }) {
   const [mode,setMode]=useState("2D"),[failure,setFailure]=useState(""),[resetKey,setResetKey]=useState(0);
   const timingRef=useRef(null);
+  const viewerRef=useRef(null);
+  const localTiming=import.meta.env.DEV&&localBody3DTimingEnabled({development:true,hostname:window.location.hostname,
+    pathname:window.location.pathname,search:window.location.search});
   /** 진단 URL에서만 계측한다. 일반 개발 화면과 운영 빌드에서는 타이머를 만들지 않는다. */
   function toggleMode() {
-    if(import.meta.env.DEV && window.location.pathname==="/tests/jar-3d-timing.html") {
+    // 실제 상세/만들기도 localhost의 명시적 diagnose3d=1 진단 URL에서만 포함한다.
+    if((import.meta.env.DEV && window.location.pathname==="/tests/jar-3d-timing.html")||localTiming) {
       timingRef.current?.cancel();
       timingRef.current=mode==="2D"?createBody3DTiming({enabled:true}):null;
     }
@@ -38,7 +43,8 @@ export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,ima
       className="min-h-8 min-w-8 rounded-full border border-stone-200 bg-white px-2.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-40">{mode==="3D"?"2D로 보기":"3D로 보기"}</button>
     {mode==="3D" && <button type="button" onClick={()=>setResetKey(k=>k+1)} className="min-h-8 min-w-8 rounded-full bg-stone-100 px-2.5 text-[11px] font-bold text-stone-600 hover:bg-stone-200">정면으로</button>}
   </div>;
-  return <div data-custom-body-viewer data-view-mode={mode} data-controls-outside={controlsOutside} className={`relative isolate ${controlsOutside?"flex flex-col":"aspect-square"} ${className}`}>
+  return <div ref={viewerRef} data-custom-body-viewer data-view-mode={mode} data-controls-outside={controlsOutside} className={`relative isolate ${controlsOutside?"flex flex-col":"aspect-square"} ${className}`}>
+    {import.meta.env.DEV&&localTiming&&createPortal(<LocalBody3DTimingPanel rootRef={viewerRef}/>,document.body)}
     {/* 회전 상태는 이 뷰어에 유지하고 버튼 DOM만 카드 제목줄로 옮긴다. */}
     {viewControlsTarget ? createPortal(controls,viewControlsTarget) : controlsOutside && controls}
     {/* 고정 높이 편집 미리보기에서도 버튼 높이만큼 사진 창을 찌그러뜨리지 않는다. 남은 공간 안에 정사각형을 맞춘다. */}

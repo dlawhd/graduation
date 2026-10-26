@@ -1,0 +1,22 @@
+{
+  "dateKst": "2026-10-26",
+  "kind": "두 별도 Node 프로세스의 기존 계산 벤치마크 출력 요약; 전체 하위 span 원본은 아님",
+  "baselineRef": "504f3b6",
+  "node": "v24.14.0",
+  "platform": "win32-x64",
+  "currentMeshSha256": "1c927337d2429e8db340b0779cc353a267a7ffc3f1e0a08c24de110c6f029794",
+  "method": {"warmupsPerImplementation": 3, "alternatingPairsPerCase": 7, "geometryCodeChangedThisTurn": false, "geometryIdenticalEveryPair": true},
+  "limits": ["CPU 계산만 측정", "실제 사진·S3·GPU·브라우저 전체 전환 제외", "정확한 시작/끝 시각 미기록", "직전 단일 ROUND 회귀를 이번 두 실행에서는 재현하지 못함"],
+  "runs": [
+    {"run": 1, "cases": [
+      {"id":"ROUND:filled","beforeMs":[1177.3497,1209.7906,1230.7533,1213.3896,1201.6343,1072.3759,1354.0234],"afterMs":[604.4341,665.1768,553.0044,628.2593,522.4490,586.6683,496.3682],"beforeMedianMs":1209.7906,"afterMedianMs":586.6683,"photoVerticesMedianMs":{"before":651.0081,"after":73.5021}},
+      {"id":"IRREGULAR:filled","beforeMs":[1071.4493,983.7578,850.0001,1067.1989,914.4671,866.6325,972.0732],"afterMs":[436.6054,433.3952,408.5122,418.8485,507.4066,454.9748,463.2247],"beforeMedianMs":972.0732,"afterMedianMs":436.6054,"photoVerticesMedianMs":{"before":601.1721,"after":48.8221}},
+      {"id":"DEEP:filled","beforeMs":[841.5755,608.2222,608.7631,646.7659,809.7942,616.6146,652.3614],"afterMs":[581.4852,633.0166,538.7411,489.2602,495.2033,535.5635,624.3489],"beforeMedianMs":646.7659,"afterMedianMs":538.7411,"photoVerticesMedianMs":{"before":138.7346,"after":35.1335}}
+    ]},
+    {"run": 2, "cases": [
+      {"id":"ROUND:filled","beforeMs":[972.6968,1079.9509,1066.2667,1028.4541,1099.5867,1227.4590,1328.6603],"afterMs":[604.0542,612.8675,614.4421,529.6405,722.2798,507.3651,589.9896],"beforeMedianMs":1079.9509,"afterMedianMs":604.0542,"photoVerticesMedianMs":{"before":621.0752,"after":79.7485}},
+      {"id":"IRREGULAR:filled","beforeMs":[981.1650,1262.1076,921.7593,1008.2933,975.9480,878.8036,875.6929],"afterMs":[532.8548,461.2845,509.8400,549.3416,441.2655,376.9671,339.1453],"beforeMedianMs":975.9480,"afterMedianMs":461.2845,"photoVerticesMedianMs":{"before":575.7236,"after":73.1314}},
+      {"id":"DEEP:filled","beforeMs":[812.5370,798.9124,716.0284,771.5232,695.9202,793.4935,719.4679],"afterMs":[573.6582,617.3555,663.5931,532.1941,604.9201,659.1423,607.6847],"beforeMedianMs":771.5232,"afterMedianMs":607.6847,"photoVerticesMedianMs":{"before":178.7627,"after":28.3474}}
+    ]}
+  ]
+}

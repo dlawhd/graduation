@@ -1,0 +1,134 @@
+{
+  "dateKst": "2026-10-26",
+  "kind": "같은 합성 레서판다·사진의 개발 검사 유무별 계측 동작 검증",
+  "limits": [
+    "별도 탭에서 순차 실행해 첫 로딩·JIT·기기 부하가 동일하지 않음",
+    "속도 개선율이나 운영 성능 비교가 아님",
+    "실제 개인 사진·S3 요청·GPU 완료 제외",
+    "최종 실행 각 1건; 앞선 구현 중 동작 확인 기록은 비교 표본에 포함하지 않음"
+  ],
+  "strictMode": {
+    "version": 1,
+    "completion": "renderer.render-return",
+    "timingsMs": {
+      "clickToRenderReturn": 2077.0999999046326,
+      "clickToComponent": 43.699999928474426,
+      "profile": 0.8999999761581421,
+      "rendererInit": 29.600000023841858,
+      "bodyGeometry": 1533.1000000238419,
+      "photoSource": 1.1999999284744263,
+      "photoLoadToOnload": 72.60000002384186,
+      "photoCanvasAndTexture": 2,
+      "borderLoadToOnload": 31,
+      "renderSubmitCpu": 88.5
+    },
+    "viewport": {
+      "width": 380,
+      "height": 380,
+      "pixelRatio": 1.25
+    },
+    "triangles": 19288,
+    "effectBreakdown": {
+      "observedEffectCount": 2,
+      "discardedEffectCount": 1,
+      "unresolvedEffectCount": 0,
+      "renderedEffect": {
+        "id": 2,
+        "setupMs": 697.1000000238419,
+        "cleanupMs": null,
+        "bodyGeometryMs": 656.2000000476837,
+        "rendererInitMs": 17.299999952316284,
+        "geometryStagesMs": {
+          "rimTessellation": 183.39999997615814,
+          "rimHeightField": 61.39999997615814,
+          "rimSurfaceVertices": 213.10000002384186,
+          "photoTessellation": 43.5,
+          "photoHeightField": 22.299999952316284,
+          "photoSurfaceVertices": 7.200000047683716,
+          "flatBase": 118.20000004768372
+        }
+      },
+      "discardedEffects": {
+        "setupMs": 915.2999999523163,
+        "cleanupMs": 1.5999999046325684,
+        "bodyGeometryMs": 876.8999999761581,
+        "rendererInitMs": 12.300000071525574,
+        "geometryStagesMs": {
+          "rimTessellation": 265,
+          "rimHeightField": 103,
+          "rimSurfaceVertices": 261.5,
+          "photoTessellation": 42.200000047683716,
+          "photoHeightField": 35.89999997615814,
+          "photoSurfaceVertices": 12.799999952316284,
+          "flatBase": 110.89999997615814
+        }
+      },
+      "profileComputations": {
+        "count": 2,
+        "totalMs": 0.8999999761581421
+      }
+    }
+  },
+  "withoutStrictMode": {
+    "version": 1,
+    "completion": "renderer.render-return",
+    "timingsMs": {
+      "clickToRenderReturn": 1826.4000000953674,
+      "clickToComponent": 135.80000007152557,
+      "profile": 2.799999952316284,
+      "rendererInit": 34.199999928474426,
+      "bodyGeometry": 1317.3999999761581,
+      "photoSource": 1.399999976158142,
+      "photoLoadToOnload": 40,
+      "photoCanvasAndTexture": 0.3999999761581421,
+      "borderLoadToOnload": 27.200000047683716,
+      "renderSubmitCpu": 101
+    },
+    "viewport": {
+      "width": 380,
+      "height": 380,
+      "pixelRatio": 1.25
+    },
+    "triangles": 19288,
+    "effectBreakdown": {
+      "observedEffectCount": 1,
+      "discardedEffectCount": 0,
+      "unresolvedEffectCount": 0,
+      "renderedEffect": {
+        "id": 1,
+        "setupMs": 1388.1000000238419,
+        "cleanupMs": null,
+        "bodyGeometryMs": 1317.3999999761581,
+        "rendererInitMs": 34.199999928474426,
+        "geometryStagesMs": {
+          "rimTessellation": 396.7000000476837,
+          "rimHeightField": 154.79999995231628,
+          "rimSurfaceVertices": 433.09999990463257,
+          "photoTessellation": 67.39999997615814,
+          "photoHeightField": 48.5,
+          "photoSurfaceVertices": 9.899999976158142,
+          "flatBase": 190.60000002384186
+        }
+      },
+      "discardedEffects": {
+        "setupMs": null,
+        "cleanupMs": null,
+        "bodyGeometryMs": null,
+        "rendererInitMs": null,
+        "geometryStagesMs": {
+          "rimTessellation": null,
+          "rimHeightField": null,
+          "rimSurfaceVertices": null,
+          "photoTessellation": null,
+          "photoHeightField": null,
+          "photoSurfaceVertices": null,
+          "flatBase": null
+        }
+      },
+      "profileComputations": {
+        "count": 1,
+        "totalMs": 2.799999952316284
+      }
+    }
+  }
+}

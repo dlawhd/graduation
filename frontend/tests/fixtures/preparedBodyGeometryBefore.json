@@ -1,0 +1,26 @@
+{
+  "baselineRef": "d56d067",
+  "beforeMeshSha256": "1c927337d2429e8db340b0779cc353a267a7ffc3f1e0a08c24de110c6f029794",
+  "cases": {
+    "FOX:filled": {
+      "sha256": "f450452ebb5603f32becb9267b15d152272a93f9f6ce644b7a23f074d4c746f6",
+      "vertices": 9312,
+      "triangles": 18308
+    },
+    "FOX:hollow": {
+      "sha256": "05aa22a8215e3237686276e46b825f835495970583fb3de23005fafbc60dc031",
+      "vertices": 7516,
+      "triangles": 14720
+    },
+    "RED_PANDA:filled": {
+      "sha256": "311cb1145a2a3fb38bacc79b2f13980d144e9c05652ab7c2abad828d7ae0b59d",
+      "vertices": 9822,
+      "triangles": 19288
+    },
+    "RED_PANDA:hollow": {
+      "sha256": "7c315c600a9066108c81911773e24964ecba4af44cac56121f42a6016144ba68",
+      "vertices": 8028,
+      "triangles": 15704
+    }
+  }
+}

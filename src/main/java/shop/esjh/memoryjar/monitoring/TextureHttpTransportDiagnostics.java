@@ -18,6 +18,7 @@ import software.amazon.awssdk.http.HttpExecuteRequest;
 import software.amazon.awssdk.http.ExecutableHttpRequest;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.apache.internal.impl.ConnectionManagerAwareHttpClient;
 import software.amazon.awssdk.utils.AttributeMap;
 
 /**
@@ -27,6 +28,7 @@ import software.amazon.awssdk.utils.AttributeMap;
  */
 public final class TextureHttpTransportDiagnostics implements SdkHttpClient.Builder<TextureHttpTransportDiagnostics> {
     @Override public SdkHttpClient buildWithDefaults(AttributeMap serviceDefaults) {
+        TextureDiagnosticsClock.initialize();
         // SDK가 전달한 서비스별 설정과 Apache 기본값을 먼저 그대로 적용한다.
         var delegate = ApacheHttpClient.builder().buildWithDefaults(serviceDefaults);
         try {
@@ -56,6 +58,8 @@ public final class TextureHttpTransportDiagnostics implements SdkHttpClient.Buil
         var executor = executorField.get(main);
         if (executor.getClass() != HttpRequestExecutor.class) throw new IllegalStateException("Custom executor is not supported");
         var manager = (HttpClientConnectionManager) managerField.get(main);
+        // 기존 DNS/SSL 공장에 위임하는 관찰자만 설치한다. 새 SSLContext/신뢰 관리자/접속 주소는 만들지 않는다.
+        TextureSocketDiagnostics.install(((ConnectionManagerAwareHttpClient) sdkAdapter).getHttpClientConnectionManager());
         // 기본 executor는 new HttpRequestExecutor()다. 동일한 super 로직에 앞뒤 숫자 기록만 추가한다.
         executorField.set(main, new ObservedExecutor());
         managerField.set(main, new ObservedConnections(manager));
@@ -77,7 +81,10 @@ public final class TextureHttpTransportDiagnostics implements SdkHttpClient.Buil
         ObservedClient(SdkHttpClient delegate) { this.delegate = delegate; }
         @Override public ExecutableHttpRequest prepareRequest(HttpExecuteRequest request) {
             var owner = LoginDiagnostics.textureSdkOwner();
-            if (owner != null) LoginDiagnostics.recordS3Counter(owner, LoginDiagnostics.S3SdkCounter.HTTP_TRANSPORT_OBSERVER, 1);
+            if (owner != null) {
+                LoginDiagnostics.recordS3Counter(owner, LoginDiagnostics.S3SdkCounter.HTTP_TRANSPORT_OBSERVER, 1);
+                LoginDiagnostics.recordS3Counter(owner, LoginDiagnostics.S3SdkCounter.HTTP_SOCKET_OBSERVER, 1);
+            }
             return delegate.prepareRequest(request);
         }
         @Override public String clientName() { return delegate.clientName(); }
@@ -88,20 +95,20 @@ public final class TextureHttpTransportDiagnostics implements SdkHttpClient.Buil
     static final class ObservedExecutor extends HttpRequestExecutor {
         @Override protected HttpResponse doSendRequest(HttpRequest request, HttpClientConnection connection, HttpContext context)
                 throws IOException, HttpException {
-            var owner = getOwner(request); long started = owner == null ? 0 : System.nanoTime(); boolean completed = false;
+            var measurement = getOwner(request) == null ? null : TextureDiagnosticsClock.begin(); boolean completed = false;
             try {
                 var response = super.doSendRequest(request, connection, context);
                 completed = true; return response;
-            } finally { LoginDiagnostics.recordTransport(owner, LoginDiagnostics.S3SdkDuration.HTTP_SEND, started, completed); }
+            } finally { TextureDiagnosticsClock.finish(measurement, LoginDiagnostics.S3SdkDuration.HTTP_SEND, completed); }
         }
 
         @Override protected HttpResponse doReceiveResponse(HttpRequest request, HttpClientConnection connection, HttpContext context)
                 throws IOException, HttpException {
-            var owner = getOwner(request); long started = owner == null ? 0 : System.nanoTime(); boolean completed = false;
+            var measurement = getOwner(request) == null ? null : TextureDiagnosticsClock.begin(); boolean completed = false;
             try {
                 var response = super.doReceiveResponse(request, connection, context);
                 completed = true; return response;
-            } finally { LoginDiagnostics.recordTransport(owner, LoginDiagnostics.S3SdkDuration.HTTP_RECEIVE_HEADERS, started, completed); }
+            } finally { TextureDiagnosticsClock.finish(measurement, LoginDiagnostics.S3SdkDuration.HTTP_RECEIVE_HEADERS, completed); }
         }
 
         private LoginDiagnostics.Attempt getOwner(HttpRequest request) {
@@ -116,14 +123,14 @@ public final class TextureHttpTransportDiagnostics implements SdkHttpClient.Buil
         private final HttpClientConnectionManager delegate;
         ObservedConnections(HttpClientConnectionManager delegate) { this.delegate = delegate; }
         @Override public void connect(HttpClientConnection connection, HttpRoute route, int timeout, HttpContext context) throws IOException {
-            var owner = LoginDiagnostics.textureSdkOwner(); long started = owner == null ? 0 : System.nanoTime(); boolean completed = false;
+            var measurement = TextureDiagnosticsClock.begin(); boolean completed = false;
             try { delegate.connect(connection, route, timeout, context); completed = true; }
-            finally { LoginDiagnostics.recordTransport(owner, LoginDiagnostics.S3SdkDuration.HTTP_CONNECT, started, completed); }
+            finally { TextureDiagnosticsClock.finish(measurement, LoginDiagnostics.S3SdkDuration.HTTP_CONNECT, completed); }
         }
         @Override public void upgrade(HttpClientConnection connection, HttpRoute route, HttpContext context) throws IOException {
-            var owner = LoginDiagnostics.textureSdkOwner(); long started = owner == null ? 0 : System.nanoTime(); boolean completed = false;
+            var measurement = TextureDiagnosticsClock.begin(); boolean completed = false;
             try { delegate.upgrade(connection, route, context); completed = true; }
-            finally { LoginDiagnostics.recordTransport(owner, LoginDiagnostics.S3SdkDuration.HTTP_TLS_UPGRADE, started, completed); }
+            finally { TextureDiagnosticsClock.finish(measurement, LoginDiagnostics.S3SdkDuration.HTTP_TLS_UPGRADE, completed); }
         }
         @Override public ConnectionRequest requestConnection(HttpRoute route, Object state) { return delegate.requestConnection(route, state); }
         @Override public void releaseConnection(HttpClientConnection connection, Object state, long duration, TimeUnit unit) {

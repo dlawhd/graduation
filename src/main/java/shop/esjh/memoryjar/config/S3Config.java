@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
 import shop.esjh.memoryjar.monitoring.TextureHttpTransportDiagnostics;
+import shop.esjh.memoryjar.monitoring.TextureS3ExecutionDiagnostics;
 
 // S3 관련 Bean을 등록하는 설정 클래스
 @Configuration
@@ -28,14 +29,17 @@ public class S3Config {
     // 실제 S3 작업(삭제 등)용 Bean
     @Bean
     public S3Client s3Client(S3Properties s3Properties, LoginDiagnostics diagnostics) {
+        boolean textureDiagnostics = diagnostics.textureDiagnosticsEnabled();
         var builder = S3Client.builder()
                 // 늦은 업로드가 정리 유예 기간을 넘어 계속 실행되지 않도록 재시도 포함 시간을 제한한다.
-                .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(120))
-                        .apiCallAttemptTimeout(java.time.Duration.ofSeconds(30)))
+                .overrideConfiguration(config -> {
+                    config.apiCallTimeout(java.time.Duration.ofSeconds(120)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(30));
+                    if (textureDiagnostics) config.addExecutionInterceptor(new TextureS3ExecutionDiagnostics());
+                })
                 .region(Region.of(s3Properties.getRegion()))
                 .credentialsProvider(DefaultCredentialsProvider.create());
         // local 진단에서만 기본 Apache 클라이언트의 관찰 지점을 연결한다. 운영 기본 경로는 그대로다.
-        if (diagnostics.textureDiagnosticsEnabled()) builder.httpClientBuilder(new TextureHttpTransportDiagnostics());
+        if (textureDiagnostics) builder.httpClientBuilder(new TextureHttpTransportDiagnostics());
         return builder.build();
     }
 }

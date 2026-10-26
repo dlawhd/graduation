@@ -30,7 +30,10 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
   const [ready,setReady]=useState(false);
   useEffect(() => {
     const stage=stageRef.current, surface=surfaceRef.current;
-    timing?.mark("effectStart");
+    const effectTiming=timing?.beginEffect();
+    const endEffectSetup=effectTiming?.start("effectSetup");
+    const measure=(name,task)=>effectTiming?effectTiming.measure(name,task):task();
+    effectTiming?.mark("effectStart");
     const body=renderProfile, points=body?.renderOutline.map(bodyWorldPoint);
     const rasterHollow=!imageOnly&&!preparedBody&&outlineOnly&&!imageUrl&&Boolean(customBody?.artworkUrl);
     let renderer, geometry, faceMaterial, photoMaterial, backMaterial, reliefCleanup, bodyMesh, observer, texture, textureImage, photoTexture, photoImage, photoVersion=0, frame=0, disposed=false;
@@ -39,12 +42,15 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
     const borderAbort=new AbortController();
     const fetchBlob=async(path,signal)=>(await apiClient.get(path,{responseType:"blob",signal,timeout:15000})).data;
     let borderReady=!customBody?.artworkUrl,photoReady=!imageUrl;
-    const refreshReady=()=>{if(!disposed){if(borderReady&&photoReady)timing?.mark("texturesReady");setReady(borderReady&&photoReady);}};
+    const refreshReady=()=>{if(!disposed){if(borderReady&&photoReady)effectTiming?.mark("texturesReady");setReady(borderReady&&photoReady);}};
     let gesture=null, yaw=.35, pitch=-.12;
     const cleanup = () => {
       if (disposed) return;
       disposed=true;
-      timing?.cancel();
+      const endEffectCleanup=effectTiming?.start("effectCleanup");
+      try {
+      // 클릭 계측은 뷰어가 소유한다. StrictMode의 정리→재실행에서 취소하면 완료 기록이 사라진다.
+      // 폐기한 효과의 출력은 disposed로 차단하고, 실제 2D 전환 취소는 뷰어에서 처리한다.
       photoAbort?.abort();borderAbort.abort();photoSource?.dispose();borderSource?.dispose();
       cancelAnimationFrame(frame);
       observer?.disconnect();
@@ -63,6 +69,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       if(photoImage) {photoImage.onload=null;photoImage.onerror=null;}
       renderer?.dispose(); renderer?.forceContextLoss(); renderer?.domElement.remove();
       controllerRef.current=null;
+      } finally { endEffectCleanup?.();effectTiming?.dispose(); }
     };
     function fail(message) { cleanup(); onFailure(message); }
     function lostContext(event) { event.preventDefault(); fail(); }
@@ -107,8 +114,8 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         measure("renderSubmit",()=>renderer.render(scene,camera));
         // 빈 몸통의 첫 그리기가 아니라 사진/테두리까지 적용한 render가 끝난 결과만 공개한다.
         // render 반환은 GPU 완료 신호가 아니므로 진단 화면에서도 그 한계를 명시한다.
-        if(timing && borderReady && photoReady) {
-          const result=timing.finish();
+        if(effectTiming && borderReady && photoReady) {
+          const result=effectTiming.finish();
           if(result)stage.dataset.body3dTiming=JSON.stringify({...result,triangles:geometry.index?.count/3||0,
             viewport:{width:stage.clientWidth,height:stage.clientHeight,pixelRatio:renderer.getPixelRatio()}});
         }
@@ -160,7 +167,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       camera=new OrthographicCamera(-BODY_3D_VIEW,BODY_3D_VIEW,BODY_3D_VIEW,-BODY_3D_VIEW,.1,20);
       camera.position.set(0,0,5);
       // 빈 틀에는 실제 구멍을 낸다. 사진이 있으면 앞뒤 표면 위에 같은 사진을 투영하고 옆면 두께는 유지한다.
-      geometry=measure("bodyGeometry",()=>imageOnly||rasterHollow?new BufferGeometry():roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl),renderProfile,timing));
+      geometry=measure("bodyGeometry",()=>imageOnly||rasterHollow?new BufferGeometry():roundedBodyGeometry(customBody,Boolean(outlineOnly && !imageUrl),renderProfile,effectTiming));
       faceMaterial=new MeshStandardMaterial({color:customBody?.color||0xffffff,roughness:.55,metalness:0});
       photoMaterial=new MeshStandardMaterial({color:0xffffff,roughness:.55,metalness:0,alphaTest:imageOnly ? .02 : 0});
       if(preparedBody) {
@@ -196,7 +203,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         if(!reuse){photoAbort?.abort();photoSource?.dispose();photoSource=null;}
         photoReady=!url;refreshReady();
         if(!url)return;
-        const endPhotoLoad=timing?.start("photoLoadToOnload");
+        const endPhotoLoad=effectTiming?.start("photoLoadToOnload");
         // 기존 배경 편집 마스크를 무시해서 보여주지 않는다. 이런 Draft는 기존 2D에서 정확히 표시한다.
         if(!imageOnly&&style&&Object.values(style).some(v=>v!=null&&v!=="")) {
           fail("배경 편집이 있는 디자인은 원본 편집을 유지한 2D로 보여드려요.");return;
@@ -204,7 +211,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         const paint=()=>{
           if(disposed||version!==photoVersion)return;
           endPhotoLoad?.();
-          const endPhotoPaint=timing?.start("photoCanvasAndTexture");
+          const endPhotoPaint=effectTiming?.start("photoCanvasAndTexture");
           try {
             // 슬라이더로 배치만 바꾸면 같은 디코딩 이미지/Canvas/텍스처를 재사용해 반복 GET과 GPU 할당을 막는다.
             const canvas=photoTexture?.image||document.createElement("canvas");canvas.width=canvas.height=480;
@@ -245,10 +252,10 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         photoImage.onload=paint;
         photoImage.onerror=()=>{if(!disposed&&version===photoVersion)fail("3D 사진을 불러오지 못했어요. 기존 2D로 보여드려요.");};
         photoAbort=new AbortController();
-        const endPhotoSource=timing?.start("photoSource");
+        const endPhotoSource=effectTiming?.start("photoSource");
         openTextureSource(url,imageTextureUrl,{fetchBlob,signal:photoAbort.signal}).then(source=>{
-          endPhotoSource?.();
           if(disposed||version!==photoVersion){source.dispose();return;}
+          endPhotoSource?.();
           photoSource=source;photoImage.src=source.url;
         }).catch(()=>{if(!disposed&&version===photoVersion)photoImage.onerror?.();});
       }
@@ -256,11 +263,11 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       if(customBody?.artworkUrl) {
         // 권한 확인 뒤 발급한 PNG만 읽는다. 읽기/CORS 실패 시 단색으로 속이지 않고 원본을 보존한 2D로 복구한다.
         textureImage=new Image();textureImage.crossOrigin="anonymous";
-        const endBorderLoad=timing?.start("borderLoadToOnload");
+        const endBorderLoad=effectTiming?.start("borderLoadToOnload");
         textureImage.onload=()=>{
           if(disposed) return;
           endBorderLoad?.();
-          const endBorderPaint=timing?.start("borderCanvasAndDecorations");
+          const endBorderPaint=effectTiming?.start("borderCanvasAndDecorations");
           try {
             const canvas=document.createElement("canvas");canvas.width=canvas.height=480;
             if(textureImage.naturalWidth!==480||textureImage.naturalHeight!==480) throw new Error("Invalid body artwork");
@@ -295,14 +302,15 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
           finally {endBorderPaint?.();}
         };
         textureImage.onerror=()=>{if(!disposed)fail("테두리 그림을 불러오지 못했어요. 2D로 돌아가 다시 확인해 주세요.");};
-        const endBorderSource=timing?.start("borderSource");
+        const endBorderSource=effectTiming?.start("borderSource");
         openTextureSource(customBody.artworkUrl,bodyArtworkTextureUrl,{fetchBlob,signal:borderAbort.signal}).then(source=>{
-          endBorderSource?.();
           if(disposed){source.dispose();return;}
+          endBorderSource?.();
           borderSource=source;textureImage.src=source.url;
         }).catch(()=>{if(!disposed)textureImage.onerror?.();});
       } else refreshReady();
     } catch { fail(); }
+    finally { endEffectSetup?.(); }
     return cleanup;
   },[customBody,renderProfile,Boolean(imageUrl),outlineOnly,onFailure,preparedBody,imageTextureUrl,bodyArtworkTextureUrl,imageOnly,timing]);
   useEffect(()=>{controllerRef.current?.updatePhoto(imageUrl,photoFrame,imageStyle,imageRendering);},[imageUrl,photoFrame,imageStyle,imageRendering,renderProfile,outlineOnly,imageTextureUrl,bodyArtworkTextureUrl]);
