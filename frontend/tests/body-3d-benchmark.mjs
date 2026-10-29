@@ -14,10 +14,15 @@ import { preparedBodyProfile } from "../src/features/jarDesign/preparedBody3D.mj
 const baselineRef=process.argv[2]||"504f3b6";
 if(!/^[0-9a-f]{7,40}$/.test(baselineRef))throw new Error("기준 커밋 해시를 입력해 주세요.");
 let baselineSource=execFileSync("git",["show",`${baselineRef}:frontend/src/features/jarDesign/body3DMesh.mjs`],{encoding:"utf8"});
+let baselineBase=execFileSync("git",["show",`${baselineRef}:frontend/src/features/jarDesign/body3DBase.mjs`],{encoding:"utf8"});
 const hash=source=>createHash("sha256").update(source).digest("hex");
-const sourceHashes={before:hash(baselineSource),after:hash(readFileSync(new URL("../src/features/jarDesign/body3DMesh.mjs",import.meta.url)))};
+const sourceHashes={before:hash(baselineSource),after:hash(readFileSync(new URL("../src/features/jarDesign/body3DMesh.mjs",import.meta.url))),
+  baseBefore:hash(baselineBase),baseAfter:hash(readFileSync(new URL("../src/features/jarDesign/body3DBase.mjs",import.meta.url)))};
+// 바닥도 변경할 때 기준 mesh가 현재 바닥을 잘못 사용하면 개선율이 왜곡된다. 기준 바닥 역시 Git 원본을 읽는다.
+baselineBase=baselineBase.replace('from "three"',`from ${JSON.stringify(import.meta.resolve("three"))}`);
+const baselineBaseUrl=`data:text/javascript;base64,${Buffer.from(baselineBase).toString("base64")}`;
 baselineSource=baselineSource.replace('from "three"',`from ${JSON.stringify(import.meta.resolve("three"))}`)
-  .replace('from "./body3DBase.mjs"',`from ${JSON.stringify(new URL("../src/features/jarDesign/body3DBase.mjs",import.meta.url).href)}`)
+  .replace('from "./body3DBase.mjs"',`from ${JSON.stringify(baselineBaseUrl)}`)
   .replace('from "./body3DGeometry.mjs"',`from ${JSON.stringify(new URL("../src/features/jarDesign/body3DGeometry.mjs",import.meta.url).href)}`);
 const {roundedBodyGeometry:beforeGeometry}=await import(`data:text/javascript;base64,${Buffer.from(baselineSource).toString("base64")}`);
 const median=values=>[...values].sort((a,b)=>a-b)[Math.floor(values.length/2)];
