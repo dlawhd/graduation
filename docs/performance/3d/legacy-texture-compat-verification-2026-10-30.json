@@ -1,0 +1,437 @@
+{
+  "dateKst": "2026-10-30",
+  "status": "local-functional-verification-passed-not-deployed",
+  "historicalBase": "dd6e50b31ee9405f41a255152510367aa9d27cca",
+  "imageAccessReference": "491ffa41b1f68266fcc26fce8f8bc180f7ff1628",
+  "comparisonScope": "Historical frontend geometry with current authenticated texture access; backend/cache/DB unchanged.",
+  "trackedSourceChanges": [
+    "frontend/src/features/jarDesign/components/CustomJarBody3D.jsx",
+    "frontend/src/features/jarDesign/components/CustomJarBodyViewer.jsx",
+    "frontend/src/features/jarDesign/components/JarDesignImage.jsx",
+    "frontend/src/features/jarDetail/components/JarCustomDesignVisual.jsx"
+  ],
+  "preservedFiles": [
+    {
+      "path": "frontend/src/features/jarDesign/body3DBase.mjs",
+      "sha256LfNormalized": "4b807237f1874987f9a9a392687ebe565b3e357df9b1405a464e875d67f89f27",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/src/features/jarDesign/body3DMesh.mjs",
+      "sha256LfNormalized": "37ada67e1f80b994702d9dfca21eca7dd367d2a8b8734395e8df7fdde6f8bcee",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/src/features/jarDesign/body3DGeometry.mjs",
+      "sha256LfNormalized": "2416bd45e1b74e37271db3de77cd7a6c857493fc9440e856397617e34740a751",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/src/features/jarDesign/body3DPhoto.mjs",
+      "sha256LfNormalized": "0f94eb653986642ac19bb441d9b45442bbfb9f13a852a887ee69430eecfc44b9",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/src/features/jarDesign/bodyArtworkPixels.mjs",
+      "sha256LfNormalized": "a2b9f96d85e6de51ca9e20175feae46e90a119a8e800798e286d0bbda025734f",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/src/features/jarDesign/customJarBody.mjs",
+      "sha256LfNormalized": "91bdf1e6aba7a69afdef642a7679e235d51a7ff7f0057e743de37cba341fec09",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/src/features/jarDesign/components/JarSlotOverlay.jsx",
+      "sha256LfNormalized": "2ae1293c08c45fbd17f9361fd3ccfa75cb7285c8cdd6973360768caec3515f99",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/src/api/apiClient.js",
+      "sha256LfNormalized": "50ab778821bcc5a3eec472653e934a2a7c18a436692be9e3719aa6ebdb1b940a",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/package.json",
+      "sha256LfNormalized": "51c5a3db3fee81d356a822d8042070a4301be23f43ca673b557d6828cb9fe203",
+      "matchesHistorical": true
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "sha256LfNormalized": "d622a5f3c9f1352f04541b81890fbeafae2fa0f6e63b255a7c13e5dfa1dd4763",
+      "matchesHistorical": true
+    }
+  ],
+  "drawFunctionUnchanged": true,
+  "textureHelperMatchesFinal": true,
+  "textureHelperSha256LfNormalized": "6bbfe65281ad3317c5712722951187332b182a5fc780e388cb6ca24b023b7611",
+  "tests": {
+    "total": 172,
+    "passed": 172,
+    "failed": 0,
+    "compatibilityTests": 6
+  },
+  "localProductionBuild": {
+    "passed": true,
+    "entry": "/assets/index-BSmtQ3XR.js",
+    "geometryChunk": "CustomJarBody3D-BubbEUIo.js",
+    "fixtureExcludedFromRuntimeChunks": true
+  },
+  "browser": {
+    "syntheticImages": true,
+    "realNetworkRequests": false,
+    "performanceMeasurement": false,
+    "observations": [
+      {
+        "case": "success",
+        "data": {
+          "mode": "3D",
+          "pose": [
+            {
+              "pitch": "-0.12",
+              "side": "front",
+              "yaw": "0.35"
+            }
+          ],
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 2,
+            "scenario": "success"
+          }
+        }
+      },
+      {
+        "case": "rotate",
+        "data": {
+          "pose": [
+            {
+              "pitch": "-0.12",
+              "side": "front",
+              "yaw": "0.04999999999999999"
+            }
+          ],
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 2,
+            "scenario": "success"
+          }
+        }
+      },
+      {
+        "case": "reset",
+        "data": {
+          "pose": [
+            {
+              "pitch": "0",
+              "side": "front",
+              "yaw": "0"
+            }
+          ]
+        }
+      },
+      {
+        "case": "return2D",
+        "data": {
+          "canvases": 0,
+          "mode": "2D",
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 0,
+            "scenario": "success"
+          }
+        }
+      },
+      {
+        "case": "forbidden",
+        "data": {
+          "mode": "2D",
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "403",
+                "part": "BODY"
+              },
+              {
+                "outcome": "403",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 0,
+            "scenario": "forbidden"
+          }
+        }
+      },
+      {
+        "case": "bad-type",
+        "data": {
+          "mode": "2D",
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "403",
+                "part": "BODY"
+              },
+              {
+                "outcome": "403",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "BODY"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 0,
+            "scenario": "bad-type"
+          }
+        }
+      },
+      {
+        "case": "pending",
+        "data": {
+          "mode": "3D",
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "403",
+                "part": "BODY"
+              },
+              {
+                "outcome": "403",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "BODY"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "pending",
+                "part": "BODY"
+              },
+              {
+                "outcome": "pending",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 0,
+            "scenario": "delayed"
+          }
+        }
+      },
+      {
+        "case": "cancelAndLateResponse",
+        "data": {
+          "canvases": 0,
+          "mode": "2D",
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "403",
+                "part": "BODY"
+              },
+              {
+                "outcome": "403",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "BODY"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "cancelled",
+                "part": "BODY"
+              },
+              {
+                "outcome": "cancelled",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 0,
+            "scenario": "delayed"
+          }
+        }
+      },
+      {
+        "case": "reentry",
+        "data": {
+          "mode": "3D",
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "403",
+                "part": "BODY"
+              },
+              {
+                "outcome": "403",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "BODY"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "cancelled",
+                "part": "BODY"
+              },
+              {
+                "outcome": "cancelled",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 2,
+            "scenario": "success"
+          }
+        }
+      },
+      {
+        "case": "finalCleanup",
+        "data": {
+          "canvases": 0,
+          "mode": "2D",
+          "record": {
+            "calls": [
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "403",
+                "part": "BODY"
+              },
+              {
+                "outcome": "403",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "BODY"
+              },
+              {
+                "outcome": "bad-type",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "cancelled",
+                "part": "BODY"
+              },
+              {
+                "outcome": "cancelled",
+                "part": "IMAGE"
+              },
+              {
+                "outcome": "200",
+                "part": "BODY"
+              },
+              {
+                "outcome": "200",
+                "part": "IMAGE"
+              }
+            ],
+            "liveBlobUrls": 0,
+            "scenario": "success"
+          }
+        }
+      }
+    ]
+  },
+  "productionDeploymentChanged": false,
+  "restoreDeployment": "7nxVGo78jVUA28rr3uDiyLBvTeTi",
+  "remaining": [
+    "Production authenticated image check",
+    "Matched production performance traces"
+  ]
+}

@@ -7,10 +7,12 @@ import { roundedBodyGeometry } from "../body3DMesh.mjs";
 import { bodyArtworkPixels } from "../bodyArtworkPixels.mjs";
 import {drawBody3DPhoto} from "../body3DPhoto.mjs";
 import JarSlotOverlay from "./JarSlotOverlay";
+import {openTextureSource} from "../textureSource.mjs";
+import apiClient from "../../../api/apiClient";
 
 /** 외곽선과 사진 면을 둥근 몸통으로 만들고 입구도 같은 카메라로 투영한다. 사진 속 인물을 3D로 바꾸지는 않는다. */
 export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imageStyle, imageRendering,
-  outlineOnly, slot, resetKey, onFailure }) {
+  outlineOnly, slot, resetKey, onFailure, imageTextureUrl, bodyArtworkTextureUrl }) {
   const stageRef=useRef(null), surfaceRef=useRef(null), slotRef=useRef(null), controllerRef=useRef(null);
   const slotValueRef=useRef(slot);
   // 곡선과 안전한 사진 창 탐색은 틀이 바뀔 때만 수행한다. 회전/사진 배치 변경에서는 재사용한다.
@@ -21,12 +23,17 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
     const body=renderProfile, points=body?.renderOutline.map(bodyWorldPoint);
     let renderer, geometry, faceMaterial, photoMaterial, observer, texture, textureImage, photoTexture, photoImage, photoVersion=0, frame=0, disposed=false;
     let photoUrl="";
+    let photoSource,borderSource,photoAbort;
+    const borderAbort=new AbortController();
+    const fetchBlob=async(path,signal)=>(await apiClient.get(path,{responseType:"blob",signal,timeout:15000})).data;
     let borderReady=!customBody?.artworkUrl,photoReady=!imageUrl;
     const refreshReady=()=>{if(!disposed)setReady(borderReady&&photoReady);};
     let gesture=null, yaw=.35, pitch=-.12;
     const cleanup = () => {
       if (disposed) return;
       disposed=true;
+      // 2D 복귀나 실패 뒤에는 이전 요청과 임시 사진 주소가 남지 않게 한다.
+      photoAbort?.abort();borderAbort.abort();photoSource?.dispose();borderSource?.dispose();
       cancelAnimationFrame(frame);
       observer?.disconnect();
       stage.removeEventListener("pointerdown",start);
@@ -160,6 +167,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         const version=++photoVersion;
         const reuse=photoUrl===url&&photoImage?.complete&&photoImage.naturalWidth>0;
         if(photoImage){photoImage.onload=null;photoImage.onerror=null;}
+        if(!reuse){photoAbort?.abort();photoSource?.dispose();photoSource=null;}
         photoReady=!url;refreshReady();
         if(!url)return;
         // 기존 배경 편집 마스크를 무시해서 보여주지 않는다. 이런 Draft는 기존 2D에서 정확히 표시한다.
@@ -184,7 +192,12 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
         photoImage=new Image();photoImage.crossOrigin="anonymous";photoUrl=url;
         photoImage.onload=paint;
         photoImage.onerror=()=>{if(!disposed&&version===photoVersion)fail("3D 사진을 불러오지 못했어요. 기존 2D로 보여드려요.");};
-        photoImage.src=url;
+        // 저장된 사진은 현재 서버의 멤버 권한 검사를 거친 PNG로 읽는다. 과거 모양 계산은 그대로 둔다.
+        photoAbort=new AbortController();
+        openTextureSource(url,imageTextureUrl,{fetchBlob,signal:photoAbort.signal}).then(source=>{
+          if(disposed||version!==photoVersion){source.dispose();return;}
+          photoSource=source;photoImage.src=source.url;
+        }).catch(()=>{if(!disposed&&version===photoVersion)photoImage.onerror?.();});
       }
       controllerRef.current={reset:()=>rotate(0,0),turn:delta=>rotate(yaw+delta,pitch),refresh:schedule,updatePhoto};
       if(customBody.artworkUrl) {
@@ -203,12 +216,15 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
           } catch {fail("테두리 색을 3D로 불러오지 못했어요. 원본 색을 유지한 2D로 보여드려요.");}
         };
         textureImage.onerror=()=>{if(!disposed)fail("테두리 그림을 불러오지 못했어요. 2D로 돌아가 다시 확인해 주세요.");};
-        textureImage.src=customBody.artworkUrl;
+        openTextureSource(customBody.artworkUrl,bodyArtworkTextureUrl,{fetchBlob,signal:borderAbort.signal}).then(source=>{
+          if(disposed){source.dispose();return;}
+          borderSource=source;textureImage.src=source.url;
+        }).catch(()=>{if(!disposed)textureImage.onerror?.();});
       } else refreshReady();
     } catch { fail(); }
     return cleanup;
-  },[customBody,renderProfile,Boolean(imageUrl),outlineOnly,onFailure]);
-  useEffect(()=>{controllerRef.current?.updatePhoto(imageUrl,photoFrame,imageStyle,imageRendering);},[imageUrl,photoFrame,imageStyle,imageRendering,renderProfile,outlineOnly]);
+  },[customBody,renderProfile,Boolean(imageUrl),outlineOnly,onFailure,imageTextureUrl,bodyArtworkTextureUrl]);
+  useEffect(()=>{controllerRef.current?.updatePhoto(imageUrl,photoFrame,imageStyle,imageRendering);},[imageUrl,photoFrame,imageStyle,imageRendering,renderProfile,outlineOnly,imageTextureUrl,bodyArtworkTextureUrl]);
   useEffect(()=>{if(resetKey)controllerRef.current?.reset();},[resetKey]);
   // 회전 중 입구 prop이 바뀌어도 새 DOM의 앞/뒤 표시를 한 프레임 안에 맞춘다.
   useEffect(()=>{slotValueRef.current=slot;controllerRef.current?.refresh();},[slot]);

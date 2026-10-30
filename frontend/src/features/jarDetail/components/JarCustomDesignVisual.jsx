@@ -91,6 +91,8 @@ export default function JarCustomDesignVisual({
       <JarDesignImage
         key={`${design.imageUrl}-${reloadAttempt}`}
         imageUrl={design.imageUrl}
+        imageTextureUrl={design.imageTextureUrl}
+        bodyArtworkTextureUrl={design.bodyArtworkTextureUrl}
         bodyStyle={design.bodyStyle}
         customBody={customBody}
         photoFrame={design.photoFrame}

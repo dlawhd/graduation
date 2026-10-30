@@ -14,7 +14,7 @@ class ViewerBoundary extends Component {
 
 /** 기본 2D는 계속 유지하고 요청한 경우에만 3D 코드와 GPU를 사용한다. DB/API/원본을 변경하지 않는다. */
 export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,imageStyle,imageRendering,
-  outlineOnly,slot,children,className="h-full w-full",frontViewRequest=0,disabled=false }) {
+  outlineOnly,slot,children,className="h-full w-full",frontViewRequest=0,disabled=false,imageTextureUrl,bodyArtworkTextureUrl }) {
   const [mode,setMode]=useState("2D"),[failure,setFailure]=useState(""),[resetKey,setResetKey]=useState(0);
   const body=useMemo(()=>customJarBody(customBody),[customBody]);
   const onFailure=useCallback(message=>{setMode("2D");setFailure(message || BODY_3D_FAILURE);},[]);
@@ -25,7 +25,7 @@ export default function CustomJarBodyViewer({ customBody,imageUrl,photoFrame,ima
     <div className="h-full w-full" hidden={mode==="3D"}>{children}</div>
     {mode==="3D" && <div className="pointer-events-auto absolute inset-0">
       <ViewerBoundary onFailure={onFailure}><Suspense fallback={<div role="status" className="flex h-full items-center justify-center bg-white/80 text-xs text-stone-500">3D를 불러오고 있어요…</div>}>
-        <CustomJarBody3D {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,slot,resetKey,onFailure}}/>
+        <CustomJarBody3D {...{customBody,imageUrl,photoFrame,imageStyle,imageRendering,outlineOnly,slot,resetKey,onFailure,imageTextureUrl,bodyArtworkTextureUrl}}/>
       </Suspense></ViewerBoundary>
     </div>}
     {body && <div className="pointer-events-auto absolute right-2 top-2 z-20 flex flex-wrap justify-end gap-1 rounded-full border border-stone-200 bg-white/95 p-1 shadow-sm">
