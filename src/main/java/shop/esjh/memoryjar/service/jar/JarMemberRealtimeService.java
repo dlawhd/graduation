@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.service.jar;
 
+import shop.esjh.memoryjar.service.BestEffortDelivery;
 import shop.esjh.memoryjar.dto.jar.response.JarMemberSocketEventResponse;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -41,10 +42,10 @@ public class JarMemberRealtimeService {
             return;
         }
 
-        Runnable sendTask = () -> messagingTemplate.convertAndSend(
+        Runnable sendTask = () -> BestEffortDelivery.send("MEMBER", () -> messagingTemplate.convertAndSend(
                 "/topic/jars/" + jarId + "/members",
                 event
-        );
+        ));
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

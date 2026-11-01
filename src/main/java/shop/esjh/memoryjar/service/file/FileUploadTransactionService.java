@@ -155,6 +155,9 @@ public class FileUploadTransactionService {
         }
 
         // PRESIGNED 상태의 파일만 완료 처리할 수 있다.
+        if (upload.getStatus() == FileUploadStatus.EXPIRED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "업로드 시간이 지났어. 파일을 다시 첨부해 줘.");
+        }
         if (upload.getStatus()
                 != FileUploadStatus.PRESIGNED) {
 

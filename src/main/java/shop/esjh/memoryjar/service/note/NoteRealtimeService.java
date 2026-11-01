@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.service.note;
 
+import shop.esjh.memoryjar.service.BestEffortDelivery;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -70,16 +71,16 @@ public class NoteRealtimeService {
 
         Runnable sendTask = () -> {
             // 새 저금통 전체 쪽지 주소로 전송
-            messagingTemplate.convertAndSend(
+            BestEffortDelivery.send("NOTE", () -> messagingTemplate.convertAndSend(
                     jarNotesDestination,
                     event
-            );
+            ));
 
             // 기존 쪽지 상세 주소로도 전송
-            messagingTemplate.convertAndSend(
+            BestEffortDelivery.send("NOTE", () -> messagingTemplate.convertAndSend(
                     legacyNoteDetailDestination,
                     event
-            );
+            ));
         };
 
         /*

@@ -40,6 +40,9 @@ public class NoteAttachmentService {
 
     // 요청에서 s3Key를 꺼내고 기본 검증하는 함수
     private List<String> extractAndValidateS3Keys(List<NoteAttachmentCreateRequest> requests) {
+        if (requests.stream().anyMatch(Objects::isNull)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "첨부 파일 항목은 비어 있을 수 없어.");
+        }
         List<String> s3Keys = requests.stream()
                 .map(NoteAttachmentCreateRequest::s3Key)
                 .map(s3Key -> s3Key == null ? null : s3Key.trim())
@@ -126,6 +129,13 @@ public class NoteAttachmentService {
         // 예전에는 첨부파일 10개면 existsByS3Key 쿼리도 10번 나갈 수 있었다.
         validateDuplicateS3Keys(requestedS3Keys);
 
+        // 검증한 뒤 사용권을 원자적으로 확보한다. 다른 요청이 먼저 연결했다면 전체 트랜잭션을 취소한다.
+        if (fileUploadRepository.claimCompletedNoteUploads(currentUserId, requestedS3Keys,
+                java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"))) != requestedS3Keys.size()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 연결됐거나 사용할 수 없는 첨부 파일이 있어.");
+        }
+
+
         // 7. 찾기 쉽게 Map으로 바꾸기
         Map<String, FileUpload> uploadMap = uploads.stream()
                 .collect(Collectors.toMap(FileUpload::getS3Key, Function.identity()));
@@ -188,6 +198,7 @@ public class NoteAttachmentService {
 
             attachments.add(attachment);
 
+            // 원자적 확보 뒤 현재 영속 객체도 같은 상태로 맞춰 오래된 값이 다시 저장되지 않게 한다.
             upload.markConsumed();
         }
 

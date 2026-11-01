@@ -1,0 +1,501 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-29",
+  "runId": "local-compare-94bc70b24be1",
+  "scope": "LOCAL_HISTORICAL_RELEASE_NOT_PURE_OPTIMIZATION_COMPARISON",
+  "commits": {
+    "before": "c5f58c4f7440122acba040aa5ab2042284e53987",
+    "after": "8a5f7cc6e689e23a1d495c31b2f3c3f4a388aade"
+  },
+  "schemaVersionForBoth": 53,
+  "provenance": {
+    "scope": "LOCAL_HISTORICAL_RELEASE_COMPARISON",
+    "fixtureSha256": "4f84c0094722c89f81b63ec7c947619ada89ab6dc8eb477508b4a15880737328",
+    "observerSha256": "4d24d782600d07ccc7ee8e0ecb08cff8ca2e65368998a51686bb6f727c8d39cb",
+    "builds": {
+      "before": {
+        "commit": "c5f58c4f7440122acba040aa5ab2042284e53987",
+        "componentSha256": "286cfe3cb63d72f9fa9fcda187f8d6aebab150f3b8a3fcdc5cd13f8bc3faeb08"
+      },
+      "after": {
+        "commit": "8a5f7cc6e689e23a1d495c31b2f3c3f4a388aade",
+        "componentSha256": "ee5efd910af9b2dfcd5368e1645030f5b7e3fc4eb44cf1d8b1595e0bd48d55b6"
+      }
+    }
+  },
+  "normalizedSourceVerification": {
+    "before": {
+      "gitComponentSha256": "4e5bb74d34b6670f85d77009c98e853c65d7caa1a1506efc0b211c4632841bb4",
+      "exactByteMatch": false,
+      "matchesAfterLineEndingNormalization": true
+    },
+    "after": {
+      "gitComponentSha256": "51cdac8ea5fb000d9d8fd3530b49936703e4d302bc099b9ff431c2bf1447554b",
+      "exactByteMatch": false,
+      "matchesAfterLineEndingNormalization": true
+    }
+  },
+  "syntheticPhoto": {
+    "width": 480,
+    "height": 480,
+    "bytes": 7143,
+    "sha256": "691a6f74912bcd5922f7ff8186cdb5a44a91a591759a33922926ff93cdbd9de4"
+  },
+  "measurementOrder": [
+    "after",
+    "before"
+  ],
+  "samplesPerVersion": 6,
+  "repetitionMedianExcludesFirst": true,
+  "summary": {
+    "before": {
+      "firstReadyMs": 385.5,
+      "repeatFiveMedianReadyMs": 68.39999997615814,
+      "firstTwoRafMs": 402.5,
+      "repeatFiveMedianTwoRafMs": 82.89999997615814,
+      "triangles": 632,
+      "providerReadsDuringSixTransitions": 0
+    },
+    "after": {
+      "firstReadyMs": 951.3000000715256,
+      "repeatFiveMedianReadyMs": 520.1000000238419,
+      "firstTwoRafMs": 968.1000000238419,
+      "repeatFiveMedianTwoRafMs": 531.6000000238419,
+      "triangles": 28160,
+      "providerReadsDuringSixTransitions": 1
+    }
+  },
+  "bodyTriangleCountRatio": 44.55696202531646,
+  "records": {
+    "before": {
+      "version": 1,
+      "variant": "before",
+      "scope": "LOCAL_HISTORICAL_RELEASE_COMPARISON_WITH_LOCAL_IMAGE_PROVIDER",
+      "completion": "renderer-return-and-photo-ready; plus-two-rAF-observation-not-GPU-completion",
+      "providerReadsDuringBatch": 0,
+      "rows": [
+        {
+          "ordinal": 1,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 385.5,
+          "clickToTwoRafObservationMs": 402.5,
+          "viewport": {
+            "width": 380,
+            "height": 380,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 171.31044006347656,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 632,
+          "resources": []
+        },
+        {
+          "ordinal": 2,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 70.60000002384186,
+          "clickToTwoRafObservationMs": 82.30000007152557,
+          "viewport": {
+            "width": 380,
+            "height": 379.9999694824219,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 170.39817810058594,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 632,
+          "resources": []
+        },
+        {
+          "ordinal": 3,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 68.39999997615814,
+          "clickToTwoRafObservationMs": 82.89999997615814,
+          "viewport": {
+            "width": 380,
+            "height": 380,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 168.9849090576172,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 632,
+          "resources": []
+        },
+        {
+          "ordinal": 4,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 87,
+          "clickToTwoRafObservationMs": 101.70000004768372,
+          "viewport": {
+            "width": 380,
+            "height": 380,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 168.375,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 632,
+          "resources": []
+        },
+        {
+          "ordinal": 5,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 53.5,
+          "clickToTwoRafObservationMs": 70.40000009536743,
+          "viewport": {
+            "width": 380,
+            "height": 380.0000305175781,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 168.9069061279297,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 632,
+          "resources": []
+        },
+        {
+          "ordinal": 6,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 65.90000009536743,
+          "clickToTwoRafObservationMs": 83,
+          "viewport": {
+            "width": 380,
+            "height": 379.9999694824219,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 170.2999267578125,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 632,
+          "resources": []
+        }
+      ]
+    },
+    "after": {
+      "version": 1,
+      "variant": "after",
+      "scope": "LOCAL_HISTORICAL_RELEASE_COMPARISON_WITH_LOCAL_IMAGE_PROVIDER",
+      "completion": "renderer-return-and-photo-ready; plus-two-rAF-observation-not-GPU-completion",
+      "providerReadsDuringBatch": 1,
+      "rows": [
+        {
+          "ordinal": 1,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 951.3000000715256,
+          "clickToTwoRafObservationMs": 968.1000000238419,
+          "viewport": {
+            "width": 380,
+            "height": 380,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 166.8529510498047,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 28160,
+          "resources": [
+            {
+              "kind": "image-api",
+              "durationMs": 52.300000071525574,
+              "ttfbMs": 49.700000047683716
+            }
+          ]
+        },
+        {
+          "ordinal": 2,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 520.1000000238419,
+          "clickToTwoRafObservationMs": 531.6000000238419,
+          "viewport": {
+            "width": 380,
+            "height": 380.0000305175781,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 168.0612030029297,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 28160,
+          "resources": [
+            {
+              "kind": "image-api",
+              "durationMs": 24.399999976158142,
+              "ttfbMs": 21.90000009536743
+            }
+          ]
+        },
+        {
+          "ordinal": 3,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 532.6000000238419,
+          "clickToTwoRafObservationMs": 548.2000000476837,
+          "viewport": {
+            "width": 380,
+            "height": 380.00006103515625,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 169.76490783691406,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 28160,
+          "resources": [
+            {
+              "kind": "image-api",
+              "durationMs": 30.600000023841858,
+              "ttfbMs": 21.699999928474426
+            }
+          ]
+        },
+        {
+          "ordinal": 4,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 496.3000000715256,
+          "clickToTwoRafObservationMs": 513.2000000476837,
+          "viewport": {
+            "width": 380,
+            "height": 380,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 167.85043334960938,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 28160,
+          "resources": [
+            {
+              "kind": "image-api",
+              "durationMs": 20.700000047683716,
+              "ttfbMs": 18.299999952316284
+            }
+          ]
+        },
+        {
+          "ordinal": 5,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 525.7000000476837,
+          "clickToTwoRafObservationMs": 533.8000000715256,
+          "viewport": {
+            "width": 380,
+            "height": 380,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 166.92294311523438,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 28160,
+          "resources": [
+            {
+              "kind": "image-api",
+              "durationMs": 20.700000047683716,
+              "ttfbMs": 18.199999928474426
+            }
+          ]
+        },
+        {
+          "ordinal": 6,
+          "status": "completed",
+          "clickToPhotoAndRenderReadyMs": 494.8000000715256,
+          "clickToTwoRafObservationMs": 516.1000000238419,
+          "viewport": {
+            "width": 380,
+            "height": 380.0000305175781,
+            "devicePixelRatio": 1.25,
+            "x": 172.75,
+            "y": 169.2825927734375,
+            "fullyVisible": true,
+            "windowWidth": 1265,
+            "windowHeight": 720,
+            "bufferWidth": 475,
+            "bufferHeight": 475
+          },
+          "triangles": 28160,
+          "resources": [
+            {
+              "kind": "image-api",
+              "durationMs": 24.40000009536743,
+              "ttfbMs": 21.600000023841858
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "httpChecks": {
+    "status": "PASS",
+    "checksPassed": 30,
+    "checksFailed": 0,
+    "checks": [
+      "before-anonymous",
+      "before-login",
+      "before-detail-status",
+      "before-same-outline",
+      "before-same-photo-placement",
+      "before-photo-url-is-local",
+      "before-same-photo-bytes",
+      "before-outsider-login",
+      "before-membership",
+      "before-missing-jar",
+      "before-writes-blocked",
+      "after-anonymous",
+      "after-login",
+      "after-detail-status",
+      "after-same-outline",
+      "after-same-photo-placement",
+      "after-photo-url-is-local",
+      "after-same-photo-bytes",
+      "after-outsider-login",
+      "after-membership",
+      "after-missing-jar",
+      "after-writes-blocked",
+      "texture-success",
+      "texture-same-png",
+      "texture-repeat-success",
+      "texture-repeat-reuses-provider",
+      "cached-texture-outsider-rejected",
+      "cached-texture-anonymous-rejected",
+      "texture-invalid-part",
+      "rejected-reads-never-touch-provider"
+    ],
+    "actualAwsUsed": false
+  },
+  "fixtureProviderChecks": {
+    "checksPassed": 10,
+    "checksFailed": 0
+  },
+  "ingressChecks": {
+    "checksPassed": 3,
+    "checksFailed": 0
+  },
+  "limitations": [
+    "Old flat DOM-composited photo and current curved textured geometry have different features; this is not a pure optimization effect.",
+    "Photo/render ready and two requestAnimationFrame observations do not measure GPU completion or exact monitor presentation.",
+    "Each version had prior preparation and functional runs. First means first transition after reopening the document, not fully cold browser/server/network.",
+    "A fixed local provider and a dedicated local ingress replace real AWS/S3/TLS/network latency; no artificial provider delay was added.",
+    "Final records used visible 380x380 stages, identical browser dimensions/DPR/buffer sizes; existing bobbing animations were preserved.",
+    "Earlier popup-overlapped and scroll-mismatched runs were excluded. Later visual checks were not added to the six measured rows.",
+    "One serial batch per version, current then old; no process-level CPU isolation, randomized repetitions or production performance claim.",
+    "Provider read count includes all accesses during the batch; old reused its preloaded image, current made six image API requests and one provider read."
+  ],
+  "optimizationImprovementPercentCalculated": false,
+  "productionModified": false,
+  "actualAwsUsed": false,
+  "cleanup": {
+    "measuredRun": {
+      "containersRemaining": 0,
+      "networksRemaining": 0
+    },
+    "launcherReproductionRun": {
+      "containersRemaining": 0,
+      "networksRemaining": 0
+    },
+    "trialHostPortsListening": 0,
+    "verifiedBy": "post-cleanup Docker label inventory and Windows TCP listener inventory"
+  },
+  "completedAtKst": "2026-10-29T14:26:36+09:00",
+  "launcherReproduction": {
+    "runId": "local-compare-fffa0aa487bb",
+    "mode": "VerifyOnly",
+    "exitCode": 0,
+    "freshBuildAndDatabaseStart": true,
+    "buildManifestAndPhotoMatchMeasuredRun": true,
+    "httpChecks": {
+      "status": "PASS",
+      "checksPassed": 30,
+      "checksFailed": 0,
+      "checks": [
+        "before-anonymous",
+        "before-login",
+        "before-detail-status",
+        "before-same-outline",
+        "before-same-photo-placement",
+        "before-photo-url-is-local",
+        "before-same-photo-bytes",
+        "before-outsider-login",
+        "before-membership",
+        "before-missing-jar",
+        "before-writes-blocked",
+        "after-anonymous",
+        "after-login",
+        "after-detail-status",
+        "after-same-outline",
+        "after-same-photo-placement",
+        "after-photo-url-is-local",
+        "after-same-photo-bytes",
+        "after-outsider-login",
+        "after-membership",
+        "after-missing-jar",
+        "after-writes-blocked",
+        "texture-success",
+        "texture-same-png",
+        "texture-repeat-success",
+        "texture-repeat-reuses-provider",
+        "cached-texture-outsider-rejected",
+        "cached-texture-anonymous-rejected",
+        "texture-invalid-part",
+        "rejected-reads-never-touch-provider"
+      ],
+      "actualAwsUsed": false
+    },
+    "browserPerformanceMeasuredAgain": false
+  },
+  "runtime": {
+    "java": "Temurin 17.0.20.1+1",
+    "javaImageId": "sha256:fe947d993c32dd9cf651a4353a6ed723c2370b3a9d034ea4cab4775404ea531a",
+    "databaseImageId": "sha256:8d9046cdb0b0961b3d2119bcb4bea62a185f11944be5968bc42b81d47801902e",
+    "vite": "8.0.2"
+  },
+  "toolSourceSha256": {
+    "tools/compat/run-local-comparison.ps1": "60da285283e117adcbd0640a0d2632e1517c3b32bdba48dd27eeb09d98b51de3",
+    "tools/compat/local-comparison.mjs": "a400f3c69d7e0c5ed3216d21e7135c44b049960b0b2bf4adaac12ea8250ab21e",
+    "tools/compat/local-comparison-monitor.mjs": "4d24d782600d07ccc7ee8e0ecb08cff8ca2e65368998a51686bb6f727c8d39cb",
+    "tools/compat/local-comparison-check.mjs": "acc2d8c4e169d46c18d64ce41b8c145d8f1593416671f8cf2d1b33d283161223",
+    "tools/compat/local-comparison.test.mjs": "6e469f70ca6245e8a6609ab219ad13ef9bca7bcbe4acce9c93edc49daa18b922",
+    "tools/compat/ingress/LocalIngressProxy.java": "642ebf217df7e15de1a1da67cf40f35be73e04c481746cf37934122af8478987",
+    "tools/compat/java/shop/esjh/memoryjar/compat/LocalComparisonLauncher.java": "d1c136720e6102e9506b060cfabfdc90d4494c7ac0759cae6139c00411333733",
+    "tools/compat/java/shop/esjh/memoryjar/compat/LocalComparisonSessionTest.java": "14298b3d2c7b8b434c5ea848992fe9a90a38c907a17246bbe7a61288eb8a920c",
+    "tools/compat/java/shop/esjh/memoryjar/compat/LocalFixtureServer.java": "1d79bb4ab53c77ebaba521d4115a45df9c3e84c642bd7f1f76941f065c588453",
+    "tools/compat/java/shop/esjh/memoryjar/compat/LocalFixtureServerCheck.java": "33466e218c6f82004aff614bf0b70505d5aaafbb013e1c6aeb63393414cbb5e6"
+  }
+}

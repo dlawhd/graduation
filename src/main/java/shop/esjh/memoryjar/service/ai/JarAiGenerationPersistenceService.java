@@ -31,6 +31,9 @@ public class JarAiGenerationPersistenceService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    @org.springframework.beans.factory.annotation.Value("${app.ai-cleanup.generation-timeout-seconds:600}")
+    private long generationTimeoutSeconds = 600;
+
     private final JarDesignDraftService draftService;
     private final JarDesignDraftRepository draftRepository;
     private final JarAiGenerationRepository generationRepository;
@@ -73,6 +76,29 @@ public class JarAiGenerationPersistenceService {
                         : draft.getSelectedDesignType() == JarDraftDesignType.ORIGINAL ? draft.getPhotoFrame() : null));
     }
 
+    /** 대기 중 종료·시간 초과된 작업은 외부 호출 전에 닫는다. 이 짧은 잠금 안에서는 I/O를 하지 않는다. */
+    @Transactional
+    public boolean canContinue(Long draftId, Long generationId) {
+        JarDesignDraft draft = draftRepository.findByDraftIdForUpdate(draftId).orElse(null);
+        if (draft == null) return false;
+        JarAiGeneration generation = generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
+                .orElse(null);
+        if (generation == null || generation.getStatus() != JarAiGenerationStatus.PROCESSING) return false;
+        LocalDateTime now = LocalDateTime.now(KST);
+        if (generation.getCreatedAt() == null || generation.getCreatedAt()
+                .plusSeconds(Math.max(1, generationTimeoutSeconds)).isBefore(now)) {
+            generation.markFailed(JarAiGenerationErrorCode.GENERATION_TIMEOUT,
+                    "AI 생성 시간이 제한을 초과했습니다.", now);
+            return false;
+        }
+        if (!draft.isActiveAndNotExpired(now)) {
+            generation.markFailed(JarAiGenerationErrorCode.INTERNAL_ERROR,
+                    "AI 작업 전에 Draft가 종료되었습니다.", now);
+            return false;
+        }
+        return true;
+    }
+
     /**
      * Draft 잠금 아래에서 아직 PROCESSING인 경우에만 성공 처리한다.
      * stale 처리나 Draft 종료가 먼저 끝났다면 false를 돌려 후보 S3 객체를 보상 삭제하게 한다.
@@ -100,7 +126,7 @@ public class JarAiGenerationPersistenceService {
     /** 업로드 전에 키를 기록해 강제 종료나 보상 삭제 실패 뒤에도 다시 정리할 수 있게 한다. */
     @Transactional
     public boolean reserveCandidateUpload(Long draftId, Long generationId, String key) {
-        draftRepository.findByDraftIdForUpdate(draftId).orElseThrow();
+        if (!canContinue(draftId, generationId)) return false;
         JarAiGeneration generation = generationRepository.findByGenerationIdAndDraft_DraftId(generationId, draftId)
                 .orElseThrow();
         if (generation.getStatus() != JarAiGenerationStatus.PROCESSING) return false;

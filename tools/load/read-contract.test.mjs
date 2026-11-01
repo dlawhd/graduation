@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ENDPOINTS, operation, readThresholds, validResponse, validateFixture } from './read-contract.mjs';
+import { ENDPOINTS, operation, readThresholds, validResponse, validateFixture, createResponseValidator } from './read-contract.mjs';
 
 // 서버나 사용자 데이터를 읽지 않는 응답 계약 검사 전용 가짜 데이터다.
 export function fixture() {
@@ -109,6 +109,30 @@ test('API별 p95·전체 오류율 자동 중단과 최소 관측 수를 설정�
     assert.deepEqual(thresholds['http_req_duration{phase:read,endpoint:' + endpoint + '}'],
       [{ threshold: 'p(95)<=500', abortOnFail: true, delayAbortEval: '10s' }]);
     assert.deepEqual(thresholds['read_requests{endpoint:' + endpoint + '}'], ['count>0']);
+  }
+});
+
+test('재사용 검증기도 매 응답의 다른 작성자·ID·페이지·권한·깨진 본문을 거절한다', () => {
+  const f = fixture();
+  const validate = createResponseValidator(f, 1);
+  for (const endpoint of ENDPOINTS) {
+    const op = {endpoint, jar: f.jars[0], page: 1};
+    const good = JSON.stringify(response(op, f));
+    for (let i = 0; i < 3; i++) assert.equal(validate(200, good, op), true);
+    for (const status of [0, 401, 403, 500]) assert.equal(validate(status, good, op), false);
+    for (const body of ['not-json', '{}', '{"data":null}']) assert.equal(validate(200, body, op), false);
+    const mutations = endpoint === 'note_list'
+      ? [v => v.items[0].authorId = 999, v => v.items[0].noteId++, v => v.page = 0,
+        v => v.items[0] = null, v => v.items[0].attachments = [{}]]
+      : endpoint === 'jar_list'
+        ? [v => v.items[0].myRole = 'MEMBER', v => v.items[0].jarId = 999, v => v.items[0] = null,
+          v => v.items[1] = v.items[0]]
+        : [v => v.myRole = 'MEMBER', v => v.ownerId = 999, v => v.jarId = 999];
+    for (const mutate of mutations) {
+      const bad = response(op, f); mutate(bad.data);
+      assert.equal(validate(200, JSON.stringify(bad), op), false);
+      assert.equal(validate(200, good, op), true);
+    }
   }
 });
 

@@ -40,6 +40,7 @@ public class JarDesignTextureCache {
     private final Map<Key, CompletableFuture<byte[]>> inFlight = new HashMap<>();
     private long storedBytes;
     private boolean closed;
+    private final java.util.concurrent.Semaphore loadPermits;
 
     @Autowired
     public JarDesignTextureCache(@Value("${app.jar-design.texture-cache-enabled:true}") boolean enabled) {
@@ -55,17 +56,20 @@ public class JarDesignTextureCache {
         }
         this.enabled = enabled; this.maxEntries = maxEntries; this.maxBytes = maxBytes;
         this.maxEntryBytes = maxEntryBytes; this.maxInFlight = maxInFlight;
+        this.loadPermits = new java.util.concurrent.Semaphore(maxInFlight);
         this.ttlNanos = ttl.toNanos(); this.waitNanos = wait.toNanos(); this.clock = Objects.requireNonNull(clock);
     }
 
     /** 호출자는 매번 멤버 권한과 현재 DB 디자인 키를 먼저 확인해야 한다. 반환 배열은 캐시 원본과 분리한다. */
     byte[] read(String bucket, String objectKey, Supplier<byte[]> validatedLoader) {
-        if (!enabled) return LoginDiagnostics.measure(TEXTURE_CACHE_BYPASS, validatedLoader);
+        if (!enabled) return LoginDiagnostics.measure(TEXTURE_CACHE_BYPASS, () -> boundedLoad(validatedLoader));
         var key = new Key(bucket, objectKey);
         Entry hit;
         CompletableFuture<byte[]> shared;
         boolean owner = false;
+        boolean shutdownBypass;
         synchronized (this) {
+            shutdownBypass = closed;
             removeExpired(clock.getAsLong());
             hit = entries.get(key);
             shared = inFlight.get(key);
@@ -74,14 +78,17 @@ public class JarDesignTextureCache {
             }
         }
         if (hit != null) return LoginDiagnostics.measure(TEXTURE_CACHE_HIT, () -> hit.bytes().clone());
-        // 서로 다른 진행 중 이미지가 상한을 넘으면 기존 직접 읽기로 돌아간다. 대기 맵이 무제한 커지지 않는다.
-        if (shared == null) return LoginDiagnostics.measure(TEXTURE_CACHE_BYPASS, validatedLoader);
+        // 대기 맵이 꽉 찼다면 추적하지 않는 읽기로 우회하지 않는다. 같은 키 병합도 계속 보장한다.
+        if (shared == null) {
+            if (!shutdownBypass) throw busy();
+            return LoginDiagnostics.measure(TEXTURE_CACHE_BYPASS, () -> boundedLoad(validatedLoader));
+        }
         var pending = shared;
         if (!owner) return LoginDiagnostics.measure(TEXTURE_CACHE_WAIT, () -> await(pending).clone());
         try {
             return LoginDiagnostics.measure(TEXTURE_CACHE_MISS, () -> {
                 // loader는 PNG/크기 검증과 스트림 닫기를 모두 마친 배열만 반환한다. 실패는 캐시하지 않는다.
-                byte[] bytes = Objects.requireNonNull(validatedLoader.get());
+                byte[] bytes = Objects.requireNonNull(boundedLoad(validatedLoader));
                 synchronized (this) { store(key, bytes, clock.getAsLong()); }
                 // 소유자와 대기자 모두 복사본을 받으므로 어느 응답도 공유 중인 원본을 변경할 수 없다.
                 pending.complete(bytes);
@@ -93,6 +100,20 @@ public class JarDesignTextureCache {
         } finally {
             synchronized (this) { inFlight.remove(key, pending); }
         }
+    }
+
+    /** 캐시를 끈 경우와 큰 이미지도 포함해 실제 동시 외부 읽기를 제한한다. 실패해도 허가를 반납한다. */
+    private byte[] boundedLoad(Supplier<byte[]> loader) {
+        if (!loadPermits.tryAcquire()) {
+            throw busy();
+        }
+        try { return loader.get(); }
+        finally { loadPermits.release(); }
+    }
+
+    private ResponseStatusException busy() {
+        return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "이미지 요청이 많습니다. 잠시 후 다시 시도해 주세요.");
     }
 
     /** 대기 취소/시간 초과는 공유 S3 요청 자체를 취소하지 않아 다른 정상 요청에 전파되지 않는다. */

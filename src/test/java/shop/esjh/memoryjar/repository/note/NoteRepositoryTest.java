@@ -33,6 +33,62 @@ class NoteRepositoryTest extends AbstractMariaDbRepositoryTest {
     private NoteRepository noteRepository;
 
     @Test
+    void listRowsKeepPagingTagsAndFullContentWithoutHydratingEntities() {
+        User owner = saveUser("row-owner", "row-owner@example.invalid", "작성자");
+        Jar jar = saveJar(owner, "rows", LocalDateTime.now().minusDays(1));
+        String content = " ".repeat(40) + "😀" + "전체본문".repeat(1000);
+        for (int index = 0; index < 3; index++) {
+            Note note = saveNote(jar, owner, "row-" + index, LocalDateTime.of(2026, 3, 20, 9, 0));
+            org.springframework.test.util.ReflectionTestUtils.setField(note, "content", content);
+            org.springframework.test.util.ReflectionTestUtils.setField(note, "tags", java.util.List.of("추억100%", "바다"));
+        }
+        flushAndClear();
+        var statistics = entityManager.getEntityManagerFactory().unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        boolean previouslyEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        try {
+            statistics.clear();
+            var oldPage = noteRepository.findByJarId(jar.getJarId(), PageRequest.of(0, 2));
+            assertThat(statistics.getEntityLoadCount()).isGreaterThanOrEqualTo(3);
+            var oldIds = oldPage.map(Note::getNoteId).getContent();
+            entityManager.clear(); statistics.clear();
+            var rows = noteRepository.findListRowsByJarId(jar.getJarId(), PageRequest.of(0, 2));
+            assertThat(rows.getTotalElements()).isEqualTo(3);
+            assertThat(rows.getTotalPages()).isEqualTo(2);
+            assertThat(rows.map(NoteListRow::noteId).getContent()).isEqualTo(oldIds);
+            assertThat(rows.getContent()).allSatisfy(row -> {
+                assertThat(row.authorId()).isEqualTo(owner.getId());
+                assertThat(row.authorName()).isEqualTo("작성자");
+                assertThat(row.content()).isEqualTo(content);
+                assertThat(row.tags()).containsExactly("추억100%", "바다");
+            });
+            assertThat(statistics.getEntityLoadCount()).isZero();
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(2);
+        } finally { statistics.setStatisticsEnabled(previouslyEnabled); }
+    }
+
+    @Test
+    void rowSearchMatchesExistingFullBodyTagsAndSoftDeleteRules() {
+        User owner = saveUser("row-search", "row-search@example.invalid", "작성자");
+        Jar jar = saveJar(owner, "row-search", LocalDateTime.now().minusDays(1));
+        for (int index = 0; index < 4; index++) {
+            Note note = saveNote(jar, owner, "search-" + index, LocalDateTime.now());
+            org.springframework.test.util.ReflectionTestUtils.setField(note, "content", "앞부분".repeat(100) + "검색본문");
+            org.springframework.test.util.ReflectionTestUtils.setField(note, "tags", java.util.List.of("추억100%"));
+            if (index == 3) note.softDelete();
+        }
+        flushAndClear();
+        for (var page : java.util.List.of(PageRequest.of(0, 2), PageRequest.of(1, 2))) {
+            var old = noteRepository.searchByJarId(jar.getJarId(), "%검색본문%", "%100!%%", page);
+            var rows = noteRepository.searchListRowsByJarId(jar.getJarId(), "%검색본문%", "%100!%%", page);
+            assertThat(rows.getTotalElements()).isEqualTo(3).isEqualTo(old.getTotalElements());
+            assertThat(rows.map(NoteListRow::noteId).getContent()).isEqualTo(old.map(Note::getNoteId).getContent());
+        }
+        assertThat(noteRepository.searchListRowsByJarId(jar.getJarId(), "%없음%", "", PageRequest.of(0, 2)))
+                .isEmpty();
+    }
+
+    @Test
     void searchFindsFullContentBeyondPreviewAndPaginatesAllNotes() {
         User owner = saveUser("search-owner", "search-owner@example.com", "owner");
         Jar jar = saveJar(owner, "search", LocalDateTime.now().minusDays(1));

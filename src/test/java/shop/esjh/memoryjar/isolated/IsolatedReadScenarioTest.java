@@ -27,6 +27,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import jakarta.persistence.EntityManagerFactory;
+import shop.esjh.memoryjar.monitoring.ResourceUsageEndpoint;
+import org.springframework.context.annotation.Import;
 import shop.esjh.memoryjar.MemoryJarApplication;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.UserLocalCredential;
@@ -46,6 +52,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 /** 임시 DB에만 시험 데이터를 만들고 호스트 k6의 실제 로그인·조회 결과를 검사한다. 운영 성능 시험이 아니다. */
 @EnabledIfEnvironmentVariable(named = "ISOLATED_READ_PREFLIGHT", matches = "1")
+@Import(IsolatedReadProbeConfiguration.class)
 @SpringBootTest(classes = MemoryJarApplication.class, webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT,
         properties = {"server.port=8080", "server.address=0.0.0.0", "spring.docker.compose.enabled=false",
                 "management.server.port=9091", "management.server.address=127.0.0.1",
@@ -57,6 +64,9 @@ class IsolatedReadScenarioTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired DataSource dataSource;
     @Autowired ObjectMapper json;
+    @Autowired ResourceUsageEndpoint resources;
+    @Autowired EntityManagerFactory entityManagerFactory;
+    @Autowired ServletWebServerApplicationContext webContext;
     @MockitoBean S3Client s3;
     @MockitoBean S3Presigner presigner;
     @MockitoBean RekognitionClient rekognition;
@@ -66,6 +76,16 @@ class IsolatedReadScenarioTest {
     @MockitoBean AiDraftCleanupScheduler aiScheduler;
     @MockitoBean SupportCleanupScheduler supportScheduler;
 
+    /** 진단 전용 실행에서만 기존 관찰 기능을 켠다. 서비스 로직·풀 크기·보안 규칙은 바꾸지 않는다. */
+    @DynamicPropertySource
+    static void readProbeProperties(DynamicPropertyRegistry properties) {
+        if (!"1".equals(System.getenv("ISOLATED_READ_PROBE"))) return;
+        properties.add("app.monitoring.read-diagnostics-enabled", () -> true);
+        properties.add("app.monitoring.isolated-read-probe", () -> true);
+        properties.add("spring.jpa.properties.hibernate.generate_statistics", () -> true);
+        properties.add("spring.jpa.properties.hibernate.session.events.log", () -> false);
+    }
+
     @Test void dedicatedFixtureAndRealReadScenarioAreLocalOnly() throws Exception {
         // 파일이나 데이터 생성 전에 실제 JDBC 목적지를 대조한다. 운영 주소가 섞이면 즉시 실패한다.
         try (var connection = dataSource.getConnection()) {
@@ -74,6 +94,14 @@ class IsolatedReadScenarioTest {
             assertThat("mariadb".equals(target.getScheme()) && "db".equals(target.getHost())
                     && (target.getPort() == -1 || target.getPort() == 3306)
                     && "/isolated_e2e".equals(target.getPath()) && target.getUserInfo() == null).isTrue();
+        }
+        if ("1".equals(System.getenv("ISOLATED_DATASET_10K"))) {
+            try (var probe = "1".equals(System.getenv("ISOLATED_READ_PROBE"))
+                    ? new IsolatedReadProbe(json, resources, entityManagerFactory, webContext) : null) {
+                new IsolatedDataset10kScenario(em, transactions, passwords, jdbc, json)
+                        .run(this::createFixture, "1".equals(System.getenv("ISOLATED_CONCURRENT_1000")) ? 1000 : 10);
+            } finally { verifyNoInteractions(s3, presigner, rekognition, ses, cloudflare); }
+            return;
         }
         var fixture = new TransactionTemplate(transactions).execute(status -> createFixture());
         var before = businessCounts();
@@ -108,10 +136,15 @@ class IsolatedReadScenarioTest {
     /** 기존 Entity와 PasswordEncoder를 재사용해 가짜 개인정보와 고유 난수 비밀번호로만 생성한다. */
     private Map<String, Object> createFixture() {
         String run = "lt" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        return createFixture(run, 0);
+    }
+
+    /** 같은 실행 접두사 아래 10명씩 독립된 묶음을 만든다. 묶음별 계정·저금통을 공유하지 않는다. */
+    private Map<String, Object> createFixture(String run, int offset) {
         List<User> users = new ArrayList<>();
         List<Map<String, Object>> accounts = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            String login = run + String.format("%02d", i);
+            String login = run + String.format("%02d", offset + i);
             String password = "Lt!7" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
             User user = User.builder().email(login + "@example.invalid").name("시험친구" + i).build();
             em.persist(user);
@@ -123,7 +156,7 @@ class IsolatedReadScenarioTest {
         List<Map<String, Object>> jars = new ArrayList<>();
         LocalDateTime openAt = LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(1);
         for (int j = 0; j < 3; j++) {
-            Jar jar = Jar.builder().owner(users.get(j)).name(run + "-jar-" + j)
+            Jar jar = Jar.builder().owner(users.get(j)).name(run + "-jar-" + (offset + j))
                     .description("전용 텍스트 조회 기능 검증").theme(JarTheme.SPRING).maxMembers(10)
                     .openAt(openAt).openMode(JarOpenMode.ALL_AT_ONCE).lockLevel(JarLockLevel.TITLE_ONLY).build();
             em.persist(jar);

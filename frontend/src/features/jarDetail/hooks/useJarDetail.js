@@ -1,3 +1,4 @@
+import { useRequestGate } from "../../../api/useRequestGate";
 import { useCallback, useEffect, useState } from "react";
 import apiClient from "../../../api/apiClient";
 import {
@@ -16,6 +17,7 @@ import {
  * 를 JarDetailPage 대신 맡아주는 "상세 정보 담당자"다.
  */
 export function useJarDetail(jarId) {
+  const requests = useRequestGate(jarId);
   // 서버에서 받아온 저금통 상세 정보
   const [jar, setJar] = useState(null);
 
@@ -50,6 +52,7 @@ export function useJarDetail(jarId) {
       suppressError = false,
     } = {}) => {
       if (!jarId) return;
+      const isCurrent = requests.begin("detail");
 
       if (!silent) {
         setLoading(true);
@@ -58,15 +61,15 @@ export function useJarDetail(jarId) {
 
       setError("");
 
-      setError("");
-
       try {
         const res = await apiClient.get(`/api/v1/jars/${jarId}`);
         const data = res.data?.data;
+        if (!isCurrent()) return false;
 
         setJar(data || null);
         return true;
       } catch (e) {
+        if (!isCurrent()) return false;
         /*
          * Refresh Token까지 만료된 오류라면
          * 일반 상세 오류와 구분한다.
@@ -102,12 +105,10 @@ export function useJarDetail(jarId) {
 
         return false;
       } finally {
-        if (!silent) {
-          setLoading(false);
-        }
+        if (isCurrent()) setLoading(false);
       }
     },
-    [jarId]
+    [jarId, requests]
   );
 
   /*
@@ -116,10 +117,12 @@ export function useJarDetail(jarId) {
    * 이 값은 WebSocket 이벤트에서 "내가 강퇴 대상인지" 판단할 때 사용한다.
    */
   const loadMe = useCallback(async () => {
+    const isCurrent = requests.begin("me");
     try {
       const res = await apiClient.get("/api/v1/me");
-      setMe(res.data?.data || null);
+      if (isCurrent()) setMe(res.data?.data || null);
     } catch (e) {
+      if (!isCurrent()) return;
       /*
        * 단순한 내 정보 조회 실패는 null로 두지만,
        * Refresh Token까지 만료된 경우에는
@@ -133,7 +136,7 @@ export function useJarDetail(jarId) {
 
       setMe(null);
     }
-  }, []);
+  }, [requests]);
 
   /*
    * jarId가 바뀌면 상세 정보와 내 정보를 새로 불러온다.
@@ -143,6 +146,7 @@ export function useJarDetail(jarId) {
    * - 20번 저금통 기준으로 다시 조회한다.
    */
   useEffect(() => {
+    setJar(null);
     loadJarDetail();
     loadMe();
   }, [loadJarDetail, loadMe]);

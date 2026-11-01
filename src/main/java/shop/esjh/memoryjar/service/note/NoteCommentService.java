@@ -233,11 +233,16 @@ public class NoteCommentService {
         Long next = items.isEmpty() ? cursor : items.get(items.size() - 1).commentId();
         if (focusId != null) {
             // 알림/방금 쓴 답글로 이동할 때만 조상 경로를 덧붙인다. 앞선 모든 본문을 읽지 않는다.
-            Map<Long, Long> parents = new HashMap<>();
-            noteCommentRepository.findCommentLinks(noteId).forEach(link -> parents.put(link.getId(), link.getParentId()));
             Set<Long> path = new LinkedHashSet<>();
             Long id = focusId;
-            while (id != null && parents.containsKey(id) && path.add(id)) id = parents.get(id);
+            ancestors: while (id != null && !path.contains(id)) {
+                var chunk = noteCommentRepository.findAncestorChunk(noteId, id);
+                if (chunk.isEmpty()) break;
+                for (var link : chunk) {
+                    if (!path.add(link.getId())) break ancestors;
+                    id = link.getParentId();
+                }
+            }
             List<Long> ids = new ArrayList<>(path);
             for (int offset = 0; offset < ids.size(); offset += 100) {
                 noteCommentRepository.findPathItems(noteId, ids.subList(offset, Math.min(offset + 100, ids.size())))
@@ -269,7 +274,9 @@ public class NoteCommentService {
         getNoteOrThrow(jarId, noteId);
 
         List<NoteComment> comments =
-                noteCommentRepository.findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(noteId);
+                noteCommentRepository.findTop1001ByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(noteId);
+
+        if (comments.size() > 1000) throw legacyTreeTooLarge();
 
         List<NoteCommentItem> items = buildCommentTree(comments);
 
@@ -284,7 +291,7 @@ public class NoteCommentService {
      * - 저금통 active 멤버만 가능, 작성자 본인만 가능
 
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public NoteCommentItem updateComment(
             Long currentUserId,
             Long jarId,
@@ -302,7 +309,8 @@ public class NoteCommentService {
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 수정할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
-        getNoteOrThrow(jarId, noteId);
+        // 생성·삭제와 같은 쪽지 잠금으로 수정 중 삭제 및 삭제된 답글의 부활을 막는다.
+        getNoteForUpdate(jarId, noteId);
 
         // 5. 이 쪽지에 속한 댓글인지 확인
         NoteComment comment = getCommentOrThrow(noteId, commentId);
@@ -638,6 +646,14 @@ public class NoteCommentService {
             subtree.add(current);
             queue.addAll(childrenMap.getOrDefault(current.getCommentId(), List.of()));
         }
+        // JSON은 객체와 replies 배열이 번갈아 중첩된다. 직렬화 실패 전에 안전한 오류로 안내한다.
+        Map<Long, Integer> depths = new HashMap<>();
+        for (NoteComment current : subtree) {
+            int depth = current.isRootComment() ? 1
+                    : depths.getOrDefault(current.getParentComment().getCommentId(), 0) + 1;
+            if (depth > 100) throw legacyTreeTooLarge();
+            depths.put(current.getCommentId(), depth);
+        }
         Map<Long, NoteCommentItem> converted = new HashMap<>();
         for (int index = subtree.size() - 1; index >= 0; index--) {
             NoteComment current = subtree.get(index);
@@ -646,6 +662,11 @@ public class NoteCommentService {
                     .map(child -> converted.get(child.getCommentId())).toList()));
         }
         return converted.get(comment.getCommentId());
+    }
+
+    private ResponseStatusException legacyTreeTooLarge() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "댓글이 많거나 답글이 깊습니다. /comments/page 페이지 조회를 사용해 주세요.");
     }
 
 

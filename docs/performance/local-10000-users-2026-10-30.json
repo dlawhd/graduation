@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-30",
+  "scope": "LOCAL_10000_STORED_USERS_NOT_10000_CONCURRENT",
+  "runId": "memoryjar-e2e-7459fe2d901f",
+  "status": "passed",
+  "population": {
+    "jars": 9993,
+    "jar_members": 10020,
+    "jar_open_events": 9993,
+    "notes": 10110,
+    "users": 10000,
+    "user_local_credentials": 10000
+  },
+  "activeLoginAccounts": 10,
+  "backgroundAccounts": 9990,
+  "backgroundPreparation": "Entity inserts; one random shared test-only background password hash. Not 10000 registration/login measurements.",
+  "login": {
+    "requests": 10,
+    "concurrent": false,
+    "avgMs": 150.60822710000002,
+    "medianMs": 95.1039945,
+    "p95Ms": 405.13179209999976,
+    "minMs": 76.989191,
+    "maxMs": 525.112152
+  },
+  "read": {
+    "requests": 1975,
+    "errorRate": 0,
+    "responseChecksPassed": 1975,
+    "responseChecksFailed": 0,
+    "pacingSecondsPerUser": 0.2,
+    "stages": [
+      {
+        "concurrentUsers": 1,
+        "scheduledSeconds": 20,
+        "readRequests": 90,
+        "readsPerScheduledSecond": 4.5,
+        "endpoints": {
+          "jar_list": {
+            "requests": 27,
+            "avgMs": 19.625722037037036,
+            "medianMs": 18.596427,
+            "p95Ms": 28.998284999999996,
+            "maxMs": 33.638611
+          },
+          "jar_detail": {
+            "requests": 27,
+            "avgMs": 20.01027485185185,
+            "medianMs": 19.965673,
+            "p95Ms": 26.1573122,
+            "maxMs": 27.184685
+          },
+          "note_list": {
+            "requests": 36,
+            "avgMs": 27.234510972222218,
+            "medianMs": 25.930645499999997,
+            "p95Ms": 37.16286275,
+            "maxMs": 70.870005
+          }
+        }
+      },
+      {
+        "concurrentUsers": 5,
+        "scheduledSeconds": 20,
+        "readRequests": 465,
+        "readsPerScheduledSecond": 23.25,
+        "endpoints": {
+          "jar_list": {
+            "requests": 137,
+            "avgMs": 11.5787085839416,
+            "medianMs": 11.53392,
+            "p95Ms": 16.960424999999997,
+            "maxMs": 21.526344
+          },
+          "jar_detail": {
+            "requests": 142,
+            "avgMs": 12.468305154929576,
+            "medianMs": 11.707430500000001,
+            "p95Ms": 17.675445699999997,
+            "maxMs": 22.649954
+          },
+          "note_list": {
+            "requests": 186,
+            "avgMs": 16.63318887634409,
+            "medianMs": 15.7376155,
+            "p95Ms": 23.70036825,
+            "maxMs": 34.394078
+          }
+        }
+      },
+      {
+        "concurrentUsers": 10,
+        "scheduledSeconds": 30,
+        "readRequests": 1420,
+        "readsPerScheduledSecond": 47.333333333333336,
+        "endpoints": {
+          "jar_list": {
+            "requests": 428,
+            "avgMs": 8.486861299065419,
+            "medianMs": 7.826399,
+            "p95Ms": 14.195652099999993,
+            "maxMs": 19.31621
+          },
+          "jar_detail": {
+            "requests": 422,
+            "avgMs": 8.241185135071083,
+            "medianMs": 7.733309500000001,
+            "p95Ms": 12.38733925,
+            "maxMs": 17.957885
+          },
+          "note_list": {
+            "requests": 570,
+            "avgMs": 11.480769952631574,
+            "medianMs": 10.739816000000001,
+            "p95Ms": 17.533284849999994,
+            "maxMs": 33.379486
+          }
+        }
+      }
+    ],
+    "latencyReferenceP95Ms": 500,
+    "thresholdsPassed": true
+  },
+  "authorization": {
+    "anonymousStatus": 401,
+    "nonMemberStatus": 403,
+    "nonMemberChecks": 1
+  },
+  "cleanup": {
+    "applicationTableCount": 24,
+    "remainingApplicationRows": 0,
+    "allApplicationTablesRestored": true,
+    "remainingNetworks": 0,
+    "privateFixtureRemoved": true,
+    "remainingContainers": 0,
+    "summaryMetricsOnly": true
+  },
+  "businessRowCountsUnchangedDuringRead": true,
+  "sampledContainerResourcesDuringLoad": {
+    "application": {
+      "sampleCount": 17,
+      "maxSampledCpuPercent": 131.74,
+      "maxSampledMemoryMiB": 671.1
+    },
+    "database": {
+      "sampleCount": 17,
+      "maxSampledCpuPercent": 16.79,
+      "maxSampledMemoryMiB": 417.9
+    },
+    "loadGenerator": {
+      "sampleCount": 17,
+      "maxSampledCpuPercent": 100.29,
+      "maxSampledMemoryMiB": 83.32
+    }
+  },
+  "isolation": {
+    "dockerContext": "desktop-linux",
+    "internalNetwork": true,
+    "hostPortsPublished": false,
+    "existingLocalDatabaseRestarted": false,
+    "productionConnectionUsed": false,
+    "externalProvidersMocked": true,
+    "externalProviderNoInteractionsAssertionPassed": true
+  },
+  "runtimeLimits": {
+    "applicationCpu": 2,
+    "applicationContainerMemoryMiB": 1536,
+    "javaHeapMaxMiB": 768,
+    "databaseMemoryMiB": 768,
+    "loadGeneratorCpu": 1,
+    "loadGeneratorMemoryMiB": 256
+  },
+  "sourceHashes": {
+    "dataset-verification.json": "c2aedbf7da775de0ce77b50a6add559d5be5b085e17bc5ddf999e2f77dd1f581",
+    "dataset-cleanup.json": "a256d2c3a16f124866c324ceec184833e82492ae5ad0b657060f2a2a15127ca6",
+    "read-summary.json": "366b4d57f6abe45a9c4fbf99c1ae97684c0514fe0cd404bd0402c4a9a68429e3",
+    "dataset-resources.json": "f5e5459d4f7971bda8e7f440d719b5c1973594e0382a61b0f1104fa04df5dcc4",
+    "egress.txt": "96e559a373c0a5202e3e88c5b550895c7c3be60685cb2adf8ba303921c943de1",
+    "summary.txt": "fd3536e417db44dd9e87be24604a41a261a47331211056e3b7bbb7cc62c49aa8"
+  },
+  "limitations": [
+    "One local execution; not production capacity or 10000 simultaneous users.",
+    "10 authenticated accounts query 3 shared jars and 120 notes; remaining 9990 accounts supply background data.",
+    "Stages run 1 then 5 then 10 users; JVM/cache warm-up and order can affect latency. No before/after improvement rate.",
+    "Artificial text dataset and mocked S3/AI/mail; browser rendering, real network/TLS and paid providers excluded.",
+    "Docker resource samples are observed samples, not guaranteed peak use or JVM heap measurements."
+  ]
+}

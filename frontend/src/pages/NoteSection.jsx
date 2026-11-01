@@ -1,6 +1,7 @@
 // src/pages/NoteSection.jsx
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRequestGate } from "../api/useRequestGate";
 import noteApi from "../api/noteApi";
 import FeedbackToast from "../components/feedback/FeedbackToast";
 import NoteLocationField from "../features/note/components/NoteLocationField";
@@ -1116,6 +1117,7 @@ export default function NoteSection({
     []
   );
 
+  const requests = useRequestGate(jar?.jarId);
   const [listData, setListData] = useState({
     items: [],
     page: 0,
@@ -1290,13 +1292,16 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
   async function loadNotes(nextQuery = query) {
     if (!jar?.jarId) return;
 
+    const isCurrent = requests.begin("list");
     setNotesLoading(true);
     setNotesError("");
 
     try {
       const data = await noteApi.getNotes(jar.jarId, nextQuery);
+      if (!isCurrent()) return;
       setListData(normalizeListPayload(data));
     } catch (e) {
+      if (!isCurrent()) return;
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -1312,13 +1317,14 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
         totalPages: 1,
       });
     } finally {
-      setNotesLoading(false);
+      if (isCurrent()) setNotesLoading(false);
     }
   }
 
   async function openDetail(noteId) {
     if (!noteId) return;
 
+    const isCurrent = requests.begin("detail");
     setDetailOpen(true);
     setDetailNoteId(noteId);
     setDetailLoading(true);
@@ -1327,8 +1333,10 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
     try {
       const data = await noteApi.getNoteDetail(jar.jarId, noteId);
+      if (!isCurrent()) return;
       setDetailNote(data || null);
     } catch (e) {
+      if (!isCurrent()) return;
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -1337,11 +1345,12 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
       setDetailError(serverMessage);
     } finally {
-      setDetailLoading(false);
+      if (isCurrent()) setDetailLoading(false);
     }
   }
 
   function closeDetail() {
+    requests.begin("detail");
     setDetailOpen(false);
     setDetailNoteId(null);
     setDetailNote(null);
@@ -2295,6 +2304,8 @@ async function handleCreateNote() {
   useEffect(() => {
     if (!jar?.jarId) return;
 
+    closeDetail();
+    setListData({ items: [], page: 0, size: 6, totalElements: 0, totalPages: 1 });
     setQuery(initialQuery);
     setSearchForm({ q: "", tag: "" });
     loadNotes(initialQuery);

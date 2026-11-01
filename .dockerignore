@@ -3,3 +3,10 @@ build
 out
 .idea
 *.iml
+.git
+.aws
+.codex
+**/.env
+**/.env.*
+**/application-local*.yml
+**/application-local*.yaml

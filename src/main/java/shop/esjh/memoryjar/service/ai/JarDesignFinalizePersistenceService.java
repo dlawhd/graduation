@@ -57,6 +57,19 @@ public class JarDesignFinalizePersistenceService {
         return createTarget(draft);
     }
 
+    /** 커밋 응답이 유실돼도 완성된 디자인은 보호한다. 확정 트랜잭션과 같은 Draft 잠금으로 결과를 기다린다. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public boolean mayDeleteFinalCopy(Long userId, Long draftId, String finalS3Key) {
+        JarDesignDraft draft = draftRepository.findByDraftIdForUpdate(draftId).orElse(null);
+        if (draft == null || !draft.isOwner(userId)) return false;
+        if (draft.getStatus() != JarDraftStatus.FINALIZED) return true;
+        if (draft.getFinalizedJar() == null) return false;
+        // 동일 Draft의 다른 요청이 만든 사본만 삭제할 수 있다. 확정 키를 못 찾으면 보존한다.
+        return designRepository.findPermanentKeyIncludingDeleted(draft.getFinalizedJar().getJarId())
+                .filter(usedKey -> !usedKey.equals(finalS3Key)).isPresent();
+    }
+
     /** DEFAULT는 외부 파일 없이 기존 Jar 생성 로직과 Draft 종료를 하나의 트랜잭션으로 확정한다. */
     @Transactional
     public FinalizeResult finalizeDefault(Long userId, Long draftId, JarCreateRequest request, FinalizeTarget expected) {

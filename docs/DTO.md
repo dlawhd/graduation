@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-11-01: `NoteCreateRequest.attachments`는 선택 목록이지만 내부 null 항목은 허용하지 않는다. 공개 DTO 필드는 유지하며 JWT 내부에 `loginSessionId`를 추가한다. 기존 전체 댓글 DTO는 안전한 크기 범위에서 유지한다. [V54·V55 계약](SAFETY_FIXES_2026-11-01.md)을 확인한다.
+
 > 3D 이미지 읽기 증분: JarDesignResponse에 선택 필드 `imageTextureUrl`, `bodyArtworkTextureUrl`을 추가했다. 기존 필드/생성자를 유지한다. [3D 텍스처 읽기 계약](ai/AI_3D_TEXTURE_ACCESS.md)을 참고한다.
 
 > 2026-10-07 V49 증분: 문의 요청은 `draftId/generationId/description/shareOriginal=true`, 응답은 안전한 실패 정보와 처리 상태를 사용한다. 알림에 nullable `inquiryId`를 추가하며 기존 호출을 유지한다. [AI 실패 문의 계약](AI_SUPPORT_V49.md)을 확인한다.
@@ -790,6 +792,8 @@ publicenumNoteReactionEmoji {LOVE,SMILE,LAUGH,TOUCHING,MISS_YOU,PROUD,CHEER,THAN
 ```
 
 ## Q-2. 업로드 완료 처리
+
+`FilePresignResponse`의 필드는 유지한다. `uploadUrl`은 임시 객체의 업로드 주소이고, `s3Key`·`publicUrl`은 서버가 검사 후 한 번만 생성하는 완료 객체의 주소다. 프론트는 업로드 주소를 직접 조합하지 않는다. `complete` 성공 전에 `publicUrl`의 파일이 존재한다고 가정하지 않는다.
 
 `POST /api/v1/files/complete`
 

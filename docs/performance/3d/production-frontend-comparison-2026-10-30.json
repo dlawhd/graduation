@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-30",
+  "environment": "production",
+  "scope": "과거 dd6e50b 계산 + 현재 인증 이미지 읽기(a3fff99) 대 최종 프론트(491ffa4). 백엔드·서버 캐시·DB는 유지한 운영 프론트 비교.",
+  "beforeSummary": "production-legacy-compatible-trace-summary-2026-10-30.json",
+  "afterSummary": "production-final-matched-trace-summary-2026-10-30.json",
+  "beforeSourceSha256": "9decc12ad9a68654732d3b0803ff7f15aa90ecfca03f0f8f5c892ecb432464f6",
+  "afterSourceSha256": "addfa8e8faf5a4288fa6d4e54b06124ccfbb9e868ae09044c5042c640fa3a433",
+  "jarId": 112,
+  "samePhotoVisuallyConfirmed": true,
+  "photoBytesEqualityIndependentlyVerified": false,
+  "sameRendererProcessAndThread": true,
+  "sameMetadataHostDpr": 1.125,
+  "sameStoredSnapshotDimensions": [
+    350,
+    498
+  ],
+  "viewportAndThrottlingIndependentlyVerified": false,
+  "recordingSeparationSeconds": 571.452,
+  "formula": "(beforeMs - afterMs) / beforeMs * 100",
+  "comparisons": [
+    {
+      "phase": "first-recorded",
+      "beforeMs": 1188.02,
+      "afterMs": 756.266,
+      "savedMs": 431.754,
+      "timeReductionPercent": 36.342317,
+      "reportedTimeReductionPercent": 36.34,
+      "samplesPerVersion": 1,
+      "beforeClickToImageRequestMs": 1033.102,
+      "afterClickToImageRequestMs": 600.14
+    },
+    {
+      "phase": "repeat",
+      "beforeMs": 750.075,
+      "afterMs": 364.465,
+      "savedMs": 385.61,
+      "timeReductionPercent": 51.409526,
+      "reportedTimeReductionPercent": 51.41,
+      "samplesPerVersion": 1,
+      "beforeClickToImageRequestMs": 655.967,
+      "afterClickToImageRequestMs": 272.975
+    }
+  ],
+  "overallImprovementPercent": null,
+  "multiSampleMedianImprovementPercent": null,
+  "limitations": [
+    "첫 전환·반복 전환마다 각 버전 1건인 대응 관측의 감소율. 평균·중앙값·보장된 개선율이 아님.",
+    "원본 과거 백엔드·옛 캐시 설정까지 포함한 전체 릴리스 전후 비교가 아님.",
+    "이전 로컬 수치 및 다른 날짜 운영 기록과 합치거나 섞지 않음.",
+    "사진 표시는 최초 기록 캡처 기준이며 실제 GPU·모니터 출력 완료와 구분.",
+    "사진 내용·기록 조건 대조는 했지만 사진 원본 바이트·실제 viewport·CPU/네트워크 설정을 독립적으로 확인한 것은 아님."
+  ],
+  "captureAlignmentCheck": {
+    "method": "Approximate lime-color bounds from the reviewed compressed photo-present snapshots; not a canvas or viewport measurement.",
+    "beforeBoundsFirstAndRepeat": [
+      [
+        99,
+        99,
+        276,
+        307
+      ],
+      [
+        99,
+        99,
+        276,
+        307
+      ]
+    ],
+    "afterBoundsFirstAndRepeat": [
+      [
+        98,
+        116,
+        276,
+        323
+      ],
+      [
+        99,
+        114,
+        276,
+        322
+      ]
+    ],
+    "approxFootprintWidthPxRange": [
+      178,
+      179
+    ],
+    "approxFootprintHeightPxRange": [
+      208,
+      209
+    ],
+    "verticalPositionDifferencePxRange": [
+      15,
+      17
+    ],
+    "entireJarVisibleInBoth": true
+  }
+}

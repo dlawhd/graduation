@@ -98,6 +98,10 @@ public class JarAiGenerationService {
         String outcome = "INTERNAL_ERROR";
 
         try {
+            if (!persistenceService.canContinue(target.draftId(), target.generationId())) {
+                outcome = "STALE";
+                return;
+            }
             long stageStartedAtNanos = System.nanoTime();
             byte[] originalImage;
             try {
@@ -107,6 +111,11 @@ public class JarAiGenerationService {
                 timings.s3GetMs = elapsedMillis(stageStartedAtNanos);
             }
 
+            // S3 대기 중 취소·시간 초과가 발생했으면 유료 생성 요청을 시작하지 않는다.
+            if (!persistenceService.canContinue(target.draftId(), target.generationId())) {
+                outcome = "STALE";
+                return;
+            }
             stageStartedAtNanos = System.nanoTime();
             byte[] generatedImage;
             try {
@@ -138,6 +147,10 @@ public class JarAiGenerationService {
             }
 
             // 심사한 후보와 S3에 저장할 후보가 달라지지 않게 최종 PNG 바이트를 그대로 심사한다.
+            if (!persistenceService.canContinue(target.draftId(), target.generationId())) {
+                outcome = "STALE";
+                return;
+            }
             stageStartedAtNanos = System.nanoTime();
             try {
                 moderationService.verifyAllowed(finalCandidate);

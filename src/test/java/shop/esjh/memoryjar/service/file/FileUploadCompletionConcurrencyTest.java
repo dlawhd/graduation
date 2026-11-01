@@ -128,7 +128,7 @@ class FileUploadCompletionConcurrencyTest
                             builder.build();
 
                     if (!"test-bucket".equals(actualRequest.bucket())
-                            || !testData.s3Key().equals(actualRequest.key())) {
+                            || !(testData.s3Key() + ".pending").equals(actualRequest.key())) {
                         throw new IllegalStateException(
                                 "S3 headObject 요청의 bucket 또는 s3Key가 잘못됐어."
                         );
@@ -148,7 +148,7 @@ class FileUploadCompletionConcurrencyTest
                         );
                     }
 
-                    return HeadObjectResponse.builder()
+                    return HeadObjectResponse.builder().eTag("fixture-version")
                             .contentLength(1024L)
                             .contentType("image/png")
                             .build();

@@ -66,8 +66,15 @@ public class JarDesignFinalizeService {
             return persistenceService.finalizeCustom(userId, draftId, request, target, finalS3Key);
         } catch (RuntimeException exception) {
             // DB 확정 실패 시 이 요청만 만든 UUID 복사본을 지운다. 기존 임시 원본·후보는 건드리지 않는다.
-            deleteCopiedFinalQuietly(finalS3Key);
-            if(target.bodyArtworkS3Key()!=null) deleteCopiedFinalQuietly(finalS3Key+".body.png");
+            // 예외만으로 롤백을 단정하지 않는다. DB 확인까지 실패하면 운영 대조를 위해 사본을 보존한다.
+            try {
+                if (persistenceService.mayDeleteFinalCopy(userId, draftId, finalS3Key)) {
+                    deleteCopiedFinalQuietly(finalS3Key);
+                    if(target.bodyArtworkS3Key()!=null) deleteCopiedFinalQuietly(finalS3Key+".body.png");
+                }
+            } catch (RuntimeException verificationUnavailable) {
+                // 원래 예외를 유지하며, 불명확한 DB 상태에서 파일을 삭제하지 않는다.
+            }
             throw exception;
         }
     }

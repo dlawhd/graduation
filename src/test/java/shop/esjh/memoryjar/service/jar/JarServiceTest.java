@@ -307,7 +307,7 @@ class JarServiceTest {
 
         JarInviteCreateRequest request = new JarInviteCreateRequest(24, 1);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
         when(jarRepository.findByJarId(10L))
                 .thenReturn(Optional.of(jar));
@@ -542,7 +542,7 @@ class JarServiceTest {
 
         JarMember member = JarMember.createMember(jar, currentUser);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(member));
 
         // when
@@ -579,7 +579,7 @@ class JarServiceTest {
 
         JarMember ownerMember = JarMember.createOwner(jar, currentUser);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
 
         // when & then
@@ -669,9 +669,9 @@ class JarServiceTest {
                 .build();
         ReflectionTestUtils.setField(invite, "inviteId", 100L);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
-        when(jarInviteRepository.findByInviteIdAndJar_JarId(100L, 10L))
+        when(jarInviteRepository.findByIdAndJarIdForUpdate(100L, 10L))
                 .thenReturn(Optional.of(invite));
 
         // when
@@ -716,9 +716,9 @@ class JarServiceTest {
         JarMember targetMember = JarMember.createMember(jar, memberUser);
         ReflectionTestUtils.setField(targetMember, "updatedAt", LocalDateTime.of(2026, 3, 23, 21, 0));
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 2L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 2L))
                 .thenReturn(Optional.of(targetMember));
 
         // when
@@ -770,9 +770,9 @@ class JarServiceTest {
 
         JarMember targetMember = JarMember.createMember(jar, memberUser);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(adminMember));
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 2L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 2L))
                 .thenReturn(Optional.of(targetMember));
 
         // when
@@ -818,9 +818,9 @@ class JarServiceTest {
         JarMember ownerMember = JarMember.createOwner(jar, owner);
         JarMember targetMember = JarMember.createMember(jar, memberUser);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 2L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 2L))
                 .thenReturn(Optional.of(targetMember));
 
         // when & then
@@ -867,7 +867,7 @@ class JarServiceTest {
                 JarLockLevel.META_ONLY
         );
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
         when(jarRepository.findByJarIdForUpdate(10L))
                 .thenReturn(Optional.of(jar));
@@ -952,7 +952,7 @@ class JarServiceTest {
 
         when(
                 jarMemberRepository
-                        .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)
+                        .findActiveMemberForUpdateByJarIdAndUserId(10L, 1L)
         ).thenReturn(Optional.of(ownerMember));
 
         when(jarRepository.findByJarIdForUpdate(10L))
@@ -1042,7 +1042,7 @@ class JarServiceTest {
 
         when(
                 jarMemberRepository
-                        .findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)
+                        .findActiveMemberForUpdateByJarIdAndUserId(10L, 1L)
         ).thenReturn(Optional.of(ownerMember));
 
         when(jarRepository.findByJarIdForUpdate(10L))
@@ -1099,7 +1099,7 @@ class JarServiceTest {
 
         JarMember ownerMember = JarMember.createOwner(jar, owner);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
         when(jarRepository.findByJarIdForUpdate(10L))
                 .thenReturn(Optional.of(jar));
@@ -1115,6 +1115,20 @@ class JarServiceTest {
         ))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("현재 참여 중인 멤버 수보다");
+    }
+
+
+    @Test
+    void deletionRejectsChangedMemberSetBeforeModifyingAnyone() {
+        var owner = mock(JarMember.class); when(owner.isOwner()).thenReturn(true);
+        var jar = mock(Jar.class);
+        when(jarRepository.existsByJarIdAndOwner_Id(10L, 1L)).thenReturn(true);
+        when(jarMemberRepository.findActiveUserIds(10L)).thenReturn(List.of(1L), List.of(1L, 2L));
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L)).thenReturn(Optional.of(owner));
+        when(jarRepository.findByJarIdForUpdate(10L)).thenReturn(Optional.of(jar));
+        assertThatThrownBy(() -> jarService.deleteJar(1L, 10L)).isInstanceOf(ResponseStatusException.class)
+                .satisfies(e -> assertThat(((ResponseStatusException)e).getStatusCode().value()).isEqualTo(409));
+        verify(owner, never()).leave(); verify(jarRepository, never()).delete(any(Jar.class));
     }
 
     @Test
@@ -1149,12 +1163,15 @@ class JarServiceTest {
         JarMember ownerMember = JarMember.createOwner(jar, owner);
         JarMember member = JarMember.createMember(jar, memberUser);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(ownerMember));
-        when(jarRepository.findByJarId(10L))
+        when(jarRepository.findByJarIdForUpdate(10L))
                 .thenReturn(Optional.of(jar));
-        when(jarMemberRepository.findActiveMembersWithUserByJarId(10L))
-                .thenReturn(List.of(ownerMember, member));
+        when(jarMemberRepository.findActiveUserIds(10L)).thenReturn(List.of(1L, 2L));
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 2L))
+                .thenReturn(Optional.of(member));
+
+        when(jarRepository.existsByJarIdAndOwner_Id(10L, 1L)).thenReturn(true);
 
         // when
         jarService.deleteJar(1L, 10L);
@@ -1198,8 +1215,7 @@ class JarServiceTest {
 
         JarMember member = JarMember.createMember(jar, memberUser);
 
-        when(jarMemberRepository.findByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
-                .thenReturn(Optional.of(member));
+        when(jarRepository.existsByJarIdAndOwner_Id(10L, 1L)).thenReturn(false);
 
         // when & then
         assertThatThrownBy(() -> jarService.deleteJar(1L, 10L))

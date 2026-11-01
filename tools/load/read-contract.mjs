@@ -60,41 +60,55 @@ export function operation(iteration, vu, fixture) {
       : '/api/v1/jars/' + jar.jarId + '/notes?page=' + page + '&size=20' };
 }
 
-export function validResponse(status, body, operation, fixture, userId) {
-  if (status !== 200) return false;
-  let value;
-  try { value = JSON.parse(body).data; } catch (_) { return false; }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+// 한 VU가 맡은 묶음의 예상값만 준비한다. 응답 본문과 사용자별 권한 검사는 매 요청마다 수행한다.
+export function createResponseValidator(fixture, userId) {
+  const authors = new Set(fixture.accounts.map(account => account.userId));
+  const jars = new Map(fixture.jars.map(jar => [jar.jarId, jar]));
+  const pages = new Map(fixture.jars.map(jar => [jar.jarId,
+    [jar.noteIds.slice(0, 20), jar.noteIds.slice(20, 40)]]));
   const role = jar => jar.ownerId === userId ? 'OWNER' : 'MEMBER';
   const validJar = (item, jar) => item && item.jarId === jar.jarId && item.name === jar.name
     && item.isOpen === true && item.myRole === role(jar) && item.memberCount === 10
     && item.maxMembers === 10 && item.design === null && item.openMode === 'ALL_AT_ONCE';
-  if (operation.endpoint === 'jar_detail') {
-    return validJar(value, operation.jar) && value.ownerId === operation.jar.ownerId;
-  }
-  const expectedCount = operation.endpoint === 'jar_list' ? 3 : 40;
-  const page = operation.endpoint === 'jar_list' ? 0 : operation.page;
-  if (value.page !== page || value.size !== 20 || value.totalElements !== expectedCount
-    || value.totalPages !== Math.ceil(expectedCount / 20) || !Array.isArray(value.items)
-    || value.items.length !== Math.min(20, expectedCount)) return false;
-  // 요소가 null/문자열이면 예외로 빠져 오류 표본이 누락되지 않게 명시적으로 실패 처리한다.
-  if (value.items.some(item => !item || typeof item !== 'object' || Array.isArray(item))) return false;
-  if (operation.endpoint === 'jar_list') {
-    const ids = value.items.map(item => item.jarId);
-    return new Set(ids).size === 3 && value.items.every(item => {
-      const jar = fixture.jars.find(candidate => candidate.jarId === item.jarId);
-      return jar && validJar(item, jar);
-    });
-  }
-  if (operation.endpoint !== 'note_list') return false;
-  const expectedIds = operation.jar.noteIds.slice(page * 20, (page + 1) * 20);
-  return value.items.every((item, index) => item.noteId === expectedIds[index]
-    && fixture.accounts.some(account => account.userId === item.authorId)
-    && typeof item.title === 'string' && item.title.startsWith(fixture.runId + '-note-')
-    && typeof item.previewContent === 'string' && item.previewContent.length > 0
-    && item.isEncrypted === false && Array.isArray(item.attachments) && item.attachments.length === 0
-    && Array.isArray(item.reactionCounts) && item.reactionCounts.length === 0
-    && item.myReaction === null && item.commentCount === 0);
+  return function validateResponse(status, body, operation) {
+    if (status !== 200) return false;
+    let value;
+    try { value = JSON.parse(body).data; } catch (_) { return false; }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    if (operation.endpoint === 'jar_detail') {
+      return validJar(value, operation.jar) && value.ownerId === operation.jar.ownerId;
+    }
+    const expectedCount = operation.endpoint === 'jar_list' ? 3 : 40;
+    const page = operation.endpoint === 'jar_list' ? 0 : operation.page;
+    if (value.page !== page || value.size !== 20 || value.totalElements !== expectedCount
+      || value.totalPages !== Math.ceil(expectedCount / 20) || !Array.isArray(value.items)
+      || value.items.length !== Math.min(20, expectedCount)) return false;
+    // 요소가 null/문자열이면 예외로 빠져 오류 표본이 누락되지 않게 명시적으로 실패 처리한다.
+    if (value.items.some(item => !item || typeof item !== 'object' || Array.isArray(item))) return false;
+    if (operation.endpoint === 'jar_list') {
+      const ids = value.items.map(item => item.jarId);
+      return new Set(ids).size === 3 && value.items.every(item => {
+        const jar = jars.get(item.jarId);
+        return jar && validJar(item, jar);
+      });
+    }
+    if (operation.endpoint !== 'note_list') return false;
+    const expectedPages = pages.get(operation.jar.jarId);
+    if (!expectedPages || !expectedPages[page]) return false;
+    const expectedIds = expectedPages[page];
+    return value.items.every((item, index) => item.noteId === expectedIds[index]
+      && authors.has(item.authorId)
+      && typeof item.title === 'string' && item.title.startsWith(fixture.runId + '-note-')
+      && typeof item.previewContent === 'string' && item.previewContent.length > 0
+      && item.isEncrypted === false && Array.isArray(item.attachments) && item.attachments.length === 0
+      && Array.isArray(item.reactionCounts) && item.reactionCounts.length === 0
+      && item.myReaction === null && item.commentCount === 0);
+  };
+}
+
+// 기존 단건 시험의 호출 계약은 유지한다. 동시 사용자 시험은 준비된 검증기를 재사용한다.
+export function validResponse(status, body, operation, fixture, userId) {
+  return createResponseValidator(fixture, userId)(status, body, operation);
 }
 
 // 과거 500ms·2000ms 실행을 보존하고, 이번에 승인한 5000ms도 명시적으로만 선택한다.

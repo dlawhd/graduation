@@ -58,6 +58,11 @@ public class RefreshToken extends BaseEntity{
     @Column(name = "token_hash", nullable = false, columnDefinition = "CHAR(64)")
     private String tokenHash;
 
+    // 토큰이 회전해도 같은 브라우저 로그인에 속한다. 로그아웃은 이 묶음 전체를 폐기한다.
+    @Builder.Default
+    @Column(name = "session_id", nullable = false, updatable = false, length = 64)
+    private String sessionId = java.util.UUID.randomUUID().toString();
+
     // ✅ refresh 토큰이 만료되는 시간
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;

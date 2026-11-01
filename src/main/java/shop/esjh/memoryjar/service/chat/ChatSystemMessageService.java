@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.service.chat;
 
+import shop.esjh.memoryjar.service.BestEffortDelivery;
 import shop.esjh.memoryjar.dto.chat.response.ChatSocketMessageResponse;
 import shop.esjh.memoryjar.entity.chat.ChatMessage;
 import shop.esjh.memoryjar.entity.jar.Jar;
@@ -155,7 +156,7 @@ public class ChatSystemMessageService {
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            messagingTemplate.convertAndSend(destination, socketMessage);
+                            BestEffortDelivery.send("CHAT_SYSTEM", () -> messagingTemplate.convertAndSend(destination, socketMessage));
                         }
                     }
             );
@@ -163,7 +164,7 @@ public class ChatSystemMessageService {
         }
 
         // 혹시 트랜잭션 밖에서 호출되는 경우에는 바로 보낸다.
-        messagingTemplate.convertAndSend(destination, socketMessage);
+        BestEffortDelivery.send("CHAT_SYSTEM", () -> messagingTemplate.convertAndSend(destination, socketMessage));
     }
 
     // 이름이 비어 있을 때 화면에 이상하게 보이지 않도록 안전한 이름으로 바꿔준다.

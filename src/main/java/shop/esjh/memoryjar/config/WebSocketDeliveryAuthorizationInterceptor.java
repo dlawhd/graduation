@@ -72,7 +72,11 @@ public class WebSocketDeliveryAuthorizationInterceptor implements ChannelInterce
         if (!(expiry instanceof Number time) || time.longValue() <= System.currentTimeMillis()
                 || !(version instanceof Number number) || id == null) return false;
         try {
-            return sessionValidityService.isCurrent(Long.parseLong(id.toString()), number.longValue());
+            Object loginSessionId = values.get("loginSessionId");
+            return loginSessionId == null
+                    ? sessionValidityService.isCurrent(Long.parseLong(id.toString()), number.longValue())
+                    : loginSessionId instanceof String sessionId
+                      && sessionValidityService.isCurrent(Long.parseLong(id.toString()), number.longValue(), sessionId);
         } catch (NumberFormatException invalidIdentity) {
             return false;
         }

@@ -1,0 +1,177 @@
+{
+  "dateKst": "2026-10-30",
+  "status": "production-frontend-observed-comparison-complete-final-production-restored",
+  "sourceCommit": "a3fff9951c0e22e7dc11d2abbea6b71b3d836c98",
+  "historicalBase": "dd6e50b31ee9405f41a255152510367aa9d27cca",
+  "branch": "codex/legacy-texture-compat-20261030",
+  "productionDeployment": "9comFBAYisvPd6tB84Mmd3hoKvhW",
+  "deploymentCreatedKst": "2026-10-30T14:59:10+09:00",
+  "previewDeployment": "BVhiFeRhZcBt6zAZq49ryUcUua4V",
+  "vercelStatus": [
+    "Ready",
+    "Production",
+    "Current"
+  ],
+  "domain": "www.esjh.shop",
+  "jarId": 112,
+  "actualEntry": "/assets/index-4JeJnWuv.js",
+  "comparisonScope": "Historical 3D geometry plus current authenticated texture access; frontend comparison with backend/cache/DB fixed.",
+  "originalFinalRestoreDeployment": "7nxVGo78jVUA28rr3uDiyLBvTeTi",
+  "originalFinalSource": "491ffa41b1f68266fcc26fce8f8bc180f7ff1628",
+  "productionRestored": true,
+  "restoreAfterTrace": false,
+  "backendCacheDbSecurityChangedByThisTask": false,
+  "backendRevisionAndServerCacheHitReverified": false,
+  "realPhotoAndBorderAndSlotVisuallyConfirmed": true,
+  "performanceMeasurement": true,
+  "observations": [
+    {
+      "case": "first3DReady",
+      "data": {
+        "canvases": 1,
+        "mode": "3D",
+        "pose": [
+          {
+            "pitch": "-0.12",
+            "side": "front",
+            "yaw": "0.35"
+          }
+        ],
+        "rotationEnabled": [
+          true,
+          true
+        ]
+      }
+    },
+    {
+      "case": "rotateLeft",
+      "data": {
+        "pose": [
+          {
+            "pitch": "-0.12",
+            "side": "front",
+            "yaw": "0.04999999999999999"
+          }
+        ]
+      }
+    },
+    {
+      "case": "rotateRight",
+      "data": {
+        "pose": [
+          {
+            "pitch": "-0.12",
+            "side": "front",
+            "yaw": "0.35"
+          }
+        ]
+      }
+    },
+    {
+      "case": "reset",
+      "data": {
+        "pose": [
+          {
+            "pitch": "0",
+            "side": "front",
+            "yaw": "0"
+          }
+        ]
+      }
+    },
+    {
+      "case": "return2D",
+      "data": {
+        "canvases": 0,
+        "mode": "2D"
+      }
+    },
+    {
+      "case": "reentry3DReady",
+      "data": {
+        "canvases": 1,
+        "mode": "3D",
+        "pose": [
+          {
+            "pitch": "0",
+            "side": "front",
+            "yaw": "0"
+          }
+        ],
+        "rotationEnabled": [
+          true,
+          true
+        ],
+        "scripts": [
+          "/assets/index-4JeJnWuv.js"
+        ]
+      }
+    },
+    {
+      "case": "readyForRecording2D",
+      "data": {
+        "canvases": 0,
+        "mode": "2D"
+      }
+    }
+  ],
+  "restoredCurrentDeployment": "7nxVGo78jVUA28rr3uDiyLBvTeTi",
+  "restoredActualEntry": "/assets/index-DQf0JCme.js",
+  "restoreMethod": "Promote; Instant Rollback cancelled before confirmation",
+  "restoreObservations": [
+    {
+      "case": "final3DReady",
+      "data": {
+        "canvases": 1,
+        "chunks": [
+          "/assets/CustomJarBody3D-BpUahB40.js"
+        ],
+        "mode": "3D",
+        "pose": [
+          {
+            "pitch": "-0.12",
+            "side": "front",
+            "yaw": "0.35"
+          }
+        ],
+        "scripts": [
+          "/assets/index-DQf0JCme.js"
+        ]
+      }
+    },
+    {
+      "case": "rotateLeft",
+      "data": {
+        "pose": [
+          {
+            "pitch": "-0.12",
+            "side": "front",
+            "yaw": "0.04999999999999999"
+          }
+        ]
+      }
+    },
+    {
+      "case": "reset",
+      "data": {
+        "pose": [
+          {
+            "pitch": "0",
+            "side": "front",
+            "yaw": "0"
+          }
+        ]
+      }
+    },
+    {
+      "case": "ready2D",
+      "data": {
+        "canvases": 0,
+        "mode": "2D"
+      }
+    }
+  ],
+  "receivedTrace": "production-legacy-compatible-trace-summary-2026-10-30.json",
+  "finalTraceSummary": "production-final-matched-trace-summary-2026-10-30.json",
+  "observedComparisonSummary": "production-frontend-comparison-2026-10-30.json"
+}

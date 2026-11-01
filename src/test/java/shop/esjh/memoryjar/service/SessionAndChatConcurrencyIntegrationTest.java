@@ -6,6 +6,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -118,7 +120,84 @@ class SessionAndChatConcurrencyIntegrationTest extends AbstractMariaDbRepository
         } finally { executor.shutdownNow(); }
     }
 
+    /** 먼저 읽은 프로필이 나중에 저장되어도 비밀번호 재설정의 로그인 무효화 번호는 감소하지 않는다. */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void staleProfileSaveCannotUndoSessionRevocation(boolean oauthProfile) throws Exception {
+        Fixture data = fixture();
+        String oldRefresh = refresh.issue(data.user);
+        var executor = Executors.newSingleThreadExecutor();
+        try {
+            new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                User staleUser = users.findById(data.user.getId()).orElseThrow();
+                assertThat(staleUser.getSessionVersion()).isZero();
+                try {
+                    // 다른 DB 연결이 먼저 폐기를 확정하게 해 문제의 저장 순서를 항상 재현한다.
+                    executor.submit(() -> refresh.revokeAllForUser(data.user.getId())).get(15, TimeUnit.SECONDS);
+                } catch (Exception failure) {
+                    throw new IllegalStateException(failure);
+                }
+                if (oauthProfile) staleUser.updateProfile(UUID.randomUUID() + "@example.com", null, "2001");
+                else staleUser.changeNickname("변경닉네임");
+                users.saveAndFlush(staleUser);
+            });
+            User saved = users.findById(data.user.getId()).orElseThrow();
+            assertThat(saved.getSessionVersion()).isEqualTo(1L);
+            if (oauthProfile) assertThat(saved.getBirthyear()).isEqualTo("2001");
+            else assertThat(saved.getName()).isEqualTo("변경닉네임");
+            var validity = new shop.esjh.memoryjar.jwt.SessionValidityService(users);
+            assertThat(validity.isCurrent(saved.getId(), 0L)).isFalse();
+            assertThat(validity.isCurrent(saved.getId(), 1L)).isTrue();
+            assertThatThrownBy(() -> refresh.rotate(oldRefresh)).isInstanceOf(IllegalArgumentException.class);
+        } finally { executor.shutdownNow(); }
+    }
+
+
+    /** 회전이 먼저 끝나거나 로그아웃이 먼저 끝나도 같은 기기만 폐기돼야 한다. */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void logoutAndRotationCannotReviveSameDevice(boolean rotateFirst) throws Exception {
+        Fixture f = fixture();
+        String raw = refresh.issue(f.user);
+        String other = refresh.issue(f.user);
+        String sessionId = shop.esjh.memoryjar.auth.TokenCrypto.sha256Hex(raw);
+        var firstDone = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var secondStarted = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> new TransactionTemplate(transactions).execute(status -> {
+                var rotation = rotateFirst ? refresh.rotate(raw) : null;
+                if (!rotateFirst) refresh.revokeIfPresent(raw);
+                firstDone.countDown();
+                try { if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("대기 초과"); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+                return rotation;
+            }));
+            assertThat(firstDone.await(10, TimeUnit.SECONDS)).isTrue();
+            var second = executor.submit(() -> {
+                secondStarted.countDown();
+                if (rotateFirst) { refresh.revokeIfPresent(raw); return 200; }
+                try { refresh.rotate(raw); return 200; } catch (IllegalArgumentException revoked) { return 401; }
+            });
+            assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> second.get(150, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            release.countDown();
+            var rotation = first.get(15, TimeUnit.SECONDS);
+            assertThat(second.get(15, TimeUnit.SECONDS)).isEqualTo(rotateFirst ? 200 : 401);
+            if (rotation != null) {
+                assertThat(rotation.sessionId()).isEqualTo(sessionId);
+                assertThatThrownBy(() -> refresh.rotate(rotation.newRefreshRaw())).isInstanceOf(IllegalArgumentException.class);
+            }
+            var validity = new shop.esjh.memoryjar.jwt.SessionValidityService(users);
+            assertThat(validity.isCurrent(f.user.getId(), 0L, sessionId)).isFalse();
+            assertThat(validity.isCurrent(f.user.getId(), 0L, refresh.rotate(other).sessionId())).isTrue();
+        } finally { release.countDown(); executor.shutdownNow(); }
+    }
+
     @TestConfiguration
+    // 아래 설정은 실제 외부 서비스 대신 테스트용 토큰 만료 값만 제공한다.
     static class Settings {
         @Bean JwtProperties jwtProperties() {
             var value = new JwtProperties();

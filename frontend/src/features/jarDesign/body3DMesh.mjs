@@ -281,7 +281,9 @@ export function smoothedDomeField(outer,inner,distance) {
 function tessellateSurface(source,faces) {
   const points=source.map(p=>p.clone()),cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   let triangles=faces.map(([a,b,c])=>cross(points[a],points[b],points[c])>0?[a,b,c]:[a,c,b]);
-  const key=(a,b)=>a<b?`${a},${b}`:`${b},${a}`;
+  // 정점 번호 쌍을 충돌 없는 삼각수 번호로 묶는다. 매 방문마다 문자열을 만들지 않으며 Map 방문 순서는 같다.
+  // 입력/분할 예산에서 정점 수는 수만 개라 Number의 정확한 정수 범위를 충분히 벗어나지 않는다.
+  const key=(a,b)=>a<b?b*(b+1)/2+a:a*(a+1)/2+b;
   let edgeCache=null;
   const edges=()=>{
     // 삼각형이 바뀌지 않은 마지막 개선 패스의 연결 정보는 다음 분할/경계 찾기에서도 동일하다.
@@ -325,14 +327,17 @@ function tessellateSurface(source,faces) {
     if(!midpoints.size) break;
     const refined=[];
     for(const t of triangles) {
-      const mid=t.map((a,i)=>midpoints.get(key(a,t[(i+1)%3]))),count=mid.filter(n=>n!==undefined).length;
+      // 각 삼각형의 세 변만 검사한다. map/filter/findIndex용 임시 배열과 콜백을 반복 생성하지 않는다.
+      const m0=midpoints.get(key(t[0],t[1])),m1=midpoints.get(key(t[1],t[2])),m2=midpoints.get(key(t[2],t[0]));
+      const count=Number(m0!==undefined)+Number(m1!==undefined)+Number(m2!==undefined);
       if(count===0) refined.push(t);
       else if(count===3) {
-        const [a,b,c]=t,[ab,bc,ca]=mid;refined.push([a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]);
+        const [a,b,c]=t;refined.push([a,m0,m2],[m0,b,m1],[m2,m1,c],[m0,m1,m2]);
       } else {
         // 변 하나 또는 두 개를 나눌 때도 이웃과 같은 중간 점을 사용해 틈/T자 접합을 만들지 않는다.
-        const start=count===1?mid.findIndex(n=>n!==undefined):(mid.findIndex(n=>n===undefined)+1)%3;
-        const a=t[start],b=t[(start+1)%3],c=t[(start+2)%3],ab=mid[start],bc=mid[(start+1)%3];
+        const start=count===1?(m0!==undefined?0:m1!==undefined?1:2):((m0===undefined?0:m1===undefined?1:2)+1)%3;
+        const a=t[start],b=t[(start+1)%3],c=t[(start+2)%3];
+        const ab=start===0?m0:start===1?m1:m2,bc=start===0?m1:start===1?m2:m0;
         if(count===1) refined.push([a,ab,c],[ab,b,c]);
         else {
           refined.push([ab,b,bc]);

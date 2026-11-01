@@ -20,6 +20,42 @@ import java.util.Optional;
  */
 public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
 
+    /** 중복 연결 검사는 DB에서 원자적으로 수행한다. 겹치는 파일은 항상 같은 키 순서로 잠근다. */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
+    @Query(value = """
+            UPDATE file_uploads SET status = 'CONSUMED', consumed_at = :now, updated_at = :now
+            WHERE user_id = :userId AND purpose = 'NOTE' AND status = 'COMPLETED'
+              AND deleted_at IS NULL AND s3_key IN (:keys)
+            ORDER BY s3_key
+            """, nativeQuery = true)
+    int claimCompletedNoteUploads(@Param("userId") Long userId, @Param("keys") List<String> keys,
+                                  @Param("now") java.time.LocalDateTime now);
+
+    // 삭제된 사용자/업로드도 임시 객체가 남을 수 있어 정리 대상은 native 조회로 찾는다.
+    @Query(value = """
+            SELECT upload_id FROM file_uploads
+            WHERE staging_cleaned_at IS NULL AND staging_cleanup_after <= :now
+            ORDER BY staging_cleanup_after, upload_id LIMIT 50
+            """, nativeQuery = true)
+    List<Long> findStagingCleanupIds(@Param("now") java.time.LocalDateTime now);
+
+    @Query(value = "SELECT s3_key FROM file_uploads WHERE upload_id = :id FOR UPDATE", nativeQuery = true)
+    Optional<String> findStagingKeyForUpdate(@Param("id") Long id);
+
+    // 먼저 재시도 시각을 옮겨 다른 서버와 중복 실행을 줄이고, 실패한 한 행의 독점을 방지한다.
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+            UPDATE file_uploads SET staging_cleanup_after = :retryAt,
+              status = CASE WHEN status = 'PRESIGNED' THEN 'EXPIRED' ELSE status END
+            WHERE upload_id = :id AND staging_cleaned_at IS NULL AND staging_cleanup_after <= :now
+            """, nativeQuery = true)
+    int claimStagingCleanup(@Param("id") Long id, @Param("now") java.time.LocalDateTime now,
+                            @Param("retryAt") java.time.LocalDateTime retryAt);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "UPDATE file_uploads SET staging_cleaned_at = :now WHERE upload_id = :id AND staging_cleaned_at IS NULL", nativeQuery = true)
+    int markStagingCleaned(@Param("id") Long id, @Param("now") java.time.LocalDateTime now);
+
     /*
      * s3Key로 업로드 기록과 소유자 정보를 한 번에 조회한다.
      *

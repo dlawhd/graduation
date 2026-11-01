@@ -90,11 +90,26 @@ class FileServiceTransactionBoundaryTest
         TestData testData = createCommittedTestData();
 
         AtomicBoolean s3Called = new AtomicBoolean(false);
+        AtomicBoolean copyCalled = new AtomicBoolean(false);
+        AtomicBoolean cleanupCalled = new AtomicBoolean(false);
         AtomicReference<HeadObjectRequest> capturedRequest =
                 new AtomicReference<>();
 
         when(s3Properties.getBucket())
                 .thenReturn("test-bucket");
+
+        when(s3Client.copyObject(any(software.amazon.awssdk.services.s3.model.CopyObjectRequest.class)))
+                .thenAnswer(invocation -> {
+                    assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+                    copyCalled.set(true);
+                    return software.amazon.awssdk.services.s3.model.CopyObjectResponse.builder().build();
+                });
+        when(s3Client.deleteObject(any(software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class)))
+                .thenAnswer(invocation -> {
+                    assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+                    cleanupCalled.set(true);
+                    return software.amazon.awssdk.services.s3.model.DeleteObjectResponse.builder().build();
+                });
 
         when(s3Client.headObject(anyHeadObjectConsumer()))
                 .thenAnswer(invocation -> {
@@ -122,7 +137,7 @@ class FileServiceTransactionBoundaryTest
                     requestCustomizer.accept(builder);
                     capturedRequest.set(builder.build());
 
-                    return HeadObjectResponse.builder()
+                    return HeadObjectResponse.builder().eTag("fixture-version")
                             .contentLength(1024L)
                             .contentType("image/png")
                             .build();
@@ -148,6 +163,8 @@ class FileServiceTransactionBoundaryTest
 
         // then
         assertThat(s3Called.get()).isTrue();
+        assertThat(copyCalled.get()).isTrue();
+        assertThat(cleanupCalled.get()).isTrue();
 
         HeadObjectRequest actualRequest =
                 capturedRequest.get();
@@ -156,7 +173,7 @@ class FileServiceTransactionBoundaryTest
         assertThat(actualRequest.bucket())
                 .isEqualTo("test-bucket");
         assertThat(actualRequest.key())
-                .isEqualTo(testData.s3Key());
+                .isEqualTo(testData.s3Key() + ".pending");
 
         assertThat(response.s3Key())
                 .isEqualTo(testData.s3Key());

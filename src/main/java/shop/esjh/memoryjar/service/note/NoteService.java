@@ -12,6 +12,7 @@ import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.repository.jar.JarMemberRepository;
 import shop.esjh.memoryjar.repository.jar.JarRepository;
 import shop.esjh.memoryjar.repository.note.NoteRepository;
+import shop.esjh.memoryjar.repository.note.NoteListRow;
 import shop.esjh.memoryjar.service.jar.JarOpenService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -189,22 +190,22 @@ public class NoteService {
         if ((!query.isEmpty() || !tagQuery.isEmpty()) && !jarOpen) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "저금통이 열린 뒤에 검색할 수 있어요.");
         }
-        Page<Note> notePage = query.isEmpty() && tagQuery.isEmpty()
-                ? noteRepository.findByJarId(jar.getJarId(), pageable)
-                : noteRepository.searchByJarId(jarId, searchPattern(query), searchPattern(tagQuery), pageable);
-        List<Note> notes = notePage.getContent();
+        Page<NoteListRow> notePage = query.isEmpty() && tagQuery.isEmpty()
+                ? noteRepository.findListRowsByJarId(jar.getJarId(), pageable)
+                : noteRepository.searchListRowsByJarId(jarId, searchPattern(query), searchPattern(tagQuery), pageable);
+        List<NoteListRow> notes = notePage.getContent();
+        // noteId만 뽑기: 같은 페이지의 첨부·리액션·댓글 조회에서 한 목록을 재사용한다.
+        List<Long> noteIds = notes.stream().map(NoteListRow::noteId).toList();
 
         // 4. 첨부파일을 한 번에 조회해서 noteId별로 묶어둠
         Map<Long, List<NoteAttachmentResponse>> attachmentMap = jarOpen
-                ? getAttachmentResponseMap(notes)
+                ? getAttachmentResponseMap(noteIds)
                 : Map.of();
 
         // 5. 리액션 개수도 noteId별로 한 번에 조회해서 묶어둠
         Map<Long, List<NoteReactionCountItem>> reactionMap = jarOpen
                 ? noteReactionService.getCountMapByNoteIds(
-                notes.stream()
-                        .map(Note::getNoteId)
-                        .toList()
+                noteIds
         )
                 : Map.of();
 
@@ -212,17 +213,13 @@ public class NoteService {
         Map<Long, NoteReactionEmoji> myReactionMap = jarOpen
                 ? noteReactionService.getMyReactionMapByNoteIds(
                 currentUserId,
-                notes.stream()
-                        .map(Note::getNoteId)
-                        .toList()
+                noteIds
         )
                 : Map.of();
 
         // 7. 댓글 개수도 noteId별로 한 번에 조회해서 묶어둠
         Map<Long, Long> commentCountMap = noteCommentService.getCommentCountMapByNoteIds(
-                notes.stream()
-                        .map(Note::getNoteId)
-                        .toList()
+                noteIds
         );
 
         // 8. 쪽지 목록을 화면용 DTO로 변환
@@ -342,7 +339,7 @@ public class NoteService {
 
     // 목록 응답 만들기
     private NoteListItem toNoteListItem(
-            Note note,
+            NoteListRow note,
             Jar jar,
             boolean jarOpen,
             Map<Long, List<NoteAttachmentResponse>> attachmentMap,
@@ -353,20 +350,20 @@ public class NoteService {
         // 이미 계산한 jarOpen 값을 그대로 사용
         if (jarOpen) {
             return new NoteListItem(
-                    note.getNoteId(),
-                    note.getTitle(),
-                    makePreviewContent(note.getContent()),
-                    note.getNoteDate(),
-                    note.getLocation(),
-                    note.getAuthor().getId(),
-                    note.getAuthor().getName(),
-                    note.isEncrypted(),
-                    toOffsetDateTime(note.getCreatedAt()),
-                    safeTags(note.getTags()),
-                    attachmentMap.getOrDefault(note.getNoteId(), List.of()),
-                    myReactionMap.get(note.getNoteId()),
-                    reactionMap.getOrDefault(note.getNoteId(), List.of()),
-                    commentCountMap.getOrDefault(note.getNoteId(), 0L)
+                    note.noteId(),
+                    note.title(),
+                    makePreviewContent(note.content()),
+                    note.noteDate(),
+                    note.location(),
+                    note.authorId(),
+                    note.authorName(),
+                    note.encrypted(),
+                    toOffsetDateTime(note.createdAt()),
+                    safeTags(note.tags()),
+                    attachmentMap.getOrDefault(note.noteId(), List.of()),
+                    myReactionMap.get(note.noteId()),
+                    reactionMap.getOrDefault(note.noteId(), List.of()),
+                    commentCountMap.getOrDefault(note.noteId(), 0L)
             );
         }
 
@@ -416,23 +413,23 @@ public class NoteService {
 
     // 목록용 마스킹
     private NoteListItem toMaskedNoteListItem(
-            Note note,
+            NoteListRow note,
             JarLockLevel lockLevel,
             Map<Long, Long> commentCountMap) {
-        long commentCount = commentCountMap.getOrDefault(note.getNoteId(), 0L);
+        long commentCount = commentCountMap.getOrDefault(note.noteId(), 0L);
 
         return switch (lockLevel) {
 
             // 완전 숨김: 제목/내용/날짜/장소 거의 다 숨김
             case HIDDEN -> new NoteListItem(
-                    note.getNoteId(),
+                    note.noteId(),
                     "오픈 전 쪽지",
                     "아직 열리기 전이야.",
                     null,
                     null,
                     null,
                     null,
-                    note.isEncrypted(),
+                    note.encrypted(),
                     null,
                     List.of(),
                     List.of(),
@@ -443,15 +440,15 @@ public class NoteService {
 
             // 메타만 공개: 날짜/장소는 보여주고 제목/내용은 숨김
             case META_ONLY -> new NoteListItem(
-                    note.getNoteId(),
+                    note.noteId(),
                     "오픈 전 쪽지",
                     "아직 내용은 비밀이야.",
-                    note.getNoteDate(),
-                    note.getLocation(),
+                    note.noteDate(),
+                    note.location(),
                     null,
                     null,
-                    note.isEncrypted(),
-                    toOffsetDateTime(note.getCreatedAt()),
+                    note.encrypted(),
+                    toOffsetDateTime(note.createdAt()),
                     List.of(),
                     List.of(),
                     null,
@@ -461,15 +458,15 @@ public class NoteService {
 
             // 제목만 공개: 제목은 보이고 내용은 숨김
             case TITLE_ONLY -> new NoteListItem(
-                    note.getNoteId(),
-                    note.getTitle(),
+                    note.noteId(),
+                    note.title(),
                     "아직 내용은 비밀이야.",
-                    note.getNoteDate(),
-                    note.getLocation(),
+                    note.noteDate(),
+                    note.location(),
                     null,
                     null,
-                    note.isEncrypted(),
-                    toOffsetDateTime(note.getCreatedAt()),
+                    note.encrypted(),
+                    toOffsetDateTime(note.createdAt()),
                     List.of(),
                     List.of(),
                     null,
@@ -480,16 +477,13 @@ public class NoteService {
     }
 
     // 미리 다 가져와서 묶어둠
-    private Map<Long, List<NoteAttachmentResponse>> getAttachmentResponseMap(List<Note> notes) {
+    private Map<Long, List<NoteAttachmentResponse>> getAttachmentResponseMap(List<Long> noteIds) {
 
-        if (notes == null || notes.isEmpty()) {
+        if (noteIds == null || noteIds.isEmpty()) {
             return Map.of();
         }
 
-        // noteId만 뽑기
-        List<Long> noteIds = notes.stream()
-                .map(Note::getNoteId)
-                .toList();
+        // noteId만 뽑는 작업은 목록 조회에서 한 번 수행하고 전달받는다.
 
         List<NoteAttachment> attachments =
                 noteAttachmentService.getAttachmentsByNoteIds(noteIds);

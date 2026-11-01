@@ -36,6 +36,10 @@ import static org.mockito.Mockito.*;
 /** Finalize가 DEFAULT를 S3 없이 처리하고, 커스텀 복사 실패를 보상하는지 검증한다. */
 @ExtendWith(MockitoExtension.class)
 class JarDesignFinalizeServiceTest {
+    @org.junit.jupiter.api.BeforeEach
+    void rollbackConfirmedByDefault() {
+        lenient().when(persistenceService.mayDeleteFinalCopy(anyLong(), anyLong(), anyString())).thenReturn(true);
+    }
     @Mock private JarDesignFinalizePersistenceService persistenceService;
     @Mock private JarDesignFinalS3KeyFactory keyFactory;
     @Mock private S3Client s3Client;
@@ -109,6 +113,21 @@ class JarDesignFinalizeServiceTest {
 
         verify(s3Client).deleteObject(argThat((DeleteObjectRequest delete) -> delete.key().equals("final.png")));
     }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void ambiguousCommitOrUnavailableVerificationNeverDeletesFinalCopy(boolean dbUnavailable) {
+        var target = customTarget(); var lost = new IllegalStateException("commit response lost");
+        when(persistenceService.prepare(1L, 10L)).thenReturn(target);
+        when(keyFactory.createKey(1L, 10L)).thenReturn("final.png");
+        when(persistenceService.finalizeCustom(eq(1L), eq(10L), any(), eq(target), eq("final.png"))).thenThrow(lost);
+        if (dbUnavailable) when(persistenceService.mayDeleteFinalCopy(1L, 10L, "final.png")).thenThrow(new IllegalStateException("verification unavailable"));
+        else when(persistenceService.mayDeleteFinalCopy(1L, 10L, "final.png")).thenReturn(false);
+        assertThatThrownBy(() -> service().finalizeDraft(1L, 10L, request())).isSameAs(lost);
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
 
     @Test
     void finalizeDraft_returnsFeatureCodeWhenPermanentCopyFails() {

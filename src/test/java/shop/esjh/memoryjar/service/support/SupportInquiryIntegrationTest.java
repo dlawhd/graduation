@@ -131,6 +131,18 @@ class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
         verify(messages, never()).convertAndSend(eq("/topic/users/" + ordinary.owner + "/notifications"), any(Object.class));
     }
 
+    @Test void websocketFailureDoesNotTurnCommittedInquiryIntoFailedSubmission() {
+        var f = fixture(); var operator = fixture(); operators.setOperatorUserIds(Set.of(operator.owner));
+        when(storage.getBucket()).thenReturn("fixture-bucket");
+        doThrow(new org.springframework.messaging.MessageDeliveryException("fixture rejection"))
+                .when(messages).convertAndSend(anyString(), any(Object.class));
+        var receipt = service.create(f.owner, f.request());
+        assertThat(receipt.status()).isEqualTo(SupportInquiryStatus.OPEN);
+        assertThat(receivedNotificationCount(receipt.inquiryId())).isEqualTo(1);
+        assertThat(service.create(f.owner, f.request()).inquiryId()).isEqualTo(receipt.inquiryId());
+        verify(s3, times(1)).copyObject(any(CopyObjectRequest.class));
+    }
+
     @Test void copyFailureDoesNotNotifyOperators() {
         var f = fixture(); var operator = fixture(); operators.setOperatorUserIds(Set.of(operator.owner));
         when(storage.getBucket()).thenReturn("fixture-bucket");

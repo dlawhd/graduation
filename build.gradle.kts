@@ -26,6 +26,12 @@ repositories {
 	mavenCentral()
 }
 
+// 개인 PC 전용 설정은 모든 JAR 포장에서 제외한다.
+// IDE·bootRun의 개발용 클래스 경로에는 유지하고, 배포 산출물에만 포함하지 않는다.
+tasks.withType<Jar>().configureEach {
+	exclude("**/application-local*.yml", "**/application-local*.yaml")
+}
+
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")

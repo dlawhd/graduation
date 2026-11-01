@@ -21,6 +21,10 @@ public interface NoteCommentRepository extends JpaRepository<NoteComment, Long> 
     @EntityGraph(attributePaths = "user")
     List<NoteComment> findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(Long noteId);
 
+    // 호환용 트리 API도 DB에서 최대 크기를 제한한다. 큰 목록은 평면 페이지 API로 읽는다.
+    @EntityGraph(attributePaths = "user")
+    List<NoteComment> findTop1001ByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(Long noteId);
+
     // 작성자만 함께 읽는다. 컬렉션 fetch join을 하지 않아 DB LIMIT가 실제로 적용된다.
     @Query("""
             select c from NoteComment c join fetch c.user
@@ -32,6 +36,21 @@ public interface NoteCommentRepository extends JpaRepository<NoteComment, Long> 
     // 알림 대상의 조상 경로만 찾기 위한 가벼운 관계 정보다. 본문과 작성자는 가져오지 않는다.
     @Query("select c.commentId as id, c.parentComment.commentId as parentId from NoteComment c where c.note.noteId = :noteId")
     List<CommentLink> findCommentLinks(@Param("noteId") Long noteId);
+
+    /** 필요한 조상만 128개씩 읽는다. DB 재귀 제한보다 작게 끊어 깊은 답글도 이어 조회한다. */
+    // 재귀 결과의 열 이름을 명시해 MariaDB와 H2에서 같은 쿼리를 해석하게 한다.
+    @Query(value = """
+            WITH RECURSIVE ancestors(id, parentId, depth) AS (
+              SELECT c.comment_id AS id, c.parent_comment_id AS parentId, 1 AS depth
+              FROM note_comments c WHERE c.note_id = :noteId AND c.comment_id = :focusId AND c.deleted_at IS NULL
+              UNION ALL
+              SELECT p.comment_id, p.parent_comment_id, a.depth + 1
+              FROM note_comments p JOIN ancestors a ON p.comment_id = a.parentId
+              WHERE p.note_id = :noteId AND p.deleted_at IS NULL AND a.depth < 128
+            )
+            SELECT id, parentId FROM ancestors ORDER BY depth
+            """, nativeQuery = true)
+    List<CommentLink> findAncestorChunk(@Param("noteId") Long noteId, @Param("focusId") Long focusId);
 
     @Query("select c from NoteComment c join fetch c.user where c.note.noteId = :noteId and c.commentId in :ids")
     List<NoteComment> findPathItems(@Param("noteId") Long noteId, @Param("ids") List<Long> ids);

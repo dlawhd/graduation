@@ -1,0 +1,685 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-31",
+  "scope": "LOCAL_FIXED_RESOURCE_API_READ_VALIDATION_NOT_PRODUCTION_CAPACITY",
+  "resources": {
+    "applicationCpu": 2,
+    "applicationMemoryMiB": 1536,
+    "heapMiB": 768,
+    "poolSize": 10,
+    "generatorCpu": 4,
+    "generatorMemoryMiB": 2048
+  },
+  "dataset": {
+    "storedUsers": 10000,
+    "authenticatedAccounts": 1000,
+    "concurrentReadAccounts": 500,
+    "jars": 9300,
+    "notes": 21000
+  },
+  "load": {
+    "apiMix": "jar_list 30%, jar_detail 30%, note_list 40%",
+    "thinkTimeSeconds": 1,
+    "readTimeoutSeconds": 3,
+    "warmupsVus": [
+      100,
+      300
+    ],
+    "warmupSecondsEach": 20,
+    "measuredVus": 500,
+    "measuredSecondsEach": 30,
+    "measuredRepeats": 3,
+    "p95LimitMs": 500
+  },
+  "versions": {
+    "baseline": {
+      "runId": "memoryjar-e2e-06032014a2ec",
+      "serviceClassHashes": {
+        "jwt/JwtTokenProvider.class": "58E547D1FCBF3A0A075DF30FF0C0CE4E72D8DA412B5665F71AE6AC4AD03C03E8",
+        "jwt/JwtAuthenticationFilter.class": "B23DB7AEA9F410EF97D9513A7F4FC4D082B4E231D9BAC125FD2BBFCF64D81276",
+        "repository/note/NoteRepository.class": "7C7DB51921BDD8DB3296BC544C73D0B5EC46A2D0B601B646B13AB790F0480D95",
+        "service/note/NoteService.class": "2B5AB4B38686BD39A257B5BC183BF05ADBAB7883EEF4DF3D3874831B0917CFB3"
+      },
+      "measurements": [
+        {
+          "phase": "read-500-r1",
+          "requests": 14706,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 71.31289770000006,
+            "jar_detail": 64.19554389999999,
+            "note_list": 72.11009349999999
+          },
+          "entityLoads": 208730,
+          "entityLoadsPerCompletedRead": 14.193526451788387,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 449,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 428,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 593,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 116,
+              "timeMillis": 469
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 9.823535,
+          "allocationSamples": 4360,
+          "maxSampledGeneratorCpuPercent": 119.61
+        },
+        {
+          "phase": "read-500-r2",
+          "requests": 14727,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 54.22987269999996,
+            "jar_detail": 53.9784609,
+            "note_list": 58.1038364
+          },
+          "entityLoads": 209213,
+          "entityLoadsPerCompletedRead": 14.206084063285122,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 453,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 434,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 586,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 118,
+              "timeMillis": 419
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 8.098708,
+          "allocationSamples": 4260,
+          "maxSampledGeneratorCpuPercent": 118.47
+        },
+        {
+          "phase": "read-500-r3",
+          "requests": 14717,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 30.24776525,
+            "jar_detail": 29.9216903,
+            "note_list": 35.69751975
+          },
+          "entityLoads": 208959,
+          "entityLoadsPerCompletedRead": 14.198477950669295,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 447,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 436,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 589,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 117,
+              "timeMillis": 430
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 16.075736,
+          "allocationSamples": 4318,
+          "maxSampledGeneratorCpuPercent": 118.29
+        }
+      ],
+      "reads500": 44150,
+      "allReadRequestsIncludingWarmups": 52038,
+      "entityLoadsPerCompletedRead": 14.199365798414496,
+      "medianOfRunP95Ms": {
+        "jar_list": 54.22987269999996,
+        "jar_detail": 53.9784609,
+        "note_list": 58.1038364
+      },
+      "businessRowCountsUnchanged": true,
+      "remainingApplicationRows": 0,
+      "cleanup": {
+        "remainingContainers": 0,
+        "summaryMetricsOnly": true,
+        "privateFixtureRemoved": true,
+        "remainingNetworks": 0,
+        "privateSessionsRemoved": true
+      },
+      "sourceHashes": {
+        "concurrent-load.json": "b45a38fd2be4e4b21d85ef7196260424babb4afeea96f1a18ff4136dbcba6cc5",
+        "concurrent-resources.json": "2a07a5164d0a33478d5e07faabaf7dcbdb84fa3ef137fb7eb14d97941de76461",
+        "dataset-cleanup.json": "bd6ac68e8af08ee39e3988fc7f83d9d8b9949151815d2041c7d846f6291995de",
+        "dataset-verification.json": "660877daacb659cbb8eb383d3462c0931737db1988e2d349954eb24162eb6f81",
+        "egress.txt": "96e559a373c0a5202e3e88c5b550895c7c3be60685cb2adf8ba303921c943de1",
+        "summary.txt": "ea05f671a444ef517f4bbb18f99c01a0e213045d7ea05cb2d686db87aeabfd0b",
+        "read-100-summary.json": "a6a0babf0c09bd1396ede0318cabb3e8f1f26c888a0050994255c6898842d22d",
+        "probe-read-100.jsonl": "3af2986cca7104609e1aeaea21e1d14105328eaeedc725e20ba3a2c53bdc818b",
+        "probe-read-100-stacks.json": "5455cfd8b920d3dac81576ded3fd9188b269e1b80adfd7e7cc6dfe2757ebd613",
+        "probe-read-100.jfr": "0575708368a841a007896b701c09adadbbe5abca654f7225fbb4c5b61f39dfda",
+        "db-read-100-before.json": "866949e56a9cd18103f503a0c6ee0b8b10e50fcdd1507a0204c94e2fd5d1e6da",
+        "db-read-100-after.json": "8e182a6c68c5be9474b726ce3a01ad2a1671e13c62cb5e4a2f23071d0a724a1c",
+        "read-300-summary.json": "843f28f9ab66aaf72450971e91e148b9a0ef5d2f87f0610ae1bf25122e4fec2f",
+        "probe-read-300.jsonl": "bb94443f9937fa8e560a40c71af5b24810b613de244f6fc96d647a06d2a18eb0",
+        "probe-read-300-stacks.json": "f735e4a1b7c8f7c2d8bf5bc2e791f571b824ae57b5c80cbc2e3e82221f16e1b4",
+        "probe-read-300.jfr": "dad9c272615ea6dd7eee0168b1c1878895512d08003390c1b7d5614c31d59f43",
+        "db-read-300-before.json": "6c75509017657ff155321965fba34d82fba02562e20a4a06fab0003798879c00",
+        "db-read-300-after.json": "a4917c11e92787756926d2116ebed145b0bfe21d88072b3928f0f62b1e9e454c",
+        "read-500-r1-summary.json": "0e3a3862b80f2c6c17b4f5e7fb2c503ecd8f44c8274f0817be76b1cdba6006b6",
+        "probe-read-500-r1.jsonl": "5fdfa8d5946609bcf809be00f2a73ece5c5dc0e99f711570d016a082e1799251",
+        "probe-read-500-r1-stacks.json": "3415e37b25a9a3b323f82f444953deb91c863051b06b4ecca449adcf1233f2ce",
+        "probe-read-500-r1.jfr": "d25e75d980ae3064e0cea0b7113fb07924faed52d25c86c8728a3d9cc8c970eb",
+        "db-read-500-r1-before.json": "478a78c34221072e18679c9c3c3bb41fc2d7c03c5fea945f8a8d65736cd3dcbe",
+        "db-read-500-r1-after.json": "23b3e1e54bb1ba5938ea32d6d621deda5ffcccb2b1c039845822c1631f66c2ae",
+        "read-500-r2-summary.json": "a338876f886b341de31820ba756f27447a434576f48884d0504c78e592ac1572",
+        "probe-read-500-r2.jsonl": "c332a0df759fb28306a6c33b8b1bdd5bc3de401dcec99b8d76b42e61c61941da",
+        "probe-read-500-r2-stacks.json": "3dc5a9d0f3d0604e55adf8fbb5288b5737f58e74493b72597f437f1c3d140ab6",
+        "probe-read-500-r2.jfr": "207e071574cd24d7eedca45486f8488b92daa22539db1e5b1670d5d12d193b92",
+        "db-read-500-r2-before.json": "b1c9152803c6f1b74886f66c7648764ffaa095a28dd7437400e6380480f00b2a",
+        "db-read-500-r2-after.json": "e9e061d16969128732b5cb5b04a47aa1de36356f2a2af4989576c8c570baaed3",
+        "read-500-r3-summary.json": "95075350464af059e85bc1e0fe2cb75216f3a24cf7238fc9c716e496b2178e62",
+        "probe-read-500-r3.jsonl": "5859a4c6fda213de35d41af3c3a1ff07520a402ec87b6629095ebd760dcf5458",
+        "probe-read-500-r3-stacks.json": "832adbf26c4e4d32e01035cb0bcb4182ef017134c321c056085a28b1dea25995",
+        "probe-read-500-r3.jfr": "aa8b285e46bc2bb8ef0af39160a2812fe614410a35ac7409778d7230d58a6d46",
+        "db-read-500-r3-before.json": "8d645550c76525788b5045885ba701492b176a0649763d4ebba734a4d820b416",
+        "db-read-500-r3-after.json": "0299dc676ecb8ec313411b66c2febcb3e4b0c4b65a95a3819b08a8a564c433f8",
+        "service-class-hashes.json": "0d0ca6c7dd37464a835eaea5670393e8022d01ccca742760ab1e1352f76ecf35"
+      }
+    },
+    "jwtOnly": {
+      "runId": "memoryjar-e2e-99607aab275e",
+      "serviceClassHashes": {
+        "jwt/JwtAuthenticationFilter.class": "E02D8E684562451FC06CF9AD18AC13C6617E3FE7912926E1C0CB55BB93E6C86B",
+        "service/note/NoteService.class": "2B5AB4B38686BD39A257B5BC183BF05ADBAB7883EEF4DF3D3874831B0917CFB3",
+        "repository/note/NoteRepository.class": "7C7DB51921BDD8DB3296BC544C73D0B5EC46A2D0B601B646B13AB790F0480D95",
+        "jwt/JwtTokenProvider.class": "37BBBD5BFFF9D761046700F25E9A02708A4AABDA1D257C38822F7AB0DE76A9EC"
+      },
+      "measurements": [
+        {
+          "phase": "read-500-r1",
+          "requests": 14768,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 36.43391999999994,
+            "jar_detail": 33.85512435,
+            "note_list": 39.263448499999974
+          },
+          "entityLoads": 209700,
+          "entityLoadsPerCompletedRead": 14.199620801733477,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 477,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 448,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 552,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 106,
+              "timeMillis": 366
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 9.497603,
+          "allocationSamples": 4336,
+          "maxSampledGeneratorCpuPercent": 122.14
+        },
+        {
+          "phase": "read-500-r2",
+          "requests": 14728,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 51.96738085000002,
+            "jar_detail": 49.980453999999945,
+            "note_list": 57.270109500000004
+          },
+          "entityLoads": 209132,
+          "entityLoadsPerCompletedRead": 14.199619771863118,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 443,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 453,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 577,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 106,
+              "timeMillis": 385
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 8.474141,
+          "allocationSamples": 4255,
+          "maxSampledGeneratorCpuPercent": 118.16
+        },
+        {
+          "phase": "read-500-r3",
+          "requests": 14755,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 30.73744665000002,
+            "jar_detail": 26.676229649999982,
+            "note_list": 31.967032
+          },
+          "entityLoads": 209493,
+          "entityLoadsPerCompletedRead": 14.198102338190443,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 434,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 449,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 593,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 106,
+              "timeMillis": 339
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 9.133107,
+          "allocationSamples": 4235,
+          "maxSampledGeneratorCpuPercent": 118.4
+        }
+      ],
+      "reads500": 44251,
+      "allReadRequestsIncludingWarmups": 52168,
+      "entityLoadsPerCompletedRead": 14.199114144313123,
+      "medianOfRunP95Ms": {
+        "jar_list": 36.43391999999994,
+        "jar_detail": 33.85512435,
+        "note_list": 39.263448499999974
+      },
+      "businessRowCountsUnchanged": true,
+      "remainingApplicationRows": 0,
+      "cleanup": {
+        "remainingNetworks": 0,
+        "remainingContainers": 0,
+        "privateFixtureRemoved": true,
+        "privateSessionsRemoved": true,
+        "summaryMetricsOnly": true
+      },
+      "sourceHashes": {
+        "concurrent-load.json": "dc99e9a1d9afad9fabd0c1f415a99fb32e2436acc44aa4debcb8a8c6c7a5eeb6",
+        "concurrent-resources.json": "0a7537f3594d18bc76e6c020ce88c01f4827b137a37fdbd7b393049655d8a670",
+        "dataset-cleanup.json": "01c9d746cd437ec85a514c28b9f0e296287adc169e290248c53bce9d195531c4",
+        "dataset-verification.json": "660877daacb659cbb8eb383d3462c0931737db1988e2d349954eb24162eb6f81",
+        "egress.txt": "96e559a373c0a5202e3e88c5b550895c7c3be60685cb2adf8ba303921c943de1",
+        "summary.txt": "bf46bfdffdeff04dff0343ad27aadf35d90ce4da87aaf9a8a4b7c536be28f4fb",
+        "read-100-summary.json": "598b7c52480ccd758c066ee43265171d26587ca8476c99e0b5e84d41358ed89b",
+        "probe-read-100.jsonl": "a7b676ee2cb6aeec1b62812349857e70428d13c80c372a089090414e8fc0539d",
+        "probe-read-100-stacks.json": "3868ca59c3b2a105d26e674e77f514180532501c88015c8a66cb5bd93a1a5b48",
+        "probe-read-100.jfr": "1cd86491fe59dcb99bc73ff6641f6f38550ed53b221d9b1b21edc10eb87eaf57",
+        "db-read-100-before.json": "9b56bffe7dde46e3631bd046f73f31ba5187afdbfb029878de8ffa0ce2293f3d",
+        "db-read-100-after.json": "f3b19bae22cc2e9738fb3e94cc7cadb987b0bf0b95e46ad217c4dbb3df1298ce",
+        "read-300-summary.json": "797128a2608afd506f4c4c3ec6c7179629af29272bfea4b011a6d46c8eb59d3a",
+        "probe-read-300.jsonl": "e6942a831f1fbbac36290f3d6a39229861104e31a679985a4d7ca220db1c04a2",
+        "probe-read-300-stacks.json": "627be5841de182e83ca36d6e969c268aa46067704903fe074498d2a5ce0904d2",
+        "probe-read-300.jfr": "acde2d0d68d8836034c2b02225201e9626be8d23b1e338833943535894377f62",
+        "db-read-300-before.json": "a3a7b3ba7776310d9cc5e329fb4fe61d3b9ca682b184ebe276882726e8796d2f",
+        "db-read-300-after.json": "b5fc8e4138c095546ffbfad9ccf3f4329f05decff576004614ee91890c8d774a",
+        "read-500-r1-summary.json": "76a42607371059ad40bdc198c3619d1a779058f46576d182bbcd59e1958c9621",
+        "probe-read-500-r1.jsonl": "ee74a0284cbbc8b124100f44c55e091ff0d2b7138879690cfd4f7b2f62e3721c",
+        "probe-read-500-r1-stacks.json": "2572ed1895ca55365487ce766e81512fb189b6b1180f73ce811e92dd5443e184",
+        "probe-read-500-r1.jfr": "8c5685603ec5f11c36bb91525adaa58f59b8fc2050da94b70eb15e0c72bb5679",
+        "db-read-500-r1-before.json": "65ae417a6194f96961f0cb0fbe56cddfebcadbf0a1df70edc33cc27cb04e08d1",
+        "db-read-500-r1-after.json": "e39f469497bf4721b4121b406a2d7cbaed51299201af83bb53edf3a77c954c8d",
+        "read-500-r2-summary.json": "a44bd609156d1baba3f37c77429fad0c0925d0ca799dc70086642e145fd3b660",
+        "probe-read-500-r2.jsonl": "93c55dbc8ed14e27eea3b3737616b880a3e5824e3f389812b77ecfe65fb87827",
+        "probe-read-500-r2-stacks.json": "24c896757c7b0d5ca1c97615f5fa87a0b35e58baefde29237549530152875921",
+        "probe-read-500-r2.jfr": "736d39c213fcdd2d3156cacf8381bb3e6c33429592b221f5cc8cc90790bec7ec",
+        "db-read-500-r2-before.json": "4fc5eb53343d11c0941954bf4fdc610e31e87b998de2b483996527e0f8d26424",
+        "db-read-500-r2-after.json": "e2b11b9e94a4c4af5972ce2909360302cede08284bab88d7a13975fa78b546af",
+        "read-500-r3-summary.json": "aa257b7629350c84244de2969a3ce0ae6e6fc25ab91679796dd526a92c274f21",
+        "probe-read-500-r3.jsonl": "e9740cdb51106c5f0708d6e72f6f45dea33798570a628f7f69bf7cb1e7755219",
+        "probe-read-500-r3-stacks.json": "1faac34847aba94b5eae0cbf781747c5e58228275f741c1727a9651931a8836d",
+        "probe-read-500-r3.jfr": "5dc499c37837b2416b53b691951216a71e8f41d432ce0e1a24f77362e71ac89b",
+        "db-read-500-r3-before.json": "ce1ff786b3ae059bf20154e041ae3c530c813f23583601c2a6d59e50020e1fbf",
+        "db-read-500-r3-after.json": "dca13196cd41132f0ef1d40cd0dcb3944d1ce8f2899a4c9b35cc35f69fad5fd1",
+        "service-class-hashes.json": "39944281d2727b620366c65024a17490cc5498f9229ee8fdbd862eb146ebb696"
+      }
+    },
+    "final": {
+      "runId": "memoryjar-e2e-cadeae2dbda8",
+      "serviceClassHashes": {
+        "jwt/JwtAuthenticationFilter.class": "E02D8E684562451FC06CF9AD18AC13C6617E3FE7912926E1C0CB55BB93E6C86B",
+        "repository/note/NoteListRow.class": "9F50EB125779B87A20C1D7033B8FDC65FAF9C25D7E72697B1D037276BCE85BE2",
+        "service/note/NoteService.class": "927E99551F55327EBF77F0EB64F764514F52F29F5887F8077AAFAFEB8A328368",
+        "jwt/JwtTokenProvider.class": "37BBBD5BFFF9D761046700F25E9A02708A4AABDA1D257C38822F7AB0DE76A9EC",
+        "repository/note/NoteRepository.class": "FDC9C6EF83B4196CEC862227250FE5D3D08717545EBC288F12E3357C9D7964C2"
+      },
+      "measurements": [
+        {
+          "phase": "read-500-r1",
+          "requests": 14711,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 39.793499000000025,
+            "jar_detail": 35.34588430000001,
+            "note_list": 44.216754
+          },
+          "entityLoads": 32371,
+          "entityLoadsPerCompletedRead": 2.200462239140779,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 437,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 454,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 581,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 103,
+              "timeMillis": 401
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 18.850412,
+          "allocationSamples": 4251,
+          "maxSampledGeneratorCpuPercent": 120.21
+        },
+        {
+          "phase": "read-500-r2",
+          "requests": 14761,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 41.51680479999998,
+            "jar_detail": 37.200217499999994,
+            "note_list": 45.76412339999996
+          },
+          "entityLoads": 32477,
+          "entityLoadsPerCompletedRead": 2.2001896890454575,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 466,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 442,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 568,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 104,
+              "timeMillis": 452
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 62.359302,
+          "allocationSamples": 4282,
+          "maxSampledGeneratorCpuPercent": 117.64
+        },
+        {
+          "phase": "read-500-r3",
+          "requests": 14755,
+          "errorRate": 0,
+          "p95Ms": {
+            "jar_list": 30.16801699999998,
+            "jar_detail": 30.0819465,
+            "note_list": 34.337799849999996
+          },
+          "entityLoads": 32461,
+          "entityLoadsPerCompletedRead": 2.2,
+          "sampledStatementCounts": {
+            "JAR_LIST": {
+              "count": 452,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "JAR_DETAIL": {
+              "count": 431,
+              "avg": 6.0,
+              "median": 6.0,
+              "p95": 6.0,
+              "max": 6
+            },
+            "NOTE_LIST": {
+              "count": 592,
+              "avg": 10.0,
+              "median": 10.0,
+              "p95": 10.0,
+              "max": 10
+            }
+          },
+          "gcCollectorsDelta": {
+            "Copy": {
+              "count": 103,
+              "timeMillis": 365
+            },
+            "MarkSweepCompact": {
+              "count": 0,
+              "timeMillis": 0
+            }
+          },
+          "gcPauseMaxMs": 7.24419,
+          "allocationSamples": 4393,
+          "maxSampledGeneratorCpuPercent": 118.83
+        }
+      ],
+      "reads500": 44227,
+      "allReadRequestsIncludingWarmups": 52144,
+      "entityLoadsPerCompletedRead": 2.200217061975716,
+      "medianOfRunP95Ms": {
+        "jar_list": 39.793499000000025,
+        "jar_detail": 35.34588430000001,
+        "note_list": 44.216754
+      },
+      "businessRowCountsUnchanged": true,
+      "remainingApplicationRows": 0,
+      "cleanup": {
+        "privateSessionsRemoved": true,
+        "remainingNetworks": 0,
+        "privateFixtureRemoved": true,
+        "remainingContainers": 0,
+        "summaryMetricsOnly": true
+      },
+      "sourceHashes": {
+        "concurrent-load.json": "57bdbcf2546b00c113026e95dc0db2497e0f1c6261bc1c619e3c45286a77a52a",
+        "concurrent-resources.json": "2f671fd4711be1055e8d3c6c145eb4232b774809234bedf59fd9d3ba79195b67",
+        "dataset-cleanup.json": "ba40ba165f5a588fdf55ba40c3dbeaf7abe16919b69cd9873fae4a883b9bf221",
+        "dataset-verification.json": "660877daacb659cbb8eb383d3462c0931737db1988e2d349954eb24162eb6f81",
+        "egress.txt": "96e559a373c0a5202e3e88c5b550895c7c3be60685cb2adf8ba303921c943de1",
+        "summary.txt": "bd2b0858116e611c3758d1af8898ca13744f20306da2280ec4568e19b34d327e",
+        "read-100-summary.json": "b7bd1f47aa423167c9803423b222df002e0664098478bead812d2d4a26e25135",
+        "probe-read-100.jsonl": "683f6db6bdd7aa484c595fefa53bf43ec51718d47ed6f875466e54ade48ad591",
+        "probe-read-100-stacks.json": "b947c640703b21d187c055b465705f5fb0c4e8308ffa74d898f18fd465dbcc8c",
+        "probe-read-100.jfr": "0b9d0b2a33474e43a55d3b9ee20e26dac65b06437bfb9017dfe346f7750da00d",
+        "db-read-100-before.json": "5220937d5702bb9a317fefe7be2951af97ccf33c06625a5f6b37db4c074a85c0",
+        "db-read-100-after.json": "f8a40f891e1c30309025ab33404e25928a4ea9e2402134c260f615e31b71c04d",
+        "read-300-summary.json": "f46baa9fd83e992fd1fec287232359048d0d4a5f6a49916b0e73777ea05b5deb",
+        "probe-read-300.jsonl": "74a26a2464b20eab52af7b0384245210b9f5aee27319cc1eb82ac5d0368970f8",
+        "probe-read-300-stacks.json": "c23d79e589678bae8336e9a72f3bdbbc2a1f5833db3496431a40769fd0effcc2",
+        "probe-read-300.jfr": "e2b3d6ca164a05e3f8e677a681dc1ac9ec3cc276309b2436b3126bd8e8d82d1c",
+        "db-read-300-before.json": "5157ff9a7b8bb30766c9f5801edd0bdc1ad43bd307c26d1f8b71c22e44028928",
+        "db-read-300-after.json": "2c47439c7fd8ec928451b91d90e6f3e63606e80ac35aeafd29736822fce834fd",
+        "read-500-r1-summary.json": "ee0d04adf2cf13d6206295b1893ffb8c9ebe0092c3aa32e0c173786805003f0d",
+        "probe-read-500-r1.jsonl": "b2b113ebd28147530ab25810a974490f9c175c4de089795e59b11ca710404801",
+        "probe-read-500-r1-stacks.json": "62610f1ec4814b0751aef19e0a3800276b84bde4501454ca6645b2d6a6fe8d4b",
+        "probe-read-500-r1.jfr": "0010cd6912ede7d590befd2fe56078f7fa77b987c00420de4dcf52ddf149be50",
+        "db-read-500-r1-before.json": "6301a13ada0d49e7120df4653a57e97244a36202371dc950beff6e203cf6c7bc",
+        "db-read-500-r1-after.json": "d0b0c2e35d1f54ae1a8434bdb414c7c6dda92d75ae8473d1528a10a09b67c8a7",
+        "read-500-r2-summary.json": "4bcf9b03b7ae90816011b95cb3f032406c72ff669feb1a57a6f6ce125d91b10d",
+        "probe-read-500-r2.jsonl": "8b70234a3f93091af1d54478c242320c2c042d0e8e81bc2116005e74f959e3bf",
+        "probe-read-500-r2-stacks.json": "fd971b1ee4462f4b161e97aa98cb8bfbc5f6c6097479863baad53c019af2a60b",
+        "probe-read-500-r2.jfr": "6b2fd296cd7a1a4a0e64e74a99bc888ca438829f2377783762544939bc06c786",
+        "db-read-500-r2-before.json": "67f33939695c81dd909b78e5f52582e69ed0b5b3e226534f3c45f9a19560db8b",
+        "db-read-500-r2-after.json": "3c34278f76bce5368224c2169e18a705bea6d1966e0b3590912cdcdb39898166",
+        "read-500-r3-summary.json": "ab2bccb57e2bc7840610c18444d955a8d29a33b375fa1b8990e7ff30551480b4",
+        "probe-read-500-r3.jsonl": "b6837d0650dd4992ac822a88e4b59ffba5b2d932a7cff693d44c424f46d3281d",
+        "probe-read-500-r3-stacks.json": "b78031e9b6761f60c4481e82d4996cd00a27ccb04a65f337a9a622f2c815b67d",
+        "probe-read-500-r3.jfr": "5debe24394b36cbe90538d2cbfb89efeb8bc561bebf71435033d70ea56e53aed",
+        "db-read-500-r3-before.json": "79d74788b9e04872406e621ea73f1f0d33ffa90bb67bf10a085b644f441667ad",
+        "db-read-500-r3-after.json": "5f01907cb3ee40eb9d3ec71dfbe622d3729e41180ec487bedf0bf3d8875e319e",
+        "service-class-hashes.json": "31d1c2c93f08867185488b10ebf7ff965fd97cdb9cb4ff1792e9ff261954a330"
+      }
+    }
+  },
+  "entityLoadReductionPercent": 84.50482160110707,
+  "regressionTests": {
+    "java": 87,
+    "node": 22,
+    "python": 3,
+    "isolatedE2e": 4,
+    "backendBuild": "passed"
+  },
+  "limitations": [
+    "Each version uses a fresh JVM and disposable DB with the same logical fixture generation rules; UUID prefixes and random test credentials differ.",
+    "One local PC, instrumented runs in fixed order. Results overlap; no causal latency improvement percentage or production capacity claim.",
+    "Entity load reduction is not total object allocation, heap usage, or response-time reduction.",
+    "JFR allocation weights are estimates. Inclusive frames overlap and must not be added.",
+    "Synthetic text and mocked S3/mail/AI. Browser, 3D, image, WebSocket load and long-duration capacity are outside this read test."
+  ]
+}

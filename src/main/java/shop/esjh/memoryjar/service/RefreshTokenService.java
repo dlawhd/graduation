@@ -64,6 +64,7 @@ public class RefreshTokenService {
         RefreshToken entity = RefreshToken.builder()
                 .user(currentUser)
                 .tokenHash(hash)
+                .sessionId(hash)
                 .expiresAt(now.plusSeconds(jwtProperties.getRefreshExpSeconds())) // 만료 시간(지금으로부터 14일 뒤)
                 .build();
 
@@ -131,6 +132,7 @@ public class RefreshTokenService {
         RefreshToken nextToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(newHash)
+                .sessionId(oldToken.getSessionId())
                 .expiresAt(
                         now.plusSeconds(
                                 jwtProperties.getRefreshExpSeconds()
@@ -151,7 +153,8 @@ public class RefreshTokenService {
                 user.getName(),
                 user.getBirthyear(),
                 newRaw,
-                userRepository.findSessionVersionByIdForUpdate(ownerId).orElseThrow(this::invalidRefreshTokenException)
+                userRepository.findSessionVersionByIdForUpdate(ownerId).orElseThrow(this::invalidRefreshTokenException),
+                oldToken.getSessionId()
         );
     }
 
@@ -170,10 +173,13 @@ public class RefreshTokenService {
         LocalDateTime now = nowKst();
         String hash = TokenCrypto.sha256Hex(refreshRaw);
 
-        refreshTokenRepository
-                .findByTokenHashForUpdate(hash)
-                .filter(refreshToken -> refreshToken.isActive(now))
-                .ifPresent(refreshToken -> refreshToken.revoke(now));
+        // 회전보다 늦게 도착한 로그아웃도 이미 폐기된 원본에서 같은 로그인 묶음을 찾는다.
+        // 회전·전체 폐기와 잠금 순서를 맞춰 새 토큰이 폐기를 빠져나가지 못하게 한다.
+        refreshTokenRepository.findOwnerIdByTokenHash(hash).ifPresent(ownerId -> {
+            userRepository.findByIdForUpdate(ownerId).ifPresent(user ->
+                    refreshTokenRepository.findByTokenHashForUpdate(hash).ifPresent(token ->
+                            refreshTokenRepository.revokeSession(ownerId, token.getSessionId(), now)));
+        });
     }
 
     /*
@@ -263,7 +269,8 @@ public class RefreshTokenService {
             String name,
             String birthyear,
             String newRefreshRaw,
-            long sessionVersion
+            long sessionVersion,
+            String sessionId
     ) {
     }
 }

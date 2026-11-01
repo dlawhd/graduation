@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-29",
+  "environment": "production",
+  "source": {
+    "fileName": "asdasd",
+    "format": "gzip-json-without-extension",
+    "sha256": "ae5d379a901ba3db677dc619dd533de83c5f3090f9c8851bed9b2f107d14bd31",
+    "eventCount": 61431,
+    "recordingStartTsUs": 1060768173148,
+    "recordingStartKst": "2026-10-29T20:28:26.614+09:00",
+    "rendererPid": 29936,
+    "mainTid": 27076,
+    "snapshotCount": 450,
+    "lastSnapshotMs": 7738.724,
+    "recorded3dChunk": "CustomJarBody3D-BpUahB40.js"
+  },
+  "versionEvidence": "이전 기록과 같은 3D 청크 이름, 운영 프레임 및 이미지 API 대상 대조. 측정 전후 최종 Production 배포 확인. trace 자체의 Git 커밋 증명은 아님.",
+  "records": [
+    {
+      "transition": 1,
+      "phase": "first-recorded-with-3d-code-request",
+      "clickMs": 1242.333,
+      "return2dClickMs": 2967.126,
+      "imageRequest": {
+        "sendMs": 1987.528,
+        "responseMs": 2133.196,
+        "finishMs": 2137.757,
+        "sendToFinishMs": 150.229,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": {
+        "lastObservedWithoutPhotoMs": 2175.995,
+        "firstObservedWithPhotoMs": 2195.629,
+        "clickToLastWithoutPhotoMs": 933.662,
+        "clickToFirstWithPhotoMs": 953.296,
+        "classification": "인접한 전후 캡처를 직접 확인"
+      }
+    },
+    {
+      "transition": 2,
+      "phase": "repeat",
+      "clickMs": 3824.517,
+      "return2dClickMs": 4991.34,
+      "imageRequest": {
+        "sendMs": 4224.539,
+        "responseMs": 4287.581,
+        "finishMs": 4289.56,
+        "sendToFinishMs": 65.021,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": {
+        "lastObservedWithoutPhotoMs": 4334.255,
+        "firstObservedWithPhotoMs": 4343.215,
+        "clickToLastWithoutPhotoMs": 509.738,
+        "clickToFirstWithPhotoMs": 518.698,
+        "classification": "인접한 전후 캡처를 직접 확인"
+      }
+    },
+    {
+      "transition": 3,
+      "phase": "repeat",
+      "clickMs": 5865.443,
+      "return2dClickMs": 7031.853,
+      "imageRequest": {
+        "sendMs": 6271.146,
+        "responseMs": 6304.11,
+        "finishMs": 6305.551,
+        "sendToFinishMs": 34.405,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": {
+        "lastObservedWithoutPhotoMs": 6357.147,
+        "firstObservedWithPhotoMs": 6362.279,
+        "clickToLastWithoutPhotoMs": 491.704,
+        "clickToFirstWithPhotoMs": 496.836,
+        "classification": "인접한 전후 캡처를 직접 확인"
+      }
+    }
+  ],
+  "aggregates": {
+    "firstDisplayObservedMs": 953.296,
+    "repeatDisplaySampleCount": 2,
+    "repeatDisplayMedianMs": 507.767
+  },
+  "limitations": [
+    "첫 전환 직후 3D 코드 요청이 있어 3회 모두를 반복 요청으로 취급하지 않음. 첫 기록의 누락 3회를 복원한 것이 아님.",
+    "두 파일은 약 2시간 21분 간격의 별도 기록이며 같은 연속 실행이 아님.",
+    "CPU·네트워크 제한, 실제 viewport 크기 및 확대율은 파일만으로 독립 확인하지 않음. 화면 스크롤 위치 차이를 캡처에서 관찰.",
+    "완료는 사진이 보인 최초 캡처로 한정하며 GPU 완료·모니터 실제 출력 시점은 아님.",
+    "원본·화면 사진·URL·헤더·인증정보는 Git에 복사하지 않음."
+  ]
+}

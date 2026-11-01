@@ -288,7 +288,7 @@ class FileServiceTest {
         assertThat(actualHeadRequest.bucket())
                 .isEqualTo("test-bucket");
         assertThat(actualHeadRequest.key())
-                .isEqualTo(S3_KEY);
+                .isEqualTo(S3_KEY + ".pending");
     }
 
     @ParameterizedTest(name = "S3 contentType이 [{0}]이면 타입 검증을 건너뛴다")
@@ -584,7 +584,7 @@ class FileServiceTest {
             String contentType
     ) {
         HeadObjectResponse.Builder builder =
-                HeadObjectResponse.builder();
+                HeadObjectResponse.builder().eTag("fixture-version");
 
         /*
          * null이면 Builder에 값을 넣지 않는다.

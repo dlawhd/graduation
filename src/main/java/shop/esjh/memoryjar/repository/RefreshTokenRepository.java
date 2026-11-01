@@ -14,6 +14,16 @@ import java.util.Optional;
 // DB에서 refresh 토큰을 조건에 맞게 조회해서, 이 토큰이 지금 사용 가능한지 확인하는 역할
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
+    /** 한 기기의 회전된 토큰까지 한 번에 폐기한다. 다른 기기의 로그인은 보존한다. */
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+            UPDATE refresh_tokens SET revoked_at = :now, updated_at = :now
+            WHERE user_id = :userId AND session_id = :sessionId
+              AND revoked_at IS NULL AND deleted_at IS NULL
+            """, nativeQuery = true)
+    int revokeSession(@Param("userId") Long userId, @Param("sessionId") String sessionId,
+                      @Param("now") LocalDateTime now);
+
     @Query("select t.user.id from RefreshToken t where t.tokenHash = :tokenHash")
     Optional<Long> findOwnerIdByTokenHash(@Param("tokenHash") String tokenHash);
 

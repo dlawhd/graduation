@@ -25,6 +25,8 @@ function extractData(response) {
 export async function getNotifications(page = 0, size = 10) {
   const response = await apiClient.get("/api/v1/notifications", {
     params: { page, size },
+    // 재조회가 끝없이 대기해 뒤의 변경까지 막지 않도록 읽기 요청만 제한한다.
+    timeout: 10_000,
   });
 
   return extractData(response);
@@ -35,7 +37,7 @@ export async function getNotifications(page = 0, size = 10) {
  * 헤더 종 아이콘 옆 빨간 숫자 뱃지에 사용해.
  */
 export async function getUnreadCount() {
-  const response = await apiClient.get("/api/v1/notifications/unread-count");
+  const response = await apiClient.get("/api/v1/notifications/unread-count", { timeout: 10_000 });
   return extractData(response);
 }
 

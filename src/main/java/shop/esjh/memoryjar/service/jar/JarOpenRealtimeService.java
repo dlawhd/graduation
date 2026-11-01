@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.service.jar;
 
+import shop.esjh.memoryjar.service.BestEffortDelivery;
 import shop.esjh.memoryjar.dto.jar.response.JarOpenSocketEventResponse;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -57,7 +58,7 @@ public class JarOpenRealtimeService {
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            messagingTemplate.convertAndSend(destination, event);
+                            BestEffortDelivery.send("JAR_OPEN", () -> messagingTemplate.convertAndSend(destination, event));
                         }
                     }
             );
@@ -65,6 +66,6 @@ public class JarOpenRealtimeService {
         }
 
         // 혹시 트랜잭션 밖에서 호출되면 바로 보낸다.
-        messagingTemplate.convertAndSend(destination, event);
+        BestEffortDelivery.send("JAR_OPEN", () -> messagingTemplate.convertAndSend(destination, event));
     }
 }

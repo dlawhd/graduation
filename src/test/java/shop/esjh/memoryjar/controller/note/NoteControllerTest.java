@@ -60,6 +60,16 @@ class NoteControllerTest {
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
+
+    @Test
+    void nullAttachmentItemReturns400BeforeCallingService() throws Exception {
+        mockMvc.perform(post("/api/v1/jars/10/notes").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"제목\",\"content\":\"내용\",\"attachments\":[null]}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(noteService);
+    }
+
+
     @Test
     @DisplayName("쪽지 작성 성공 - 201 Created")
     void createNote_success() throws Exception {

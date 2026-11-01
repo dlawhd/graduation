@@ -9,8 +9,8 @@
 // - 라우팅
 // ------------------------------------------------------------
 
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import Home from "./pages/Home";
 import StatusNotice from "./components/feedback/StatusNotice";
 import FeedbackToast from "./components/feedback/FeedbackToast";
@@ -20,7 +20,9 @@ import JarsNewPage from "./pages/JarsNewPage";
 import JarDesignNewPage from "./pages/JarDesignNewPage";
 import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
-import apiClient, { clearCsrf, fetchCsrf } from "./api/apiClient";
+import { useRequestGate } from "./api/useRequestGate";
+import { createCoalescedRefresh } from "./api/coalescedRefresh.mjs";
+import apiClient, { beginAuthChange, finishAuthChange, clearCsrf, fetchCsrf } from "./api/apiClient";
 import SignupPage from "./pages/SignupPage";
 /*
  * 자체 로그인 아이디 찾기 페이지
@@ -181,6 +183,7 @@ export default function App() {
 
   // 현재 로그인한 사용자 정보
   const [me, setMe] = useState(null);
+  const notificationRequests = useRequestGate(getCurrentUserId(me));
   const [supportPermission, setSupportPermission] = useState(null);
   const supportUserId = getCurrentUserId(me);
   const isSupportOperator = supportPermission?.userId === supportUserId && supportPermission?.operator === true;
@@ -530,33 +533,39 @@ useEffect(() => {
           return;
         }
 
+        const isCurrent = notificationRequests.begin("count");
         try {
           const data = await getUnreadCount();
+          if (!isCurrent()) return;
           setUnreadCount(Number(data?.unreadCount || 0));
         } catch (e) {
-          setUnreadCount(0);
+          if (!isCurrent()) return;
+          // 통신 실패만으로 이미 확인한 숫자를 0으로 바꾸지 않는다.
         }
-      }, [me]);
+      }, [me, notificationRequests]);
 
       // --------------------------------------------------------
       // 알림 목록 불러오기
       // --------------------------------------------------------
       const loadNotifications = useCallback(
-        async (page = 0, size = 10) => {
+        async (page = 0, size = 10, { silent = false } = {}) => {
           if (!me) {
             setNotifications([]);
             return;
           }
 
+          const isCurrent = notificationRequests.begin("list");
           try {
-            setNotificationsLoading(true);
+            if (!silent) setNotificationsLoading(true);
             setNotificationsError("");
 
             const data = await getNotifications(page, size);
+            if (!isCurrent()) return;
             const items = data?.items || [];
 
             setNotifications(items);
           } catch (e) {
+            if (!isCurrent()) return;
             const serverMessage =
               e?.response?.data?.error?.message ||
               e?.response?.data?.message ||
@@ -565,11 +574,28 @@ useEffect(() => {
             setNotificationsError(serverMessage);
             setNotifications([]);
           } finally {
-            setNotificationsLoading(false);
+            if (isCurrent()) setNotificationsLoading(false);
           }
         },
-        [me]
+        [me, notificationRequests]
       );
+
+      const invalidateNotificationReads = useCallback(() => {
+        notificationRequests.begin("count");
+        notificationRequests.begin("list");
+        setNotificationsLoading(false);
+      }, [notificationRequests]);
+
+      // 계정이 바뀐 직후에는 이전 알림을 한 프레임도 새 계정 화면에 남기지 않는다.
+      useLayoutEffect(() => {
+        setNotifications([]);
+        setUnreadCount(0);
+        setNotificationOpen(false);
+        setNotificationsLoading(false);
+        setNotificationsError("");
+        notificationWrite.current = false;
+        setNotificationSaving(false);
+      }, [notificationRequests]);
 
       // --------------------------------------------------------
       // 로그인된 상태면 unread count 먼저 불러오기
@@ -598,6 +624,11 @@ useEffect(() => {
           return;
         }
 
+        const isCurrent = notificationRequests.begin("socket");
+        const refresh = createCoalescedRefresh(async () => {
+          if (!isCurrent()) return;
+          await Promise.all([loadUnreadCount(), loadNotifications(0, 10, { silent: true })]);
+        });
         const unsubscribe =
           subscribeNotificationSocket({
             subscribe,
@@ -605,17 +636,16 @@ useEffect(() => {
 
             onNotificationReceived:
               (newNotification) => {
+                if (!isCurrent()) return;
+                invalidateNotificationReads();
+                refresh.request();
                 if (
                   !newNotification?.notificationId
                 ) {
-                  loadUnreadCount();
                   return;
                 }
 
-                setUnreadCount(
-                  (prev) =>
-                    Number(prev || 0) + 1
-                );
+                // REST 목록에 이미 포함된 알림도 소켓으로 올 수 있다. 숫자는 서버 재조회로만 맞춘다.
 
                 setNotifications((prev) => {
                   const alreadyExists = prev.some(
@@ -636,6 +666,7 @@ useEffect(() => {
               },
 
             onError: () => {
+              if (!isCurrent()) return;
               /*
                * WebSocket 오류가 발생해도
                * REST API로 알림 개수를 다시 맞춘다.
@@ -648,11 +679,14 @@ useEffect(() => {
          * App 또는 로그인 사용자가 바뀌면
          * 전체 연결이 아니라 알림 topic만 해제한다.
          */
-        return unsubscribe;
+        return () => { refresh.dispose(); unsubscribe(); };
       }, [
         me?.userId,
         me?.id,
         loadUnreadCount,
+        loadNotifications,
+        invalidateNotificationReads,
+        notificationRequests,
         subscribe,
       ]);
 
@@ -733,6 +767,7 @@ useEffect(() => {
       // --------------------------------------------------------
       const handleNotificationClick = async (item) => {
         if (!item || notificationWrite.current) return;
+        const isCurrent = notificationRequests.begin("write");
         notificationWrite.current = true;
         setNotificationSaving(true);
         setNotificationsError("");
@@ -740,6 +775,8 @@ useEffect(() => {
         if (!item.isRead) {
           try {
             const result = await readNotification(item.notificationId);
+            if (!isCurrent()) return;
+            invalidateNotificationReads();
 
             setNotifications((prev) =>
               prev.map((notification) =>
@@ -753,8 +790,9 @@ useEffect(() => {
               )
             );
 
-            setUnreadCount((prev) => Math.max(0, prev - 1));
+            void loadUnreadCount();
           } catch (e) {
+            if (!isCurrent()) return;
             const serverMessage =
               e?.response?.data?.error?.message ||
               e?.response?.data?.message ||
@@ -796,22 +834,18 @@ useEffect(() => {
       const handleReadAllNotifications = async () => {
         // 상태 반영 전 연속 클릭도 하나의 읽음 요청만 보내도록 동기 잠금을 둔다.
         if (notificationWrite.current) return;
+        const isCurrent = notificationRequests.begin("write");
         notificationWrite.current = true;
         setNotificationSaving(true);
         setNotificationsError("");
         try {
-          const result = await readAllNotifications();
-
-          setNotifications((prev) =>
-            prev.map((notification) => ({
-              ...notification,
-              isRead: true,
-              readAt: result?.readAt || new Date().toISOString(),
-            }))
-          );
-
-          setUnreadCount(0);
+          await readAllNotifications();
+          if (!isCurrent()) return;
+          // 처리 중 새 알림이 생겼을 수 있어 화면 전체를 임의로 읽음/0으로 만들지 않는다.
+          invalidateNotificationReads();
+          await Promise.all([loadNotifications(0, 10, { silent: true }), loadUnreadCount()]);
         } catch (e) {
+          if (!isCurrent()) return;
           const serverMessage =
             e?.response?.data?.error?.message ||
             e?.response?.data?.message ||
@@ -819,8 +853,10 @@ useEffect(() => {
 
           setNotificationsError(serverMessage);
         } finally {
-          notificationWrite.current = false;
-          setNotificationSaving(false);
+          if (isCurrent()) {
+            notificationWrite.current = false;
+            setNotificationSaving(false);
+          }
         }
       };
 
@@ -833,6 +869,7 @@ useEffect(() => {
     setHeaderError("");
     try {
       setLoggingOut(true);
+      beginAuthChange();
 
       await fetchCsrf();
       await apiClient.post("/api/v1/auth/logout");
@@ -860,6 +897,7 @@ useEffect(() => {
 
       setHeaderError(serverMessage);
     } finally {
+      finishAuthChange();
       setLoggingOut(false);
     }
   };
@@ -1433,7 +1471,7 @@ useEffect(() => {
           <Route path="/jars" element={<JarsPage />} />
           <Route path="/jars/new" element={<JarsNewPage />} />
           <Route path="/jars/design/new" element={<JarDesignNewPage />} />
-          <Route path="/jars/:jarId" element={<JarDetailPage onSuccess={setLoginToastMessage} />} />
+          <Route path="/jars/:jarId" element={<JarDetailRoute userId={getCurrentUserId(me)} checkingAuth={checkingAuth} onSuccess={setLoginToastMessage} />} />
           <Route path="/support/inquiries" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
           <Route path="/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
           <Route path="/admin/support/inquiries" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator /></Suspense>} />
@@ -1448,4 +1486,12 @@ useEffect(() => {
     </div>
     </OnboardingProvider>
   );
+}
+
+/** 저금통이나 계정이 바뀌면 이전 모달·폼·비동기 작업 상태를 새 화면에 넘기지 않는다. */
+function JarDetailRoute({ userId, checkingAuth, onSuccess }) {
+  const { jarId } = useParams();
+  // 최초 계정 확인 전후로 상세 페이지를 두 번 마운트해 같은 조회를 반복하지 않는다.
+  if (checkingAuth) return <StatusNotice type="loading" title="로그인 상태를 확인하고 있어요." />;
+  return <JarDetailPage key={`${userId}:${jarId}`} onSuccess={onSuccess} />;
 }

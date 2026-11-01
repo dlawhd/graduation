@@ -19,11 +19,17 @@ function clipAndClose(source, plane, trim) {
   const position=source.attributes.position,sourceIndex=source.index;
   const positions=[],indices=[[],[]],vertexMap=new Map(),nodes=[],buckets=new Map(),edges=new Map();
   const epsilon=1e-6;
-  const point=i=>({x:position.getX(i),y:position.getY(i),z:position.getZ(i)});
+  // 여러 삼각형이 같은 원본 정점을 공유한다. 읽기/Float32 변환/좌표 키 생성은 정점마다 한 번만 한다.
+  // 이 절단 호출 안에서만 보관하며 원본 BufferAttribute나 사진 데이터는 변경하지 않는다.
+  const sourcePoints=new Array(position.count),bodyVertices=new WeakMap(),baseVertices=new WeakMap();
+  const point=i=>sourcePoints[i]??(sourcePoints[i]={x:position.getX(i),y:position.getY(i),z:position.getZ(i)});
   const vertex=(p,base=false)=>{
+    // 바닥은 몸통과 좌표가 같아도 법선을 분리해야 한다. 두 번호 캐시는 섞지 않는다.
+    const cached=base?baseVertices:bodyVertices,known=cached.get(p);
+    if(known!==undefined)return known;
     const coordinates=[p.x,p.y,p.z].map(Math.fround),key=`${base?"base":"body"}:${coordinates.join(",")}`;
     if(!vertexMap.has(key)){vertexMap.set(key,positions.length/3);positions.push(...coordinates);}
-    return vertexMap.get(key);
+    const index=vertexMap.get(key);cached.set(p,index);return index;
   };
   // 같은 교차점이 계산 순서에 따라 미세하게 달라도 닫힌 고리가 되도록 가까운 점을 공유한다.
   const cutNode=p=>{
@@ -41,7 +47,14 @@ function clipAndClose(source, plane, trim) {
     return Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx);
   };
   for(const group of source.groups)for(let offset=group.start;offset<group.start+group.count;offset+=3) {
-    const triangle=[0,1,2].map(j=>point(sourceIndex.getX(offset+j))), clipped=[];
+    const a=point(sourceIndex.getX(offset)),b=point(sourceIndex.getX(offset+1)),c=point(sourceIndex.getX(offset+2));
+    // 바닥과 만나지 않는 대다수의 면은 절단할 필요가 없다. 면 순서와 퇴화 면 제외 기준은 그대로다.
+    if(a.y>=plane&&b.y>=plane&&c.y>=plane) {
+      if(crossArea(a,b,c)>=1e-13)indices[group.materialIndex].push(vertex(a),vertex(b),vertex(c));
+      continue;
+    }
+    if(a.y<plane&&b.y<plane&&c.y<plane)continue;
+    const triangle=[a,b,c],clipped=[];
     const below=triangle.some(p=>p.y<plane);
     for(let j=0;j<3;j++) {
       const a=triangle[j],b=triangle[(j+1)%3],inside=a.y>=plane,nextInside=b.y>=plane;

@@ -313,7 +313,7 @@ class RefreshTokenServiceTest {
         refreshTokenService.revokeIfPresent(raw);
 
         // then
-        assertThat(token.getRevokedAt()).isNotNull();
+        verify(refreshTokenRepository).revokeSession(eq(1L), eq(token.getSessionId()), any());
 
         verify(refreshTokenRepository)
                 .findByTokenHashForUpdate(hash);

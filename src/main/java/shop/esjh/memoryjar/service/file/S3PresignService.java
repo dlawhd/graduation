@@ -62,8 +62,10 @@ public class S3PresignService {
         // 4. 업로드 요청 정보 만들기
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(s3Properties.getBucket())
-                .key(s3Key)
+                // 브라우저에는 임시 위치의 쓰기 권한만 준다. 완료 파일의 주소는 서명하지 않는다.
+                .key(stagingKey(s3Key))
                 .contentType(request.contentType())
+                .contentLength(request.size())
                 .build();
 
         // 5. presigned URL 유효 시간
@@ -92,6 +94,11 @@ public class S3PresignService {
                 publicUrl,
                 expiresAt
         );
+    }
+
+    /** API가 반환하는 첨부 키는 유지하면서 실제 직접 업로드는 별도 임시 객체로 격리한다. */
+    static String stagingKey(String finalKey) {
+        return finalKey + ".pending";
     }
 
     // contentType 검증

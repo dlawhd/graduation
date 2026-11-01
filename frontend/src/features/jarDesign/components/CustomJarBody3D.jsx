@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPhotoTextureLoader } from "../photoTextureLoader.mjs";
 import { BufferGeometry, DirectionalLight, Group, HemisphereLight, Mesh,
   MeshStandardMaterial, OrthographicCamera, Scene, Vector3, WebGLRenderer,CanvasTexture,SRGBColorSpace,NearestFilter,LinearFilter,LinearMipmapLinearFilter } from "three";
 import { bodyWorldPoint, body3DProfile, bodyRotation, bodyPhotoSurface, bodyViewExtent, projectedSurfaceMatrix,
@@ -37,8 +38,8 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
     const body=renderProfile, points=body?.renderOutline.map(bodyWorldPoint);
     const rasterHollow=!imageOnly&&!preparedBody&&outlineOnly&&!imageUrl&&Boolean(customBody?.artworkUrl);
     let renderer, geometry, faceMaterial, photoMaterial, backMaterial, reliefCleanup, bodyMesh, observer, texture, textureImage, photoTexture, photoImage, photoVersion=0, frame=0, disposed=false;
-    let photoUrl="";
-    let photoSource,borderSource,photoAbort;
+    let photoLoader;
+    let borderSource;
     const borderAbort=new AbortController();
     const fetchBlob=async(path,signal)=>(await apiClient.get(path,{responseType:"blob",signal,timeout:15000})).data;
     let borderReady=!customBody?.artworkUrl,photoReady=!imageUrl;
@@ -51,7 +52,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       try {
       // 클릭 계측은 뷰어가 소유한다. StrictMode의 정리→재실행에서 취소하면 완료 기록이 사라진다.
       // 폐기한 효과의 출력은 disposed로 차단하고, 실제 2D 전환 취소는 뷰어에서 처리한다.
-      photoAbort?.abort();borderAbort.abort();photoSource?.dispose();borderSource?.dispose();
+      photoLoader?.dispose();borderAbort.abort();borderSource?.dispose();
       cancelAnimationFrame(frame);
       observer?.disconnect();
       stage.removeEventListener("pointerdown",start);
@@ -198,19 +199,17 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       /** 사진 URL/배치가 바뀌어도 몸통 geometry는 재사용하고 이전 비동기 이미지 결과만 폐기한다. */
       function updatePhoto(url,placement,style,pixelRendering) {
         const version=++photoVersion;
-        const reuse=photoUrl===url&&photoImage?.complete&&photoImage.naturalWidth>0;
-        if(photoImage){photoImage.onload=null;photoImage.onerror=null;}
-        if(!reuse){photoAbort?.abort();photoSource?.dispose();photoSource=null;}
         photoReady=!url;refreshReady();
-        if(!url)return;
+        if(!url){photoLoader.update(null,imageTextureUrl,()=>{});return;}
         const endPhotoLoad=effectTiming?.start("photoLoadToOnload");
+        let loadRecorded=false;
         // 기존 배경 편집 마스크를 무시해서 보여주지 않는다. 이런 Draft는 기존 2D에서 정확히 표시한다.
         if(!imageOnly&&style&&Object.values(style).some(v=>v!=null&&v!=="")) {
           fail("배경 편집이 있는 디자인은 원본 편집을 유지한 2D로 보여드려요.");return;
         }
         const paint=()=>{
           if(disposed||version!==photoVersion)return;
-          endPhotoLoad?.();
+          if(!loadRecorded){endPhotoLoad?.();loadRecorded=true;}
           const endPhotoPaint=effectTiming?.start("photoCanvasAndTexture");
           try {
             // 슬라이더로 배치만 바꾸면 같은 디코딩 이미지/Canvas/텍스처를 재사용해 반복 GET과 GPU 할당을 막는다.
@@ -247,18 +246,16 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
           } catch {fail("사진을 곡면에 불러오지 못했어요. 원본 배치를 유지한 2D로 보여드려요.");}
           finally {endPhotoPaint?.();}
         };
-        if(reuse){paint();return;}
-        photoImage=new Image();photoImage.crossOrigin="anonymous";photoUrl=url;
-        photoImage.onload=paint;
-        photoImage.onerror=()=>{if(!disposed&&version===photoVersion)fail("3D 사진을 불러오지 못했어요. 기존 2D로 보여드려요.");};
-        photoAbort=new AbortController();
-        const endPhotoSource=effectTiming?.start("photoSource");
-        openTextureSource(url,imageTextureUrl,{fetchBlob,signal:photoAbort.signal}).then(source=>{
-          if(disposed||version!==photoVersion){source.dispose();return;}
-          endPhotoSource?.();
-          photoSource=source;photoImage.src=source.url;
-        }).catch(()=>{if(!disposed&&version===photoVersion)photoImage.onerror?.();});
+        photoLoader.update(url,imageTextureUrl,image=>{photoImage=image;paint();});
       }
+      photoLoader=createPhotoTextureLoader({
+        openSource:async(url,textureUrl,signal)=>{
+          const endPhotoSource=effectTiming?.start("photoSource");
+          try{return await openTextureSource(url,textureUrl,{fetchBlob,signal});}
+          finally{endPhotoSource?.();}
+        },
+        onError:()=>fail("3D 사진을 불러오지 못했어요. 기존 2D로 보여드려요."),
+      });
       controllerRef.current={reset:()=>rotate(0,0),turn:delta=>rotate(yaw+delta,pitch),refresh:schedule,updatePhoto};
       if(customBody?.artworkUrl) {
         // 권한 확인 뒤 발급한 PNG만 읽는다. 읽기/CORS 실패 시 단색으로 속이지 않고 원본을 보존한 2D로 복구한다.
@@ -295,7 +292,8 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
               stage.dataset.externalDecorationCount=String(decorationCleanup.count);
             } else if(imageUrl) {
               // 사진이 테두리보다 먼저 도착했어도 원본을 재요청하지 않고 꾸밈만 다시 합성한다.
-              controllerRef.current?.updatePhoto(imageUrl,photoFrame,imageStyle,imageRendering);
+              // 로딩 중인 사진은 기다리고, 완료된 사진만 최신 배치로 다시 합성한다.
+              photoLoader.repaint();
             }
             borderReady=true;refreshReady();schedule();
           } catch {fail("테두리 색을 3D로 불러오지 못했어요. 원본 색을 유지한 2D로 보여드려요.");}

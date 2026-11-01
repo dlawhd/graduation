@@ -11,6 +11,31 @@ import java.util.Optional;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
+    // API 응답 DTO와 분리한 목록 전용 값 조회다. 작성자 엔티티 전체나 변경 감지 상태를 읽지 않는다.
+    String LIST_ROW_SELECT = """
+            select new shop.esjh.memoryjar.repository.note.NoteListRow(
+                n.noteId, n.title, n.content, n.noteDate, n.location,
+                a.id, a.name, n.isEncrypted, n.createdAt, n.tags)
+            from Note n join n.author a
+            """;
+    String SEARCH_FILTER = """
+            where n.jar.jarId = :jarId
+              and (:q = '' or lower(n.title) like :q escape '!'
+                or lower(n.content) like :q escape '!' or lower(n.location) like :q escape '!')
+              and (:tag = '' or function('json_search', lower(cast(n.tags as string)), 'one', :tag, '!') is not null)
+            """;
+
+    /** 기존 목록의 정렬·전체 개수·soft delete 규칙은 그대로 사용한다. */
+    @Query(value = LIST_ROW_SELECT + "where n.jar.jarId = :jarId order by n.createdAt desc, n.noteId desc",
+            countQuery = "select count(n) from Note n where n.jar.jarId = :jarId")
+    Page<NoteListRow> findListRowsByJarId(@Param("jarId") Long jarId, Pageable pageable);
+
+    /** 검색은 미리보기 앞부분이 아니라 전체 본문에서 수행한다. 목록·개수 조회가 같은 조건을 공유한다. */
+    @Query(value = LIST_ROW_SELECT + SEARCH_FILTER + "order by n.createdAt desc, n.noteId desc",
+            countQuery = "select count(n) from Note n " + SEARCH_FILTER)
+    Page<NoteListRow> searchListRowsByJarId(@Param("jarId") Long jarId, @Param("q") String q,
+                                          @Param("tag") String tag, Pageable pageable);
+
     /** 없는 리액션 행 대신 항상 존재하는 쪽지를 잠가 첫 등록도 순서대로 처리한다. */
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select n from Note n where n.noteId = :noteId and n.jar.jarId = :jarId")
@@ -20,19 +45,8 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     Optional<Note> findByNoteId(Long noteId);
 
     // 컬렉션 fetch join 없이 작성자만 함께 읽어 페이지 크기와 전체 개수를 정확하게 유지한다.
-    @Query(value = """
-            select n from Note n join fetch n.author
-            where n.jar.jarId = :jarId
-              and (:q = '' or lower(n.title) like :q escape '!'
-                or lower(n.content) like :q escape '!' or lower(n.location) like :q escape '!')
-              and (:tag = '' or function('json_search', lower(cast(n.tags as string)), 'one', :tag, '!') is not null)
-            order by n.createdAt desc, n.noteId desc
-            """, countQuery = """
-            select count(n) from Note n where n.jar.jarId = :jarId
-              and (:q = '' or lower(n.title) like :q escape '!'
-                or lower(n.content) like :q escape '!' or lower(n.location) like :q escape '!')
-              and (:tag = '' or function('json_search', lower(cast(n.tags as string)), 'one', :tag, '!') is not null)
-            """)
+    @Query(value = "select n from Note n join fetch n.author " + SEARCH_FILTER + "order by n.createdAt desc, n.noteId desc",
+            countQuery = "select count(n) from Note n " + SEARCH_FILTER)
     Page<Note> searchByJarId(@Param("jarId") Long jarId, @Param("q") String q,
             @Param("tag") String tag, Pageable pageable);
 

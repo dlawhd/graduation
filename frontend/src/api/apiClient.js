@@ -16,6 +16,29 @@ let csrfToken = "";
 // refresh 요청이 여러 번 동시에 나가지 않게 막는 변수
 // 예: API 5개가 동시에 401이 나도 refresh는 1번만 실행되게 함
 let refreshPromise = null;
+let refreshController = null;
+let authEpoch = 0;
+let changingAuth = false;
+
+/** 로그아웃 시작 즉시 이전 요청의 재시도를 차단한다. 서버의 로그인 묶음 폐기가 보안 경계다. */
+export function beginAuthChange() {
+  authEpoch += 1;
+  changingAuth = true;
+  refreshController?.abort();
+  refreshPromise = null;
+}
+
+export function finishAuthChange() {
+  changingAuth = false;
+}
+
+function staleRequest(config) {
+  return config?._authEpoch !== undefined && config._authEpoch !== authEpoch;
+}
+
+function authChangedError() {
+  return new axios.CanceledError("로그인 상태가 바뀌어 이전 요청을 취소했습니다.");
+}
 
 // CSRF 토큰 먼저 받아오기
 export async function fetchCsrf() {
@@ -45,6 +68,8 @@ export function clearCsrf() {
 
 // POST/PUT/PATCH/DELETE 요청에는 CSRF 헤더 자동 첨부
 apiClient.interceptors.request.use((config) => {
+  if (staleRequest(config)) throw authChangedError();
+  config._authEpoch = authEpoch;
   const method = (config.method || "get").toLowerCase();
   const unsafeMethods = ["post", "put", "patch", "delete"];
 
@@ -59,7 +84,16 @@ apiClient.interceptors.request.use((config) => {
 // 401이 오면 refresh 후 원래 요청을 한 번 다시 시도
 apiClient.interceptors.response.use(
   // 성공 응답은 그대로 반환
-  (response) => response,
+  (response) => {
+    if (staleRequest(response.config)) throw authChangedError();
+    if (/\/api\/v1\/auth\/(login|signup|logout|password-reset)$/.test(response.config.url || "")) {
+      authEpoch += 1;
+      csrfToken = "";
+      refreshController?.abort();
+      refreshPromise = null;
+    }
+    return response;
+  },
 
   // 실패 응답 처리
   async (error) => {
@@ -71,6 +105,7 @@ apiClient.interceptors.response.use(
     if (!originalRequest) {
       return Promise.reject(error);
     }
+    if (staleRequest(originalRequest)) return Promise.reject(authChangedError());
 
     // 이 요청은 401이 나도 refresh를 시도하지 않기로 표시된 요청이면 그대로 에러 반환
     if (originalRequest._skipAuthRefresh) {
@@ -92,6 +127,7 @@ apiClient.interceptors.response.use(
     if (status !== 401) {
       return Promise.reject(error);
     }
+    if (changingAuth) return Promise.reject(authChangedError());
 
     // 이미 한 번 재시도한 요청이면 또 재시도하지 않음
     // refreshToken까지 만료된 상황에서 무한 반복되는 것을 막기 위함
@@ -104,23 +140,32 @@ apiClient.interceptors.response.use(
     try {
       // refresh는 POST 요청이라 CSRF 토큰이 필요할 수 있음
       await ensureCsrf();
+      if (changingAuth || staleRequest(originalRequest)) throw authChangedError();
 
       // 여러 API가 동시에 401을 받아도 refresh는 한 번만 보내기
       if (!refreshPromise) {
-        refreshPromise = apiClient
-          .post("/api/v1/auth/refresh")
+        const controller = new AbortController();
+        refreshController = controller;
+        const pending = apiClient
+          .post("/api/v1/auth/refresh", null, { signal: controller.signal })
           .finally(() => {
-            refreshPromise = null;
+            if (refreshPromise === pending) {
+              refreshPromise = null;
+              refreshController = null;
+            }
           });
+        refreshPromise = pending;
       }
 
       // refresh가 끝날 때까지 기다림
       await refreshPromise;
+      if (changingAuth || staleRequest(originalRequest)) throw authChangedError();
 
       // refresh 성공 후 새 accessToken 쿠키가 저장되었으므로
       // 원래 실패했던 요청을 다시 보냄
       return apiClient(originalRequest);
     } catch (refreshError) {
+      if (changingAuth || staleRequest(originalRequest)) return Promise.reject(authChangedError());
       // 네트워크/5xx/CSRF 오류는 세션 폐기의 증거가 아니다. 입력과 로그인 상태를 보존한다.
       if (refreshError?.response?.status !== 401) {
         return Promise.reject(refreshError);
@@ -133,6 +178,7 @@ apiClient.interceptors.response.use(
        * 메모리에 남아 있던 기존 토큰도 비운다.
        */
       csrfToken = "";
+      authEpoch += 1;
 
       /*
        * App에 로그인 만료 사실을 전달해서

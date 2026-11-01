@@ -23,6 +23,12 @@ public class SchedulerConfig {
         return scheduler("support-cleanup-");
     }
 
+    /** 일반 업로드 삭제가 지연돼도 AI 작업의 시간 초과 정리는 계속 실행한다. */
+    @Bean
+    public ThreadPoolTaskScheduler fileCleanupTaskScheduler() {
+        return scheduler("file-cleanup-");
+    }
+
     private ThreadPoolTaskScheduler scheduler(String prefix) {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1);

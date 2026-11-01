@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.service.notification;
 
+import shop.esjh.memoryjar.service.BestEffortDelivery;
 import shop.esjh.memoryjar.dto.notification.response.NotificationItemResponse;
 import shop.esjh.memoryjar.dto.notification.response.NotificationListResponse;
 import shop.esjh.memoryjar.dto.notification.response.NotificationReadAllResponse;
@@ -252,10 +253,10 @@ public class NotificationService {
             Long receiverId,
             NotificationItemResponse response
     ) {
-        Runnable sendTask = () -> messagingTemplate.convertAndSend(
+        Runnable sendTask = () -> BestEffortDelivery.send("NOTIFICATION", () -> messagingTemplate.convertAndSend(
                 "/topic/users/" + receiverId + "/notifications",
                 response
-        );
+        ));
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

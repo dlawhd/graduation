@@ -71,6 +71,17 @@ public class FileUpload extends BaseEntity {
     @Column(name = "consumed_at")
     private LocalDateTime consumedAt;
 
+    @Column(name = "staging_cleanup_after", updatable = false)
+    private LocalDateTime stagingCleanupAfter;
+
+    @Column(name = "staging_cleaned_at", updatable = false)
+    private LocalDateTime stagingCleanedAt;
+
+    /** 서명 만료 뒤에도 진행 중인 완료 요청을 위해 10분을 더 기다린다. */
+    public void scheduleStagingCleanup(java.time.OffsetDateTime expiresAt) {
+        this.stagingCleanupAfter = expiresAt.atZoneSameInstant(KST).toLocalDateTime().plusMinutes(10);
+    }
+
     @Builder
     public FileUpload(
             User user,

@@ -316,7 +316,8 @@ class S3PresignServiceTest {
         assertThat(putObjectRequest.bucket()).isEqualTo("test-bucket");
         assertThat(putObjectRequest.contentType()).isEqualTo("image/png");
         assertThat(putObjectRequest.key()).startsWith("notes/");
-        assertThat(putObjectRequest.key()).endsWith(".png");
+        assertThat(putObjectRequest.key()).endsWith(".png.pending");
+        assertThat(putObjectRequest.contentLength()).isEqualTo(1024L);
 
         // signatureDuration도 설정값 300초를 사용해야 함
         assertThat(captured.signatureDuration().getSeconds()).isEqualTo(300);

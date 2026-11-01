@@ -25,7 +25,8 @@ public class User extends BaseEntity{
     private Long id;
 
     // 비밀번호 재설정 시 증가한다. 이전 버전의 JWT는 다른 기기에서도 즉시 거부한다.
-    @Column(name = "session_version", nullable = false)
+    // 이 번호는 Repository의 원자적 증가 쿼리만 변경한다. 오래된 프로필 저장이 폐기된 세션을 되살리지 못하게 한다.
+    @Column(name = "session_version", nullable = false, updatable = false)
     private long sessionVersion;
 
     @Column(nullable = true, length = 255)

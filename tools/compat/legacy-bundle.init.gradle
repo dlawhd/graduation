@@ -1,0 +1,32 @@
+// 과거 앱의 소스와 의존성 선언은 보존하고, 호환 시험 코드만 별도 source set으로 컴파일한다.
+allprojects {
+    afterEvaluate { project ->
+        if (!project.plugins.hasPlugin('java')) return
+        def sources = System.getProperty('memoryjar.compat.sources')
+        if (!sources) throw new GradleException('Compatibility test sources are required')
+        def mainSet = project.sourceSets.main
+        def suite = project.sourceSets.create('legacyCompat') {
+            java.srcDir(sources)
+            resources.srcDir('src/test/resources')
+            resources.include('application-test.yml')
+            compileClasspath += mainSet.output
+            runtimeClasspath += mainSet.output
+        }
+        project.configurations.legacyCompatImplementation.extendsFrom(project.configurations.testImplementation)
+        project.configurations.legacyCompatRuntimeOnly.extendsFrom(project.configurations.testRuntimeOnly)
+        // 현재 저장소의 기존 격리 시험과 같은 JUnit launcher를 시험 산출물에만 사용한다.
+        project.dependencies.add('legacyCompatImplementation', 'org.junit.platform:junit-platform-launcher')
+        project.tasks.register('legacyCompatibilityBundle', Sync) {
+            dependsOn(suite.classesTaskName, project.tasks.named('classes'))
+            into(project.layout.buildDirectory.dir('legacy-compat-runtime'))
+            from(mainSet.output.classesDirs) { into('classes/main') }
+            from(suite.output.classesDirs) { into('classes/compat') }
+            from(mainSet.output.resourcesDir) {
+                into('resources/main')
+                exclude('application-local.yml', 'application-prod.yml')
+            }
+            from(suite.output.resourcesDir) { into('resources/compat') }
+            from(project.configurations.legacyCompatRuntimeClasspath) { into('lib') }
+        }
+    }
+}

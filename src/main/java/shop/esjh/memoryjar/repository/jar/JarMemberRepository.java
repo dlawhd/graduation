@@ -12,6 +12,10 @@ import java.util.Optional;
 
 public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
 
+    /** 삭제 준비에는 본문·사용자를 읽지 않고 잠글 멤버 번호만 정렬해 가져온다. */
+    @Query("select jm.user.id from JarMember jm where jm.jar.jarId = :jarId and jm.deletedAt is null order by jm.user.id")
+    List<Long> findActiveUserIds(@Param("jarId") Long jarId);
+
     //  현재 active 멤버인지 확인
     //  deleted_at 이 null 이면 지금 이 저금통에 참여 중인 상태라고 보면 됌
     boolean existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(Long jarId, Long userId);

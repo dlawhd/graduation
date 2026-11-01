@@ -16,6 +16,43 @@ class JwtTokenProviderTest {
     private static final String SECRET = "01234567890123456789012345678901";
 
     @Test
+    void validatesOnceAndRejectsExpiredWrongKeyAndMalformedTokens() {
+        var provider = new JwtTokenProvider(SECRET, 1800);
+        String valid = provider.createAccessToken("1", Map.of("sessionVersion", 2));
+        assertThat(provider.parseValidatedClaims(valid)).hasValueSatisfying(claims -> {
+            assertThat(claims.getSubject()).isEqualTo("1");
+            assertThat(claims.get("sessionVersion", Number.class).longValue()).isEqualTo(2);
+        });
+        String expired = new JwtTokenProvider(SECRET, -1).createAccessToken("1", Map.of());
+        String wrongKey = new JwtTokenProvider("different-test-key-012345678901234567890", 1800)
+                .createAccessToken("1", Map.of());
+        for (String token : new String[]{null, "", "not-a-jwt", valid + "broken", expired, wrongKey})
+            assertThat(provider.parseValidatedClaims(token)).isEmpty();
+        assertThat(provider.parseValidatedClaims(valid)).isPresent();
+    }
+
+    @Test
+    void sharedParserKeepsDifferentConcurrentUsersAndClaimObjectsSeparate() throws Exception {
+        var provider = new JwtTokenProvider(SECRET, 1800);
+        var tokens = java.util.stream.IntStream.range(0, 32).mapToObj(i ->
+                provider.createAccessToken(String.valueOf(i + 1), Map.of("sessionVersion", i))).toList();
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {
+            var calls = java.util.stream.IntStream.range(0, 512).<java.util.concurrent.Callable<Boolean>>mapToObj(i -> () -> {
+                int user = i % tokens.size();
+                Claims claims = provider.parseValidatedClaims(tokens.get(user)).orElseThrow();
+                assertThat(claims.getSubject()).isEqualTo(String.valueOf(user + 1));
+                assertThat(claims.get("sessionVersion", Number.class).intValue()).isEqualTo(user);
+                assertThatThrownBy(() -> claims.put("testMutation", i)).isInstanceOf(UnsupportedOperationException.class);
+                assertThat(provider.parseValidatedClaims(tokens.get(user)).orElseThrow())
+                        .isNotSameAs(claims).doesNotContainKey("testMutation");
+                return true;
+            }).toList();
+            for (var result : executor.invokeAll(calls)) assertThat(result.get()).isTrue();
+        } finally { executor.shutdownNow(); }
+    }
+
+    @Test
     void createAccessToken_생성한_토큰은_validate가_true를_반환한다() {
         // given
         JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(SECRET, 1800);

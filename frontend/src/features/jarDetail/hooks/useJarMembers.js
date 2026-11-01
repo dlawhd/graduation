@@ -1,3 +1,4 @@
+import { useRequestGate } from "../../../api/useRequestGate";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import apiClient, { fetchCsrf } from "../../../api/apiClient";
 import { ROLE_LABEL } from "../constants/jarDetailLabels";
@@ -15,6 +16,7 @@ import { ROLE_LABEL } from "../constants/jarDetailLabels";
  * 를 JarDetailPage 대신 맡아주는 "멤버 관리 담당자"다.
  */
 export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
+  const requests = useRequestGate(jarId);
   // 저금통에 참여 중인 멤버 목록
   const [members, setMembers] = useState([]);
 
@@ -41,6 +43,7 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
    */
   const loadMembers = useCallback(async () => {
     if (!jarId) return;
+    const isCurrent = requests.begin("members");
 
     setMembersLoading(true);
     setMembersError("");
@@ -48,9 +51,11 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
     try {
       const res = await apiClient.get(`/api/v1/jars/${jarId}/members`);
       const items = res.data?.data?.items || [];
+      if (!isCurrent()) return false;
 
       setMembers(items);
     } catch (e) {
+      if (!isCurrent()) return false;
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -60,14 +65,15 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
       setMembersError(serverMessage);
       setMembers([]);
     } finally {
-      setMembersLoading(false);
+      if (isCurrent()) setMembersLoading(false);
     }
-  }, [jarId]);
+  }, [jarId, requests]);
 
   /*
    * 저금통 상세 페이지에 들어오거나 jarId가 바뀌면 멤버 목록을 다시 불러온다.
    */
   useEffect(() => {
+    setMembers([]);
     loadMembers();
   }, [loadMembers]);
 

@@ -318,7 +318,8 @@ public class JarService {
     ) {
 
         // 1. 현재 사용자가 이 저금통에서 OWNER / ADMIN 인지 확인
-        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        // 권한 확인과 변경 사이에 강등·탈퇴가 끼어들지 못하게 멤버 잠금을 유지한다.
+        JarMember myMember = requireLockedMember(lockActiveMembers(jarId, currentUserId), currentUserId);
         if (!myMember.isAdminOrOwner()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -519,7 +520,7 @@ public class JarService {
     @Transactional
     public JarLeaveResponse leaveJar(Long currentUserId, Long jarId) {
         // 1. 현재 사용자가 이 저금통의 active 멤버인지 확인
-        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        JarMember myMember = requireLockedMember(lockActiveMembers(jarId, currentUserId), currentUserId);
 
         // 2. OWNER는 leave 금지
         if (myMember.isOwner()) {
@@ -603,7 +604,8 @@ public class JarService {
     public JarInviteRevokeResponse revokeInvite(Long currentUserId, Long jarId, Long inviteId) {
 
         // 1. 현재 사용자가 관리자 이상인지 확인
-        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        // 권한 확인과 변경 사이에 강등·탈퇴가 끼어들지 못하게 멤버 잠금을 유지한다.
+        JarMember myMember = requireLockedMember(lockActiveMembers(jarId, currentUserId), currentUserId);
         if (!myMember.isAdminOrOwner()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -612,7 +614,7 @@ public class JarService {
         }
 
         // 2. 초대코드 찾기
-        JarInvite invite = jarInviteRepository.findByInviteIdAndJar_JarId(inviteId, jarId)
+        JarInvite invite = jarInviteRepository.findByIdAndJarIdForUpdate(inviteId, jarId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "초대코드를 찾을 수 없어."
@@ -647,7 +649,8 @@ public class JarService {
             JarMemberRoleUpdateRequest request
     ) {
         // 1. 요청한 사람이 OWNER인지 확인
-        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        Map<Long, JarMember> lockedMembers = lockActiveMembers(jarId, currentUserId, targetUserId);
+        JarMember myMember = requireLockedMember(lockedMembers, currentUserId);
         if (!myMember.isOwner()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -656,7 +659,7 @@ public class JarService {
         }
 
         // 2. 대상 멤버 찾기
-        JarMember targetMember = getActiveMemberOrThrow(jarId, targetUserId);
+        JarMember targetMember = requireLockedMember(lockedMembers, targetUserId);
 
         // 3. OWNER 관련 역할 변경은 막기
         if (targetMember.isOwner()) {
@@ -715,7 +718,8 @@ public class JarService {
     @Transactional
     public JarKickResponse kickMember(Long currentUserId, Long jarId, Long targetUserId) {
         // 1. 요청한 사람이 ADMIN 이상인지 확인
-        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        Map<Long, JarMember> lockedMembers = lockActiveMembers(jarId, currentUserId, targetUserId);
+        JarMember myMember = requireLockedMember(lockedMembers, currentUserId);
         if (!myMember.isAdminOrOwner()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -732,7 +736,7 @@ public class JarService {
         }
 
         // 3. 대상 멤버 찾기
-        JarMember targetMember = getActiveMemberOrThrow(jarId, targetUserId);
+        JarMember targetMember = requireLockedMember(lockedMembers, targetUserId);
 
         // 4. OWNER는 강퇴 불가
         if (targetMember.isOwner()) {
@@ -784,7 +788,8 @@ public class JarService {
     public JarUpdateResponse updateJar(Long currentUserId, Long jarId, JarUpdateRequest request) {
 
         // 1. 현재 사용자가 이 저금통에서 OWNER / ADMIN 인지 확인
-        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        // 권한 확인과 변경 사이에 강등·탈퇴가 끼어들지 못하게 멤버 잠금을 유지한다.
+        JarMember myMember = requireLockedMember(lockActiveMembers(jarId, currentUserId), currentUserId);
         if (!myMember.isAdminOrOwner()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -932,11 +937,20 @@ public class JarService {
 
     // 저금통을 삭제(종료)하는 기능이야.
     // OWNER만 가능, 저금통은 soft delete 처리, 현재 active 멤버들도 같이 leave 처리해서 membership 상태를 정리해줘
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void deleteJar(Long currentUserId, Long jarId) {
 
         // 1. 현재 사용자가 이 저금통의 active 멤버인지 확인
-        JarMember myMember = getActiveMemberOrThrow(jarId, currentUserId);
+        // 권한 없는 요청이 전체 멤버 잠금을 잡지 않도록 먼저 가벼운 소유권 검사로 거절한다.
+        if (!jarRepository.existsByJarIdAndOwner_Id(jarId, currentUserId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "저금통 삭제는 OWNER만 할 수 있어.");
+        }
+        // 채팅과 같은 멤버 → 저금통 순서로 잠근다. 저금통을 잡고 멤버를 기다리면 교착될 수 있다.
+        List<Long> memberIds = jarMemberRepository.findActiveUserIds(jarId);
+        Long[] toLock = java.util.stream.Stream.concat(memberIds.stream(), java.util.stream.Stream.of(currentUserId))
+                .distinct().sorted().toArray(Long[]::new);
+        Map<Long, JarMember> lockedMembers = lockActiveMembers(jarId, toLock);
+        JarMember myMember = requireLockedMember(lockedMembers, currentUserId);
 
         // 2. OWNER만 삭제 가능
         if (!myMember.isOwner()) {
@@ -947,14 +961,19 @@ public class JarService {
         }
 
         // 3. 저금통 찾기
-        Jar jar = jarRepository.findByJarId(jarId)
+        Jar jar = jarRepository.findByJarIdForUpdate(jarId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "저금통을 찾을 수 없어."
                 ));
 
         // 4. 저금통을 삭제할 때, 그 저금통에 속한 멤버들도 더 이상 참여 중이 아니라고 표시
-        List<JarMember> activeMembers = jarMemberRepository.findActiveMembersWithUserByJarId(jarId);
+        // 준비 중 참여가 추가됐다면 모르는 멤버를 Jar 잠금 아래에서 기다리지 않는다.
+        // 모든 변경을 롤백해 재시도하게 하면 삭제된 Jar에 활성 멤버가 남지 않는다.
+        if (!new java.util.HashSet<>(jarMemberRepository.findActiveUserIds(jarId)).equals(lockedMembers.keySet())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "참여자가 변경됐어. 저금통 삭제를 다시 시도해 줘.");
+        }
+        java.util.Collection<JarMember> activeMembers = lockedMembers.values();
         for (JarMember member : activeMembers) {
             member.leave();
         }
@@ -979,6 +998,23 @@ public class JarService {
                         HttpStatus.FORBIDDEN,
                         "현재 저금통 멤버가 아니야."
                 ));
+    }
+
+    /** 역할 검사와 변경이 끝날 때까지 요청자·대상의 멤버 행을 보호한다. */
+    private Map<Long, JarMember> lockActiveMembers(Long jarId, Long... userIds) {
+        Map<Long, JarMember> members = new HashMap<>();
+        // 서로를 강퇴하는 요청도 항상 작은 사용자 번호부터 잠가 교착 상태를 피한다.
+        // 저금통 행까지 잠그면 채팅의 멤버 잠금 → 시스템 메시지 저장 순서와 충돌하므로 멤버만 잠근다.
+        Arrays.stream(userIds).distinct().sorted().forEach(userId ->
+                jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, userId)
+                        .ifPresent(member -> members.put(userId, member)));
+        return members;
+    }
+
+    private JarMember requireLockedMember(Map<Long, JarMember> members, Long userId) {
+        JarMember member = members.get(userId);
+        if (member == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 저금통 멤버가 아니야.");
+        return member;
     }
 
     // 중복되지 않는 초대코드를 만들기 위한 간단한 메서드

@@ -147,6 +147,8 @@ class JarAiGenerationPersistenceServiceTest {
                 .aiModel("fixture").promptVersion("fixture").build();
         when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
         when(generationRepository.findByGenerationIdAndDraft_DraftId(100L, 10L)).thenReturn(Optional.of(generation));
+        org.springframework.test.util.ReflectionTestUtils.setField(generation, "createdAt", java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")));
+        when(draft.isActiveAndNotExpired(any())).thenReturn(true);
         var persistence = service();
         assertThat(persistence.reserveCandidateUpload(10L, 100L, "candidate.png")).isTrue();
         assertThat(persistence.canCleanupFailedCandidate(10L, 100L, "candidate.png")).isFalse();
@@ -172,6 +174,24 @@ class JarAiGenerationPersistenceServiceTest {
         when(generationRepository.findByGenerationIdAndDraft_DraftId(100L, 10L)).thenReturn(Optional.of(generation));
         assertThat(service().canCleanupFailedCandidate(10L, 100L, "candidate.png")).isFalse();
     }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,0,true", "false,601,false", "true,0,false"})
+    void executionGuardRejectsExpiredOrInactiveDraft(boolean inactive, int age, boolean expected) {
+        var draft = mock(JarDesignDraft.class);
+        var generation = JarAiGeneration.builder().draft(draft).aiStyle(JarAiStyle.CUTE_2D)
+                .aiProvider(shop.esjh.memoryjar.enums.ai.JarAiProvider.CLOUDFLARE)
+                .aiModel("fixture").promptVersion("fixture").build();
+        org.springframework.test.util.ReflectionTestUtils.setField(generation, "createdAt",
+                java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")).minusSeconds(age));
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(generationRepository.findByGenerationIdAndDraft_DraftId(100L, 10L)).thenReturn(Optional.of(generation));
+        lenient().when(draft.isActiveAndNotExpired(any())).thenReturn(!inactive);
+        assertThat(service().canContinue(10L, 100L)).isEqualTo(expected);
+        assertThat(generation.getStatus()).isEqualTo(expected ? JarAiGenerationStatus.PROCESSING : JarAiGenerationStatus.FAILED);
+    }
+
 
     private AiPromptCatalog.AiPromptDefinition definition() {
         return new AiPromptCatalog.AiPromptDefinition("prompt", "BASE_V1+CUTE_2D_V1", null, null, null);

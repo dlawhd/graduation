@@ -1,5 +1,6 @@
 package shop.esjh.memoryjar.service.jar;
 
+import shop.esjh.memoryjar.service.BestEffortDelivery;
 import shop.esjh.memoryjar.dto.dailydraw.response.DailyDrawSocketEventResponse;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -60,7 +61,7 @@ public class JarDailyDrawRealtimeService {
         String destination = "/topic/jars/" + jarId + "/daily-draw";
 
         // 실제로 WebSocket 메시지를 보내는 작업
-        Runnable sendTask = () -> messagingTemplate.convertAndSend(destination, event);
+        Runnable sendTask = () -> BestEffortDelivery.send("DAILY_DRAW", () -> messagingTemplate.convertAndSend(destination, event));
 
         // 현재 DB 트랜잭션이 살아 있으면, 커밋이 성공한 뒤에만 이벤트를 보낸다.
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

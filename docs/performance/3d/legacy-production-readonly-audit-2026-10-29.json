@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "observedDateKst": "2026-10-29",
+  "scope": "PRODUCTION_READ_ONLY_AGGREGATES_NOT_LEGACY_DEPLOYMENT_OR_PERFORMANCE",
+  "legacyCommit": "c5f58c4f7440122acba040aa5ab2042284e53987",
+  "databaseRead": {
+    "sessionReadOnly": true,
+    "transactionReadOnly": true,
+    "endedWithRollback": true,
+    "rawRowsOrImagesOrObjectKeysExported": false,
+    "counts": {
+      "schemaVersion": 53,
+      "designTotal": 15,
+      "draftTotal": 60,
+      "designUnsupportedJsonFields": 1,
+      "draftUnsupportedJsonFields": 3,
+      "designPhotoContours": 1,
+      "draftPhotoContours": 3,
+      "designJsonOverOldLength": 0,
+      "draftJsonOverOldLength": 0,
+      "newStyleGenerationCount": 3,
+      "finalDesignsUsingNewStyle": 1,
+      "designsWithArtwork": 1,
+      "draftsWithArtwork": 3,
+      "terminalArtworkDraftsAwaitingOriginalCleanup": 0,
+      "terminalArtworkDraftsMarkedOriginalDeleted": 3
+    },
+    "unsupportedJsonPredicate": "JSON_LENGTH(JSON_REMOVE(custom_body_json, '$.points', '$.color')) > 0",
+    "newStylePredicate": "ai_style NOT IN ('CUTE_2D','SOFT_25D','WATERCOLOR','HAND_DRAWN','WEIRDO','PIXEL')",
+    "countCaveat": "Categories overlap. Do not sum these counts as a number of distinct incompatible jars."
+  },
+  "api": {
+    "revision": "8a5f7cc6e689e23a1d495c31b2f3c3f4a388aade",
+    "imageId": "sha256:a8e4f1212932f983da361306f84c2e61075c96cd3c0df7f96b8a86c84ee201e5",
+    "running": true,
+    "oomKilled": false,
+    "internalHealth": "UP",
+    "startedAtUtc": "2026-10-28T09:46:27.954580326Z",
+    "textureCacheEnv": "unset_default_true",
+    "activeCacheTrial": false
+  },
+  "databaseContainer": {
+    "running": true,
+    "oomKilled": false,
+    "startedAtUtc": "2026-10-18T08:41:18.137631424Z"
+  },
+  "hostSnapshot": {
+    "memTotalKiB": 935968,
+    "memAvailableKiB": 205532,
+    "swapTotalKiB": 1048572,
+    "swapFreeKiB": 525172,
+    "diskFreeMiB": 3682
+  },
+  "actions": {
+    "backendReplaced": false,
+    "databaseMigratedOrRowsModified": false,
+    "cacheOrSecuritySettingsChanged": false,
+    "additionalBackendStarted": false,
+    "newPaidResourcesCreated": false
+  },
+  "decision": "Do not connect the unmodified legacy backend to the shared production database; unsupported stored formats actually exist.",
+  "remaining": [
+    "A resource-isolated historical backend comparison, using compatible fixed test data, remains unperformed.",
+    "The legacy binary's live AWS credentials/signing/download path remains untested.",
+    "No new latency or improvement percentage was measured."
+  ]
+}

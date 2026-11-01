@@ -728,6 +728,7 @@ public class AuthController {
         // name은 사용자 정보로 넣는다.
         claims.put("name", rotation.name());
         claims.put("sessionVersion", rotation.sessionVersion());
+        claims.put("loginSessionId", rotation.sessionId());
 
         // birthyear는 선택값이므로 값이 있을 때만 JWT claims에 넣는다.
         // String.valueOf(null)을 쓰면 "null" 문자열이 들어갈 수 있어서 사용하지 않는다.
@@ -830,6 +831,7 @@ public class AuthController {
 
 
         claims.put("sessionVersion", user.getSessionVersion());
+        claims.put("loginSessionId", shop.esjh.memoryjar.auth.TokenCrypto.sha256Hex(refreshToken));
 
         String accessToken =
                 LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_CREATE, () -> jwtTokenProvider

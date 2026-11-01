@@ -1,3 +1,4 @@
+import { useRequestGate } from "../../../api/useRequestGate";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import apiClient, { fetchCsrf } from "../../../api/apiClient";
 
@@ -18,6 +19,7 @@ const INVITES_PER_PAGE = 2;
  * 를 JarDetailPage 대신 맡아주는 "초대 관리 담당자"다.
  */
 export function useJarInvites({ jarId, jar }) {
+  const requests = useRequestGate(jarId);
   // 초대코드 목록 상태
   const [invites, setInvites] = useState([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
@@ -53,6 +55,7 @@ export function useJarInvites({ jarId, jar }) {
    */
   const loadInvites = useCallback(async () => {
     if (!jarId) return;
+    const isCurrent = requests.begin("invites");
 
     setInvitesLoading(true);
     setInvitesError("");
@@ -60,6 +63,7 @@ export function useJarInvites({ jarId, jar }) {
     try {
       const res = await apiClient.get(`/api/v1/jars/${jarId}/invites`);
       const items = res.data?.data?.items || [];
+      if (!isCurrent()) return false;
 
       setInvites(items);
 
@@ -73,6 +77,7 @@ export function useJarInvites({ jarId, jar }) {
         )
       );
     } catch (e) {
+      if (!isCurrent()) return false;
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -82,26 +87,27 @@ export function useJarInvites({ jarId, jar }) {
       setInvitesError(serverMessage);
       setInvites([]);
     } finally {
-      setInvitesLoading(false);
+      if (isCurrent()) setInvitesLoading(false);
     }
-  }, [jarId]);
+  }, [jarId, requests]);
 
   /*
    * OWNER/ADMIN이면 초대 목록을 불러오고,
    * 일반 멤버라면 초대 목록 상태를 비운다.
    */
   useEffect(() => {
-    if (!jar) return;
+    if (!jar || String(jar.jarId) !== String(jarId)) return;
 
     if (canManageInvites) {
       loadInvites();
       return;
     }
 
+    requests.begin("invites");
     setInvites([]);
     setInvitesError("");
     setInvitesLoading(false);
-  }, [jar, canManageInvites, loadInvites]);
+  }, [jar, jarId, canManageInvites, loadInvites, requests]);
 
   /*
    * 페이지를 다시 열어도 내가 숨긴 폐기 코드는 그대로 안 보이게 저장값을 꺼낸다.

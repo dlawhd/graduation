@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-29",
+  "environment": "production",
+  "comparisonScope": "현재 백엔드·서버 캐시·DB를 유지한 프론트 버전 비교의 최종 버전 기록",
+  "source": {
+    "fileName": "sisi.json.gz",
+    "sha256": "12a4393e44d2e195892985c66a2a169bcfa161627a144f7028eecc01735be722",
+    "eventCount": 96983,
+    "recordingStartTsUs": 1052306968014,
+    "recordingStartKst": "2026-10-29T18:07:26.638+09:00",
+    "rendererPid": 11632,
+    "mainTid": 42820,
+    "snapshotCount": 450,
+    "lastSnapshotMs": 7639.853,
+    "recorded3dChunk": "CustomJarBody3D-BpUahB40.js"
+  },
+  "deploymentContext": {
+    "commit": "491ffa41b1f68266fcc26fce8f8bc180f7ff1628",
+    "deploymentId": "7nxVGo78jVUA28rr3uDiyLBvTeTi",
+    "verification": "측정 전 배포 및 운영 적용 확인, 파일 수신 후 Vercel Current 재확인. trace의 운영 메인 프로세스와 /jars/112 이미지 요청을 대조. trace 자체에 Git 커밋이 내장된 것은 아님"
+  },
+  "method": "3D 클릭 처리 시작부터 흰 사진 자리가 실제 사진으로 바뀐 최초 기록 캡처까지. 최초 클릭 뒤 남아 있던 2D 사진은 완료로 세지 않음. 실제 모니터 출력·GPU 완료 시각은 아님.",
+  "records": [
+    {
+      "transition": 1,
+      "phase": "first-recorded",
+      "clickMs": 947.794,
+      "return2dClickMs": 2866.066,
+      "imageRequest": {
+        "sendMs": 1677.609,
+        "responseMs": 1798.709,
+        "finishMs": 1800.916,
+        "sendToFinishMs": 123.307,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": {
+        "lastObservedWithoutPhotoMs": 1932.642,
+        "firstObservedWithPhotoMs": 1944.592,
+        "clickToLastWithoutPhotoMs": 984.848,
+        "clickToFirstWithPhotoMs": 996.798,
+        "classification": "인접한 전후 캡처를 직접 확인"
+      }
+    },
+    {
+      "transition": 2,
+      "phase": "repeat",
+      "clickMs": 3602.445,
+      "return2dClickMs": 4754.778,
+      "imageRequest": {
+        "sendMs": 3937.319,
+        "responseMs": 3985.185,
+        "finishMs": 3986.582,
+        "sendToFinishMs": 49.263,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": {
+        "lastObservedWithoutPhotoMs": 4029.799,
+        "firstObservedWithPhotoMs": 4036.218,
+        "clickToLastWithoutPhotoMs": 427.354,
+        "clickToFirstWithPhotoMs": 433.773,
+        "classification": "인접한 전후 캡처를 직접 확인"
+      }
+    },
+    {
+      "transition": 3,
+      "phase": "repeat",
+      "clickMs": 5554.259,
+      "return2dClickMs": 6646.034,
+      "imageRequest": {
+        "sendMs": 5835.734,
+        "responseMs": 5895.784,
+        "finishMs": 5897.84,
+        "sendToFinishMs": 62.106,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": {
+        "lastObservedWithoutPhotoMs": 5936.82,
+        "firstObservedWithPhotoMs": 5951.628,
+        "clickToLastWithoutPhotoMs": 382.561,
+        "clickToFirstWithPhotoMs": 397.369,
+        "classification": "인접한 전후 캡처를 직접 확인"
+      }
+    },
+    {
+      "transition": 4,
+      "phase": "repeat",
+      "clickMs": 7430.431,
+      "return2dClickMs": 8531.229,
+      "imageRequest": {
+        "sendMs": 7761.11,
+        "responseMs": 7803.025,
+        "finishMs": 7804.546,
+        "sendToFinishMs": 43.436,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": null,
+      "notMeasuredReason": "사진 표시 전 화면 캡처 기록이 끝남"
+    },
+    {
+      "transition": 5,
+      "phase": "repeat",
+      "clickMs": 9284.453,
+      "return2dClickMs": 10378.375,
+      "imageRequest": {
+        "sendMs": 9650.278,
+        "responseMs": 9694.96,
+        "finishMs": 9698.739,
+        "sendToFinishMs": 48.461,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": null,
+      "notMeasuredReason": "사진 표시 전 화면 캡처 기록이 끝남"
+    },
+    {
+      "transition": 6,
+      "phase": "repeat",
+      "clickMs": 11204.59,
+      "return2dClickMs": 12464.965,
+      "imageRequest": {
+        "sendMs": 11517.389,
+        "responseMs": 11577.009,
+        "finishMs": 11579.29,
+        "sendToFinishMs": 61.901,
+        "status": 200,
+        "browserFromCache": false
+      },
+      "filmstrip": null,
+      "notMeasuredReason": "사진 표시 전 화면 캡처 기록이 끝남"
+    }
+  ],
+  "aggregates": {
+    "completeDisplaySamples": 3,
+    "incompleteDisplaySamples": 3,
+    "firstDisplayObservedMs": 996.798,
+    "repeatDisplayObservedMs": [
+      433.773,
+      397.369
+    ],
+    "repeatDisplaySampleCount": 2,
+    "plannedRepeatDisplaySampleCount": 5,
+    "repeat5DisplayMedianMs": null,
+    "imageRepeat5MedianMs": 49.263
+  },
+  "limitations": [
+    "4~6회에는 사진 완료 캡처가 없어 전체 표시 시간과 반복 5회 표시 중앙값을 확정하지 않음.",
+    "첫 전환은 모든 브라우저·서버 캐시를 비운 실행이 아님. fromCache=false는 브라우저 응답 표식이며 서버 캐시 MISS를 뜻하지 않음.",
+    "CPU·네트워크 제한 설정은 trace metadata에 없어 파일만으로 독립 확인하지 않음. 같은 창 크기·배율 유지 절차에 의존.",
+    "스크린샷 크기 350×498은 저장된 캡처 크기이며 실제 viewport 크기로 단정하지 않음.",
+    "이미지 요청 시간은 전체 표시 관측 안에 포함되므로 더하지 않음.",
+    "원본·사진·URL·헤더·인증정보를 Git에 복사하지 않음. 운영 전후 개선율은 아직 없음."
+  ],
+  "combinedObservations": {
+    "sources": [
+      "sisi.json.gz",
+      "asdasd"
+    ],
+    "firstDisplaySamplesMs": [
+      996.798,
+      953.296
+    ],
+    "repeatDisplaySamplesMs": [
+      433.773,
+      397.369,
+      518.698,
+      496.836
+    ],
+    "repeatDisplaySampleCount": 4,
+    "repeatDisplayMedianMs": 465.3045,
+    "note": "별도 두 기록의 첫 전환 각 1회와 반복 각 2회. 원래 6회의 누락값을 채우거나 반복 5회 중앙값으로 설명하지 않음.",
+    "recordingStartGapSeconds": 8459.976
+  },
+  "legacyFrontendTrial": {
+    "baselineCommit": "dd6e50b31ee9405f41a255152510367aa9d27cca",
+    "baselineDeploymentId": "6msHX2DfoxHLd4FZdju2EdzVsFRk",
+    "baselineEntry": "index-Cge89zpq.js",
+    "outcome": "photo-load-error-returned-to-2d",
+    "successfulTransitionTimeMs": null,
+    "productionImprovementPercent": null,
+    "restoredCommit": "491ffa41b1f68266fcc26fce8f8bc180f7ff1628",
+    "restoredDeploymentId": "7nxVGo78jVUA28rr3uDiyLBvTeTi",
+    "restoredEntry": "index-DQf0JCme.js",
+    "restoredFunctionChecks": [
+      "photo-visible",
+      "left-rotation",
+      "reset-to-front",
+      "return-to-2d",
+      "repeat-3d-ready"
+    ],
+    "backendCacheDatabaseChangedByThisTrial": false
+  }
+}

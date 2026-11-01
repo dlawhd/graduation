@@ -45,18 +45,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
         }
 
-        // 기존 검증·파싱 횟수와 인증 결과를 유지한다. 진단이 켜진 허용 경로에서만 시간을 보존한다.
-        if (jwt != null && LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_VALIDATE,
-                () -> jwtTokenProvider.validate(jwt))) {
-
-            Claims claims = LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_CLAIMS_PARSE,
-                    () -> jwtTokenProvider.getClaimsFromToken(jwt));
+        // 기존 인증 결과와 계측 항목은 유지한다. 검증 후 다시 파싱하지 않고 같은 결과를 사용한다.
+        // JWT_VALIDATE 안에 JWT_CLAIMS_PARSE가 포함되므로 두 시간을 합산하면 안 된다.
+        Claims claims = jwt == null ? null : LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_VALIDATE,
+                () -> LoginDiagnostics.measure(LoginDiagnostics.Stage.JWT_CLAIMS_PARSE,
+                        () -> jwtTokenProvider.parseValidatedClaims(jwt).orElse(null)));
+        if (claims != null) {
 
             // ✅ subject = userId (String)
             String userId = claims.getSubject();
             Number versionClaim = claims.get("sessionVersion", Number.class);
             long sessionVersion = versionClaim == null ? 0L : versionClaim.longValue();
-            if (!sessionValidityService.isCurrent(Long.parseLong(userId), sessionVersion)) {
+            String loginSessionId = claims.get("loginSessionId", String.class);
+            boolean current = loginSessionId == null
+                    ? sessionValidityService.isCurrent(Long.parseLong(userId), sessionVersion)
+                    : sessionValidityService.isCurrent(Long.parseLong(userId), sessionVersion, loginSessionId);
+            if (!current) {
                 SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
                 return;
@@ -72,6 +76,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             principal.put("name", name);
             principal.put("birthyear", birthyear);
             principal.put("sessionVersion", sessionVersion);
+            principal.put("loginSessionId", loginSessionId);
             principal.put("tokenExpiresAt", claims.getExpiration().getTime());
 
             UsernamePasswordAuthenticationToken auth =

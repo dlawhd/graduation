@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-28",
+  "scope": "LOCAL_FUNCTIONAL_COMPATIBILITY_NOT_PRODUCTION_OR_PERFORMANCE",
+  "legacyBackendCommit": "c5f58c4f7440122acba040aa5ab2042284e53987",
+  "schemaSourceCommit": "8a5f7cc6e689e23a1d495c31b2f3c3f4a388aade",
+  "runId": "legacy-compat-db735bf0189e",
+  "fixture": {
+    "sourceJarId": 112,
+    "sha256": "dff47731bbb3bef9aad370d518a030be6bb7fa8ba737ff33eca76bdf108f3106",
+    "type": "explicitly-approved-anonymized-display-fields",
+    "realUserAndCredentialsCopied": false,
+    "imageAndS3KeyCopied": false,
+    "rawDataInRepository": false,
+    "temporaryRawCopyRemovedAfterVerification": true
+  },
+  "legacyMainIntegrity": {
+    "checkedFiles": 385,
+    "exactByteMatches": 2,
+    "onlyWindowsLineEndingDifferences": 383,
+    "otherDifferences": 0,
+    "gitBlobManifestSha256": "7946f1c010c27013edca8f7ef7d8e210e182ff90dd8ef323abfafffb2fede58b"
+  },
+  "testSourceHashes": {
+    "tools/compat/java/shop/esjh/memoryjar/compat/LegacyBackendCompatibilityTest.java": "a8782948ab12437de2767753029db37147e3a8505c6e778ad04c0c80d92201a0",
+    "tools/compat/java/shop/esjh/memoryjar/compat/LegacyCompatibilityLauncher.java": "c9e6defc73f918b1ccf94c5984b5e27c57d7833020ac145f946b75d2db03a702",
+    "tools/compat/legacy-bundle.init.gradle": "4d51f164ef41fa39a55cc1aff845c6b5c4b3cc72c7e2e66dc1ab25497baea415",
+    "tools/compat/run-legacy-backend.ps1": "2b6290bd80e52fdff70157f3b5ce91598cbb9e4edcf8aac326dc5e7cfa7209f6"
+  },
+  "results": [
+    {
+      "schemaVersion": 51,
+      "backendCommit": "c5f58c4f7440122acba040aa5ab2042284e53987",
+      "testsFound": 7,
+      "testsSucceeded": 7,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "networkIsolationVerified": true,
+      "failures": []
+    },
+    {
+      "schemaVersion": 53,
+      "backendCommit": "c5f58c4f7440122acba040aa5ab2042284e53987",
+      "testsFound": 7,
+      "testsSucceeded": 7,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "networkIsolationVerified": true,
+      "failures": []
+    }
+  ],
+  "totalTestsSucceeded": 14,
+  "checks": [
+    "old application startup and JPA/Flyway validation",
+    "anonymous read and missing CSRF rejection",
+    "wrong-password rejection",
+    "real login, authenticated session/list/detail and repeated detail reads",
+    "same outline, photo placement/fit and slot placement/style preserved",
+    "non-member 403 and absent-jar 404",
+    "future photoContours JSON and new AI style unsupported as expected",
+    "logout removes read access",
+    "no unexpected external provider calls after every test"
+  ],
+  "isolation": {
+    "dockerContext": "desktop-linux",
+    "temporaryInternalNetworks": true,
+    "hostPortsPublished": false,
+    "hostDockerSocketOrAwsCredentialsMounted": false,
+    "publicAndProductionAndMetadataTcpBlocked": true,
+    "temporaryContainersAndNetworksRemoved": true
+  },
+  "limitations": [
+    "Fresh V51/V53 databases were generated from pinned migrations; the entire production DB and its rows were not copied.",
+    "Only approved jar 112 display fields were reused; account, owner, name, dates and image key were replaced with test values.",
+    "S3, presigner, SES, Rekognition, Cloudflare and automatic cleanup schedulers were test doubles; live external SDK initialization, signed images and downloads were not tested.",
+    "Authentication, cookies, CSRF, authorization, Jar services, repositories, JPA and MariaDB used the real old implementation.",
+    "Successful reads for this fixture do not prove compatibility of all stored designs, especially new JSON fields and styles.",
+    "No browser 3D, production replacement or latency comparison was performed."
+  ]
+}

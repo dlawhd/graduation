@@ -21,8 +21,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -49,12 +54,23 @@ class JwtAuthenticationFilterTest {
     @Test
     void revokedAccessTokenReturns401EvenWithValidSignature() throws Exception {
         Claims claims = Mockito.mock(Claims.class);
-        when(jwtTokenProvider.validate("revoked")).thenReturn(true);
-        when(jwtTokenProvider.getClaimsFromToken("revoked")).thenReturn(claims);
+        when(jwtTokenProvider.parseValidatedClaims("revoked")).thenReturn(Optional.of(claims));
         when(claims.getSubject()).thenReturn("1");
         when(sessionValidityService.isCurrent(1L, 0L)).thenReturn(false);
         mockMvc.perform(get("/secure").cookie(new Cookie("accessToken", "revoked")))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void loggedOutDeviceAccessTokenIsRejectedEvenWhenUserVersionMatches() throws Exception {
+        Claims claims = Mockito.mock(Claims.class);
+        when(jwtTokenProvider.parseValidatedClaims("old-device")).thenReturn(Optional.of(claims));
+        when(claims.getSubject()).thenReturn("1");
+        when(claims.get("loginSessionId", String.class)).thenReturn("closed-session");
+        when(sessionValidityService.isCurrent(1L, 0L, "closed-session")).thenReturn(false);
+        mockMvc.perform(get("/secure").cookie(new Cookie("accessToken", "old-device")))
+                .andExpect(status().isUnauthorized());
+        verify(sessionValidityService, never()).isCurrent(1L, 0L);
     }
 
     @Test
@@ -68,10 +84,9 @@ class JwtAuthenticationFilterTest {
         Claims claims = Mockito.mock(Claims.class);
 
         // 3. 토큰 검증 성공으로 설정
-        when(jwtTokenProvider.validate(accessToken)).thenReturn(true);
+        when(jwtTokenProvider.parseValidatedClaims(accessToken)).thenReturn(Optional.of(claims));
 
         // 4. 토큰에서 꺼낸 정보도 우리가 원하는 값으로 넣기
-        when(jwtTokenProvider.getClaimsFromToken(accessToken)).thenReturn(claims);
         when(claims.getSubject()).thenReturn("1");
         when(claims.getExpiration()).thenReturn(new java.util.Date(System.currentTimeMillis() + 60_000));
         when(sessionValidityService.isCurrent(1L, 0L)).thenReturn(true);
@@ -88,6 +103,11 @@ class JwtAuthenticationFilterTest {
                 .andExpect(jsonPath("$.email").value("test@example.com"))
                 .andExpect(jsonPath("$.name").value("은서"))
                 .andExpect(jsonPath("$.birthyear").value("2000"));
+        // 필터가 같은 토큰을 다시 검증·파싱하는 회귀를 잡되 세션 폐기 확인은 계속 수행한다.
+        verify(jwtTokenProvider, times(1)).parseValidatedClaims(accessToken);
+        verify(jwtTokenProvider, never()).validate(Mockito.anyString());
+        verify(jwtTokenProvider, never()).getClaimsFromToken(Mockito.anyString());
+        verify(sessionValidityService, times(1)).isCurrent(1L, 0L);
     }
 
     @Test
@@ -96,6 +116,7 @@ class JwtAuthenticationFilterTest {
 
         mockMvc.perform(get("/secure"))
                 .andExpect(status().isUnauthorized());
+        verifyNoInteractions(jwtTokenProvider, sessionValidityService);
     }
 
     @Test
@@ -105,11 +126,12 @@ class JwtAuthenticationFilterTest {
         String accessToken = "invalid-token";
 
         // 토큰 검증 실패
-        when(jwtTokenProvider.validate(accessToken)).thenReturn(false);
+        when(jwtTokenProvider.parseValidatedClaims(accessToken)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/secure")
                         .cookie(new Cookie("accessToken", accessToken)))
                 .andExpect(status().isUnauthorized());
+        verifyNoInteractions(sessionValidityService);
     }
 
     @Test

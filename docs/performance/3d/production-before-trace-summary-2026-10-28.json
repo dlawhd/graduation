@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-28",
+  "environment": "production-reconstructed-before",
+  "source": {
+    "fileName": "Trace-20261028T184456.json.gz",
+    "sha256": "a9f00e9bafd961c9ae5532dfcc56aa86528000f8c6fc57197dd655da97f9b92e",
+    "compressedBytes": 11152539,
+    "eventCount": 128198,
+    "recordingStartTsUs": 968156699564,
+    "recordingStartUtc": "2026-10-28T09:44:56.314Z",
+    "productionRendererPid": 37092,
+    "productionMainThreadTid": 22580,
+    "environmentEvidence": "TracingStartedInBrowser main frame, click thread and six image-request origins agree with the operating site; deployment state was verified separately.",
+    "hostDpr": 1.125
+  },
+  "deployment": {
+    "frontendCommit": "63692244a4ed0b1c1bee479c95b1d4f5f9ca488a",
+    "backendCommit": "8a5f7cc6e689e23a1d495c31b2f3c3f4a388aade",
+    "serverImageCacheEnabled": false,
+    "scope": "Historic frontend plus current compatible backend with the image cache disabled; not a whole-backend historical rollback."
+  },
+  "method": {
+    "start": "click EventDispatch start",
+    "completion": "first trace screenshot visibly containing the photo in the 3D body",
+    "timeReference": "*Ms timestamps are relative to TracingStartedInBrowser.ts; duration values are elapsed milliseconds.",
+    "screenshotCount": 450,
+    "firstScreenshotMs": 18.73,
+    "lastScreenshotMs": 7516.223,
+    "screenshotSizePixels": [
+      418,
+      498
+    ],
+    "requested3dTransitions": 6,
+    "observed3dRequests": 6,
+    "visuallyCompletedTransitions": 3,
+    "codeChunkStatus": 304,
+    "codeChunkFileName": "CustomJarBody3D-C5pIZY5_.js"
+  },
+  "records": [
+    {
+      "transition": 1,
+      "phase": "first-page-transition",
+      "clickDispatchStartMs": 2015.336,
+      "returnTo2dClickMs": 3570.07,
+      "imageRequest": {
+        "sendMs": 2841.452,
+        "responseMs": 2951.06,
+        "finishMs": 2959.645,
+        "sendToResponseMs": 109.608,
+        "sendToFinishMs": 118.193,
+        "status": 200,
+        "failed": false,
+        "fromBrowserCache": false,
+        "decodedBodyBytes": 86479
+      },
+      "longMainThreadTask": {
+        "startMs": 2321.074,
+        "durationMs": 520.567,
+        "pureGeometryTime": false
+      },
+      "filmstrip": {
+        "verification": "visually-checked-last-blank-and-first-photo",
+        "lastWithoutPhotoScreenshotIndex": 177,
+        "firstWithPhotoScreenshotIndex": 178,
+        "lastObservedWithoutPhotoMs": 2984.043,
+        "firstObservedWithPhotoMs": 3009.206,
+        "clickToLastWithoutPhotoMs": 968.707,
+        "clickToFirstWithPhotoMs": 993.87
+      }
+    },
+    {
+      "transition": 2,
+      "phase": "repeat-page-transition",
+      "clickDispatchStartMs": 4480.453,
+      "returnTo2dClickMs": 5925.729,
+      "imageRequest": {
+        "sendMs": 4893.641,
+        "responseMs": 4992.97,
+        "finishMs": 5017.87,
+        "sendToResponseMs": 99.329,
+        "sendToFinishMs": 124.229,
+        "status": 200,
+        "failed": false,
+        "fromBrowserCache": false,
+        "decodedBodyBytes": 86479
+      },
+      "longMainThreadTask": {
+        "startMs": 4480.157,
+        "durationMs": 415.087,
+        "pureGeometryTime": false
+      },
+      "filmstrip": {
+        "verification": "visually-checked-last-blank-and-first-photo",
+        "lastWithoutPhotoScreenshotIndex": 300,
+        "firstWithPhotoScreenshotIndex": 301,
+        "lastObservedWithoutPhotoMs": 5035.548,
+        "firstObservedWithPhotoMs": 5061.559,
+        "clickToLastWithoutPhotoMs": 555.095,
+        "clickToFirstWithPhotoMs": 581.106
+      }
+    },
+    {
+      "transition": 3,
+      "phase": "repeat-page-transition",
+      "clickDispatchStartMs": 6752.595,
+      "returnTo2dClickMs": 8185.49,
+      "imageRequest": {
+        "sendMs": 7111.785,
+        "responseMs": 7195.115,
+        "finishMs": 7206.071,
+        "sendToResponseMs": 83.33,
+        "sendToFinishMs": 94.286,
+        "status": 200,
+        "failed": false,
+        "fromBrowserCache": false,
+        "decodedBodyBytes": 86479
+      },
+      "longMainThreadTask": {
+        "startMs": 6752.356,
+        "durationMs": 360.409,
+        "pureGeometryTime": false
+      },
+      "filmstrip": {
+        "verification": "visually-checked-last-blank-and-first-photo",
+        "lastWithoutPhotoScreenshotIndex": 432,
+        "firstWithPhotoScreenshotIndex": 433,
+        "lastObservedWithoutPhotoMs": 7236.444,
+        "firstObservedWithPhotoMs": 7260.217,
+        "clickToLastWithoutPhotoMs": 483.849,
+        "clickToFirstWithPhotoMs": 507.622
+      }
+    },
+    {
+      "transition": 4,
+      "phase": "repeat-page-transition",
+      "clickDispatchStartMs": 9093.573,
+      "returnTo2dClickMs": 10368.604,
+      "imageRequest": {
+        "sendMs": 9437.767,
+        "responseMs": 9519.642,
+        "finishMs": 9536.453,
+        "sendToResponseMs": 81.875,
+        "sendToFinishMs": 98.686,
+        "status": 200,
+        "failed": false,
+        "fromBrowserCache": false,
+        "decodedBodyBytes": 86479
+      },
+      "longMainThreadTask": {
+        "startMs": 9093.262,
+        "durationMs": 345.406,
+        "pureGeometryTime": false
+      },
+      "filmstrip": {
+        "verification": "not-observable-screenshot-stream-ended",
+        "clickToFirstWithPhotoMs": null
+      }
+    },
+    {
+      "transition": 5,
+      "phase": "repeat-page-transition",
+      "clickDispatchStartMs": 11273.782,
+      "returnTo2dClickMs": 12598.145,
+      "imageRequest": {
+        "sendMs": 11617.57,
+        "responseMs": 11692.897,
+        "finishMs": 11706.325,
+        "sendToResponseMs": 75.327,
+        "sendToFinishMs": 88.755,
+        "status": 200,
+        "failed": false,
+        "fromBrowserCache": false,
+        "decodedBodyBytes": 86479
+      },
+      "longMainThreadTask": {
+        "startMs": 11273.466,
+        "durationMs": 345.446,
+        "pureGeometryTime": false
+      },
+      "filmstrip": {
+        "verification": "not-observable-screenshot-stream-ended",
+        "clickToFirstWithPhotoMs": null
+      }
+    },
+    {
+      "transition": 6,
+      "phase": "repeat-page-transition",
+      "clickDispatchStartMs": 13597.162,
+      "returnTo2dClickMs": 15013.752,
+      "imageRequest": {
+        "sendMs": 13965.206,
+        "responseMs": 14049.391,
+        "finishMs": 14068.352,
+        "sendToResponseMs": 84.185,
+        "sendToFinishMs": 103.146,
+        "status": 200,
+        "failed": false,
+        "fromBrowserCache": false,
+        "decodedBodyBytes": 86479
+      },
+      "longMainThreadTask": {
+        "startMs": 13596.933,
+        "durationMs": 369.206,
+        "pureGeometryTime": false
+      },
+      "filmstrip": {
+        "verification": "not-observable-screenshot-stream-ended",
+        "clickToFirstWithPhotoMs": null
+      }
+    }
+  ],
+  "statistics": {
+    "firstPhotoObservedMs": 993.87,
+    "repeatPhotoObservedValidCount": 2,
+    "repeatPhotoObservedMedianMs": 544.364,
+    "repeatImageRequestCount": 5,
+    "repeatImageRequestMedianMs": 98.686,
+    "repeatLongMainThreadTaskMedianMs": 360.409
+  },
+  "limitations": [
+    "Only transitions 1-3 have photo-ready screenshot evidence; transitions 4-6 have successful image requests but no screenshot completion time.",
+    "The reason screenshot serialization ends at about 7.5 seconds has not been established; missing times are not estimated.",
+    "Screenshot completion is an observation interval, not an exact monitor/GPU completion time.",
+    "First transition is after page reload, not the server first request or fully cleared browser cache.",
+    "The main-thread task includes React and rendering preparation; it is not pure geometry time.",
+    "Network request time is a subset of the full transition and must not be added again.",
+    "Original trace and extracted private screenshots remain outside the repository.",
+    "No after measurement or improvement percentage has been determined from this file."
+  ]
+}

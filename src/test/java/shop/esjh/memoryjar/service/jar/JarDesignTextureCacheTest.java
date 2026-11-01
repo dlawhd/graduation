@@ -109,7 +109,9 @@ class JarDesignTextureCacheTest {
         try {
             var owner = workers.submit(() -> cache.read("b", "a", () -> { entered.countDown(); await(release); return new byte[2]; }));
             assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
-            assertThat(cache.read("b", "other", () -> new byte[]{2})).containsExactly((byte) 2);
+            assertThatThrownBy(() -> cache.read("b", "other", () -> { throw new AssertionError("상한 밖 S3 호출"); }))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(503));
             assertThat(inFlight(cache)).hasSize(1); assertThat(entries(cache)).isEmpty();
             release.countDown(); owner.get(2, TimeUnit.SECONDS);
         } finally { release.countDown(); workers.shutdownNow(); }
@@ -168,6 +170,36 @@ class JarDesignTextureCacheTest {
     }
 
     private static Map<?, ?> entries(JarDesignTextureCache cache) { return (Map<?, ?>) ReflectionTestUtils.getField(cache, "entries"); }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void actualS3ConcurrencyIsBoundedEvenWhenCacheIsDisabled(boolean enabled) throws Exception {
+        var cache = new JarDesignTextureCache(enabled, 16, 100, 10, 8,
+                Duration.ofSeconds(60), Duration.ofSeconds(2), System::nanoTime);
+        var workers = Executors.newFixedThreadPool(8);
+        var entered = new CountDownLatch(8); var release = new CountDownLatch(1);
+        var active = new AtomicInteger(); var peak = new AtomicInteger();
+        var tasks = new java.util.ArrayList<java.util.concurrent.Future<byte[]>>();
+        try {
+            for (int i = 0; i < 8; i++) {
+                String key = "image-" + i;
+                tasks.add(workers.submit(() -> cache.read("b", key, () -> {
+                    peak.accumulateAndGet(active.incrementAndGet(), Math::max); entered.countDown();
+                    try {
+                        if (!release.await(10, TimeUnit.SECONDS)) throw new AssertionError("시험 대기 초과");
+                        return new byte[1];
+                    } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new AssertionError(e); }
+                    finally { active.decrementAndGet(); }
+                })));
+            }
+            assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> cache.read("b", "overflow", () -> { throw new AssertionError("추가 외부 호출"); }))
+                    .isInstanceOf(ResponseStatusException.class);
+            release.countDown(); for (var task : tasks) task.get(10, TimeUnit.SECONDS);
+            assertThat(peak).hasValue(8); assertThat(active).hasValue(0);
+            assertThat(cache.read("b", "after", () -> new byte[]{1})).containsExactly((byte) 1);
+        } finally { release.countDown(); workers.shutdownNow(); }
+    }
     private static Map<?, ?> inFlight(JarDesignTextureCache cache) { return (Map<?, ?>) ReflectionTestUtils.getField(cache, "inFlight"); }
     private static void await(CountDownLatch latch) {
         try { if (!latch.await(3, TimeUnit.SECONDS)) throw new AssertionError("test latch deadline exceeded"); }

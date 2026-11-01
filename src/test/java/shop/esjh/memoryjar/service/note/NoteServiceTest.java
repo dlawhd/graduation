@@ -18,6 +18,7 @@ import shop.esjh.memoryjar.repository.jar.JarMemberRepository;
 import shop.esjh.memoryjar.repository.jar.JarRepository;
 import shop.esjh.memoryjar.repository.note.NoteCommentRepository;
 import shop.esjh.memoryjar.repository.note.NoteRepository;
+import shop.esjh.memoryjar.repository.note.NoteListRow;
 import shop.esjh.memoryjar.service.jar.JarOpenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -314,8 +315,8 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(openJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findByJarId(eq(jarId), any()))
-                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(noteRepository.findListRowsByJarId(eq(jarId), any()))
+                .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
         when(noteAttachmentService.getAttachmentsByNoteIds(anyList())).thenReturn(List.of());
 
@@ -360,8 +361,8 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(lockedJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findByJarId(eq(jarId), any()))
-                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(noteRepository.findListRowsByJarId(eq(jarId), any()))
+                .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
 
         // when
         NoteListResponse response = noteService.listNotes(currentUserId, jarId, 0, 10);
@@ -403,8 +404,8 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(lockedJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findByJarId(eq(jarId), any()))
-                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(noteRepository.findListRowsByJarId(eq(jarId), any()))
+                .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
 
         // when
         NoteListResponse response = noteService.listNotes(currentUserId, jarId, 0, 10);
@@ -446,8 +447,8 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(lockedJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findByJarId(eq(jarId), any()))
-                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(noteRepository.findListRowsByJarId(eq(jarId), any()))
+                .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
 
         // when
         NoteListResponse response = noteService.listNotes(currentUserId, jarId, 0, 10);
@@ -672,16 +673,14 @@ class NoteServiceTest {
         when(jar.getJarId()).thenReturn(jarId);
         when(jar.getLockLevel()).thenReturn(JarLockLevel.HIDDEN);
 
-        Note note = mock(Note.class);
-        when(note.getNoteId()).thenReturn(100L);
-        when(note.isEncrypted()).thenReturn(false);
+        var row = new NoteListRow(100L, null, null, null, null, null, null, false, null, List.of());
 
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
 
-        when(noteRepository.findByJarId(eq(jarId), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(noteRepository.findListRowsByJarId(eq(jarId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(row), PageRequest.of(0, 10), 1));
 
         // 잠금 상태
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(false);
@@ -780,8 +779,8 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(openJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findByJarId(eq(jarId), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(note), PageRequest.of(0, 10), 1));
+        when(noteRepository.findListRowsByJarId(eq(jarId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
         when(noteAttachmentService.getAttachmentsByNoteIds(List.of(101L))).thenReturn(List.of());
 
@@ -790,6 +789,54 @@ class NoteServiceTest {
 
         // then
         verify(noteAttachmentService).getAttachmentsByNoteIds(List.of(101L));
+    }
+
+    @Test
+    void listPreviewKeepsExistingUtf16WhitespaceAndLongContentRules() {
+        Jar jar = createJar(10L, LocalDateTime.now().minusDays(1), JarLockLevel.HIDDEN);
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        when(jarOpenService.ensureOpenedIfDue(10L)).thenReturn(true);
+        when(noteAttachmentService.getAttachmentsByNoteIds(anyList())).thenReturn(List.of());
+        for (String content : List.of("", "\u2003".repeat(100), "가".repeat(30), "가".repeat(31),
+                " ".repeat(100) + "뒤의 본문", "가".repeat(29) + "😀" + "추억".repeat(10000))) {
+            var row = new NoteListRow(101L, "제목", content, null, null, 2L, "작성자", false,
+                    LocalDateTime.of(2026, 3, 20, 9, 0), List.of("추억"));
+            when(noteRepository.findListRowsByJarId(eq(10L), any()))
+                    .thenReturn(new PageImpl<>(List.of(row), PageRequest.of(0, 20), 1));
+            var item = noteService.listNotes(1L, 10L, 0, 20).items().get(0);
+            String expected = content.isBlank() ? "" : content.length() <= 30 ? content : content.substring(0, 30) + "...";
+            assertThat(item.previewContent()).isEqualTo(expected);
+            assertThat(item.tags()).containsExactly("추억");
+        }
+    }
+
+    @Test
+    void twentyNotesStillUseOneBatchForEachRelatedResource() {
+        Jar jar = createJar(10L, LocalDateTime.now().minusDays(1), JarLockLevel.HIDDEN);
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        when(jarOpenService.ensureOpenedIfDue(10L)).thenReturn(true);
+        var rows = java.util.stream.LongStream.rangeClosed(1, 20).mapToObj(id ->
+                new NoteListRow(id, "제목", "본문", null, null, 2L, "작성자", false,
+                        LocalDateTime.of(2026, 3, 20, 9, 0), List.of())).toList();
+        when(noteRepository.findListRowsByJarId(eq(10L), any()))
+                .thenReturn(new PageImpl<>(rows, PageRequest.of(0, 20), 20));
+        when(noteAttachmentService.getAttachmentsByNoteIds(anyList())).thenReturn(List.of());
+        assertThat(noteService.listNotes(1L, 10L, 0, 20).items()).hasSize(20);
+        List<Long> ids = rows.stream().map(NoteListRow::noteId).toList();
+        verify(noteAttachmentService).getAttachmentsByNoteIds(ids);
+        verify(noteReactionService).getCountMapByNoteIds(ids);
+        verify(noteReactionService).getMyReactionMapByNoteIds(1L, ids);
+        verify(noteCommentService).getCommentCountMapByNoteIds(ids);
+        verifyNoMoreInteractions(noteAttachmentService, noteReactionService, noteCommentService);
+    }
+
+    /** 엔티티 기반 기존 테스트 데이터를 목록 전용 조회 값으로 바꾼다. */
+    private NoteListRow listRow(Note note) {
+        return new NoteListRow(note.getNoteId(), note.getTitle(), note.getContent(), note.getNoteDate(),
+                note.getLocation(), note.getAuthor().getId(), note.getAuthor().getName(), note.isEncrypted(),
+                note.getCreatedAt(), note.getTags());
     }
 
     private User createUser(Long id, String name) {

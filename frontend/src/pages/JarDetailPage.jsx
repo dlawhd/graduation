@@ -2,6 +2,7 @@
 
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import { useRequestGate } from "../api/useRequestGate";
 import {
   ONBOARDING_TUTORIAL_KEY,
 } from "../api/onboardingApi";
@@ -356,6 +357,7 @@ export default function JarDetailPage({ onSuccess }) {
 
   // 주소에서 jarId 꺼내기
   const { jarId } = useParams();
+  const detailRequests = useRequestGate(jarId);
 
   // 현재 페이지로 넘어올 때 함께 전달된 state 읽기
   const location = useLocation();
@@ -2688,6 +2690,7 @@ async function loadJarZoomComments(noteId, options = {}) {
 
 async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
     if (!noteId) return;
+    const isCurrent = detailRequests.begin("note-detail");
 
       const focusCommentId = options?.focusCommentId ?? null;
 
@@ -2722,9 +2725,11 @@ async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
       loadJarZoomComments(noteId, { focusId: focusCommentId }),
     ]);
 
+    if (!isCurrent()) return;
     setJarZoomDetailNote(noteRes.data?.data || null);
     // 댓글은 독립적인 로딩/오류 상태와 페이지 정보를 loadJarZoomComments에서 반영한다.
   } catch (e) {
+    if (!isCurrent()) return;
     const serverMessage =
       e?.response?.data?.error?.message ||
       e?.response?.data?.message ||
@@ -2733,12 +2738,15 @@ async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
 
     setJarZoomDetailError(serverMessage);
   } finally {
-    setJarZoomDetailLoading(false);
-    setJarZoomCommentsLoading(false);
+    if (isCurrent()) {
+      setJarZoomDetailLoading(false);
+      setJarZoomCommentsLoading(false);
+    }
   }
 }
 
 function handleCloseJarZoomNoteDetail() {
+  detailRequests.begin("note-detail");
   commentRequestRef.current++;
   commentPageRef.current = { noteId: null, rows: [], pages: 1, cursor: 0, focusId: null };
   setJarZoomDetailOpen(false);

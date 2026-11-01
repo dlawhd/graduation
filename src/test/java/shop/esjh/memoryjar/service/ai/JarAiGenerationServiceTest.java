@@ -37,6 +37,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class JarAiGenerationServiceTest {
 
+    @org.junit.jupiter.api.BeforeEach
+    void activeJobByDefault() { lenient().when(persistenceService.canContinue(anyLong(), anyLong())).thenReturn(true); }
+
     @Mock private JarAiGenerationPersistenceService persistenceService;
     @Mock private AiPromptCatalog promptCatalog;
     @Mock private CloudflareWorkersAiClient cloudflareClient;
@@ -310,6 +313,27 @@ class JarAiGenerationServiceTest {
         verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
         verify(persistenceService, never()).markFailedCandidateCleaned(anyLong(), anyLong(), anyString());
     }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 1, 2})
+    void stoppedJobDoesNotStartNextExternalStage(int stopAfter) throws Exception {
+        var service = service();
+        arrangeStart(JarAiStyle.CUTE_2D);
+        when(persistenceService.canContinue(10L, 100L)).thenReturn(stopAfter > 0, stopAfter > 1, false);
+        if (stopAfter > 0) arrangeOriginalRead(new byte[]{1});
+        if (stopAfter > 1) {
+            when(cloudflareClient.generateImage(any())).thenReturn(new byte[]{2});
+            when(generatedImageValidator.validateAndNormalize(any())).thenReturn(new byte[]{3});
+        }
+        startAndProcess(service, JarAiStyle.CUTE_2D, null);
+        if (stopAfter == 0) verifyNoInteractions(s3Client, cloudflareClient, moderationService);
+        else if (stopAfter == 1) verifyNoInteractions(cloudflareClient, moderationService);
+        else verifyNoInteractions(moderationService);
+        verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        verify(persistenceService, never()).completeSucceeded(anyLong(), anyLong(), anyString());
+    }
+
 
     private JarAiGenerationService service() {
         S3Properties s3Properties = new S3Properties();

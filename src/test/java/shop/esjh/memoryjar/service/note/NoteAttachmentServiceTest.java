@@ -49,7 +49,25 @@ class NoteAttachmentServiceTest {
     @BeforeEach
     void setUp() {
         note = mock(Note.class);
+        lenient().when(fileUploadRepository.claimCompletedNoteUploads(anyLong(), anyList(), any()))
+                .thenAnswer(call -> ((List<?>) call.getArgument(1)).size());
     }
+
+
+    @Test
+    void lostAtomicClaimReturnsConflictWithoutSavingAttachment() {
+        when(noteRepository.findByNoteId(1L)).thenReturn(Optional.of(note));
+        var upload = mock(FileUpload.class);
+        when(fileUploadRepository.findAllByUser_IdAndPurposeAndStatusAndS3KeyIn(1L, FilePurpose.NOTE,
+                FileUploadStatus.COMPLETED, List.of("notes/one.png"))).thenReturn(List.of(upload));
+        when(fileUploadRepository.claimCompletedNoteUploads(eq(1L), anyList(), any())).thenReturn(0);
+        assertThatThrownBy(() -> noteAttachmentService.createAttachments(1L, 1L,
+                List.of(new NoteAttachmentCreateRequest("notes/one.png"))))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(e -> assertThat(((ResponseStatusException)e).getStatusCode().value()).isEqualTo(409));
+        verify(noteAttachmentRepository, never()).saveAll(anyList());
+    }
+
 
     @Test
     @DisplayName("첨부파일 여러 개 저장 성공 - sortOrder를 순서대로 붙인다")

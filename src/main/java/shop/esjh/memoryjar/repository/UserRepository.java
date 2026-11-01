@@ -22,6 +22,18 @@ import java.util.Optional;
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // 사용자 버전과 현재 기기의 로그인 생존 여부를 한 쿼리로 검사한다.
+    @Query(value = """
+            SELECT EXISTS(SELECT 1 FROM users u WHERE u.id = :userId
+              AND u.deleted_at IS NULL AND u.session_version = :version
+              AND EXISTS(SELECT 1 FROM refresh_tokens t WHERE t.user_id = u.id
+                AND t.session_id = :sessionId AND t.deleted_at IS NULL
+                AND t.revoked_at IS NULL AND t.expires_at > :now))
+            """, nativeQuery = true)
+    long countCurrentSession(@Param("userId") long userId, @Param("version") long version,
+                             @Param("sessionId") String sessionId,
+                             @Param("now") java.time.LocalDateTime now);
+
     // 인증 검사에는 사용자 전체나 연관 엔티티 대신 숫자 한 개만 조회한다.
     @Query("select u.sessionVersion from User u where u.id = :userId")
     Optional<Long> findSessionVersionById(@Param("userId") Long userId);

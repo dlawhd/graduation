@@ -243,6 +243,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          * "현재 로그인한 사용자가 누구인지" 증명하는 역할을 한다.
          */
         claims.put("sessionVersion", user.getSessionVersion());
+        claims.put("loginSessionId", TokenCrypto.sha256Hex(refreshRaw));
 
         String jwt =
                 jwtTokenProvider.createAccessToken(

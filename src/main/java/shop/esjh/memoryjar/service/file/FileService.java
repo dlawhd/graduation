@@ -21,6 +21,12 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 /*
  * FileService 역할
@@ -35,6 +41,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
  */
 @Service
 public class FileService {
+    private static final Logger log = LoggerFactory.getLogger(FileService.class);
 
     private final S3PresignService s3PresignService;
     private final S3Client s3Client;
@@ -85,6 +92,7 @@ public class FileService {
                 .size(request.size())
                 .build();
 
+        upload.scheduleStagingCleanup(response.expiresAt());
         fileUploadRepository.save(upload);
 
         return response;
@@ -125,12 +133,15 @@ public class FileService {
          * 실제 S3 파일을 확인한다.
          */
         HeadObjectResponse headObject =
-                headObjectOrThrow(target.s3Key());
+                headObjectOrThrow(S3PresignService.stagingKey(target.s3Key()));
 
         validateUploadedFile(
                 target,
                 headObject
         );
+
+        // 검사한 원본 버전만, 아직 없는 완료 위치로 복사한다. 모든 S3 I/O는 DB 트랜잭션 밖이다.
+        publishImmutableFile(target, headObject);
 
         /*
          * 3단계
@@ -138,11 +149,50 @@ public class FileService {
          * 짧은 쓰기 트랜잭션으로
          * 업로드 row를 잠그고 완료 처리한다.
          */
-        return fileUploadTransactionService.markCompleted(
+        FileCompleteResponse response = fileUploadTransactionService.markCompleted(
                 target.uploadId(),
                 currentUserId,
                 request.purpose()
         );
+        // 정리 실패 때문에 이미 커밋된 완료 응답을 실패로 바꾸지 않는다.
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder().bucket(s3Properties.getBucket())
+                    .key(S3PresignService.stagingKey(target.s3Key())).build());
+        } catch (software.amazon.awssdk.core.exception.SdkException failure) {
+            log.warn("FILE_UPLOAD_STAGING_CLEANUP_FAILED failureType={}", failure.getClass().getSimpleName());
+        }
+        return response;
+    }
+
+    /** HEAD 검사와 복사 사이의 원본 교체 및 동시 완료 요청의 최종 파일 덮어쓰기를 모두 막는다. */
+    private void publishImmutableFile(FileUploadCompletionTarget target, HeadObjectResponse source) {
+        if (source.eTag() == null || source.eTag().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "업로드된 파일의 버전을 확인할 수 없어.");
+        }
+        String copySource = URLEncoder.encode(s3Properties.getBucket() + "/"
+                + S3PresignService.stagingKey(target.s3Key()), StandardCharsets.UTF_8)
+                .replace("%2F", "/").replace("+", "%20");
+        try {
+            s3Client.copyObject(CopyObjectRequest.builder().bucket(s3Properties.getBucket()).key(target.s3Key())
+                    .copySource(copySource).copySourceIfMatch(source.eTag())
+                    .metadataDirective(software.amazon.awssdk.services.s3.model.MetadataDirective.REPLACE)
+                    .contentType(target.contentType())
+                    // 사용 중인 SDK에 목적지 조건 전용 필드가 없어 공식 S3 헤더를 직접 서명한다.
+                    .overrideConfiguration(config -> config.putHeader("If-None-Match", "*")).build());
+        } catch (S3Exception failure) {
+            if (failure.statusCode() == 412) {
+                // 다른 완료 요청이나 DB 저장 실패 후 재시도가 이미 확정한 객체는 변경하지 않는다.
+                try { validateUploadedFile(target, headObjectOrThrow(target.s3Key())); return; }
+                catch (ResponseStatusException missing) {
+                    if (missing.getStatusCode().value() != 404) throw missing;
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "검사 중 파일이 변경됐어. 다시 업로드해 줘.");
+                }
+            }
+            if (failure.statusCode() == 409) throw new ResponseStatusException(HttpStatus.CONFLICT, "파일 완료 처리가 겹쳤어. 잠시 후 다시 시도해 줘.");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "파일을 안전하게 확정하지 못했어.");
+        } catch (SdkClientException failure) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "파일을 안전하게 확정하지 못했어.");
+        }
     }
 
     /*

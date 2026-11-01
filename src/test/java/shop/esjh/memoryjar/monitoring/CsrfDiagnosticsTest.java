@@ -52,8 +52,11 @@ class CsrfDiagnosticsTest {
             assertThat(t.completed()).isTrue();
             assertThat(t.elapsedNanos()).isPositive();
         });
-        verify(tokens, times(1)).validate("private-access-token");
-        verify(tokens, times(1)).getClaimsFromToken("private-access-token");
+        verify(tokens, times(1)).parseValidatedClaims("private-access-token");
+        verify(tokens, never()).validate(anyString());
+        verify(tokens, never()).getClaimsFromToken(anyString());
+        assertThat(sample.stages().get(LoginDiagnostics.Stage.JWT_VALIDATE).elapsedNanos())
+                .isGreaterThanOrEqualTo(sample.stages().get(LoginDiagnostics.Stage.JWT_CLAIMS_PARSE).elapsedNanos());
         verify(users, times(1)).findSessionVersionById(1L);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
         String json = new ObjectMapper().writeValueAsString(diagnostics.snapshot());
@@ -68,7 +71,7 @@ class CsrfDiagnosticsTest {
     }
 
     @Test void invalidAndRevokedTokensDoNotBecomeAuthenticatedForPublicCsrf() throws Exception {
-        when(tokens.validate("private-access-token")).thenReturn(false);
+        when(tokens.parseValidatedClaims("private-access-token")).thenReturn(Optional.empty());
         execute(true);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verifyNoInteractions(users);
@@ -113,8 +116,7 @@ class CsrfDiagnosticsTest {
 
     private void validToken() {
         var claims = mock(Claims.class);
-        when(tokens.validate("private-access-token")).thenReturn(true);
-        when(tokens.getClaimsFromToken("private-access-token")).thenReturn(claims);
+        when(tokens.parseValidatedClaims("private-access-token")).thenReturn(Optional.of(claims));
         when(claims.getSubject()).thenReturn("1");
         when(claims.getExpiration()).thenReturn(new Date(System.currentTimeMillis() + 60_000));
         when(claims.get("email")).thenReturn("private@example.invalid");

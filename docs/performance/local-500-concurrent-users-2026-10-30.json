@@ -1,0 +1,261 @@
+{
+  "version": 1,
+  "dateKst": "2026-10-30",
+  "scope": "LOCAL_500_DISTINCT_CONCURRENT_USERS",
+  "targetConcurrentUsers": 500,
+  "plannedStages": [
+    100,
+    300,
+    500
+  ],
+  "runId": "memoryjar-e2e-7b935b0d74f0",
+  "status": "threshold_failed",
+  "population": {
+    "jars": 9300,
+    "jar_members": 12000,
+    "jar_open_events": 9300,
+    "notes": 21000,
+    "users": 10000,
+    "user_local_credentials": 10000
+  },
+  "authenticatedAccounts": 1000,
+  "login": {
+    "concurrent": false,
+    "requests": 1000,
+    "avgMs": 74.19207187699993,
+    "medianMs": 65.189649,
+    "p95Ms": 93.89802514999997,
+    "maxMs": 669.186659
+  },
+  "authorization": {
+    "anonymousStatus": 401,
+    "nonMemberStatus": 403,
+    "nonMemberChecks": 1
+  },
+  "stages": [
+    {
+      "targetConcurrentUsers": 100,
+      "scheduledSeconds": 20,
+      "status": "passed",
+      "exitCode": 0,
+      "stopReason": null,
+      "oomKilled": false,
+      "resources": {
+        "application": {
+          "samples": 4,
+          "maxSampledCpuPercent": 151.54,
+          "maxSampledMemoryMiB": 693.3
+        },
+        "database": {
+          "samples": 4,
+          "maxSampledCpuPercent": 35.08,
+          "maxSampledMemoryMiB": 463.8
+        },
+        "loadGenerator": {
+          "samples": 4,
+          "maxSampledCpuPercent": 115.12,
+          "maxSampledMemoryMiB": 136.8
+        }
+      },
+      "activatedUsers": 100,
+      "readRequests": 1975,
+      "readErrorRate": 0,
+      "responseChecksPassed": 1975,
+      "responseChecksFailed": 0,
+      "failedThresholdMetrics": [],
+      "endpoints": {
+        "jar_list": {
+          "requests": 593,
+          "avgMs": 10.361223198988199,
+          "medianMs": 7.113765,
+          "p95Ms": 18.019942199999996,
+          "maxMs": 160.690788
+        },
+        "jar_detail": {
+          "requests": 592,
+          "avgMs": 10.517190292229728,
+          "medianMs": 7.27882,
+          "p95Ms": 22.364837299999927,
+          "maxMs": 251.619567
+        },
+        "note_list": {
+          "requests": 790,
+          "avgMs": 15.133501973417715,
+          "medianMs": 10.4302445,
+          "p95Ms": 22.453737549999932,
+          "maxMs": 233.109401
+        }
+      },
+      "observedHttpStatuses": {
+        "200": 1975
+      },
+      "k6ObservedReadRatePerSecond": 94.01918962803272,
+      "readsPerScheduledSecond": 98.75
+    },
+    {
+      "targetConcurrentUsers": 300,
+      "scheduledSeconds": 20,
+      "status": "passed",
+      "exitCode": 0,
+      "stopReason": null,
+      "oomKilled": false,
+      "resources": {
+        "application": {
+          "samples": 6,
+          "maxSampledCpuPercent": 175.98,
+          "maxSampledMemoryMiB": 700.6
+        },
+        "database": {
+          "samples": 6,
+          "maxSampledCpuPercent": 74.25,
+          "maxSampledMemoryMiB": 464.6
+        },
+        "loadGenerator": {
+          "samples": 6,
+          "maxSampledCpuPercent": 112.04,
+          "maxSampledMemoryMiB": 316.7
+        }
+      },
+      "activatedUsers": 300,
+      "readRequests": 5855,
+      "readErrorRate": 0,
+      "responseChecksPassed": 5855,
+      "responseChecksFailed": 0,
+      "failedThresholdMetrics": [],
+      "endpoints": {
+        "jar_list": {
+          "requests": 1758,
+          "avgMs": 15.187682455631396,
+          "medianMs": 7.3613824999999995,
+          "p95Ms": 60.3338402,
+          "maxMs": 176.258691
+        },
+        "jar_detail": {
+          "requests": 1754,
+          "avgMs": 14.803129161345499,
+          "medianMs": 6.9638105,
+          "p95Ms": 60.27860449999998,
+          "maxMs": 155.164322
+        },
+        "note_list": {
+          "requests": 2343,
+          "avgMs": 19.77537310499356,
+          "medianMs": 10.824882,
+          "p95Ms": 70.23545970000002,
+          "maxMs": 181.019677
+        }
+      },
+      "observedHttpStatuses": {
+        "200": 5855
+      },
+      "k6ObservedReadRatePerSecond": 277.553811130058,
+      "readsPerScheduledSecond": 292.75
+    },
+    {
+      "targetConcurrentUsers": 500,
+      "scheduledSeconds": 30,
+      "status": "failed",
+      "exitCode": 99,
+      "stopReason": null,
+      "oomKilled": false,
+      "resources": {
+        "application": {
+          "samples": 5,
+          "maxSampledCpuPercent": 173.76,
+          "maxSampledMemoryMiB": 726.3
+        },
+        "database": {
+          "samples": 5,
+          "maxSampledCpuPercent": 107.12,
+          "maxSampledMemoryMiB": 462.7
+        },
+        "loadGenerator": {
+          "samples": 5,
+          "maxSampledCpuPercent": 191.25,
+          "maxSampledMemoryMiB": 534.3
+        }
+      },
+      "activatedUsers": 500,
+      "readRequests": 4844,
+      "readErrorRate": 0,
+      "responseChecksPassed": 4844,
+      "responseChecksFailed": 0,
+      "failedThresholdMetrics": [
+        "http_req_duration{endpoint:note_list}"
+      ],
+      "endpoints": {
+        "jar_list": {
+          "requests": 1467,
+          "avgMs": 156.1282783462848,
+          "medianMs": 102.085614,
+          "p95Ms": 494.34156960000007,
+          "maxMs": 1123.804571
+        },
+        "jar_detail": {
+          "requests": 1452,
+          "avgMs": 157.81498018388402,
+          "medianMs": 101.715203,
+          "p95Ms": 499.10431610000006,
+          "maxMs": 1220.794867
+        },
+        "note_list": {
+          "requests": 1925,
+          "avgMs": 163.41725924103895,
+          "medianMs": 105.094938,
+          "p95Ms": 502.84343739999997,
+          "maxMs": 1378.15601
+        }
+      },
+      "observedHttpStatuses": {
+        "200": 4844
+      },
+      "k6ObservedReadRatePerSecond": 403.36820857945764
+    }
+  ],
+  "latencyReferenceP95Ms": 500,
+  "requestTimeoutSeconds": 3,
+  "pacingSecondsPerUser": 1,
+  "businessRowCountsUnchangedDuringRead": true,
+  "cleanup": {
+    "applicationTableCount": 24,
+    "remainingApplicationRows": 0,
+    "allApplicationTablesRestored": true,
+    "remainingContainers": 0,
+    "remainingNetworks": 0,
+    "summaryMetricsOnly": true,
+    "privateSessionsRemoved": true,
+    "privateFixtureRemoved": true,
+    "helperPrivateSessionsRemoved": true
+  },
+  "runtimeLimits": {
+    "applicationCpu": 2,
+    "applicationMemoryMiB": 1536,
+    "applicationHeapMiB": 768,
+    "databaseMemoryMiB": 768,
+    "databaseTmpfsMiB": 512,
+    "loadGeneratorCpu": 2,
+    "loadGeneratorMemoryMiB": 2048
+  },
+  "sourceHashes": {
+    "dataset-verification.json": "a004cd42ec38f8f9d08a3e29675ae29b4a44baad9f84855962829d486f21c40d",
+    "dataset-cleanup.json": "cc870db0ce51174ccb490b28bc4480b3630366e2071e17c2d927a5c8e5b6e298",
+    "concurrent-load.json": "05a529be413685c204cb4b6507d68e985eba253ceb5d760923376fb577218a8f",
+    "concurrent-resources.json": "1f32f83f79b33a7c86d26a0b966aaf1ef3a18e16c5b6a236f6508c4b19d7af32",
+    "auth-summary.json": "97bc8ccffe392cfdc965560a8dc0f3187a88d44318cc2e69c27a1fc1455a4fc4",
+    "egress.txt": "96e559a373c0a5202e3e88c5b550895c7c3be60685cb2adf8ba303921c943de1",
+    "summary.txt": "9e4409f76da8cdcbc2ad0569fab49726fc81c1d2a43f6066b975f1a99dbf239b",
+    "read-100-summary.json": "f9e7dede1852caa1908f96d172ab23497c3347dba7834ef792bbb04c1acd190f",
+    "read-100-metrics.jsonl": "4b8acae576f6f9da5148f33a3ba0a48fb36b5bc8be1884fc7b199f4fa579a6c0",
+    "read-300-summary.json": "4348c4f33d892ea69bb41783d476afe49688547a3dd2b14d1a77be32e239db4e",
+    "read-300-metrics.jsonl": "9ec0e49a8878fcd1dd94d7c38bcedd70b093fecca2f14cd0896fc056638706ca",
+    "read-500-summary.json": "09edb9b5c1913d685d1093f4928ffb973568615065522405090264c7bcea2727",
+    "read-500-metrics.jsonl": "3ded94e40a703ba1b4af0b7157e7bcb251e3117814b971aa390b78fb6b8cd5e7"
+  },
+  "limitations": [
+    "Local API read test on one PC. Not production capacity, 500 browser or WebSocket sessions, or simultaneous logins.",
+    "1000 accounts are authenticated in preparation; up to 500 accounts in 50 groups query 150 jars and 6000 notes. 9000 users provide background data.",
+    "Phases run in fixed order with one second think time; no maximum throughput or before/after improvement claim.",
+    "Application, DB and load generator share the Docker host. Generator CPU saturation can constrain the observation.",
+    "Mock S3/mail/AI and synthetic text data; resource samples do not guarantee instantaneous peaks."
+  ]
+}

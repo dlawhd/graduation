@@ -32,6 +32,10 @@ public interface JarInviteRepository extends JpaRepository<JarInvite, Long> {
     // 초대 폐기(revoke) 같은 관리자 기능에서 쓰기 좋아.
     Optional<JarInvite> findByInviteIdAndJar_JarId(Long inviteId, Long jarId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select ji from JarInvite ji where ji.inviteId = :inviteId and ji.jar.jarId = :jarId")
+    Optional<JarInvite> findByIdAndJarIdForUpdate(@Param("inviteId") Long inviteId, @Param("jarId") Long jarId);
+
     // 특정 저금통의 초대장 전체 목록
     // 관리자 화면에서 최근 생성 순으로 보여주기 좋게 정렬함
     @Query("""

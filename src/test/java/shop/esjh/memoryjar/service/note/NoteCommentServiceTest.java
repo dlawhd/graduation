@@ -1,5 +1,7 @@
 package shop.esjh.memoryjar.service.note;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import shop.esjh.memoryjar.dto.note.request.NoteCommentCreateRequest;
 import shop.esjh.memoryjar.dto.note.request.NoteCommentUpdateRequest;
 import shop.esjh.memoryjar.dto.note.response.NoteCommentItem;
@@ -253,7 +255,7 @@ class NoteCommentServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
         when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
-        when(noteCommentRepository.findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(noteId))
+        when(noteCommentRepository.findTop1001ByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(noteId))
                 .thenReturn(List.of(comment));
 
         NoteCommentListResponse response = noteCommentService.getCommentList(currentUserId, jarId, noteId);
@@ -454,7 +456,7 @@ class NoteCommentServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
+        when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
         when(noteCommentRepository.findByCommentIdAndNote_NoteId(commentId, noteId)).thenReturn(Optional.of(comment));
 
         NoteCommentItem response = noteCommentService.updateComment(
@@ -657,8 +659,8 @@ class NoteCommentServiceTest {
         var pageable = ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
         verify(noteCommentRepository).findPageAfter(eq(100L), eq(0L), pageable.capture());
         assertThat(pageable.getValue().getPageSize()).isEqualTo(31);
-        verify(noteCommentRepository, never()).findByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(any());
-        verify(noteCommentRepository, never()).findCommentLinks(any());
+        verify(noteCommentRepository, never()).findTop1001ByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(any());
+        verify(noteCommentRepository, never()).findAncestorChunk(any(), any());
     }
 
     @Test
@@ -674,8 +676,8 @@ class NoteCommentServiceTest {
         var parent = createReply(99L, note, user, "부모 답글", root);
         var focus = createReply(101L, note, user, "대상 답글", parent);
         when(noteCommentRepository.findPageAfter(eq(100L), eq(0L), any())).thenReturn(rows);
-        when(noteCommentRepository.findCommentLinks(100L)).thenReturn(List.of(
-                commentLink(10L, null), commentLink(99L, 10L), commentLink(101L, 99L)));
+        when(noteCommentRepository.findAncestorChunk(100L, 101L)).thenReturn(List.of(
+                commentLink(101L, 99L), commentLink(99L, 10L), commentLink(10L, null)));
         when(noteCommentRepository.findPathItems(eq(100L), any())).thenReturn(List.of(root, parent, focus));
         when(noteCommentRepository.countByNote_NoteId(100L)).thenReturn(100L);
 
@@ -736,6 +738,32 @@ class NoteCommentServiceTest {
             public Long getParentId() { return parentId; }
         };
     }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {100, 101})
+    void legacyTreeHasSafeDepthAndCanSerializeAtLimit(int depth) throws Exception {
+        User user = createUser(1L, "댓글러"); Jar jar = createJar(10L); Note note = createNote(100L, jar, user);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        when(noteRepository.findByJarIdAndNoteId(10L, 100L)).thenReturn(Optional.of(note));
+        var all = new java.util.ArrayList<NoteComment>(); NoteComment parent = null;
+        for (long i = 1; i <= depth; i++) {
+            var c = NoteComment.builder().note(note).user(user).parentComment(parent).content("답글").build();
+            ReflectionTestUtils.setField(c, "commentId", i); all.add(c); parent = c;
+        }
+        when(noteCommentRepository.findTop1001ByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(100L)).thenReturn(all);
+        if (depth == 100) {
+            String json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
+                    .writeValueAsString(noteCommentService.getCommentList(1L, 10L, 100L));
+            assertThat(json).contains("답글");
+        } else {
+            assertThatThrownBy(() -> noteCommentService.getCommentList(1L, 10L, 100L))
+                    .isInstanceOf(ResponseStatusException.class).hasMessageContaining("/comments/page");
+        }
+    }
+
 
     private User createUser(Long id, String name) {
         return User.builder()

@@ -35,7 +35,7 @@ public record NoteCreateRequest(
                 max = NoteAttachmentPolicy.MAX_ATTACHMENTS_PER_NOTE,
                 message = "첨부파일은 최대 10개까지 넣을 수 있어."
         )
-        List<NoteAttachmentCreateRequest> attachments,
+        List<@jakarta.validation.constraints.NotNull @Valid NoteAttachmentCreateRequest> attachments,
 
         // 태그도 선택
         // 예: ["여행", "봄", "웃음"]

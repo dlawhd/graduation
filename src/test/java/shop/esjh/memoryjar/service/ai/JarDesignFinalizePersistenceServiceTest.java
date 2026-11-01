@@ -279,6 +279,21 @@ class JarDesignFinalizePersistenceServiceTest {
         verify(jarService,times(1)).createJarForDesignFinalize(eq(1L),any());
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"same,false", "different,true", "missing,false"})
+    void finalizedCopyIsProtectedIncludingUnknownDesignState(String key, boolean deletable) {
+        var draft = mock(JarDesignDraft.class); var jar = mock(Jar.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.getStatus()).thenReturn(shop.esjh.memoryjar.enums.ai.JarDraftStatus.FINALIZED);
+        when(draft.getFinalizedJar()).thenReturn(jar); when(jar.getJarId()).thenReturn(100L);
+        when(designRepository.findPermanentKeyIncludingDeleted(100L)).thenReturn(
+                key.equals("missing") ? Optional.empty() : Optional.of(key.equals("same") ? "final.png" : "winner.png"));
+        assertThat(service().mayDeleteFinalCopy(1L, 10L, "final.png")).isEqualTo(deletable);
+    }
+
+
     private void stubSlot(JarDesignDraft draft) {
         when(draft.getSlotCenterX()).thenReturn(new BigDecimal("0.50000"));
         when(draft.getSlotCenterY()).thenReturn(new BigDecimal("0.40000"));
