@@ -9,8 +9,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 @RequiredArgsConstructor
 public class SupportCleanupScheduler {
     private final SupportInquiryService service;
+    private final SupportAttachmentService attachments;
 
     @Scheduled(scheduler = "supportCleanupTaskScheduler", fixedDelayString = "${app.support.cleanup-delay-ms:300000}",
             initialDelayString = "${app.support.cleanup-initial-delay-ms:120000}")
-    public void cleanup() { service.cleanup(); }
+    public void cleanup() { service.cleanup(); attachments.cleanup(); }
 }

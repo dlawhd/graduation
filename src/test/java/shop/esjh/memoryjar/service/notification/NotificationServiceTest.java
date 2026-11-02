@@ -315,7 +315,18 @@ class NotificationServiceTest {
         verify(messagingTemplate).convertAndSend(eq("/topic/users/3/notifications"),
                 org.mockito.ArgumentMatchers.argThat((Object value) -> value instanceof
                         shop.esjh.memoryjar.dto.notification.response.NotificationItemResponse response
-                        && response.inquiryId().equals(12L) && response.message().equals("새 AI 생성 문의가 접수됐어요.")));
+                        && response.inquiryId().equals(12L) && response.message().equals("새 문의가 접수됐어요.")));
+    }
+
+    @Test
+    @DisplayName("추가 문의 알림도 중복 운영자를 제외하고 본문 없이 문의 번호만 전달한다")
+    void notifySupportFollowedUp_sendsOnlyInquiryReference() {
+        User operator=createUser(3L,"운영자");mockSaveAndFlush();
+        notificationService.notifySupportFollowedUp(List.of(operator,operator),12L);
+        ArgumentCaptor<Notification> captor=ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getType()).isEqualTo(NotificationType.SUPPORT_FOLLOWED_UP);
+        assertThat(captor.getValue().getPayload()).isEqualTo(new NotificationPayload(null,null,null,null,"추가 문의",null,12L));
     }
 
     @Test

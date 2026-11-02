@@ -770,12 +770,21 @@ public class EmailVerificationService {
          * 같은 이메일 + 같은 목적의 기존 인증정보가 있는지
          * DB 쓰기 잠금을 걸고 확인한다.
          */
+        // 없는 행을 먼저 조회하면 두 첫 요청이 함께 INSERT할 수 있다. DB에서 행을 확보한 뒤 잠근다.
+        emailVerificationRepository.ensureIssuanceRow(normalizedEmail, purpose.name(), now,
+                now.minusSeconds(RESEND_COOLDOWN_SECONDS));
         Optional<EmailVerification> existingOptional =
                 emailVerificationRepository
                         .findByEmailAndPurposeForUpdate(
                                 normalizedEmail,
                                 purpose
                         );
+
+        if (existingOptional.isEmpty()) {
+            throw new IllegalStateException("인증번호 발급 행을 확보하지 못했습니다.");
+        }
+        // 앞 요청의 저장을 기다렸다면, 잠금을 얻은 현재 시각으로 재전송 제한을 검사한다.
+        now = LocalDateTime.now(KST);
 
 
         /*

@@ -3,12 +3,14 @@ package shop.esjh.memoryjar.repository;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import shop.esjh.memoryjar.entity.EmailVerification;
 import shop.esjh.memoryjar.enums.auth.EmailVerificationPurpose;
 
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 /*
  * EmailVerificationRepository 역할
@@ -26,6 +28,21 @@ import java.util.Optional;
  */
 public interface EmailVerificationRepository
         extends JpaRepository<EmailVerification, Long> {
+
+    /**
+     * 아직 행이 없는 첫 요청도 고유 제약을 이용해 한 행에서 순서대로 처리한다.
+     * 기존 인증번호·시도 횟수는 건드리지 않는다. 신규 행은 이미 만료된 준비 상태이며,
+     * 같은 발급 트랜잭션에서 실제 번호로 갱신하거나 실패 시 함께 롤백한다.
+     */
+    @Modifying
+    @Query(value = """
+            INSERT INTO email_verifications
+                (email, purpose, code_hash, code_expires_at, attempt_count, last_sent_at, created_at, updated_at)
+            VALUES (:email, :purpose, REPEAT('0', 64), :now, 0, :eligibleAt, :now, :now)
+            ON DUPLICATE KEY UPDATE verification_id = verification_id
+            """, nativeQuery = true)
+    void ensureIssuanceRow(@Param("email") String email, @Param("purpose") String purpose,
+                           @Param("now") LocalDateTime now, @Param("eligibleAt") LocalDateTime eligibleAt);
 
 
     /*

@@ -38,7 +38,7 @@ test("원본 공유 동의와 미리보기가 모두 있어야 문의 접수 가
   assert.equal(canSubmitInquiry("문의", true, true, false), true);
 });
 test("접수된 후보는 다시 접수 버튼 대신 문의 보기", () => {
-  for (const status of ["OPEN", "IN_PROGRESS", "ANSWERED"]) assert.equal(inquiryButtonLabel({ status }), "접수한 문의 보기");
+  for (const status of ["OPEN", "IN_PROGRESS", "ANSWERED", "WAITING_USER", "RESOLVED"]) assert.equal(inquiryButtonLabel({ status }), "접수한 문의 보기");
   assert.equal(inquiryButtonLabel({ status: "COPYING" }), "접수 상태 확인");
   assert.equal(inquiryButtonLabel({ status: "COPY_FAILED" }), "운영자에게 문의하기");
   assert.equal(inquiryButtonLabel(null), "운영자에게 문의하기");
@@ -52,6 +52,7 @@ test("문의 답변 알림만 유효한 번호로 내 문의 상세에 이동", 
 
 test("새 문의 알림은 운영 문의 상세에만 연결하고 잘못된 번호는 거부", () => {
   assert.equal(supportNotificationPath({ type: "SUPPORT_INQUIRY_RECEIVED", inquiryId: 12 }), "/admin/support/inquiries/12");
+  assert.equal(supportNotificationPath({ type: "SUPPORT_FOLLOWED_UP", inquiryId: 12 }), "/admin/support/inquiries/12");
   for (const inquiryId of [undefined, null, -1, 0, "../../admin", "12", 1.5, NaN, Infinity]) {
     assert.equal(supportNotificationPath({ type: "SUPPORT_INQUIRY_RECEIVED", inquiryId }), null);
   }

@@ -103,8 +103,7 @@ class JarDailyDrawServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
 
         // 현재 사용자가 active 멤버라고 가정
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         // 저금통이 이미 열려 있다고 가정
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
@@ -175,8 +174,7 @@ class JarDailyDrawServiceTest {
         JarDailyDraw existingDraw = createDailyDraw(2000L, jar, existingNote, today);
 
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
         when(jarRepository.findByJarIdForUpdate(jarId)).thenReturn(Optional.of(jar));
 
@@ -214,8 +212,7 @@ class JarDailyDrawServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
 
         // 현재 사용자가 active 멤버가 아니라고 가정
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(false);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.empty());
 
         // when
         ResponseStatusException ex = catchThrowableOfType(
@@ -244,8 +241,7 @@ class JarDailyDrawServiceTest {
         Jar jar = createJar(jarId, JarOpenMode.DAILY_DRAW);
 
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         // 아직 열리지 않았다고 가정
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(false);
@@ -277,8 +273,7 @@ class JarDailyDrawServiceTest {
         Jar jar = createJar(jarId, JarOpenMode.DAILY_DRAW);
 
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
         when(jarRepository.findByJarIdForUpdate(jarId)).thenReturn(Optional.of(jar));
 

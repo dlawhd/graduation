@@ -153,8 +153,7 @@ class NoteServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         // save(...) 안에 들어간 Note를 직접 잡아서 검사하기 위한 도구
         ArgumentCaptor<Note> captor = ArgumentCaptor.forClass(Note.class);
@@ -263,8 +262,7 @@ class NoteServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L))
-                .thenReturn(false);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
 
         NoteCreateRequest request = new NoteCreateRequest(
                 "제목",
@@ -721,8 +719,7 @@ class NoteServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         Note savedNote = Note.builder()
                 .jar(jar)

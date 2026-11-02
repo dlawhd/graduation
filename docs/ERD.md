@@ -1382,3 +1382,19 @@ V37 : AI 생성 실패 원인 코드 허용 목록 확장 (기존 상태 조합�
 ```
 
 이미 적용된 V1~V33을 수정하면 Flyway 체크섬이 달라질 수 있으므로 이후 변경은 새 Migration으로 추가해야 한다.
+
+## 14. 문의 대화 확장 V56 (2026-11-02)
+
+위의 V37 기준 이력과 구분한 추가 구조다. V1~V55 파일은 바꾸지 않고 `V56__expand_support_conversations.sql`에서 확장한다.
+
+| 테이블 | 역할·주요 제약 |
+|---|---|
+| `support_inquiries` | 기존 AI 문의와 일반 문의를 함께 보관. `owner_id`와 `guest_session_id` 중 정확히 하나만 존재. AI 관련 필드는 일반 문의에서 NULL 허용. 카테고리·제목·문제 화면·발생 시각·해결 시각 추가 |
+| `support_messages` | 문의 1:N 대화. 역할 USER/OPERATOR/GUEST, 내용 최대 3,000자. `(inquiry_id, client_request_id)` 유일. 문의/메시지 ID 인덱스로 커서 조회 |
+| `support_attachments` | 문의 1:N 화면 첨부. UPLOADING/READY/FAILED 상태, 고유 저장 키·요청 UUID·기한·삭제 시각. 본문과 독립적으로 외부 저장 결과 추적 |
+| `support_guest_sessions` | 로그인 도움 조회 자격의 SHA-256 해시와 90일 만료 시각. 원문 쿠키·이메일·비밀번호는 저장하지 않음 |
+| `support_rate_limits` | 목적별 HMAC 키·횟수·시간 구간. 행 잠금으로 동시 제한 우회 방지. 최근 사용하지 않은 행은 정리 |
+
+기존 문의의 답변을 `OPERATOR` 대화 1개로 이관하고 `reply` 필드도 유지한다. `(owner_id, client_request_id)`·`(guest_session_id, client_request_id)` 유일 제약으로 중복 접수를 막는다. 목록/생성 제한/첨부/정리용 인덱스를 추가한다. 알림의 기존 허용 유형을 보존하면서 `SUPPORT_FOLLOWED_UP`을 추가한다.
+
+관련 API와 검증은 [문의 확장 기록](SUPPORT_EXPANSION_2026-11-02.md)을 참고한다.

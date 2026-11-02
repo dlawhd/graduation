@@ -49,6 +49,7 @@ class JarDesignDraftUploadServiceTest {
             .thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{8},null));
         when(persistenceService.createDraft(eq(1L),anyString(),eq(JarBodyStyle.CUSTOM),isNull(),eq(CustomJarBodyTest.outline()),anyString()))
             .thenThrow(new IllegalStateException("DB failed"));
+        when(persistenceService.mayDeleteOriginal(eq(1L), anyString())).thenReturn(true);
         assertThatThrownBy(()->uploadService.uploadOriginalAndCreateDraft(1L,original,JarBodyStyle.CUSTOM,CustomJarBodyTest.outline(),JarBodyArtworkImageValidatorTest.file(border)))
             .isInstanceOf(IllegalStateException.class);
         verify(moderationService).verifyAllowed(new byte[]{7});verify(moderationService).verifyAllowed(new byte[]{8});
@@ -95,6 +96,7 @@ class JarDesignDraftUploadServiceTest {
         when(s3Properties.getBucket()).thenReturn("private-bucket");
         when(imageValidator.normalizeWithContentFrame(new byte[]{1, 2, 3})).thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{7, 8, 9}, null));
         when(persistenceService.createDraft(eq(1L), anyString(), isNull(), isNull())).thenThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_ACTIVE));
+        when(persistenceService.mayDeleteOriginal(eq(1L), anyString())).thenReturn(true);
 
         assertThatThrownBy(() -> uploadService.uploadOriginalAndCreateDraft(1L, image))
                 .isInstanceOf(ApiException.class)
@@ -121,5 +123,27 @@ class JarDesignDraftUploadServiceTest {
                 .isEqualTo(AiDraftErrorCode.DRAFT_SOURCE_UPLOAD_FAILED);
 
         verify(persistenceService, never()).createDraft(anyLong(), anyString(), any(), any());
+    }
+
+    /** 커밋 결과를 확인할 수 없거나 참조가 남으면 원본과 테두리 모두 삭제하지 않는다. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void ambiguousCommitProtectsBothUploadedObjects(boolean verificationFails) throws Exception {
+        byte[] border = JarBodyArtworkImageValidatorTest.png(480, true);
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(s3Properties.getBucket()).thenReturn("private-bucket");
+        when(imageValidator.normalizeWithContentFrame(any(byte[].class)))
+                .thenReturn(new DraftOriginalImageValidator.NormalizedOriginal(new byte[]{7}, null));
+        var originalFailure = new IllegalStateException("commit outcome unknown");
+        when(persistenceService.createDraft(eq(1L), anyString(), eq(JarBodyStyle.CUSTOM), isNull(),
+                eq(CustomJarBodyTest.outline()), anyString())).thenThrow(originalFailure);
+        if (verificationFails) when(persistenceService.mayDeleteOriginal(eq(1L), anyString()))
+                .thenThrow(new IllegalStateException("database unavailable"));
+        else when(persistenceService.mayDeleteOriginal(eq(1L), anyString())).thenReturn(false);
+        assertThatThrownBy(() -> uploadService.uploadOriginalAndCreateDraft(1L,
+                new MockMultipartFile("image", "photo.png", "image/png", new byte[]{1}),
+                JarBodyStyle.CUSTOM, CustomJarBodyTest.outline(), JarBodyArtworkImageValidatorTest.file(border)))
+                .isSameAs(originalFailure);
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 }

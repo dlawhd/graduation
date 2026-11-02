@@ -104,13 +104,10 @@ class NoteCommentServiceTest {
                 .thenReturn(Optional.of(jar));
 
         // 로그인한 사용자가 현재 저금통의 활성 멤버인 상황
-        when(
-                jarMemberRepository
-                        .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(
                                 jarId,
                                 currentUserId
-                        )
-        ).thenReturn(true);
+                        )).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         // 요청한 쪽지가 현재 저금통에 존재하는 상황
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId))
@@ -291,13 +288,10 @@ class NoteCommentServiceTest {
         when(jarRepository.findByJarId(jarId))
                 .thenReturn(Optional.of(jar));
 
-        when(
-                jarMemberRepository
-                        .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(
                                 jarId,
                                 currentUserId
-                        )
-        ).thenReturn(true);
+                        )).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId))
                 .thenReturn(Optional.of(note));
@@ -454,8 +448,7 @@ class NoteCommentServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
         when(noteCommentRepository.findByCommentIdAndNote_NoteId(commentId, noteId)).thenReturn(Optional.of(comment));
 
@@ -487,8 +480,7 @@ class NoteCommentServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(loginUser));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
         when(noteCommentRepository.findByCommentIdAndNote_NoteId(commentId, noteId)).thenReturn(Optional.of(comment));
 
@@ -529,13 +521,10 @@ class NoteCommentServiceTest {
         when(jarRepository.findByJarId(jarId))
                 .thenReturn(Optional.of(jar));
 
-        when(
-                jarMemberRepository
-                        .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(
                                 jarId,
                                 currentUserId
-                        )
-        ).thenReturn(true);
+                        )).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId))
                 .thenReturn(Optional.of(note));
@@ -709,7 +698,7 @@ class NoteCommentServiceTest {
         var root = createComment(1L, note, user, "본문");
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L, 1L)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(noteRepository.findByJarIdAndNoteIdForUpdate(10L, 100L)).thenReturn(Optional.of(note));
         when(noteCommentRepository.findByCommentIdAndNote_NoteId(1L, 100L)).thenReturn(Optional.of(root));
         when(noteCommentRepository.findChildIds(any())).thenAnswer(invocation -> {

@@ -39,6 +39,10 @@ class SupportSafetyTest {
     @Mock JarAiGenerationRepository generations;
     @Mock UserRepository users;
     @Mock SupportAuthorization authorization;
+    @Mock SupportRateGuard rates;
+    @Mock SupportMessageRepository messages;
+    @Mock SupportGuestSessionRepository guests;
+    @Mock SupportRateLimitRepository limits;
     @Mock NotificationService notifications;
     @Mock S3Client s3;
     @Mock S3Presigner presigner;
@@ -49,7 +53,7 @@ class SupportSafetyTest {
         return new SupportInquiryService(persistence, inquiries, s3, presigner, s3Properties);
     }
     SupportInquiryPersistenceService database() {
-        return new SupportInquiryPersistenceService(inquiries, audits, drafts, generations, users, authorization, notifications);
+        return new SupportInquiryPersistenceService(inquiries, audits, drafts, generations, users, authorization, notifications, rates, messages, guests, limits);
     }
     SupportInquiry ticket(LocalDateTime time) {
         var draft = mock(JarDesignDraft.class);

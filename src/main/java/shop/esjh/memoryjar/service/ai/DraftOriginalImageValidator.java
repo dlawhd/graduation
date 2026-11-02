@@ -154,7 +154,12 @@ public class DraftOriginalImageValidator {
         }
     }
 
-    private BufferedImage applyExifOrientation(BufferedImage source, int orientation) {
+    /** 화면 첨부에서도 기존에 검증한 JPEG 방향 보정을 재사용한다. 크기 변경이나 심사는 수행하지 않는다. */
+    public static BufferedImage orientJpeg(BufferedImage source, byte[] bytes) {
+        return applyExifOrientation(source, readJpegExifOrientation(bytes));
+    }
+
+    private static BufferedImage applyExifOrientation(BufferedImage source, int orientation) {
         if (orientation == 1) {
             return source;
         }
@@ -184,7 +189,7 @@ public class DraftOriginalImageValidator {
         return oriented;
     }
 
-    private int readJpegExifOrientation(byte[] bytes) {
+    private static int readJpegExifOrientation(byte[] bytes) {
         if (bytes.length < 4 || unsignedByte(bytes, 0) != 0xFF || unsignedByte(bytes, 1) != 0xD8) {
             return 1;
         }
@@ -209,13 +214,13 @@ public class DraftOriginalImageValidator {
         return 1;
     }
 
-    private boolean hasExifHeader(byte[] bytes, int offset) {
+    private static boolean hasExifHeader(byte[] bytes, int offset) {
         return offset + 6 <= bytes.length
                 && bytes[offset] == 'E' && bytes[offset + 1] == 'x' && bytes[offset + 2] == 'i'
                 && bytes[offset + 3] == 'f' && bytes[offset + 4] == 0 && bytes[offset + 5] == 0;
     }
 
-    private int readTiffOrientation(byte[] bytes, int tiffStart, int endExclusive) {
+    private static int readTiffOrientation(byte[] bytes, int tiffStart, int endExclusive) {
         if (tiffStart + 8 > endExclusive) {
             return 1;
         }
@@ -252,21 +257,21 @@ public class DraftOriginalImageValidator {
         return 1;
     }
 
-    private int unsignedByte(byte[] bytes, int offset) {
+    private static int unsignedByte(byte[] bytes, int offset) {
         return Byte.toUnsignedInt(bytes[offset]);
     }
 
-    private int unsignedShortBigEndian(byte[] bytes, int offset) {
+    private static int unsignedShortBigEndian(byte[] bytes, int offset) {
         return (unsignedByte(bytes, offset) << 8) | unsignedByte(bytes, offset + 1);
     }
 
-    private int unsignedShort(byte[] bytes, int offset, boolean littleEndian) {
+    private static int unsignedShort(byte[] bytes, int offset, boolean littleEndian) {
         return littleEndian
                 ? unsignedByte(bytes, offset) | (unsignedByte(bytes, offset + 1) << 8)
                 : unsignedShortBigEndian(bytes, offset);
     }
 
-    private long unsignedInt(byte[] bytes, int offset, boolean littleEndian) {
+    private static long unsignedInt(byte[] bytes, int offset, boolean littleEndian) {
         long first = unsignedByte(bytes, offset);
         long second = unsignedByte(bytes, offset + 1);
         long third = unsignedByte(bytes, offset + 2);

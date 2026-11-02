@@ -67,7 +67,8 @@ public class JarDailyDrawService {
 
     // 오늘의 추억 한 장 뽑기
     // POST /api/v1/jars/{jarId}/daily-draw 에서 사용할 메서드다.
-    @Transactional
+    // 잠금 대기 후 다른 요청이 확정한 오늘 결과를 최신 상태로 읽는다.
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public DailyDrawResponse drawToday(Long currentUserId, Long jarId) {
 
         // 1. 저금통이 실제로 존재하는지 먼저 확인한다.
@@ -75,7 +76,9 @@ public class JarDailyDrawService {
         getJarOrThrow(jarId);
 
         // 2. 현재 사용자가 이 저금통의 active 멤버인지 확인한다.
-        validateActiveMember(jarId, currentUserId);
+        // 멤버 → 저금통 순서로 잠가 강퇴·삭제와 순서가 뒤집히지 않게 한다.
+        jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 저금통 멤버만 오늘의 추억 한 장을 볼 수 있어."));
 
         // 3. 저금통이 열렸는지 확인한다.
         // 이제 추억 쪽지 뽑기는 openMode와 상관없이 사용할 수 있다.

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -9,6 +10,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import apiClient from "../api/apiClient";
+import { useRequestGate } from "../api/useRequestGate";
 import {
   ONBOARDING_TUTORIAL_KEY,
 } from "../api/onboardingApi";
@@ -421,7 +423,9 @@ function LoadingCard() {
   );
 }
 
-export default function JarsPage() {
+export default function JarsPage({ me, checkingAuth = false }) {
+  const userId = me?.userId ?? me?.id;
+  const requests = useRequestGate(userId);
   const navigate =
     useNavigate();
 
@@ -578,9 +582,10 @@ export default function JarsPage() {
   const [totalElements, setTotalElements] = useState(0);
 
   // 저금통 목록 불러오는 함수
-  const loadJars = async (
-    targetPage = 0
-  ) => {
+  const loadJars = useCallback(async (targetPage = 0) => {
+    if (checkingAuth || !userId) return;
+    const isCurrent = requests.begin("list");
+    if (!isCurrent()) return;
     setLoading(true);
     setError("");
     setSessionExpired(false);
@@ -594,6 +599,7 @@ export default function JarsPage() {
       });
 
       // 우리 서버는 항상 { data: ... } 형태로 감싸서 보내줘요.
+      if (!isCurrent()) return;
       const data = res.data?.data;
 
       setItems(data?.items || []);
@@ -601,6 +607,7 @@ export default function JarsPage() {
       setTotalPages(data?.totalPages || 0);
       setTotalElements(data?.totalElements || 0);
     } catch (e) {
+      if (!isCurrent()) return;
       /*
        * Refresh Token까지 만료된 경우에는
        * 서버 문구를 표시하지 않고 로그인 안내 화면으로 전환한다.
@@ -628,9 +635,9 @@ export default function JarsPage() {
       setTotalPages(0);
       setTotalElements(0);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  };
+  }, [checkingAuth, userId, requests]);
 
     /*
      * 새 저금통 만들기 버튼을 눌렀을 때 실행되는 함수
@@ -704,7 +711,7 @@ export default function JarsPage() {
   // 페이지가 처음 열릴 때 목록을 한 번 불러와요.
   useEffect(() => {
     loadJars(0);
-  }, []);
+  }, [loadJars]);
 
   /*
    * 다른 화면에서 내정보의 이용 방법을 선택하고
@@ -932,7 +939,9 @@ export default function JarsPage() {
    * 목록 UI나 빨간 서버 오류 문구 대신
    * 공통 재로그인 화면을 보여준다.
    */
-  if (sessionExpired) {
+  // App이 다른 API에서 로그인 만료를 알아도 이전 계정 목록을 즉시 숨긴다.
+  if (checkingAuth) return <StatusNotice type="loading" title="로그인을 확인하고 있어요." />;
+  if (!userId || sessionExpired) {
     return (
       <SessionExpiredPage
         title=""

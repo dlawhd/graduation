@@ -70,11 +70,8 @@ public class ChatService {
         Jar jar = getJarOrThrow(jarId);
 
         // 3. 현재 사용자가 이 저금통의 active 멤버인지 확인
-        validateActiveMember(
-                jarId,
-                currentUserId,
-                "현재 저금통 멤버만 채팅을 보낼 수 있어요."
-        );
+        // requestId 없는 기존 클라이언트도 같은 권한 보호를 받는다.
+        lockActiveMemberOrThrow(jarId, currentUserId, "현재 저금통 멤버만 채팅을 보낼 수 있어요.");
 
         // 4. 채팅 내용 꺼내기
         String content = request.content();
@@ -94,8 +91,6 @@ public class ChatService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "전송 식별자 형식이 올바르지 않습니다.");
             }
             // 동일 사용자의 동시 재시도를 멤버 행 잠금으로 직렬화하고 DB UNIQUE로 이중 보호한다.
-            jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 멤버만 전송할 수 있어요."));
             var existing = chatMessageRepository.findByJar_JarIdAndSender_IdAndClientRequestId(jarId, currentUserId, requestId);
             if (existing.isPresent()) {
                 if (!existing.get().getContent().equals(content)) {

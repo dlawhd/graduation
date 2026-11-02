@@ -1,7 +1,7 @@
 # 임시 DB와 시험 JVM만 연결한다. 호스트 인증정보·설정·Docker 소켓은 전달하지 않는다.
 [CmdletBinding()]
 param([switch]$ReadPreflight, [switch]$Dataset10k, [switch]$Concurrent1000, [switch]$Concurrent500, [switch]$DiagnoseRead,
-    [switch]$ProfileRead)
+    [switch]$ProfileRead, [switch]$Support300)
 $ErrorActionPreference = 'Stop'
 if (([int]$ReadPreflight.IsPresent + [int]$Dataset10k.IsPresent + [int]$Concurrent1000.IsPresent + [int]$Concurrent500.IsPresent) -gt 1) { throw 'Choose one isolated read mode.' }
 $concurrentMode = $Concurrent1000 -or $Concurrent500
@@ -10,6 +10,7 @@ if ($ProfileRead -and (-not $Concurrent500 -or $DiagnoseRead)) { throw 'Read pro
 $probeRead = $DiagnoseRead -or $ProfileRead
 $datasetMode = $Dataset10k -or $concurrentMode
 $readMode = $ReadPreflight -or $datasetMode
+if ($Support300 -and ($readMode -or $DiagnoseRead -or $ProfileRead)) { throw 'Support300 cannot be combined with read modes.' }
 $taskRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $taskId = 'memoryjar-e2e-' + [guid]::NewGuid().ToString('N').Substring(0, 12)
 $networkName = $taskId + '-net'
@@ -120,6 +121,7 @@ try {
     # 500명도 인증 계정 1000개·저장 계정 1만 개를 준비해 이전 시험과 DB 규모를 맞춘다.
     if ($concurrentMode) { $readArguments += @('-e', 'ISOLATED_CONCURRENT_1000=1') }
     if ($probeRead) { $readArguments += @('-e', 'ISOLATED_READ_PROBE=1') }
+    if ($Support300) { $readArguments += @('-e', 'ISOLATED_SUPPORT300=1') }
     Invoke-CheckedDocker -DockerArguments (@('create', '--name', $runnerName, '--network', $networkName,
         '--label', "memoryjar.isolated=$taskId", '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
         '--user', '1000:1000', '--memory', '1536m', '--cpus', '2', '--tmpfs', '/tmp:rw,size=512m,mode=1777',
@@ -199,6 +201,23 @@ try {
             if ([DateTime]::UtcNow -gt $finishDeadline) { throw 'Read verification did not finish.' }
             Start-Sleep -Milliseconds 300
         }
+    } elseif ($Support300) {
+        Invoke-CheckedDocker -DockerArguments @('start', $runnerName)
+        $samples = @()
+        $deadline = [DateTime]::UtcNow.AddMinutes(8)
+        while ((& docker inspect --format '{{.State.Running}}' $runnerName).Trim() -eq 'true') {
+            $lines = & docker stats --no-stream --format '{{json .}}' $runnerName $databaseName
+            if ($LASTEXITCODE -ne 0) { throw 'Support resource sampling failed.' }
+            foreach ($line in $lines) {
+                $sample = $line | ConvertFrom-Json
+                $samples += [pscustomobject]@{ timestampUtc = [DateTime]::UtcNow.ToString('o'); container = $sample.Name;
+                    cpuPercent = $sample.CPUPerc; memoryUsage = $sample.MemUsage; memoryPercent = $sample.MemPerc }
+            }
+            if ([DateTime]::UtcNow -gt $deadline) { throw 'Support300 deadline exceeded.' }
+            Start-Sleep -Seconds 2
+        }
+        [IO.File]::WriteAllText((Join-Path $resultsPath 'support-resources.json'), ($samples | ConvertTo-Json -Depth 4))
+        & docker logs $runnerName
     } else {
         & docker start -a $runnerName
     }
@@ -211,6 +230,13 @@ try {
     if ($runnerCreated) { & docker rm -f $runnerName | Out-Null }
     if ($databaseCreated) { & docker rm -f $databaseName | Out-Null }
     if ($networkCreated) { & docker network rm $networkName | Out-Null }
+    if ($Support300 -and $resultsPath) {
+        $remainingContainers = @(& docker ps -aq --filter "label=memoryjar.isolated=$taskId")
+        $remainingNetworks = @(& docker network ls -q --filter "label=memoryjar.isolated=$taskId")
+        [IO.File]::WriteAllText((Join-Path $resultsPath 'support-cleanup.json'),
+            (@{ remainingContainers=$remainingContainers.Count; remainingNetworks=$remainingNetworks.Count } | ConvertTo-Json))
+        if ($remainingContainers.Count -ne 0 -or $remainingNetworks.Count -ne 0) { throw 'Support test resources remain.' }
+    }
     if ($datasetMode -and $resultsPath) {
         # 임시 암호 파일도 해당 실행 폴더의 한 파일만 제거한다. 원본 trace·기존 DB 파일은 건드리지 않는다.
         $manifestPath = Join-Path $resultsPath 'read-fixture.json'

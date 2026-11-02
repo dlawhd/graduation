@@ -84,7 +84,8 @@ class EmailVerificationServiceTest {
                                 EmailVerificationPurpose.SIGNUP
                         )
         ).thenReturn(
-                Optional.empty()
+                Optional.of(EmailVerification.issue("eunseo@naver.com", EmailVerificationPurpose.SIGNUP,
+                        "0".repeat(64), LocalDateTime.now(KST), LocalDateTime.now(KST).minusMinutes(1)))
         );
 
 

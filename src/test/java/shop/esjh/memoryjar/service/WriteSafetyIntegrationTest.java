@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 /** 실제 MariaDB 잠금과 페이징·일괄 삭제로 첫 리액션 경쟁, 정원 경쟁, 깊은 답글을 검증한다. */
 @DataJpaTest(showSql = false)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({ JpaAuditConfig.class, JarService.class, NoteReactionService.class, NoteCommentService.class, NoteService.class, NoteAttachmentService.class })
+@Import({ JpaAuditConfig.class, JarService.class, NoteReactionService.class, NoteCommentService.class, NoteService.class, NoteAttachmentService.class, JarDailyDrawService.class, shop.esjh.memoryjar.service.chat.ChatService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class WriteSafetyIntegrationTest extends AbstractMariaDbRepositoryTest {
     @Autowired PlatformTransactionManager transactions;
@@ -50,6 +50,9 @@ class WriteSafetyIntegrationTest extends AbstractMariaDbRepositoryTest {
     @Autowired shop.esjh.memoryjar.repository.file.FileUploadRepository uploads;
     @Autowired NoteAttachmentRepository attachments;
     @Autowired NoteAttachmentService noteAttachments;
+    @Autowired JarDailyDrawService dailyDraws;
+    @Autowired shop.esjh.memoryjar.service.chat.ChatService chats;
+    @MockitoBean JarDailyDrawRealtimeService drawRealtime;
     @MockitoBean JarOpenService openService;
     @MockitoBean NotificationService notifications;
     @MockitoBean NoteRealtimeService noteRealtime;
@@ -447,5 +450,74 @@ class WriteSafetyIntegrationTest extends AbstractMariaDbRepositoryTest {
         assertThat(page.items().get(page.items().size() - 1).commentId()).isEqualTo(focus);
         assertThat(page.totalCount()).isEqualTo(67);
         assertThat(page.nextCursor()).isLessThan(focus);
+    }
+
+    /** 강퇴가 먼저 잠금을 잡으면 모든 쓰기 경로가 기다렸다가 403으로 끝나야 한다. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"note", "comment", "update-comment", "delete-comment", "reaction", "legacy-chat", "identified-chat", "draw"})
+    void revocationBlocksPendingWrites(String action) throws Exception {
+        var f = fixture();
+        Long commentId = new TransactionTemplate(transactions).execute(tx -> {
+            var jar = entityManager.find(shop.esjh.memoryjar.entity.jar.Jar.class, f.jarId);
+            var guest = entityManager.find(shop.esjh.memoryjar.entity.User.class, f.guestId);
+            saveJarMember(jar, guest, JarRole.MEMBER, java.time.LocalDateTime.now());
+            var comment = NoteComment.builder().note(entityManager.find(shop.esjh.memoryjar.entity.note.Note.class, f.noteId))
+                    .user(guest).content("기존 댓글").build(); entityManager.persist(comment);
+            return comment.getCommentId();
+        });
+        var kicked = new CountDownLatch(1); var release = new CountDownLatch(1);
+        var writing = new CountDownLatch(1); var pool = Executors.newFixedThreadPool(2);
+        try {
+            var kick = pool.submit(() -> new TransactionTemplate(transactions).executeWithoutResult(tx -> {
+                jars.kickMember(f.ownerId, f.jarId, f.guestId); kicked.countDown(); await(release);
+            }));
+            assertThat(kicked.await(10, TimeUnit.SECONDS)).isTrue();
+            var write = pool.submit(() -> {
+                writing.countDown();
+                try {
+                    switch (action) {
+                        case "note" -> noteWrites.createNote(f.guestId, f.jarId, new shop.esjh.memoryjar.dto.note.request.NoteCreateRequest("새 쪽지", "본문", null, null, List.of(), List.of()));
+                        case "comment" -> comments.createComment(f.guestId, f.jarId, f.noteId, new shop.esjh.memoryjar.dto.note.request.NoteCommentCreateRequest("새 댓글", null));
+                        case "update-comment" -> comments.updateComment(f.guestId, f.jarId, f.noteId, commentId, new shop.esjh.memoryjar.dto.note.request.NoteCommentUpdateRequest("변경"));
+                        case "delete-comment" -> comments.deleteComment(f.guestId, f.jarId, f.noteId, commentId);
+                        case "reaction" -> reactions.react(f.guestId, f.jarId, f.noteId, NoteReactionEmoji.LOVE);
+                        case "legacy-chat" -> chats.sendTextMessage(f.guestId, f.jarId, new shop.esjh.memoryjar.dto.chat.request.ChatMessageSendRequest("내용"));
+                        case "identified-chat" -> chats.sendTextMessage(f.guestId, f.jarId, new shop.esjh.memoryjar.dto.chat.request.ChatMessageSendRequest("내용", "request-id"));
+                        case "draw" -> dailyDraws.drawToday(f.guestId, f.jarId);
+                        default -> throw new AssertionError(action);
+                    }
+                    return 200;
+                } catch (ResponseStatusException denied) { return denied.getStatusCode().value(); }
+            });
+            assertThat(writing.await(10, TimeUnit.SECONDS)).isTrue();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> write.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            release.countDown(); kick.get(20, TimeUnit.SECONDS);
+            assertThat(write.get(20, TimeUnit.SECONDS)).isEqualTo(403);
+            assertThat(commentRepository.findById(commentId)).get().extracting(NoteComment::getContent).isEqualTo("기존 댓글");
+        } finally { release.countDown(); pool.shutdownNow(); }
+    }
+
+    /** 두 번째 요청이 첫 저장 이전에 시작해 잠금을 기다려도 확정된 같은 카드를 반환해야 한다. */
+    @Test
+    void concurrentDailyDrawReturnsCommittedCardInsteadOfDuplicateInsert() throws Exception {
+        var f = fixture();
+        new TransactionTemplate(transactions).executeWithoutResult(tx -> saveJarMember(
+                entityManager.find(shop.esjh.memoryjar.entity.jar.Jar.class, f.jarId),
+                entityManager.find(shop.esjh.memoryjar.entity.User.class, f.guestId), JarRole.MEMBER, java.time.LocalDateTime.now()));
+        when(openService.ensureOpenedIfDue(f.jarId)).thenReturn(true);
+        var saved = new CountDownLatch(1); var release = new CountDownLatch(1);
+        var drawing = new CountDownLatch(1); var pool = Executors.newFixedThreadPool(2);
+        try {
+            var first = pool.submit(() -> new TransactionTemplate(transactions).execute(tx -> {
+                var card = dailyDraws.drawToday(f.ownerId, f.jarId); saved.countDown(); await(release); return card;
+            }));
+            assertThat(saved.await(10, TimeUnit.SECONDS)).isTrue();
+            var second = pool.submit(() -> { drawing.countDown(); return dailyDraws.drawToday(f.guestId, f.jarId); });
+            assertThat(drawing.await(10, TimeUnit.SECONDS)).isTrue();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> second.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            release.countDown(); var a = first.get(20, TimeUnit.SECONDS); var b = second.get(20, TimeUnit.SECONDS);
+            assertThat(a.newlyDrawn()).isTrue(); assertThat(b.newlyDrawn()).isFalse();
+            assertThat(b.drawId()).isEqualTo(a.drawId());
+        } finally { release.countDown(); pool.shutdownNow(); }
     }
 }

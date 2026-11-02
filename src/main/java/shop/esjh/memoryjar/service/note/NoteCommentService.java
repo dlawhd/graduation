@@ -95,7 +95,7 @@ public class NoteCommentService {
         getJarOrThrow(jarId);
 
         // 3. 현재 사용자가 active 멤버인지 확인
-        validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 작성할 수 있어.");
+        lockActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 작성할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
         // 삭제와 작성이 같은 쪽지에서 겹치면 순서대로 처리해 삭제된 부모 아래 답글이 남지 않게 한다.
@@ -306,7 +306,7 @@ public class NoteCommentService {
         getJarOrThrow(jarId);
 
         // 3. active 멤버 확인
-        validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 수정할 수 있어.");
+        lockActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 수정할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
         // 생성·삭제와 같은 쪽지 잠금으로 수정 중 삭제 및 삭제된 답글의 부활을 막는다.
@@ -384,7 +384,7 @@ public class NoteCommentService {
         getJarOrThrow(jarId);
 
         // 3. 현재 사용자가 저금통 멤버인지 확인
-        validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 삭제할 수 있어.");
+        lockActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 삭제할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
         getNoteForUpdate(jarId, noteId);
@@ -466,6 +466,12 @@ public class NoteCommentService {
      * 현재 사용자가 이 저금통의 active 멤버인지 확인
      * 아니면 403
      */
+    /** 강퇴·탈퇴와 같은 멤버 행을 잠가, 권한 확인부터 저장 확정까지 참여 상태를 보호한다. */
+    private void lockActiveMember(Long jarId, Long userId, String message) {
+        jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, message));
+    }
+
     private void validateActiveMember(Long jarId, Long currentUserId, String message) {
         boolean isActiveMember = jarMemberRepository
                 .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId);

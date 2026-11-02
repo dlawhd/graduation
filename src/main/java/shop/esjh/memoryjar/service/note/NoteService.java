@@ -86,7 +86,7 @@ public class NoteService {
         Jar jar = getJarOrThrow(jarId);
 
         // 3. 현재 사용자가 이 저금통의 active 멤버인지 검사
-        validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 쪽지를 작성할 수 있어.");
+        lockActiveMember(jarId, currentUserId, "현재 저금통 멤버만 쪽지를 작성할 수 있어.");
 
         // 4. 태그 정리(중복 제거, 공백 제거, 너무 긴 글자 자르기 등을 해줌)
         List<String> normalizedTags = normalizeTags(request.tags());
@@ -320,6 +320,12 @@ public class NoteService {
     }
 
     // 현재 사용자가 저금통 active 멤버인지 검사, 아니면 403
+    /** 강퇴·탈퇴와 같은 멤버 행을 잠가, 권한 확인부터 저장 확정까지 참여 상태를 보호한다. */
+    private void lockActiveMember(Long jarId, Long userId, String message) {
+        jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, message));
+    }
+
     private void validateActiveMember(Long jarId, Long currentUserId, String message) {
         boolean isActiveMember = jarMemberRepository
                 .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId);

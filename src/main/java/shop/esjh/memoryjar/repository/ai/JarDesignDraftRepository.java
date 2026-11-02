@@ -17,6 +17,10 @@ import java.time.LocalDateTime;
  */
 public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, Long> {
 
+    /** 보상 삭제는 soft delete 여부와 무관하게 실제 원본 참조가 남아 있으면 금지한다. */
+    @Query(value = "SELECT COUNT(*) FROM jar_design_drafts WHERE owner_id = :userId AND original_s3_key = :key", nativeQuery = true)
+    long countOriginalReferencesIncludingDeleted(@Param("userId") Long userId, @Param("key") String key);
+
     /** Draft 실시간 topic은 OWNER만 구독할 수 있도록 민감한 데이터 없이 소유 여부만 확인한다. */
     boolean existsByDraftIdAndOwner_Id(Long draftId, Long ownerId);
 

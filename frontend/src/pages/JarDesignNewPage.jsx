@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useRequestGate } from "../api/useRequestGate";
 import JarDesignCanvas from "../features/jarDesign/components/JarDesignCanvas";
 import AiCandidateGallery from "../features/jarDesign/components/AiCandidateGallery";
 import DesignProgress from "../features/jarDesign/components/DesignProgress";
@@ -18,6 +19,9 @@ import {
 /** Canvas 또는 외부 원본으로 Draft를 만들고 AI 후보 보관함으로 이어지는 별도 사전 디자인 화면이다. */
 export default function JarDesignNewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  // 같은 주소로 사진 선택 상태만 저장하는 replace는 유효한 제작 요청을 취소하지 않는다.
+  const requestGate = useRequestGate(location.pathname + location.search);
   const [inputMode, setInputMode] = useState("DRAW");
   const [sourceImage, setSourceImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -38,6 +42,11 @@ export default function JarDesignNewPage() {
   const [galleryStep, setGalleryStep] = useState(3);
   const [previewControlsTarget, setPreviewControlsTarget] = useState(null);
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
+  useLayoutEffect(() => {
+    // 같은 화면의 단계 이동도 이전 제작 요청을 끝낸 것으로 취급한다. 늦은 finally가 새 요청을 풀지 않는다.
+    creatingDraft.current = false;
+    setSaving(false);
+  }, [requestGate]);
   useEffect(() => {
     try { if (customBody) window.sessionStorage.setItem(BODY_DRAFT_KEY, JSON.stringify(customBody)); }
     catch { /* 저장 공간이 막혀도 현재 탭의 편집과 업로드는 계속할 수 있다. */ }
@@ -60,6 +69,13 @@ export default function JarDesignNewPage() {
     return () => URL.revokeObjectURL(nextPreviewUrl);
   }, [sourceImage]);
 
+  /** 라우터가 화면을 갱신하기 전 주소만 먼저 바뀐 순간에도 이전 응답의 이동을 차단한다. */
+  function beginPageRequest(lane) {
+    const isLatest = requestGate.begin(lane);
+    const startedUrl = window.location.pathname + window.location.search;
+    return () => isLatest() && window.location.pathname + window.location.search === startedUrl;
+  }
+
   /** 새 원본을 고르면 이전 Draft로 이어지는 URL을 지워 잘못된 후보를 섞지 않는다. */
   function setDesignSource(imageFile) {
     sourceSelection.current += 1;
@@ -77,16 +93,17 @@ export default function JarDesignNewPage() {
     event.target.value = "";
     if (!imageFile) return;
     const selection = ++sourceSelection.current;
+    const isCurrent = beginPageRequest("source");
     setReadingSource(true);
     setError("");
     try {
       const prepared = await prepareSourceImage(imageFile);
       // 연속 선택·입력 방식 전환 뒤 늦게 끝난 이전 파일이 최신 그림을 덮어쓰지 않는다.
-      if (selection === sourceSelection.current) setDesignSource(prepared);
+      if (isCurrent() && selection === sourceSelection.current) setDesignSource(prepared);
     } catch (readError) {
-      if (selection === sourceSelection.current) setError(readError.message || "사진을 읽지 못했어요. 다시 선택해 주세요.");
+      if (isCurrent() && selection === sourceSelection.current) setError(readError.message || "사진을 읽지 못했어요. 다시 선택해 주세요.");
     } finally {
-      if (selection === sourceSelection.current) setReadingSource(false);
+      if (isCurrent() && selection === sourceSelection.current) setReadingSource(false);
     }
   }
 
@@ -94,21 +111,25 @@ export default function JarDesignNewPage() {
   async function handleCreateDraft() {
     if ((!body && !imageOnly) || !sourceImage || !previewReady || readingSource || saving || creatingDraft.current || (inputMode === "DRAW" && sourceDirty)) return;
     creatingDraft.current = true;
+    const isCurrent = beginPageRequest("create");
     setSaving(true);
     setError("");
     try {
       const draft = await createJarDesignDraft(sourceImage, body?.id, body?.id === "CUSTOM" ? customBody : undefined);
+      if (!isCurrent()) return;
       // 본체를 쓸 때 먼저 원본으로 배치 화면을 연다. 배치는 비파괴 메타데이터이며 이후 AI 후보도 선택 가능하다.
       if (body) {
         try { await selectJarDesign(draft.draftId, "ORIGINAL"); }
-        catch (selectionError) { setError(getJarDesignDraftError(selectionError).message); }
+        catch (selectionError) { if (isCurrent()) setError(getJarDesignDraftError(selectionError).message); }
       }
-      setSearchParams({ draft: String(draft.draftId) });
+      if (isCurrent()) setSearchParams({ draft: String(draft.draftId) });
     } catch (requestError) {
-      setError(getJarDesignDraftError(requestError).message);
+      if (isCurrent()) setError(getJarDesignDraftError(requestError).message);
     } finally {
-      creatingDraft.current = false;
-      setSaving(false);
+      if (isCurrent()) {
+        creatingDraft.current = false;
+        setSaving(false);
+      }
     }
   }
 

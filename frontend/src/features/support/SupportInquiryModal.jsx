@@ -20,7 +20,7 @@ export default function SupportInquiryModal({ draftId, generation, existing, ori
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
-  const submitted = ticket && ["COPYING", "OPEN", "IN_PROGRESS", "ANSWERED"].includes(ticket.status);
+  const submitted = ticket && ["COPYING", "OPEN", "IN_PROGRESS", "ANSWERED", "WAITING_USER", "RESOLVED"].includes(ticket.status);
   useEffect(() => {
     mounted.current = true;
     dialog.current.showModal();

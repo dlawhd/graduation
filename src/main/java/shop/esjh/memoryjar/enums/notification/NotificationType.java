@@ -24,5 +24,8 @@ public enum NotificationType {
     SUPPORT_REPLIED,
 
     // 원본 보관이 완료되어 새 문의가 접수되었을 때 지정된 운영자에게 전달한다.
-    SUPPORT_INQUIRY_RECEIVED
+    SUPPORT_INQUIRY_RECEIVED,
+
+    // 기존 문의에 추가 설명이나 재개 요청이 도착했을 때.
+    SUPPORT_FOLLOWED_UP
 }

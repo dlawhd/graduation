@@ -95,6 +95,8 @@ public class SecurityConfig {
 
                         // ✅ /api/csrf 는 로그인 없이 허용, 로그인 전/후 상관없이 먼저 받아야 할 수 있으니 열어둠.
                         .requestMatchers("/api/v1/csrf").permitAll()
+                        // 로그인 도움의 개인 요청은 컨트롤러/서비스가 별도 문의 쿠키로 검사한다. CSRF는 유지한다.
+                        .requestMatchers("/api/v1/public/support/**").permitAll()
 
                         // ✅ 로그인 없이 접근 가능한 기본 주소들
                         .requestMatchers("/", "/error", "/login/**", "/oauth2/**").permitAll()

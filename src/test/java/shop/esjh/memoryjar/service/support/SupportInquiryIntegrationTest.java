@@ -25,6 +25,11 @@ import shop.esjh.memoryjar.repository.support.*;
 import shop.esjh.memoryjar.repository.ai.*;
 import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.service.notification.NotificationService;
+import shop.esjh.memoryjar.service.ai.JarDesignFinalizePersistenceService;
+import shop.esjh.memoryjar.service.jar.*;
+import shop.esjh.memoryjar.service.chat.ChatSystemMessageService;
+import shop.esjh.memoryjar.dto.jar.request.JarCreateRequest;
+import shop.esjh.memoryjar.enums.jar.*;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -38,7 +43,8 @@ import static org.mockito.Mockito.*;
 @DataJpaTest(showSql = false)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({JpaAuditConfig.class, SupportConfig.class, SupportAuthorization.class, SupportInquiryPersistenceService.class,
-        SupportInquiryService.class, NotificationService.class})
+        SupportInquiryService.class, NotificationService.class, JarDesignFinalizePersistenceService.class, JarService.class,
+        SupportRateGuard.class, SupportAccessCrypto.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
     @Autowired PlatformTransactionManager transactions;
@@ -53,6 +59,11 @@ class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
     @MockitoBean S3Presigner presigner;
     @MockitoBean S3Properties storage;
     @MockitoBean SimpMessagingTemplate messages;
+    @MockitoBean JarOpenService jarOpenService;
+    @MockitoBean JarMemberRealtimeService memberRealtime;
+    @MockitoBean ChatSystemMessageService systemMessages;
+    @MockitoBean JarDesignViewService designViews;
+    @Autowired JarDesignFinalizePersistenceService finalization;
 
     @BeforeEach void resetOperatorConfiguration() {
         operators.setOperatorUserIds(Set.of());
@@ -88,6 +99,40 @@ class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
     }
     Long extraGeneration(Fixture f) {
         return new TransactionTemplate(transactions).execute(tx -> failedGeneration(entityManager.find(JarDesignDraft.class, f.draft)).getGenerationId());
+    }
+
+    @Test void inquiryAndFinalizationUseTheSameOwnerThenDraftLockOrder() throws Exception {
+        var f = fixture();
+        new TransactionTemplate(transactions).executeWithoutResult(tx -> drafts.findById(f.draft).orElseThrow().selectDefault());
+        var target = finalization.prepare(f.owner, f.draft);
+        var request = new JarCreateRequest("동시 생성 시험", null, JarTheme.SPRING, 2,
+                LocalDateTime.now().plusDays(1), JarOpenMode.ALL_AT_ONCE, JarLockLevel.HIDDEN);
+        var ownerHeld = new CountDownLatch(1); var continueInquiry = new CountDownLatch(1);
+        var finalizeStarted = new CountDownLatch(1); var pool = Executors.newFixedThreadPool(2);
+        try {
+            // 문의가 사용자 잠금을 먼저 가진 상태에서 생성 요청을 겹친다.
+            // 생성이 Draft부터 잠그면 문의의 다음 Draft 잠금과 서로 기다리게 된다.
+            var inquiry = pool.submit(() -> new TransactionTemplate(transactions).execute(tx -> {
+                users.findByIdForUpdate(f.owner).orElseThrow(); ownerHeld.countDown();
+                try { if (!continueInquiry.await(15, TimeUnit.SECONDS)) throw new AssertionError("문의 재개 시간 초과"); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+                return persistence.reserve(f.owner, f.request());
+            }));
+            assertThat(ownerHeld.await(10, TimeUnit.SECONDS)).isTrue();
+            var finalized = pool.submit(() -> {
+                finalizeStarted.countDown();
+                return finalization.finalizeDefault(f.owner, f.draft, request, target);
+            });
+            assertThat(finalizeStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> finalized.get(250, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            continueInquiry.countDown();
+            var receipt = inquiry.get(20, TimeUnit.SECONDS);
+            var result = finalized.get(20, TimeUnit.SECONDS);
+            assertThat(receipt.inquiryId()).isNotNull();
+            assertThat(result.jarId()).isNotNull();
+            assertThat(drafts.findById(f.draft).orElseThrow().getStatus()).isEqualTo(JarDraftStatus.FINALIZED);
+            assertThat(inquiries.findById(receipt.inquiryId()).orElseThrow().getStatus()).isEqualTo(SupportInquiryStatus.COPYING);
+        } finally { continueInquiry.countDown(); pool.shutdownNow(); }
     }
 
     @Test void simultaneousSubmissionCopiesOnlyOnceAndDoesNotHoldDatabaseTransactionDuringS3() throws Exception {

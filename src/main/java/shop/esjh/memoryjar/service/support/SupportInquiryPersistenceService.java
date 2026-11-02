@@ -33,8 +33,13 @@ public class SupportInquiryPersistenceService {
     private final UserRepository users;
     private final SupportAuthorization authorization;
     private final NotificationService notifications;
+    private final SupportRateGuard rates;
+    private final SupportMessageRepository messages;
+    private final SupportGuestSessionRepository guests;
+    private final SupportRateLimitRepository limits;
     private static final List<SupportInquiryStatus> SUBMITTED = List.of(SupportInquiryStatus.OPEN,
-            SupportInquiryStatus.IN_PROGRESS, SupportInquiryStatus.ANSWERED);
+            SupportInquiryStatus.IN_PROGRESS, SupportInquiryStatus.ANSWERED,
+            SupportInquiryStatus.WAITING_USER, SupportInquiryStatus.RESOLVED);
 
     public static LocalDateTime now() { return LocalDateTime.now(ZoneId.of("Asia/Seoul")); }
 
@@ -43,6 +48,8 @@ public class SupportInquiryPersistenceService {
     public CopyTarget reserve(Long userId, SupportCreateRequest request) {
         if (!Boolean.TRUE.equals(request.shareOriginal())) throw problem(HttpStatus.BAD_REQUEST, "원본 이미지 공유 동의가 필요합니다.");
         LocalDateTime now = now();
+        // 일반 접수도 같은 제한 키를 먼저 잡는다. 사용자/Draft 잠금과 순서가 뒤집히지 않는다.
+        rates.lock("support-create:user:" + userId);
         users.findByIdForUpdate(userId).orElseThrow(() -> problem(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
         var draft = drafts.findByDraftIdForUpdate(request.draftId()).orElseThrow(() -> problem(HttpStatus.NOT_FOUND, "디자인을 찾을 수 없습니다."));
         if (!draft.isOwner(userId)) throw problem(HttpStatus.NOT_FOUND, "디자인을 찾을 수 없습니다.");
@@ -119,7 +126,8 @@ public class SupportInquiryPersistenceService {
         if (operator) authorization.requireOperator(userId);
         var i = ownedOrOperator(userId, id, operator);
         LocalDateTime now = now();
-        if (!i.isSubmitted() || i.getImageDeletedAt() != null || !i.getImageExpiresAt().isAfter(now))
+        if (!i.isSubmitted() || i.getImageS3Key() == null || i.getImageExpiresAt() == null
+                || i.getImageDeletedAt() != null || !i.getImageExpiresAt().isAfter(now))
             throw problem(HttpStatus.GONE, "사진 보관 기간이 지났거나 아직 접수되지 않았습니다.");
         if (operator) audits.save(new SupportInquiryAudit(id, userId, "IMAGE_VIEWED", now));
         return new ImageTarget(i.getImageS3Key(), i.getImageExpiresAt());
@@ -142,11 +150,13 @@ public class SupportInquiryPersistenceService {
     public SupportInquiryResponse reply(Long operatorId, Long id, String text) {
         authorization.requireOperator(operatorId);
         var i = inquiries.findForUpdate(id).orElseThrow(() -> problem(HttpStatus.NOT_FOUND, "문의를 찾을 수 없습니다."));
-        if (i.getStatus() == SupportInquiryStatus.ANSWERED) throw problem(HttpStatus.CONFLICT, "이미 답변한 문의입니다.");
+        if (i.getReply() != null || i.getStatus() == SupportInquiryStatus.RESOLVED)
+            throw problem(HttpStatus.CONFLICT, "이미 답변했거나 해결된 문의입니다. 추가 대화를 이용해 주세요.");
         requireEditable(i);
         i.answer(text.strip(), now());
+        messages.save(new SupportMessage(id, operatorId, "OPERATOR", text.strip(), null, false, now()));
         audits.save(new SupportInquiryAudit(id, operatorId, "REPLIED", now()));
-        notifications.notifySupportReplied(users.getReferenceById(i.getOwnerId()), id);
+        if (i.getOwnerId() != null) notifications.notifySupportReplied(users.getReferenceById(i.getOwnerId()), id);
         return SupportInquiryResponse.from(i, true, now());
     }
 
@@ -157,7 +167,7 @@ public class SupportInquiryPersistenceService {
 
     private SupportInquiry ownedOrOperator(Long userId, Long id, boolean operator) {
         var i = inquiries.findById(id).orElseThrow(() -> problem(HttpStatus.NOT_FOUND, "문의를 찾을 수 없습니다."));
-        if (!operator && !i.getOwnerId().equals(userId)) throw problem(HttpStatus.NOT_FOUND, "문의를 찾을 수 없습니다.");
+        if (!operator && !java.util.Objects.equals(i.getOwnerId(), userId)) throw problem(HttpStatus.NOT_FOUND, "문의를 찾을 수 없습니다.");
         return i;
     }
 
@@ -166,7 +176,7 @@ public class SupportInquiryPersistenceService {
     public ImageTarget prepareDelete(Long id) {
         var i = inquiries.findForUpdate(id).orElseThrow();
         LocalDateTime now = now();
-        if (i.getImageDeletedAt() != null) return null;
+        if (i.getImageS3Key() == null || i.getImageExpiresAt() == null || i.getImageDeletedAt() != null) return null;
         if (!i.isSubmitted() && !i.getUpdatedAt().isAfter(now.minusMinutes(10))) {
             if (i.getStatus() == SupportInquiryStatus.COPYING) i.failCopy(now);
             return new ImageTarget(i.getImageS3Key(), i.getImageExpiresAt());
@@ -183,11 +193,16 @@ public class SupportInquiryPersistenceService {
     @Transactional
     public void redact(Long id) {
         var i = inquiries.findForUpdate(id).orElseThrow();
-        if (!i.getContentExpiresAt().isAfter(now())) i.redactContent(now());
+        if (!i.getContentExpiresAt().isAfter(now())) {
+            i.redactContent(now()); messages.redactByInquiryId(id);
+        }
     }
 
     @Transactional
-    public void purgeAudits() { audits.deleteExpiredBatch(now().minusDays(90)); }
+    public void purgeAudits() {
+        audits.deleteExpiredBatch(now().minusDays(90));
+        guests.expire(now()); limits.purge(now().minusDays(2));
+    }
 
     private static ResponseStatusException problem(HttpStatus status, String message) { return new ResponseStatusException(status, message); }
     public record CopyTarget(Long inquiryId, String sourceKey, String imageKey, boolean alreadySubmitted) { }

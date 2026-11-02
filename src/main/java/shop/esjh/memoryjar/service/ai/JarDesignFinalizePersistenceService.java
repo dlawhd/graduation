@@ -17,6 +17,7 @@ import shop.esjh.memoryjar.enums.ai.AiDraftErrorCode;
 import shop.esjh.memoryjar.config.exception.ApiException;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
+import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignRepository;
 import shop.esjh.memoryjar.service.jar.JarService;
 
@@ -39,15 +40,18 @@ public class JarDesignFinalizePersistenceService {
     private final JarAiGenerationRepository generationRepository;
     private final JarDesignRepository designRepository;
     private final JarService jarService;
+    private final UserRepository userRepository;
 
     public JarDesignFinalizePersistenceService(JarDesignDraftRepository draftRepository,
                                                JarAiGenerationRepository generationRepository,
                                                JarDesignRepository designRepository,
-                                               JarService jarService) {
+                                               JarService jarService,
+                                               UserRepository userRepository) {
         this.draftRepository = draftRepository;
         this.generationRepository = generationRepository;
         this.designRepository = designRepository;
         this.jarService = jarService;
+        this.userRepository = userRepository;
     }
 
     /** S3 복사 전에 현재 선택을 잠금 아래에서 검증하고, 복사에 필요한 불변 Snapshot만 반환한다. */
@@ -120,6 +124,9 @@ public class JarDesignFinalizePersistenceService {
     }
 
     private JarDesignDraft findOwnedActiveDraftForUpdate(Long userId, Long draftId) {
+        // 문의 접수와 같은 사용자 → Draft 순서다. Jar INSERT의 소유자 외래키 검사와 잠금이 엇갈리지 않는다.
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new ApiException(AiDraftErrorCode.DRAFT_NOT_FOUND));
         JarDesignDraft draft = draftRepository.findByDraftIdForUpdate(draftId)
                 .orElseThrow(() -> new ApiException(AiDraftErrorCode.DRAFT_NOT_FOUND));
         if (!draft.isOwner(userId)) {

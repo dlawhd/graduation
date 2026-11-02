@@ -28,7 +28,7 @@ class JarBodyPersistenceTest {
         JarAiGenerationRepository generations = mock(JarAiGenerationRepository.class);
         JarDesignCutoutPathCodec codec = mock(JarDesignCutoutPathCodec.class);
         AiDraftProperties properties = new AiDraftProperties();
-        when(users.findById(1L)).thenReturn(Optional.of(User.builder().id(1L).build()));
+        when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(User.builder().id(1L).build()));
         when(drafts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         JarDesignDraft draft = new JarDesignDraftPersistenceService(users, drafts, properties)
                 .createDraft(1L, "original.png", body);

@@ -97,7 +97,7 @@ public class NoteReactionService {
         Jar jar = getJarOrThrow(jarId);
 
         // 3. 현재 사용자가 이 저금통의 active 멤버인지 확인
-        validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 리액션을 남길 수 있어.");
+        lockActiveMember(jarId, currentUserId, "현재 저금통 멤버만 리액션을 남길 수 있어.");
 
         // 4. 저금통이 오픈됐는지 확인
         validateJarOpen(jar);
@@ -454,6 +454,12 @@ public class NoteReactionService {
      * 현재 사용자가 이 저금통의 active 멤버인지 확인함
      * 아니면 403 예외를 던짐
      */
+    /** 강퇴·탈퇴와 같은 멤버 행을 잠가, 권한 확인부터 저장 확정까지 참여 상태를 보호한다. */
+    private void lockActiveMember(Long jarId, Long userId, String message) {
+        jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, message));
+    }
+
     private void validateActiveMember(Long jarId, Long currentUserId, String message) {
         boolean isActiveMember = jarMemberRepository
                 .existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId);

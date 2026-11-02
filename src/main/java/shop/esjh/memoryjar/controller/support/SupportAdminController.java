@@ -18,6 +18,13 @@ import static shop.esjh.memoryjar.service.support.SupportAuthorization.currentUs
 public class SupportAdminController {
     private final SupportInquiryService service;
     private final SupportInquiryPersistenceService persistence;
+    private final SupportConversationService conversations;
+    private final SupportAttachmentService attachments;
+    private final SupportAttachmentPersistenceService attachmentPersistence;
+    @GetMapping("/{id}/view")
+    public ApiResponse<SupportDetailResponse> view(Authentication auth,@PathVariable Long id) {
+        return ApiResponse.of(conversations.view(SupportActor.operator(currentUserId(auth)),id));
+    }
 
     @GetMapping
     public ApiResponse<SupportInquiryResponse.InquiryPage> list(Authentication auth,
@@ -40,5 +47,37 @@ public class SupportAdminController {
     public ApiResponse<SupportInquiryResponse> reply(Authentication auth, @PathVariable Long id,
             @Valid @RequestBody SupportReplyRequest request) {
         return ApiResponse.of(persistence.reply(currentUserId(auth), id, request.reply()));
+    }
+@GetMapping("/{id}/messages")
+    public ApiResponse<SupportMessageResponse.MessagePage> messages(Authentication auth,@PathVariable Long id,
+            @RequestParam(required=false) Long before) {
+        return ApiResponse.of(conversations.messages(SupportActor.operator(currentUserId(auth)),id,before));
+    }
+    @PostMapping("/{id}/messages")
+    public ApiResponse<SupportMessageResponse> message(Authentication auth,@PathVariable Long id,
+            @Valid @RequestBody SupportMessageRequest request) {
+        return ApiResponse.of(conversations.append(SupportActor.operator(currentUserId(auth)),id,request));
+    }
+    @PostMapping("/{id}/resolve")
+    public ApiResponse<SupportInquiryResponse> resolve(Authentication auth,@PathVariable Long id) {
+        return ApiResponse.of(conversations.resolve(SupportActor.operator(currentUserId(auth)),id,true));
+    }
+    @PostMapping("/{id}/reopen")
+    public ApiResponse<SupportInquiryResponse> reopen(Authentication auth,@PathVariable Long id) {
+        return ApiResponse.of(conversations.resolve(SupportActor.operator(currentUserId(auth)),id,false));
+    }
+    @GetMapping("/{id}/attachments")
+    public ApiResponse<java.util.List<SupportAttachmentResponse>> attachments(Authentication auth,@PathVariable Long id) {
+        return ApiResponse.of(attachmentPersistence.list(SupportActor.operator(currentUserId(auth)),id));
+    }
+    @PostMapping(value="/{id}/attachments",consumes="multipart/form-data")
+    public ApiResponse<SupportAttachmentResponse> upload(Authentication auth,@PathVariable Long id,
+            @RequestParam java.util.UUID requestId,@RequestParam boolean shareScreenshot,
+            @RequestPart("image") org.springframework.web.multipart.MultipartFile image) {
+        return ApiResponse.of(attachments.upload(SupportActor.operator(currentUserId(auth)),id,requestId.toString(),image,shareScreenshot));
+    }
+    @GetMapping("/{id}/attachments/{attachmentId}/image")
+    public ApiResponse<JarAiGenerationPreviewResponse> attachmentImage(Authentication auth,@PathVariable Long id,@PathVariable Long attachmentId) {
+        return ApiResponse.of(attachments.preview(SupportActor.operator(currentUserId(auth)),id,attachmentId));
     }
 }

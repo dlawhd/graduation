@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useRequestGate } from "../../../api/useRequestGate";
 import {
   drawDailyDrawToday,
   getDailyDrawHistory,
@@ -18,6 +19,8 @@ import {
  * 를 JarDetailPage 대신 맡아주는 "추억 뽑기 담당자"다.
  */
 export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }) {
+  const requestGate = useRequestGate(`${jarId}:${Boolean(jar?.isOpen)}`);
+  const drawPending = useRef(false);
   // 오늘 뽑힌 추억 쪽지 상태
   const [dailyDrawToday, setDailyDrawToday] = useState(null);
 
@@ -28,7 +31,11 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
   const historyRequestRef = useRef(0);
 
   // 뽑기 조회/실행 로딩 상태
-  const [dailyDrawLoading, setDailyDrawLoading] = useState(false);
+  // 오늘 카드·기록·전체 새로고침이 겹쳐도 한 요청이 다른 요청의 로딩 표시를 끄지 않는다.
+  const [todayLoading, setTodayLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const dailyDrawLoading = todayLoading || historyLoading || refreshLoading;
   const [dailyDrawDrawing, setDailyDrawDrawing] = useState(false);
 
   // 뽑기 관련 에러 메시지
@@ -42,6 +49,17 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
 
   // 안내 문구를 몇 초 뒤 자동으로 지울 때 사용할 타이머 보관함
   const dailyDrawRealtimeMessageTimerRef = useRef(null);
+
+  useLayoutEffect(() => {
+    // 다른 저금통·닫힌 상태로 바뀌면 이전 조회와 뽑기의 결과를 반영하지 않는다.
+    drawPending.current = false;
+    setDailyDrawToday(null);
+    setDailyDrawDrawing(false);
+    setTodayLoading(false);
+    setHistoryLoading(false);
+    setRefreshLoading(false);
+    setDailyDrawError("");
+  }, [requestGate]);
 
   /*
    * 현재 오늘 뽑힌 추억 쪽지를 구분하는 값이다.
@@ -78,17 +96,18 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
   const loadDailyDrawToday = useCallback(
     async ({ silent = false } = {}) => {
       if (!jarId) return;
+      const isCurrent = requestGate.begin("today");
 
-      if (!silent) {
-        setDailyDrawLoading(true);
-      }
+      setTodayLoading(!silent);
 
       setDailyDrawError("");
 
       try {
         const data = await getDailyDrawToday(jarId);
+        if (!isCurrent()) return;
         setDailyDrawToday(data || null);
       } catch (e) {
+        if (!isCurrent()) return;
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -98,12 +117,12 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
         setDailyDrawError(serverMessage);
         setDailyDrawToday(null);
       } finally {
-        if (!silent) {
-          setDailyDrawLoading(false);
+        if (isCurrent()) {
+          setTodayLoading(false);
         }
       }
     },
-    [jarId]
+    [jarId, requestGate]
   );
 
   /*
@@ -113,23 +132,22 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
     async ({ silent = false, page = historyPageRef.current } = {}) => {
       if (!jarId) return;
       const requestId = ++historyRequestRef.current;
+      const isCurrent = requestGate.begin("history");
 
-      if (!silent) {
-        setDailyDrawLoading(true);
-      }
+      setHistoryLoading(!silent);
 
       setDailyDrawError("");
 
       try {
         const data = await getDailyDrawHistory(jarId, page, 5);
-        if (requestId !== historyRequestRef.current) return;
+        if (!isCurrent() || requestId !== historyRequestRef.current) return;
         const items = Array.isArray(data?.items) ? data.items : [];
 
         setDailyDrawHistory(items);
         historyPageRef.current = data?.page || 0;
         setDailyDrawHistoryPagination(data || { page: 0, totalPages: 0, totalElements: 0 });
       } catch (e) {
-        if (requestId !== historyRequestRef.current) return;
+        if (!isCurrent() || requestId !== historyRequestRef.current) return;
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -139,12 +157,12 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
         setDailyDrawError(serverMessage);
         setDailyDrawHistory([]);
       } finally {
-        if (!silent && requestId === historyRequestRef.current) {
-          setDailyDrawLoading(false);
+        if (isCurrent() && requestId === historyRequestRef.current) {
+          setHistoryLoading(false);
         }
       }
     },
-    [jarId]
+    [jarId, requestGate]
   );
 
   useEffect(() => {
@@ -159,7 +177,8 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
    * Daily Draw 전체 새로고침
    */
   const refreshDailyDraw = useCallback(async () => {
-    setDailyDrawLoading(true);
+    const isCurrent = requestGate.begin("refresh");
+    setRefreshLoading(true);
     setDailyDrawError("");
 
     try {
@@ -168,9 +187,9 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
         loadDailyDrawHistory({ silent: true }),
       ]);
     } finally {
-      setDailyDrawLoading(false);
+      if (isCurrent()) setRefreshLoading(false);
     }
-  }, [loadDailyDrawHistory, loadDailyDrawToday]);
+  }, [loadDailyDrawHistory, loadDailyDrawToday, requestGate]);
 
   /*
    * 저금통이 열린 상태라면 오늘 카드와 뽑기 기록을 자동으로 불러온다.
@@ -182,7 +201,9 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
       setDailyDrawToday(null);
       setDailyDrawHistory([]);
       setDailyDrawError("");
-      setDailyDrawLoading(false);
+      setTodayLoading(false);
+      setHistoryLoading(false);
+      setRefreshLoading(false);
       return;
     }
 
@@ -223,18 +244,27 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
    * 오늘의 추억 한 장 뽑기
    */
   const handleDrawDailyDrawToday = useCallback(async () => {
-    if (!jarId) return;
+    if (!jarId || drawPending.current) return;
 
     if (!jar?.isOpen) {
       window.alert("저금통이 열린 뒤에 오늘의 추억 한 장을 뽑을 수 있어요.");
       return;
     }
 
+    drawPending.current = true;
+    const isCurrent = requestGate.begin("draw");
+    // 뽑기 전의 빈 결과가 성공한 POST의 화면을 나중에 덮어쓰지 못하게 한다.
+    requestGate.begin("today");
+    requestGate.begin("refresh");
+    setTodayLoading(false);
+    setRefreshLoading(false);
     setDailyDrawDrawing(true);
     setDailyDrawError("");
 
     try {
       const data = await drawDailyDrawToday(jarId);
+      if (!isCurrent()) return;
+      requestGate.begin("today");
 
       setDailyDrawToday((prev) => ({
         ...(prev || {}),
@@ -250,8 +280,9 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
         loadDailyDrawHistory({ silent: true }),
       ]);
 
-      await loadJarZoomNotes();
+      if (isCurrent()) await loadJarZoomNotes();
     } catch (e) {
+      if (!isCurrent()) return;
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -260,9 +291,12 @@ export function useJarDailyDraw({ jarId, jar, memoryDrawOpen, loadJarZoomNotes }
 
       setDailyDrawError(serverMessage);
     } finally {
-      setDailyDrawDrawing(false);
+      if (isCurrent()) {
+        drawPending.current = false;
+        setDailyDrawDrawing(false);
+      }
     }
-  }, [jar?.isOpen, jarId, loadDailyDrawHistory, loadDailyDrawToday, loadJarZoomNotes]);
+  }, [jar?.isOpen, jarId, loadDailyDrawHistory, loadDailyDrawToday, loadJarZoomNotes, requestGate]);
 
   return {
     dailyDrawToday,

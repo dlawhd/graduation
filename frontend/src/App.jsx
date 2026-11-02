@@ -64,7 +64,11 @@ import MemoryJarLogoIcon from "./components/icons/MemoryJarLogoIcon";
 import MobileHeaderMenu from "./components/layout/MobileHeaderMenu";
 import { getSupportPermissions } from "./api/supportApi";
 import { supportNotificationPath } from "./features/support/supportView.mjs";
+import SupportHelpLink from "./features/support/SupportHelpLink";
 const SupportInquiriesPage = lazy(() => import("./pages/SupportInquiriesPage"));
+const SupportNewPage = lazy(() => import("./pages/SupportNewPage"));
+const SupportHelpPage = lazy(() => import("./pages/SupportHelpPage"));
+const SupportLoginHelpPage = lazy(() => import("./pages/SupportLoginHelpPage"));
 // 작은 enum 한글화
 const ROLE_LABEL = {
   OWNER: "방장",
@@ -103,6 +107,7 @@ function getNotificationEmoji(type) {
     case "SUPPORT_REPLIED":
       return "✉️";
     case "SUPPORT_INQUIRY_RECEIVED":
+    case "SUPPORT_FOLLOWED_UP":
       return "📨";
     default:
       return "🔔";
@@ -125,7 +130,9 @@ function buildNotificationFallbackMessage(item) {
     case "SUPPORT_REPLIED":
       return "문의에 운영자 답변이 도착했어요.";
     case "SUPPORT_INQUIRY_RECEIVED":
-      return "새 AI 생성 문의가 접수됐어요.";
+      return "새 문의가 접수됐어요.";
+    case "SUPPORT_FOLLOWED_UP":
+      return "문의에 추가 내용이나 재개 요청이 도착했어요.";
     default:
       return "새 알림이 도착했어요.";
   }
@@ -297,6 +304,8 @@ useEffect(() => {
           "/signup",
           "/find-id",
           "/find-password",
+          "/help",
+          "/support/login-help",
         ]);
 
 
@@ -974,6 +983,7 @@ useEffect(() => {
               - 로그인 전에는 메뉴를 보여주지 않아 로고만 남긴다.
               - 로그인 후에는 Jars, 알림, 내정보, 로그아웃만 보여준다. */}
           <div className="flex items-center gap-2">
+            <SupportHelpLink className={`${me?"hidden md:inline-flex":"inline-flex"} min-h-11 shrink-0 items-center rounded-xl border border-emerald-200 bg-white/80 px-3 text-xs font-bold text-emerald-800 sm:text-sm`}/>
             {/* 로그인된 경우만 저금통 메뉴와 사용자 기능을 보여준다. */}
             {!checkingAuth && me && (
               <div className="flex items-center gap-2">
@@ -1468,8 +1478,11 @@ useEffect(() => {
             }
           />
           <Route path="/login/success" element={<LoginSuccess />} />
-          <Route path="/jars" element={<JarsPage />} />
+          <Route path="/jars" element={<JarsPage key={supportUserId} me={me} checkingAuth={checkingAuth} />} />
           <Route path="/jars/new" element={<JarsNewPage />} />
+          <Route path="/help" element={<Suspense fallback={<p className="p-6">도움말을 준비하고 있어요.</p>}><SupportHelpPage/></Suspense>} />
+          <Route path="/support/new" element={<Suspense fallback={<p className="p-6">문의 화면을 준비하고 있어요.</p>}><SupportNewPage key={supportUserId} me={me} checkingAuth={checkingAuth}/></Suspense>} />
+          <Route path="/support/login-help" element={<Suspense fallback={<p className="p-6">로그인 도움을 준비하고 있어요.</p>}><SupportLoginHelpPage/></Suspense>} />
           <Route path="/jars/design/new" element={<JarDesignNewPage />} />
           <Route path="/jars/:jarId" element={<JarDetailRoute userId={getCurrentUserId(me)} checkingAuth={checkingAuth} onSuccess={setLoginToastMessage} />} />
           <Route path="/support/inquiries" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />

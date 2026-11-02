@@ -104,8 +104,7 @@ class NoteReactionServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
         when(noteReactionRepository.findForUpdate(noteId, currentUserId))
@@ -159,8 +158,7 @@ class NoteReactionServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
         when(noteReactionRepository.findForUpdate(noteId, currentUserId))
@@ -204,8 +202,7 @@ class NoteReactionServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(true);
         when(noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)).thenReturn(Optional.of(note));
         when(noteReactionRepository.findForUpdate(noteId, currentUserId))
@@ -248,8 +245,7 @@ class NoteReactionServiceTest {
 
         when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(jarId, currentUserId)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(false);
 
         // when

@@ -1,6 +1,7 @@
 /** 서버의 문의 상태와 스타일 식별자를 사용자에게 익숙한 표현으로 바꾼다. */
 export const SUPPORT_STATUS = {
   COPYING: "사진 보관 중", COPY_FAILED: "접수 미완료", OPEN: "접수", IN_PROGRESS: "확인 중", ANSWERED: "답변 완료",
+  WAITING_USER: "추가 정보 대기", RESOLVED: "해결 완료",
 };
 /** 상태 색만으로 구분하지 않도록 아이콘도 함께 제공하며, 알 수 없는 상태는 중립색으로 표시한다. */
 export function supportStatusPresentation(status) {
@@ -10,6 +11,8 @@ export function supportStatusPresentation(status) {
     IN_PROGRESS: { icon: "◷", className: "border-amber-200 bg-amber-50 text-amber-900" },
     ANSWERED: { icon: "✓", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
     COPY_FAILED: { icon: "!", className: "border-rose-200 bg-rose-50 text-rose-800" },
+    WAITING_USER: { icon: "↩", className: "border-amber-200 bg-amber-50 text-amber-900" },
+    RESOLVED: { icon: "✓", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
   }[status] || { icon: "—", className: "border-slate-200 bg-slate-100 text-slate-700" };
 }
 export const SUPPORT_STYLE = {
@@ -25,7 +28,7 @@ export function canSubmitInquiry(description, agreed, imageReady, busy) {
   return Boolean(!busy && agreed && imageReady && description.trim().length > 0 && description.length <= 1000);
 }
 export function inquiryButtonLabel(ticket) {
-  return ticket && ["OPEN", "IN_PROGRESS", "ANSWERED"].includes(ticket.status)
+  return ticket && ["OPEN", "IN_PROGRESS", "ANSWERED", "WAITING_USER", "RESOLVED"].includes(ticket.status)
     ? "접수한 문의 보기" : ticket?.status === "COPYING" ? "접수 상태 확인" : "운영자에게 문의하기";
 }
 export function supportTime(value) {
@@ -37,6 +40,6 @@ export function supportNotificationPath(item) {
   if (!Number.isSafeInteger(item?.inquiryId) || item.inquiryId <= 0) return null;
   if (item.type === "SUPPORT_REPLIED") return `/support/inquiries/${item.inquiryId}`;
   // 운영자 알림은 별도 운영 화면으로 연결한다. 실제 접근 권한은 서버에서 다시 검사한다.
-  if (item.type === "SUPPORT_INQUIRY_RECEIVED") return `/admin/support/inquiries/${item.inquiryId}`;
+  if (["SUPPORT_INQUIRY_RECEIVED","SUPPORT_FOLLOWED_UP"].includes(item.type)) return `/admin/support/inquiries/${item.inquiryId}`;
   return null;
 }

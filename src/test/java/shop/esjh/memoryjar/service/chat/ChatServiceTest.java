@@ -71,7 +71,7 @@ class ChatServiceTest {
     void retryWithSameRequestIdReturnsSavedMessageWithoutSavingAgain() {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(currentUser));
         when(jarRepository.findByJarId(JAR_ID)).thenReturn(Optional.of(jar));
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID)).thenReturn(true);
+
         var member = shop.esjh.memoryjar.entity.jar.JarMember.builder().jar(jar).user(currentUser)
                 .role(shop.esjh.memoryjar.enums.jar.JarRole.MEMBER).joinedAt(NOW).build();
         when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(JAR_ID, USER_ID)).thenReturn(Optional.of(member));
@@ -124,8 +124,7 @@ class ChatServiceTest {
                 .thenReturn(Optional.of(jar));
 
         // 현재 사용자가 저금통 멤버라고 가정
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(JAR_ID, USER_ID)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         // save가 호출되면 messageId와 createdAt을 넣어서 다시 돌려준다.
         when(chatMessageRepository.save(any(ChatMessage.class)))
@@ -180,8 +179,7 @@ class ChatServiceTest {
                 .thenReturn(Optional.of(jar));
 
         // 현재 사용자가 저금통 멤버가 아니라고 가정
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID))
-                .thenReturn(false);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(JAR_ID, USER_ID)).thenReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> chatService.sendTextMessage(USER_ID, JAR_ID, request))
@@ -203,8 +201,7 @@ class ChatServiceTest {
         when(jarRepository.findByJarId(JAR_ID))
                 .thenReturn(Optional.of(jar));
 
-        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(JAR_ID, USER_ID))
-                .thenReturn(true);
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(JAR_ID, USER_ID)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
 
         // when & then
         assertThatThrownBy(() -> chatService.sendTextMessage(USER_ID, JAR_ID, request))

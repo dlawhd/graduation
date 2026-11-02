@@ -1,0 +1,177 @@
+{
+  "schema": 1,
+  "date": "2026-11-02",
+  "scope": "LOCAL_ONLY_NOT_PRODUCTION_CAPACITY_GUARANTEE",
+  "gitBaseHead": "3e0f0e9c0eb08568742a4ab38f8bff36ab264983",
+  "uncommittedChanges": true,
+  "backendFull": {
+    "tests": 2089,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 6,
+    "passed": 2083,
+    "suites": 169
+  },
+  "backendRelated": {
+    "tests": 89,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "passed": 88,
+    "suites": 11
+  },
+  "frontendUnit": {
+    "tests": 268,
+    "pass": 268,
+    "fail": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "support": 14,
+    "account": 4,
+    "round4": 22,
+    "commonUi": "PASSED",
+    "commonUiWidths": [
+      1440,
+      768,
+      390,
+      320
+    ]
+  },
+  "load": {
+    "runId": "memoryjar-e2e-9c0d4c917c22",
+    "accounts": 300,
+    "operatorAccounts": 1,
+    "peakOutstanding": 300,
+    "requests": 3301,
+    "statusCounts": {
+      "200": 3301
+    },
+    "elapsedSeconds": 43.826683391,
+    "timingsMs": {
+      "create": {
+        "max": 7492.144328,
+        "p95": 7196.748687,
+        "p50": 4932.709723,
+        "p99": 7395.940357
+      },
+      "create-retry": {
+        "max": 4484.048443,
+        "p95": 4129.81157,
+        "p50": 3617.433428,
+        "p99": 4323.719771
+      },
+      "csrf": {
+        "max": 2393.424866,
+        "p95": 2220.170976,
+        "p50": 1792.424134,
+        "p99": 2300.215718
+      },
+      "final-view": {
+        "max": 1828.360831,
+        "p95": 1793.418826,
+        "p50": 1185.53089,
+        "p99": 1807.625992
+      },
+      "list": {
+        "max": 2604.139237,
+        "p95": 2489.375799,
+        "p50": 2307.652663,
+        "p99": 2584.830077
+      },
+      "message": {
+        "max": 6088.222853,
+        "p95": 5933.881923,
+        "p50": 5710.506978,
+        "p99": 6033.332234
+      },
+      "message-retry": {
+        "max": 3472.493817,
+        "p95": 3313.547734,
+        "p50": 2761.032072,
+        "p99": 3445.381618
+      },
+      "operator-csrf": {
+        "max": 50.082053,
+        "p95": 50.082053,
+        "p50": 50.082053,
+        "p99": 50.082053
+      },
+      "operator-reply": {
+        "max": 5188.863033,
+        "p95": 4963.297516,
+        "p50": 3689.678691,
+        "p99": 5166.322877
+      },
+      "reopen": {
+        "max": 2996.600346,
+        "p95": 2975.71398,
+        "p50": 2309.564841,
+        "p99": 2993.323789
+      },
+      "resolve": {
+        "max": 2032.392138,
+        "p95": 1990.357182,
+        "p50": 1840.891192,
+        "p99": 2017.682625
+      },
+      "view": {
+        "max": 3353.080437,
+        "p95": 3142.110521,
+        "p50": 1877.856186,
+        "p99": 3281.571247
+      }
+    },
+    "sampledHeapMiBMax": 198.26400756835938,
+    "sampledPoolPendingMax": 190,
+    "containerSampledPeaks": {
+      "runner": {
+        "sampledCpuPercentMax": 211.82,
+        "sampledMemoryMiBMax": 701.9
+      },
+      "db": {
+        "sampledCpuPercentMax": 52.14,
+        "sampledMemoryMiBMax": 351.0
+      }
+    },
+    "cleanup": {
+      "remainingContainers": 0,
+      "remainingNetworks": 0
+    },
+    "externalEgressBlocked": true,
+    "actualProviderCalls": 0,
+    "coLocatedGenerator": true,
+    "notes": [
+      "Synthetic signed sessions; password-login cost excluded.",
+      "300-request barriers, not a long-running production workload.",
+      "Screenshot CPU/storage saturation tested separately; 429 is expected above 2 concurrent image operations."
+    ]
+  },
+  "artifacts": {
+    "demo-0.0.1-SNAPSHOT.jar": {
+      "sha256": "e931222da251ed4828515f7e4e5b6d2feff0781c2197f27aed0b86c9b1628fac",
+      "matchedMainClasses": 491,
+      "localPrivateProfilesAbsent": true,
+      "trackedProdTemplateMatches": true
+    },
+    "demo-0.0.1-SNAPSHOT-plain.jar": {
+      "sha256": "a56a32dccf45eb2ea54c47921ca9997b429168c9aa74d4a9fecdede70bb4ea60",
+      "matchedMainClasses": 491,
+      "localPrivateProfilesAbsent": true,
+      "trackedProdTemplateMatches": true
+    }
+  },
+  "sourceFiles": 666,
+  "sourceDigestSha256": "7cb668e230e0dfee9a3a453ec830b9f5318cdd604d4a4022914d7f9747b6677c",
+  "isolatedHttpWebSocket": {
+    "passed": 4,
+    "failures": 0,
+    "runId": "memoryjar-e2e-f3cfa6a77d65"
+  },
+  "frontendBuild": {
+    "passed": true,
+    "files": 30,
+    "digestSha256": "ba7f15782c6ff0a92da77ce84879fc572b5b2653db3224affaed77d7137ad17d",
+    "largeChunkWarning": true
+  }
+}

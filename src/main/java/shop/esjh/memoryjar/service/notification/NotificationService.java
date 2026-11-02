@@ -156,6 +156,13 @@ public class NotificationService {
                 new NotificationPayload(null, null, null, null, "문의 접수", null, inquiryId));
     }
 
+    /** 추가 문의는 새 접수와 구분해서 지정 운영자에게만 알린다. 본문과 사진은 포함하지 않는다. */
+    @Transactional
+    public void notifySupportFollowedUp(Collection<User> operators, Long inquiryId) {
+        createNotificationsForMany(operators, null, NotificationType.SUPPORT_FOLLOWED_UP,
+                new NotificationPayload(null,null,null,null,"추가 문의",null,inquiryId));
+    }
+
     // 저금통에 새 멤버가 들어왔을 때 알림을 만드는 메서드
     @Transactional
     public void notifyJarMemberJoined(
@@ -326,7 +333,8 @@ public class NotificationService {
             case JAR_MEMBER_JOINED ->
                     safeActorName + "님이 저금통에 참여했어요.";
             case SUPPORT_REPLIED -> "문의에 운영자 답변이 도착했어요.";
-            case SUPPORT_INQUIRY_RECEIVED -> "새 AI 생성 문의가 접수됐어요.";
+            case SUPPORT_INQUIRY_RECEIVED -> "새 문의가 접수됐어요.";
+            case SUPPORT_FOLLOWED_UP -> "문의에 추가 내용이나 재개 요청이 도착했어요.";
         };
     }
 }

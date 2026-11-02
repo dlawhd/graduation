@@ -1,5 +1,6 @@
 // src/api/apiClient.js
 import axios from "axios";
+import { recordSupportFailure, clearSupportFailure } from "../features/support/supportContext.mjs";
 import {
   markSessionExpiredError,
   notifySessionExpired,
@@ -22,6 +23,7 @@ let changingAuth = false;
 
 /** 로그아웃 시작 즉시 이전 요청의 재시도를 차단한다. 서버의 로그인 묶음 폐기가 보안 경계다. */
 export function beginAuthChange() {
+  clearSupportFailure();
   authEpoch += 1;
   changingAuth = true;
   refreshController?.abort();
@@ -68,6 +70,7 @@ export function clearCsrf() {
 
 // POST/PUT/PATCH/DELETE 요청에는 CSRF 헤더 자동 첨부
 apiClient.interceptors.request.use((config) => {
+  if (typeof window !== "undefined" && config._supportPath===undefined) config._supportPath=window.location.pathname;
   if (staleRequest(config)) throw authChangedError();
   config._authEpoch = authEpoch;
   const method = (config.method || "get").toLowerCase();
@@ -87,6 +90,7 @@ apiClient.interceptors.response.use(
   (response) => {
     if (staleRequest(response.config)) throw authChangedError();
     if (/\/api\/v1\/auth\/(login|signup|logout|password-reset)$/.test(response.config.url || "")) {
+      clearSupportFailure();
       authEpoch += 1;
       csrfToken = "";
       refreshController?.abort();
@@ -106,6 +110,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
     if (staleRequest(originalRequest)) return Promise.reject(authChangedError());
+    if (typeof window !== "undefined" && originalRequest._supportPath===window.location.pathname) recordSupportFailure(error,window.location);
 
     // 이 요청은 401이 나도 refresh를 시도하지 않기로 표시된 요청이면 그대로 에러 반환
     if (originalRequest._skipAuthRefresh) {
@@ -179,6 +184,7 @@ apiClient.interceptors.response.use(
        */
       csrfToken = "";
       authEpoch += 1;
+      clearSupportFailure();
 
       /*
        * App에 로그인 만료 사실을 전달해서

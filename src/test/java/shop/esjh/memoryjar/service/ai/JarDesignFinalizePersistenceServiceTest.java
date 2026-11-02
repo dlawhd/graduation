@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.service.ai;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +27,8 @@ import shop.esjh.memoryjar.enums.jar.JarTheme;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignRepository;
+import shop.esjh.memoryjar.repository.UserRepository;
+import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.service.jar.JarService;
 
 import java.math.BigDecimal;
@@ -44,6 +47,12 @@ class JarDesignFinalizePersistenceServiceTest {
     @Mock private JarAiGenerationRepository generationRepository;
     @Mock private JarDesignRepository designRepository;
     @Mock private JarService jarService;
+    @Mock private UserRepository userRepository;
+
+    @BeforeEach
+    void existingOwnerCanBeLocked() {
+        lenient().when(userRepository.findByIdForUpdate(anyLong())).thenReturn(Optional.of(mock(User.class)));
+    }
 
     @Test
     void prepare_rejectsNonOwnerBeforeGenerationLookup() {
@@ -165,7 +174,20 @@ class JarDesignFinalizePersistenceServiceTest {
     }
 
     private JarDesignFinalizePersistenceService service() {
-        return new JarDesignFinalizePersistenceService(draftRepository, generationRepository, designRepository, jarService);
+        return new JarDesignFinalizePersistenceService(draftRepository, generationRepository, designRepository, jarService, userRepository);
+    }
+
+    @Test
+    void prepareLocksOwnerBeforeDraftAndRejectsMissingOwner() {
+        activeDraft(JarDraftDesignType.DEFAULT);
+        service().prepare(1L, 10L);
+        var order = inOrder(userRepository, draftRepository);
+        order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(draftRepository).findByDraftIdForUpdate(10L);
+        when(userRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service().prepare(99L, 10L)).isInstanceOf(ApiException.class);
+        verify(userRepository).findByIdForUpdate(99L);
+        verify(draftRepository, times(1)).findByDraftIdForUpdate(10L);
     }
 
     @Test

@@ -37,6 +37,15 @@ public class JarDesignDraftPersistenceService {
         this.properties = properties;
     }
 
+    /** 생성 트랜잭션의 확정·취소를 기다린 뒤, 참조 없는 원본만 정리하도록 판단한다. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public boolean mayDeleteOriginal(Long userId, String originalS3Key) {
+        // 생성과 같은 사용자 행을 잠가, 저장 결과가 아직 확정 중인 상태에서 사진을 지우지 않는다.
+        if (userRepository.findByIdForUpdate(userId).isEmpty()) return false;
+        return draftRepository.countOriginalReferencesIncludingDeleted(userId, originalS3Key) == 0;
+    }
+
     /**
      * 업로드 요청자가 현재도 존재할 때만 ACTIVE Draft를 생성하고 7일 만료 시각을 기록한다.
      */
@@ -63,7 +72,8 @@ public class JarDesignDraftPersistenceService {
     public JarDesignDraft createDraft(Long userId,String originalS3Key,JarBodyStyle bodyStyle,JarPhotoFrameValue contentFrame,
                                      shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,String bodyArtworkS3Key) {
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
-        User owner = userRepository.findById(userId)
+        // 이 잠금은 DB 기록 구간에서만 유지한다. S3 호출은 이 서비스 밖에서 끝난다.
+        User owner = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
         LocalDateTime expiresAt = LocalDateTime.now(KST).plusDays(properties.getExpiresAfterDays());

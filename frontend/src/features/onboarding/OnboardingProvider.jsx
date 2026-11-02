@@ -4,9 +4,12 @@ import {
   createContext,
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useRef,
   useMemo,
   useState,
 } from "react";
+import { useRequestGate } from "../../api/useRequestGate";
 import {
   finishOnboarding,
   getMyOnboardingProgress,
@@ -99,6 +102,8 @@ export function OnboardingProvider({
   checkingAuth,
   children,
 }) {
+  const requests = useRequestGate(userId);
+  const finishPending = useRef(null);
   // 현재 백엔드가 사용하는 온보딩 버전
   const [version, setVersion] = useState(null);
 
@@ -150,6 +155,12 @@ export function OnboardingProvider({
     []
   );
 
+  // 계정이 바뀐 첫 화면부터 이전 안내·오류·저장 상태를 지운다.
+  useLayoutEffect(() => {
+    finishPending.current = null;
+    resetOnboardingState();
+  }, [requests, resetOnboardingState]);
+
   /*
    * 로그인 사용자 또는 로그인 확인 상태가 바뀌면
    * 현재 사용자의 온보딩 정보를 조회한다.
@@ -171,6 +182,7 @@ export function OnboardingProvider({
       return undefined;
     }
 
+    const isCurrent = requests.begin("progress");
     const abortController =
       new AbortController();
 
@@ -188,7 +200,7 @@ export function OnboardingProvider({
          * 요청이 취소된 뒤에는
          * 이전 사용자 응답을 상태에 반영하지 않는다.
          */
-        if (abortController.signal.aborted) {
+        if (abortController.signal.aborted || !isCurrent()) {
           return;
         }
 
@@ -199,7 +211,7 @@ export function OnboardingProvider({
          * 실제 오류가 아니므로 오류 문구를 저장하지 않는다.
          */
         if (
-          abortController.signal.aborted ||
+          !isCurrent() || abortController.signal.aborted ||
           requestError?.code === "ERR_CANCELED"
         ) {
           return;
@@ -211,7 +223,7 @@ export function OnboardingProvider({
           )
         );
       } finally {
-        if (!abortController.signal.aborted) {
+        if (!abortController.signal.aborted && isCurrent()) {
           setLoading(false);
         }
       }
@@ -231,6 +243,7 @@ export function OnboardingProvider({
     checkingAuth,
     applyProgressResponse,
     resetOnboardingState,
+    requests,
   ]);
 
   /*
@@ -246,6 +259,8 @@ export function OnboardingProvider({
         return null;
       }
 
+      const isCurrent = requests.begin("progress");
+      if (!isCurrent()) return null;
       try {
         setLoading(true);
         setError("");
@@ -253,9 +268,11 @@ export function OnboardingProvider({
         const data =
           await getMyOnboardingProgress();
 
+        if (!isCurrent()) return null;
         applyProgressResponse(data);
         return data;
       } catch (requestError) {
+        if (!isCurrent() || requestError?.code === "ERR_CANCELED") throw requestError;
         setError(
           getOnboardingErrorMessage(
             requestError
@@ -264,13 +281,14 @@ export function OnboardingProvider({
 
         throw requestError;
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     },
     [
       userId,
       applyProgressResponse,
       resetOnboardingState,
+      requests,
     ]
   );
 
@@ -388,6 +406,10 @@ export function OnboardingProvider({
    */
   const finishTutorial = useCallback(
     async (tutorialKey, status) => {
+      if (!userId || checkingAuth || finishPending.current === requests) return null;
+      const isCurrent = requests.begin("finish");
+      if (!isCurrent()) return null;
+      finishPending.current = requests;
       try {
         setSavingTutorialKey(tutorialKey);
         setError("");
@@ -402,6 +424,7 @@ export function OnboardingProvider({
          * 저장 성공 후 전체 목록을 다시 조회하지 않고
          * 응답으로 받은 항목 하나만 현재 상태에 반영한다.
          */
+        if (!isCurrent()) return null;
         setProgressByKey(
           (previousProgress) => ({
             ...previousProgress,
@@ -422,6 +445,8 @@ export function OnboardingProvider({
 
         return savedProgress;
       } catch (requestError) {
+        // 공통 API가 취소한 이전 계정 요청은 다음 계정의 안내 오류로 표시하지 않는다.
+        if (!isCurrent() || requestError?.code === "ERR_CANCELED") throw requestError;
         setError(
           getOnboardingErrorMessage(
             requestError
@@ -430,10 +455,11 @@ export function OnboardingProvider({
 
         throw requestError;
       } finally {
-        setSavingTutorialKey(null);
+        if (finishPending.current === requests) finishPending.current = null;
+        if (isCurrent()) setSavingTutorialKey(null);
       }
     },
-    []
+    [requests, userId, checkingAuth]
   );
 
   /*

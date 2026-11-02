@@ -29,6 +29,7 @@ import java.util.UUID;
  * Canvas 또는 외부 원본을 PNG로 정규화·동기 심사·Private S3 저장 후 Draft로 생성하는 전체 흐름을 조정한다.
  */
 @Service
+@org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
 public class JarDesignDraftUploadService {
 
     private static final Logger log = LoggerFactory.getLogger(JarDesignDraftUploadService.class);
@@ -105,8 +106,15 @@ public class JarDesignDraftUploadService {
             return new JarDesignDraftCreateResponse(draft.getDraftId(), draft.getExpiresAt());
         } catch (RuntimeException exception) {
             // S3 저장만 성공하고 DB Draft 생성이 실패하면 이 요청의 고유 객체만 보상 삭제한다.
-            deleteOriginalAfterPersistenceFailure(originalS3Key);
-            if(borderKey!=null) deleteOriginalAfterPersistenceFailure(borderKey);
+            // 예외만으로 롤백을 단정하지 않는다. DB 확인까지 실패하면 사용 중일 수 있는 사본을 보존한다.
+            try {
+                if (persistenceService.mayDeleteOriginal(userId, originalS3Key)) {
+                    deleteOriginalAfterPersistenceFailure(originalS3Key);
+                    if(borderKey!=null) deleteOriginalAfterPersistenceFailure(borderKey);
+                }
+            } catch (RuntimeException verificationUnavailable) {
+                // 원래 오류를 유지하고, 불확실한 파일은 운영 대조를 위해 남긴다.
+            }
             throw exception;
         }
     }

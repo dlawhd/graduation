@@ -1,3 +1,5 @@
+> 2026-11-01 3차 수정: 일반 쓰기는 멤버 잠금으로 강퇴·탈퇴와 직렬화하고, 동시 추억 뽑기는 기존 오늘 결과를 반환한다. 응답 필드는 유지한다. [수정·검증 기록](SAFETY_ROUND3_2026-11-01.md)
+
 # API
 
 > 2026-11-01 후속 안전성: 저금통 삭제 준비 중 참여자가 바뀌거나 첨부 사용권 확보가 충돌하면 409로 거절한다. 관리자 쓰기는 현재 권한 잠금을 사용하고 댓글 `focusId`는 조상만 분할 조회한다. 기존 응답 필드와 정상 성공 응답은 유지한다. [후속 6개 항목·검증 범위](SAFETY_FOLLOWUP_2026-11-01.md)를 참고한다.
@@ -2362,7 +2364,7 @@ Finalize는 선택 영역이 없을 때 기존처럼 임시 이미지를 영구 
 
 AI Draft 생성·후보 생성·원본/후보 미리보기·선택·Slot 저장·Finalize API와 최종 미리보기 화면은 구현되어 있다. 화면은 ORIGINAL/AI의 저장된 Slot Overlay 또는 DEFAULT 기본 Jar 경로를 확인하고, `JarCreateRequest` 입력 뒤 Finalize API를 한 번만 호출한다. Finalize 뒤에는 기존 Jar 목록·상세·확대·오픈 연출에서도 Optional `JarDesign`을 표시하며, 디자인이 없는 Jar는 기존 Theme Jar를 유지한다.
 
-# 14. 최종 API 전수 대조
+# 14. 이전 문서 작성 시점의 API 전수 대조
 
 현재 Controller에 선언된 API를 기능별로 다시 집계했어.
 
@@ -2406,3 +2408,63 @@ OAuth2 인증 시작·콜백 경로는 Spring Security가 처리하므로 REST C
 - 실제 HTTP 상태와 Response DTO 구분
 
 이번 작업은 API 문서 개정이야. 프로젝트 소스는 수정하지 않았고, API를 실제 호출하는 통합 테스트나 운영 환경 검증은 수행하지 않았어.
+
+# 15. 일반 문의·추가 대화 확장 (2026-11-02)
+
+이 절은 위의 이전 집계와 구분한 현재 문의 API 추가 명세다. 기존 AI 문의 접수·원본 보기·운영자 최초 답변 API와 기존 응답 필드를 유지한다. 전체 서버 API 개수를 다시 집계한 문서는 아니다.
+
+| 접두사 | 접근 조건 |
+|---|---|
+| `/api/v1/support` | 현재 로그인 사용자, 본인 문의만 |
+| `/api/v1/admin/support` | 서버 `app.support.operator-user-ids` 허용 목록의 실제 계정 |
+| `/api/v1/public/support` | FAQ·세션 상태는 공개. 개인 문의는 별도의 `supportGuest` 쿠키 필수 |
+
+| 메서드·경로 | 처리 |
+|---|---|
+| `POST /api/v1/support/inquiries/general` | 사진·AI 후보 없이 일반 문의 생성 |
+| `GET {접두사}/inquiries/{id}/view` | 문의 + 최신 대화 20개 + 보관 중 첨부 최대 3개 통합 조회 |
+| `GET {접두사}/inquiries/{id}/messages?before=ID` | 이전 대화 20개, `nextBefore` 커서 |
+| `POST {접두사}/inquiries/{id}/messages` | 내용 추가. 운영자는 추가 정보 대기 표시 가능 |
+| `POST {접두사}/inquiries/{id}/resolve` | 해결 처리 |
+| `POST {접두사}/inquiries/{id}/reopen` | 해결된 문의 재개 |
+| `GET {접두사}/inquiries/{id}/attachments` | 유효 첨부 메타데이터 조회 |
+| `POST {접두사}/inquiries/{id}/attachments` | `multipart/form-data`: `image`, UUID `requestId`, `shareScreenshot=true` |
+| `GET {접두사}/inquiries/{id}/attachments/{attachmentId}/image` | 권한 재검사 후 최대 60초 URL 발급 |
+| `GET /api/v1/public/support/faq` | 정적 FAQ 8개, 공개 캐시 5분 |
+| `GET /api/v1/public/support/session` | 문의 쿠키 유효 여부만 조회, 새 세션 생성 안 함 |
+| `POST /api/v1/public/support/session` | 문의 전용 쿠키 발급. 계정 로그인·계정 복구 권한 없음 |
+| `GET/POST /api/v1/public/support/inquiries` | 해당 문의 쿠키의 목록·로그인 도움 접수 |
+| `GET /api/v1/public/support/inquiries/{id}` | 해당 문의 쿠키의 상세 조회 |
+
+공통 응답은 기존 `ApiResponse.data`를 사용한다. 통합 상세는 `{ inquiry, messages: { items, nextBefore }, attachments }`다. 모든 변경 요청은 비로그인 경로도 CSRF가 필요하다. CSRF 예외와 CORS 허용 범위는 확대하지 않는다.
+
+일반 접수 본문:
+
+```json
+{
+  "category": "THREE_D",
+  "title": "3D에서 사진이 늦게 보여요",
+  "description": "어떤 순서로 진행했는지 설명합니다.",
+  "requestId": "11111111-1111-4111-8111-111111111111",
+  "jarId": 112,
+  "contextPath": "/jars/112",
+  "errorCode": "HTTP_503",
+  "occurredAt": "2026-11-02T12:00:00+09:00"
+}
+```
+
+`category`, `title`(1~100자), `description`(1~1,000자), `requestId`가 필수다. 선택 항목은 `jarId`, `draftId`, `contextPath`, `errorCode`, 시차가 포함된 `occurredAt`이다. 발생 시각은 최근 90일~다음 1일 범위로 검사한다. 서버는 저금통 멤버십·Draft 소유권과 허용 경로를 다시 검사한다. 브라우저가 보낸 오류 코드·시각은 서버가 확인한 장애 사실과 구분한다.
+
+유형은 `PHOTO_UPLOAD`, `AI_GENERATION`, `THREE_D`, `NOTES_CHAT`, `INVITE_ACCESS`, `USAGE`, `FEATURE_REQUEST`, `OTHER`, `LOGIN_ACCOUNT`다. 비로그인 접수는 `LOGIN_ACCOUNT`만 허용하고 저금통·Draft 연결은 허용하지 않는다.
+
+대화 본문은 `{ "content": "추가 설명", "requestId": "UUID", "waitingForUser": false }`다. 내용은 1~3,000자다. `waitingForUser=true`는 운영자만 사용한다. 기존 `reply`·`repliedAt`은 최초 답변을 보존한다. 추가 상태는 `WAITING_USER`·`RESOLVED`이며, 해결된 문의에 쓰려면 먼저 재개해야 한다.
+
+- 접수·대화 요청 UUID 재전송은 같은 결과를 반환하며 저장·알림을 반복하지 않는다. 동일 UUID에 다른 내용은 409다.
+- 일반/기존 AI 접수 합산 사용자당 시간당 10건, 비로그인 세션당 5건이다. 대화는 문의자당 시간당 50건, 여러 문의를 처리하는 운영자는 시간당 1,000건이며 문의당 최대 100개다.
+- 첨부는 문의당 최대 3개·파일당 2MB·12MP·한 변 8,000px 이하 정지 PNG/JPEG/WebP다. 최대 1,600px PNG로 재인코딩하고 메타데이터를 제거한다. 동시 이미지 처리 2건을 넘으면 429로 재시도를 안내한다.
+- 본문·대화는 최초 접수부터 90일, 사진은 최대 30일이며 본문 만료일을 넘지 않는다. 만료 즉시 읽기를 차단하고 정리 작업이 삭제한다. 외부 저장 실패가 이미 접수된 본문을 취소하지 않는다.
+- `supportGuest`는 HttpOnly·호스트 전용·SameSite=Lax·경로 `/api/v1/public/support`이며 Secure는 기존 앱 쿠키 설정을 따른다. 원문은 DB에 저장하지 않고 SHA-256 해시만 보관한다. 쿠키 분실 시 다른 기기로 복구하는 기능은 없다.
+- 비로그인 세션 신규 발급은 서버가 관측한 IP당 60회/시간·전체 1,000회/시간이다. 원시 IP 대신 목적별 HMAC 키만 저장한다. 프록시 환경에서 서버가 관측하는 주소는 배포 설정에 따라 달라질 수 있다.
+- 타인 문의는 404, 유효하지 않은 문의 쿠키는 401, 운영 권한 없음은 403, 잘못된 값은 400, 크기 초과는 413, 한도 초과는 429, 외부 저장 실패는 503이다.
+
+검증 조건과 결과는 [문의 확장 기록](SUPPORT_EXPANSION_2026-11-02.md)에 별도로 기록한다.
