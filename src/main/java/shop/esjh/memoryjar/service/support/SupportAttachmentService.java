@@ -52,7 +52,15 @@ public class SupportAttachmentService {
                 catch (RuntimeException unavailable) { /* 결과가 불명확하면 키를 보존한다. 정리 작업이 다시 검사한다. */ }
                 if (e instanceof ResponseStatusException invalid) throw invalid;
                 if (e instanceof IOException) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"첨부 파일을 읽지 못했습니다.");
-                log.warn("문의 첨부 보관 실패 attachmentId={}",target.id());
+                // AWS 오류 원문에는 버킷·객체 키·역할 정보가 들어갈 수 있다. 고정 분류와 상태만 남긴다.
+                if (e instanceof S3Exception storageFailure) {
+                    var details=storageFailure.awsErrorDetails();
+                    String code=details==null?null:details.errorCode();
+                    var known=java.util.Set.of("AccessDenied","NoSuchBucket","InvalidAccessKeyId","SignatureDoesNotMatch",
+                            "ExpiredToken","SlowDown","RequestTimeout","ServiceUnavailable","InternalError");
+                    log.warn("문의 첨부 보관 실패 attachmentId={} category=S3 s3Status={} errorCode={}",
+                            target.id(),storageFailure.statusCode(),code!=null&&known.contains(code)?code:"OTHER");
+                } else log.warn("문의 첨부 보관 실패 attachmentId={} category=STORAGE_OR_PERSISTENCE",target.id());
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"화면 자료를 보관하지 못했습니다. 문의 내용은 유지되며 첨부만 다시 시도할 수 있습니다.");
             }
         } finally { imageSlots.release(); }

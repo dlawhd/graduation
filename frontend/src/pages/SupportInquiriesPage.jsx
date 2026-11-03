@@ -6,6 +6,7 @@ import SupportInquiryDetail from "../features/support/SupportInquiryDetail";
 import SupportStatusBadge from "../features/support/SupportStatusBadge";
 import StatusNotice from "../components/feedback/StatusNotice";
 import { supportTitle, SUPPORT_CATEGORIES } from "../features/support/supportContext.mjs";
+import SupportLetterLayout from "../features/support/SupportLetterLayout";
 
 /** 내 문의와 운영 문의함을 표시한다. 목록은 커서로 나누고 권한은 서버에서 다시 검사한다. */
 export default function SupportInquiriesPage({ me, checkingAuth, operator = false }) {
@@ -39,10 +40,10 @@ export default function SupportInquiriesPage({ me, checkingAuth, operator = fals
     return () => controller.abort();
   }, [userId, checkingAuth, allowed, inquiryId, before, status, operator, refresh]);
   const base = operator ? "/admin/support/inquiries" : "/support/inquiries";
-  const button = "min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold disabled:opacity-35";
-  return <div className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
-    <header className="mb-7"><p className="text-xs font-bold tracking-widest text-emerald-700">MEMORY JAR / SUPPORT</p><h1 className="mt-2 text-2xl font-black text-slate-900">{operator ? "운영 문의함" : "내 문의"}</h1><p className="mt-3 text-sm leading-6 text-slate-500">{operator ? "문의 상황과 대화를 확인하고, 확인된 사실을 중심으로 답변해 주세요." : "일반 문의와 AI 생성 문의를 확인하고, 필요한 설명을 이어서 남길 수 있어요."}</p><div className="mt-4 flex flex-wrap gap-3">{!operator&&userId&&<Link to="/support/new" className="inline-flex min-h-11 items-center rounded-xl bg-emerald-700 px-5 text-sm font-bold text-white">문의하기</Link>}<Link to="/help" className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-4 text-sm font-bold">도움말</Link></div></header>
-    {checkingAuth ? <p role="status">로그인을 확인하고 있어요.</p> : !me ? <div className="rounded-2xl bg-white p-6"><p>로그인 후 문의를 확인할 수 있어요.</p><Link to="/" className="mt-3 inline-block text-emerald-700 underline">로그인 화면으로</Link></div> : operator && !allowed ? <div className="rounded-2xl bg-white p-6"><p role={error || permission ? "alert" : "status"}>{error || (permission ? "서비스 운영자만 이용할 수 있습니다. 저금통 관리자 권한과는 다릅니다." : "운영자 권한을 확인하고 있어요.")}</p>{error && <button className={button} onClick={() => setRefresh((n) => n + 1)}>다시 확인</button>}</div> : inquiryId ? <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-8"><Link to={base} className="mb-5 inline-block text-sm font-bold text-emerald-700">← 문의 목록</Link><SupportInquiryDetail key={`${userId}:${operator}:${inquiryId}`} inquiryId={inquiryId} operator={operator} /></div> : <>
+  const button = "support-letter-action";
+  return <SupportLetterLayout backTo="/help" backLabel="도움말" title={operator?"운영 문의함":"내 문의"} description={operator?"문의 상황과 대화를 확인하고, 확인된 사실을 중심으로 답변해 주세요.":"일반 문의와 AI 생성 문의를 확인하고, 필요한 설명을 이어서 남길 수 있어요."} illustration={false}>
+    <nav aria-label="문의 메뉴" className="flex flex-wrap gap-3">{!operator&&userId&&<Link to="/support/new" className="support-letter-action is-primary">문의하기</Link>}<Link to="/help" className="support-letter-action">도움말</Link></nav>
+    {checkingAuth ? <p role="status">로그인을 확인하고 있어요.</p> : !me ? <div className="support-letter-card"><p>로그인 후 문의를 확인할 수 있어요.</p><Link to="/" className="mt-3 inline-block text-emerald-700 underline">로그인 화면으로</Link></div> : operator && !allowed ? <div className="support-letter-card"><p role={error || permission ? "alert" : "status"}>{error || (permission ? "서비스 운영자만 이용할 수 있습니다. 저금통 관리자 권한과는 다릅니다." : "운영자 권한을 확인하고 있어요.")}</p>{error && <button className={button} onClick={() => setRefresh((n) => n + 1)}>다시 확인</button>}</div> : inquiryId ? <div className="support-letter-card"><Link to={base} className="mb-5 inline-block text-sm font-bold text-emerald-700">← 문의 목록</Link><SupportInquiryDetail key={`${userId}:${operator}:${inquiryId}`} inquiryId={inquiryId} operator={operator} /></div> : <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {operator && <label className="text-sm font-semibold">처리 상태 <select value={status} onChange={(e) => { setStatus(e.target.value); setCursors([undefined]); setPage(0); }} className="ml-2 min-h-11 rounded-xl border border-slate-200 bg-white px-3"><option value="">전체</option>{["OPEN", "IN_PROGRESS", "WAITING_USER", "ANSWERED", "RESOLVED"].map((key) => <option key={key} value={key}>{SUPPORT_STATUS[key]}</option>)}</select></label>}
         <button type="button" disabled={loading} onClick={() => setRefresh((n) => n + 1)} className={button}>새로고침</button>
@@ -50,11 +51,11 @@ export default function SupportInquiriesPage({ me, checkingAuth, operator = fals
       {loading && <StatusNotice type="loading" title="문의 목록을 불러오고 있어요." />}
       {error && <StatusNotice type="error" onRetry={() => setRefresh((n) => n + 1)} busy={loading}>{error}</StatusNotice>}
       {!loading && !error && result?.items?.length === 0 && <StatusNotice>{operator ? "해당 상태의 문의가 없습니다." : "아직 접수한 문의가 없어요. 문의하기에서 사진 없이도 접수할 수 있어요."}</StatusNotice>}
-      <div className="space-y-3">{result?.items?.map((ticket) => <Link key={ticket.inquiryId} to={`${base}/${ticket.inquiryId}`} className="block rounded-2xl border border-slate-200 bg-white p-5 hover:border-emerald-300">
+      <div className="space-y-3">{result?.items?.map((ticket) => <Link key={ticket.inquiryId} to={`${base}/${ticket.inquiryId}`} className="support-letter-card support-letter-ticket">
         <div className="flex flex-wrap items-center justify-between gap-2"><p className="break-words font-bold text-slate-800">{supportTitle(ticket)}</p><SupportStatusBadge status={ticket.status} /></div>
         <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-slate-600">{ticket.contentExpired ? "문의 보관 기간이 지났습니다." : ticket.description}</p><p className="mt-3 text-xs text-slate-400">{SUPPORT_CATEGORIES[ticket.category]||SUPPORT_STYLE[ticket.style]||"문의"}{ticket.generationId?` / 후보 #${ticket.generationId}`:""} / {supportTime(ticket.createdAt)}</p>
       </Link>)}</div>
       <nav aria-label="문의 목록 페이지" className="mt-6 flex items-center justify-center gap-4"><button type="button" disabled={loading || page === 0} onClick={() => setPage((n) => n - 1)} className={button}>← 이전</button><span className="text-sm text-slate-500">{page + 1} 페이지</span><button type="button" disabled={loading || !result?.nextBefore} onClick={() => { setCursors((prev) => [...prev.slice(0, page + 1), result.nextBefore]); setPage((n) => n + 1); }} className={button}>다음 →</button></nav>
     </>}
-  </div>;
+  </SupportLetterLayout>;
 }

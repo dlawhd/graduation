@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { prepareSourceImage } from "../jarDesign/sourceImageFile.mjs";
+import { SupportLetterIcon } from "./SupportLetterLayout";
 
 /** 선택한 로컬 파일만 미리 보여준다. 제거/화면 종료 때 미리보기 URL을 해제한다. */
 function Preview({file}) {
@@ -8,7 +9,7 @@ function Preview({file}) {
   return url?<img src={url} alt="선택한 화면 자료 미리보기" className="h-32 w-full rounded-xl bg-slate-50 object-contain"/>:null;
 }
 /** 접수 전 첨부 내용 확인/제거를 지원한다. 서버에서도 크기·실제 이미지 내용·개수를 다시 검사한다. */
-export default function SupportScreenshots({files,onChange,disabled=false,maxCount=3,onReadingChange}) {
+export default function SupportScreenshots({files,onChange,disabled=false,maxCount=3,onReadingChange,appearance="default"}) {
   const [error,setError]=useState("");const [reading,setReading]=useState(false);const selection=useRef(0);
   useEffect(()=>()=>{selection.current++;onReadingChange?.(false);},[]);
   async function choose(event) {
@@ -25,10 +26,13 @@ export default function SupportScreenshots({files,onChange,disabled=false,maxCou
     }catch(e){if(version===selection.current)setError(e.message||"화면 자료를 읽지 못했어요.");}
     finally{if(version===selection.current){setReading(false);onReadingChange?.(false);}}
   }
-  return <section className="space-y-3" aria-label="선택 화면 첨부">
-    <label className="block text-sm font-bold">화면 자료 첨부 <span className="font-normal text-slate-500">선택 사항</span>
+  const letter=appearance==="letter",unavailable=disabled||reading||files.length>=maxCount;
+  return <section className={`space-y-3${letter?" support-letter-attachments":""}`} aria-label="선택 화면 첨부">
+    <label className={letter?`support-letter-file-label${unavailable?" is-disabled":""}`:"block text-sm font-bold"}>
+      <span>{letter?"화면 캡처 첨부":"화면 자료 첨부"} <span className={letter?"support-letter-file-optional":"font-normal text-slate-500"}>{letter?"(선택)":"선택 사항"}</span></span>
+      {letter&&<><span className="support-letter-file-button"><SupportLetterIcon name="attachment"/>{reading?"확인 중…":"파일 선택"}</span><span className="support-letter-file-limit">최대 {maxCount}개 · 파일당 2MB</span></>}
       <input aria-label="화면 자료 선택" type="file" multiple accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-        disabled={disabled||reading||files.length>=maxCount} onChange={event=>void choose(event)} className="mt-2 block w-full rounded-xl border border-slate-200 p-3 text-xs"/>
+        disabled={unavailable} onChange={event=>void choose(event)} className={letter?"sr-only":"mt-2 block w-full rounded-xl border border-slate-200 p-3 text-xs"}/>
     </label>
     <p className="text-xs leading-5 text-slate-500">문의당 최대 3개, 파일당 2MB 이하의 PNG·JPEG·WebP를 첨부할 수 있어요. 선택한 화면을 확인하고 개인정보가 보이면 지우거나 가린 뒤 첨부해 주세요.</p>
     {error&&<p role="alert" className="text-sm text-rose-700">{error}</p>}

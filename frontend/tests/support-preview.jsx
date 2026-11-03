@@ -30,7 +30,7 @@ function reject(config, status, message) {
 apiClient.defaults.adapter = async (config) => {
   const { url, method } = config;
   let data;
-  window.fixture.requests.push({url,method});
+  window.fixture.requests.push({url,method,skipAuthRefresh:config._skipAuthRefresh===true});
   const input = typeof config.data === "string" ? JSON.parse(config.data) : config.data;
   const match = url.match(/\/inquiries\/(\d+)(?:\/(image|review|reply|view|messages|resolve|reopen|attachments))?$/);
   if (url.endsWith("/csrf")) data = { token:"fixture",headerName:"X-XSRF-TOKEN" };
@@ -63,7 +63,9 @@ apiClient.defaults.adapter = async (config) => {
     }
     else if(match[2]==='resolve'||match[2]==='reopen'){ticket.status=match[2]==='resolve'?'RESOLVED':'IN_PROGRESS';data={...ticket};}
     else if(match[2]==='attachments'&&method==='post'){
-      if(window.fixture.failUpload){window.fixture.failUpload=false;reject(config,503,'시험 첨부 저장 실패');}
+      if(window.fixture.failUpload){window.fixture.failUpload=false;
+        if(window.fixture.failUploadStatus===413){const error=new Error('proxy body limit');error.response={status:413,data:'<html>413 Request Entity Too Large</html>',config};throw error;}
+        reject(config,503,'시험 첨부 저장 실패');}
       data={attachmentId:attachments.length+1,inquiryId:ticket.inquiryId,status:'READY',expiresAt:'2027-01-01T00:00:00'};attachments.push(data);
     }
     else if (match[2] === "image") data = {previewUrl:image};

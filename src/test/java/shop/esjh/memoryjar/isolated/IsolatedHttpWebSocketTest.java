@@ -191,6 +191,31 @@ class IsolatedHttpWebSocketTest {
         verifyNoInteractions(s3, presigner, rekognition, cloudflare);
     }
 
+    /** 로그인 없이 실제 multipart 파일·쿠키·CSRF를 함께 보내 접수/첨부/재시도 경계를 검사한다. */
+    @Test void guestInquiryAcceptsRealScreenshotMultipartAndRejectsOtherGuest() throws Exception {
+        Browser guest=new Browser();assertThat(guest.get("/api/v1/me").statusCode()).isEqualTo(401);
+        guest.okPost("/api/v1/public/support/session",Map.of(),200);
+        var ticket=guest.okPost("/api/v1/public/support/inquiries",Map.of("category","LOGIN_ACCOUNT","title","비로그인 첨부 검증",
+                "description","실제 개인정보 없는 이미지 첨부 시험입니다.","requestId",UUID.randomUUID().toString()),200);
+        long id=ticket.path("inquiryId").asLong();String path="/api/v1/public/support/inquiries/"+id+"/attachments";
+        var image=new java.awt.image.BufferedImage(640,640,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var pixels=((java.awt.image.DataBufferInt)image.getRaster().getDataBuffer()).getData();var random=new Random(17);
+        for(int n=0;n<pixels.length;n++)pixels[n]=random.nextInt(0x1000000);
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",bytes);image.flush();byte[] png=bytes.toByteArray();
+        assertThat(png.length).isBetween(1024*1024,2*1024*1024);
+        when(s3.putObject(any(software.amazon.awssdk.services.s3.model.PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class)))
+                .thenReturn(software.amazon.awssdk.services.s3.model.PutObjectResponse.builder().build());
+        String requestId=UUID.randomUUID().toString();
+        assertThat(guest.multipart(path,png,requestId,false).statusCode()).isEqualTo(403);
+        var stored=data(guest.multipart(path,png,requestId,true),200);assertThat(stored.path("status").asText()).isEqualTo("READY");
+        assertThat(data(guest.multipart(path,png,requestId,true),200).path("attachmentId").asLong()).isEqualTo(stored.path("attachmentId").asLong());
+        assertThat(data(guest.get("/api/v1/public/support/inquiries/"+id+"/view"),200).path("attachments").size()).isEqualTo(1);
+        Browser stranger=new Browser();stranger.okPost("/api/v1/public/support/session",Map.of(),200);
+        assertThat(stranger.multipart(path,png,UUID.randomUUID().toString(),true).statusCode()).isEqualTo(404);
+        verify(s3,times(1)).putObject(any(software.amazon.awssdk.services.s3.model.PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class));
+        verifyNoInteractions(presigner,rekognition,cloudflare);
+    }
+
     @Test void emailWrongExpiredResendAndProviderFailure() throws Exception {
         Browser browser = new Browser(); String email = email();
         browser.okPost("/api/v1/auth/email-verifications", Map.of("email", email), 200);
@@ -263,6 +288,17 @@ class IsolatedHttpWebSocketTest {
             return client.send(request.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build(), HttpResponse.BodyHandlers.ofString());
         }
         JsonNode okPost(String path, Object body, int status) throws Exception { return data(post(path, body, true), status); }
+        /** 브라우저 FormData와 같은 파일/문자 필드를 전송하고 응답에 토큰 원문을 기록하지 않는다. */
+        HttpResponse<String> multipart(String path,byte[] image,String requestId,boolean csrf) throws Exception {
+            String boundary="support-"+UUID.randomUUID();var body=new java.io.ByteArrayOutputStream();
+            String fields="--"+boundary+"\r\nContent-Disposition: form-data; name=\"requestId\"\r\n\r\n"+requestId+"\r\n"
+                    +"--"+boundary+"\r\nContent-Disposition: form-data; name=\"shareScreenshot\"\r\n\r\ntrue\r\n"
+                    +"--"+boundary+"\r\nContent-Disposition: form-data; name=\"image\"; filename=\"fixture.png\"\r\nContent-Type: image/png\r\n\r\n";
+            body.write(fields.getBytes(java.nio.charset.StandardCharsets.UTF_8));body.write(image);body.write(("\r\n--"+boundary+"--\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var request=HttpRequest.newBuilder(uri(path)).timeout(Duration.ofSeconds(20)).header("Content-Type","multipart/form-data; boundary="+boundary);
+            if(csrf){var token=data(get("/api/v1/csrf"),200);request.header(token.path("headerName").asText(),token.path("token").asText());}
+            return client.send(request.POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build(),HttpResponse.BodyHandlers.ofString());
+        }
         SocketClient socket() throws Exception {
             var listener = new SocketClient();
             listener.socket = client.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(5))

@@ -222,6 +222,38 @@ class SupportExpansionIntegrationTest extends AbstractMariaDbRepositoryTest {
         verify(s3,times(1)).putObject(any(PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class));
         assertThat(conversations.view(owner,id).attachments()).hasSize(1);
     }
+    @Test void guestCanUploadScreenshotAndRetryWithoutCreatingAnotherInquiry() throws Exception {
+        var issued=guests.issue(null,"192.0.2."+UUID.randomUUID());var guest=guests.require(issued.token());
+        var ticket=conversations.create(guest,request(SupportCategory.LOGIN_ACCOUNT,UUID.randomUUID().toString()));
+        String requestId=UUID.randomUUID().toString();
+        var stored=uploads.upload(guest,ticket.inquiryId(),requestId,image(),true);
+        assertThat(stored.status()).isEqualTo("READY");
+        assertThat(uploads.upload(guest,ticket.inquiryId(),requestId,image(),true).attachmentId()).isEqualTo(stored.attachmentId());
+        assertThat(conversations.view(guest,ticket.inquiryId()).attachments()).hasSize(1);
+        assertThat(conversations.guestList(guest,null).items()).hasSize(1);
+        var other=guests.require(guests.issue(null,"192.0.2."+UUID.randomUUID()).token());
+        status(404,()->uploads.upload(other,ticket.inquiryId(),UUID.randomUUID().toString(),image(),true));
+        verify(s3,times(1)).putObject(any(PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class));
+    }
+    @Test void storageFailureLogsOnlySafeCategoryAndPreservesGuestInquiryForRetry() throws Exception {
+        var issued=guests.issue(null,"192.0.2."+UUID.randomUUID());var guest=guests.require(issued.token());
+        var ticket=conversations.create(guest,request(SupportCategory.LOGIN_ACCOUNT,UUID.randomUUID().toString()));
+        var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(SupportAttachmentService.class);
+        var capture=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();capture.start();logger.addAppender(capture);
+        try {
+            when(s3.putObject(any(PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class)))
+                    .thenThrow(S3Exception.builder().statusCode(403).awsErrorDetails(software.amazon.awssdk.awscore.exception.AwsErrorDetails.builder()
+                            .errorCode("AccessDenied").errorMessage("private-bucket/private-user-key-do-not-log").build()).build());
+            status(503,()->uploads.upload(guest,ticket.inquiryId(),UUID.randomUUID().toString(),image(),true));
+            assertThat(capture.list).extracting(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                    .anySatisfy(line->assertThat(line).contains("category=S3","s3Status=403","errorCode=AccessDenied"));
+            assertThat(capture.list).allSatisfy(event->{assertThat(event.getFormattedMessage()).doesNotContain("private-bucket","private-user-key");assertThat(event.getThrowableProxy()).isNull();});
+            assertThat(conversations.detail(guest,ticket.inquiryId()).description()).isEqualTo("문의 내용");
+            when(s3.putObject(any(PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class))).thenReturn(PutObjectResponse.builder().build());
+            assertThat(uploads.upload(guest,ticket.inquiryId(),UUID.randomUUID().toString(),image(),true).status()).isEqualTo("READY");
+            assertThat(conversations.guestList(guest,null).items()).hasSize(1);
+        } finally {logger.detachAppender(capture);capture.stop();}
+    }
     @Test void attachmentCapAndSharingConsentAreServerSide() throws Exception {
         var owner=user();var id=create(owner).inquiryId();
         status(400,()->uploads.upload(owner,id,UUID.randomUUID().toString(),image(),false));

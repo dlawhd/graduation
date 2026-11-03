@@ -37,6 +37,8 @@ export async function replySupportInquiry(id, reply) {
   return unwrap(await apiClient.post(`${ADMIN_BASE}/${id}/reply`, { reply }));
 }
 export function supportError(error) {
+  // 프록시가 거절한 요청은 JSON이 아니라 HTML일 수 있다. 연결 오류로 오해하지 않게 구분한다.
+  if (error?.response?.status === 413) return "서버의 업로드 크기 제한으로 첨부를 보내지 못했어요. 문의 본문이 접수됐다면 첨부만 다시 시도해 주세요.";
   return error?.response?.data?.error?.message || "문의 정보를 처리하지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.";
 }
 

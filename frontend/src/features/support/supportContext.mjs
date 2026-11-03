@@ -1,5 +1,6 @@
 /** 문의 링크에는 민감한 쿼리를 복사하지 않고 허용한 화면 경로와 번호만 전달한다. */
-export const SUPPORT_CATEGORIES={PHOTO_UPLOAD:"사진 업로드",AI_GENERATION:"AI 생성·결과 품질",THREE_D:"3D 표시",NOTES_CHAT:"쪽지·댓글·채팅",INVITE_ACCESS:"초대·권한",USAGE:"사용 방법",FEATURE_REQUEST:"기능 제안",OTHER:"기타",LOGIN_ACCOUNT:"로그인·계정"};
+// 드롭다운의 표시 순서다. API에 보내는 식별자는 유지하고 포괄적인 '기타'를 마지막에 둔다.
+export const SUPPORT_CATEGORIES={PHOTO_UPLOAD:"사진 업로드",AI_GENERATION:"AI 생성·결과 품질",THREE_D:"3D 표시",NOTES_CHAT:"쪽지·댓글·채팅",INVITE_ACCESS:"초대·권한",USAGE:"사용 방법",FEATURE_REQUEST:"기능 제안",LOGIN_ACCOUNT:"로그인·계정",OTHER:"기타"};
 const positive=value=>/^\d+$/.test(String(value||"")) && Number.isSafeInteger(Number(value)) && Number(value)>0 ? Number(value) : null;
 let lastFailure=null;
 /** 내용·헤더·쿼리는 수집하지 않는다. 보낼 수 있는 오류 코드 한 건만 메모리에 잠시 보관한다. */

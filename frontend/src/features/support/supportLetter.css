@@ -1,0 +1,80 @@
+/* 도움말·문의 본문만 같은 색상과 간격을 사용한다. 서비스 공통 헤더는 기존 흰색을 유지한다. */
+.support-letter-page { min-height:calc(100dvh - 80px); padding:28px 24px 56px; background:radial-gradient(ellipse at 90% 8%,#f1efdf88,transparent 40%),#faf7f0; color:#172c27; }
+.support-letter-inner { max-width:1000px; margin:0 auto; }
+.support-letter-content { display:flex; flex-direction:column; gap:24px; }
+.support-letter-back { display:inline-flex; align-items:center; min-height:44px; color:#5c7056; font-size:13px; font-weight:650; }
+.support-letter-back:hover { color:#064e3b; text-decoration:underline; }
+.support-letter-heading { display:flex; align-items:center; justify-content:space-between; gap:24px; min-height:170px; padding:12px 0 22px; }
+.support-letter-heading h1 { font-size:clamp(26px,3.2vw,38px); font-weight:800; letter-spacing:-.045em; line-height:1.35; }
+.support-letter-heading p { margin-top:12px; font-size:17px; line-height:1.7; color:#657067; }
+.support-letter-art { flex:none; width:220px; height:150px; }
+.support-letter-form, .support-letter-card { padding:30px 32px; border:1px solid #dedfd5; border-radius:20px; background:#fffefd; box-shadow:0 3px 6px #27392908,0 12px 32px #504d3405; }
+.support-letter-ticket { display:block; transition:border-color .15s; }
+.support-letter-ticket:hover { border-color:#8ba77f; }
+.support-letter-action { display:inline-flex; justify-content:center; align-items:center; gap:6px; min-height:44px; padding:10px 18px; border:1px solid #ccd7c5; border-radius:10px; background:#fffefd; color:#355840; font-size:14px; font-weight:650; line-height:1.6; }
+.support-letter-action.is-primary { color:white; background:#075943; border-color:#075943; }
+.support-letter-action.is-soft { background:#edf2e5; }
+.support-letter-action:hover:not(:disabled) { border-color:#66865b; background:#edf2e5; }
+.support-letter-action.is-primary:hover:not(:disabled) { background:#064534; border-color:#064534; }
+.support-letter-action:disabled { opacity:.4; cursor:not-allowed; }
+.support-letter-action:focus-visible, .support-letter-ticket:focus-visible, .support-letter-faq > summary:focus-visible { outline:3px solid #69855c; outline-offset:4px; }
+.support-letter-faq { padding:18px 24px; }
+.support-letter-faq > summary { min-height:44px; padding:10px 0; font-size:16px; font-weight:700; line-height:1.6; cursor:pointer; }
+.support-letter-faq > p { margin-top:12px; padding-top:16px; border-top:1px solid #e0e3d9; white-space:pre-wrap; overflow-wrap:anywhere; color:#61705f; font-size:14px; line-height:1.9; }
+.support-letter-detail { color:#283b30; }
+.support-letter-metadata, .support-letter-message { background:#f3f5ed; }
+.support-letter-message.is-operator { background:#eaf2e7; border-left:3px solid #9eb593; }
+.support-letter-reply { background:#fafbf7; border:1px solid #dce2d3; }
+.support-letter-form > * + * { margin-top:24px; }
+.support-letter-category p:first-child { display:inline-flex; align-items:center; min-height:36px; padding:6px 20px; border-radius:999px; background:#e5ead7; color:#244b2c; font-size:16px; font-weight:750; }
+.support-letter-category p:last-child { margin-top:10px; color:#6c7569; font-size:13px; line-height:1.7; }
+.support-letter-label { display:block; font-size:16px; font-weight:750; color:#25372d; }
+.support-letter-title, .support-letter-description, .support-letter-select { display:block; width:100%; min-height:48px; margin-top:10px; font-size:16px; font-weight:400; color:#26382e; outline:none; }
+.support-letter-title { padding:10px 4px; border:0; border-bottom:1px solid #9aa98d; background:transparent; border-radius:0; }
+.support-letter-description { min-height:172px; padding:16px; border:1px solid #c9cec1; border-radius:8px; resize:vertical; background:#fffefd; line-height:1.8; }
+.support-letter-select { padding:10px 12px; border:1px solid #c9cec1; border-radius:8px; background:#fffefd; }
+.support-letter-title::placeholder, .support-letter-description::placeholder { color:#7b8279; }
+.support-letter-title:focus-visible, .support-letter-description:focus-visible, .support-letter-select:focus-visible { outline:2px solid #53794f; outline-offset:3px; }
+.support-letter-form input:disabled, .support-letter-form textarea:disabled, .support-letter-form select:disabled { opacity:.65; cursor:not-allowed; }
+.support-letter-count { margin-top:8px; text-align:right; color:#6e756c; font-size:13px; }
+.support-letter-attachments { padding-top:20px; border-top:1px solid #e0e3d9; }
+.support-letter-file-label { display:flex; align-items:center; flex-wrap:wrap; gap:12px 20px; width:fit-content; max-width:100%; color:#283b30; font-size:15px; font-weight:750; cursor:pointer; }
+.support-letter-file-label:focus-within { outline:2px solid #53794f; outline-offset:5px; border-radius:6px; }
+.support-letter-file-label.is-disabled { cursor:not-allowed; opacity:.55; }
+.support-letter-file-optional { margin-left:8px; font-size:13px; font-weight:400; color:#6c7569; }
+.support-letter-file-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:8px 16px; border:1px solid #849873; border-radius:8px; color:#315b38; background:#f8faf4; font-size:14px; font-weight:650; }
+.support-letter-file-label:not(.is-disabled):hover .support-letter-file-button { background:#edf2e4; }
+.support-letter-file-limit { font-size:13px; font-weight:400; color:#677361; }
+.support-letter-attachments > ul:empty { display:none; }
+.support-letter-privacy, .support-letter-notice { display:flex; align-items:flex-start; gap:10px; padding:13px 16px; border-radius:10px; background:#eef1e4; color:#344a31; font-size:14px; line-height:1.7; }
+.support-letter-privacy svg, .support-letter-notice svg { flex:none; margin-top:1px; color:#2e5736; }
+.support-letter-retention { font-size:12px; line-height:1.8; color:#6a7567; }
+.support-letter-submit { display:block; width:100%; min-height:52px; padding:12px 20px; border-radius:9px; border:1px solid #073f31; color:white; background:linear-gradient(110deg,#073f33,#075943); font-size:16px; font-weight:750; transition:background .15s; }
+.support-letter-submit:hover:not(:disabled) { background:#064534; }
+.support-letter-submit:disabled { opacity:.45; cursor:not-allowed; }
+.support-letter-submit:focus-visible, .support-letter-back:focus-visible { outline:3px solid #69855c; outline-offset:4px; }
+.support-letter-notice strong { display:block; font-weight:650; }
+.support-letter-notice p { margin-top:4px; font-size:12px; color:#64725b; line-height:1.8; }
+@media(max-width:639px) {
+  .support-letter-page { min-height:calc(100dvh - 64px); padding:12px 16px 36px; }
+  .support-letter-heading { min-height:0; padding:14px 0 24px; }
+  .support-letter-heading p { margin-top:8px; font-size:14px; }
+  .support-letter-art { display:none; }
+  .support-letter-form, .support-letter-card { padding:22px 20px; border-radius:18px; }
+  .support-letter-content { gap:20px; }
+  .support-letter-faq { padding:12px 16px; }
+  .support-letter-faq > summary { font-size:14px; }
+  .support-letter-form > * + * { margin-top:22px; }
+  .support-letter-category p:first-child { font-size:14px; padding:5px 16px; }
+  .support-letter-category p:last-child { font-size:12px; }
+  .support-letter-label { font-size:15px; }
+  .support-letter-description { min-height:156px; padding:12px; }
+  .support-letter-form .support-letter-count { margin-top:8px; }
+  .support-letter-file-label { gap:10px 12px; }
+  .support-letter-file-label > span:first-child { flex-basis:100%; }
+  .support-letter-file-button { padding:8px 10px; }
+  .support-letter-file-limit { font-size:12px; }
+  .support-letter-privacy, .support-letter-notice { padding:12px; font-size:13px; gap:8px; }
+  .support-letter-privacy svg, .support-letter-notice svg { width:19px; height:19px; }
+}
+@media(prefers-reduced-motion:reduce) { .support-letter-submit, .support-letter-ticket { transition:none; } }
