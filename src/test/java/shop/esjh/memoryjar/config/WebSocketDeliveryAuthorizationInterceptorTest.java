@@ -55,6 +55,18 @@ class WebSocketDeliveryAuthorizationInterceptorTest {
     }
 
     @Test
+    void revokedJarDoesNotCloseValidPersonalStateChannel() throws Exception {
+        var connection = mock(org.springframework.web.socket.WebSocketSession.class);
+        when(connection.getId()).thenReturn("session");
+        interceptor.connected(connection);
+        when(sessions.isCurrent(1L, 0L)).thenReturn(true);
+        assertThat(interceptor.preSend(delivery("/topic/jars/10/members"), null)).isNull();
+        var personal = delivery("/topic/users/1/state");
+        assertThat(interceptor.preSend(personal, null)).isSameAs(personal);
+        verify(connection, never()).close(any());
+    }
+
+    @Test
     void passwordResetStopsAllExistingSubscriptions() {
         var connection = mock(org.springframework.web.socket.WebSocketSession.class);
         when(connection.getId()).thenReturn("session");

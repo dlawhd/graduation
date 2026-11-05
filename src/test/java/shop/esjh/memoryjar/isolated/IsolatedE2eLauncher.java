@@ -35,6 +35,6 @@ public final class IsolatedE2eLauncher {
         summary.printTo(new PrintWriter(System.out, true));
         summary.printFailuresTo(new PrintWriter(System.out, true));
         // 컨텍스트 초기화 실패나 전부 skip도 성공으로 취급하지 않는다.
-        System.exit(summary.getTotalFailureCount() == 0 && summary.getTestsSucceededCount() == (readPreflight || support300 ? 1 : 5) ? 0 : 1);
+        System.exit(summary.getTotalFailureCount() == 0 && summary.getTestsSucceededCount() == (readPreflight || support300 ? 1 : 6) ? 0 : 1);
     }
 }

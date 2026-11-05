@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
+    /** 초대 관리 이벤트는 현재 OWNER/ADMIN에게만 전달한다. 사용자 엔티티를 반복 조회하지 않는다. */
+    @Query("select m.user.id from JarMember m where m.jar.jarId = :jarId and m.deletedAt is null and m.role in (shop.esjh.memoryjar.enums.jar.JarRole.OWNER, shop.esjh.memoryjar.enums.jar.JarRole.ADMIN)")
+    List<Long> findActiveManagerUserIds(@Param("jarId") Long jarId);
 
     /** 삭제 준비에는 본문·사용자를 읽지 않고 잠글 멤버 번호만 정렬해 가져온다. */
     @Query("select jm.user.id from JarMember jm where jm.jar.jarId = :jarId and jm.deletedAt is null order by jm.user.id")

@@ -51,6 +51,20 @@ class WebSocketAuthChannelInterceptorTest {
         return new WebSocketAuthChannelInterceptor(jarMemberRepository, draftRepository);
     }
 
+    @Test
+    void personalStateRequiresTheSameLoggedInUserEvenAfterLeavingJar() {
+        var own = subscribeMessage(1L, "/topic/users/1/state");
+        assertThat(interceptor().preSend(own, channel)).isSameAs(own);
+        assertThatThrownBy(() -> interceptor().preSend(subscribeMessage(2L, "/topic/users/1/state"), channel))
+                .isInstanceOf(AccessDeniedException.class);
+        var guest = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        guest.setDestination("/topic/users/1/state");
+        assertThatThrownBy(() -> interceptor().preSend(
+                MessageBuilder.createMessage(new byte[0], guest.getMessageHeaders()), channel))
+                .isInstanceOf(AccessDeniedException.class);
+        org.mockito.Mockito.verifyNoInteractions(jarMemberRepository);
+    }
+
     private Message<byte[]> subscribeMessage(Long userId, String destination) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         accessor.setDestination(destination);

@@ -33,6 +33,29 @@ class NoteRepositoryTest extends AbstractMariaDbRepositoryTest {
     private NoteRepository noteRepository;
 
     @Test
+    void ownRowsAndCountsNeverIncludeOtherAuthorsJarsOrDeletedNotes() {
+        var owner = saveUser("own-rows", "own-rows@example.invalid", "나");
+        var other = saveUser("other-rows", "other-rows@example.invalid", "다른 멤버");
+        var jar = saveJar(owner, "closed-own", LocalDateTime.now().plusDays(3));
+        for (int index = 0; index < 4; index++) {
+            var note = saveNote(jar, owner, "내 검색" + index, LocalDateTime.now());
+            if (index == 3) note.softDelete();
+        }
+        saveNote(jar, other, "타인의 비밀 검색", LocalDateTime.now());
+        var otherJar = saveJar(owner, "other-jar", LocalDateTime.now());
+        saveNote(otherJar, owner, "내 검색", LocalDateTime.now());
+        flushAndClear();
+        for (int page = 0; page < 2; page++) {
+            var rows = noteRepository.searchOwnListRows(jar.getJarId(), owner.getId(), "%검색%", "", PageRequest.of(page, 2));
+            assertThat(rows.getTotalElements()).isEqualTo(3);
+            assertThat(rows.getTotalPages()).isEqualTo(2);
+            assertThat(rows.getContent()).allSatisfy(row -> assertThat(row.authorId()).isEqualTo(owner.getId()));
+        }
+        assertThat(noteRepository.searchOwnListRows(jar.getJarId(), owner.getId(), "%비밀%", "", PageRequest.of(0, 2)))
+                .isEmpty();
+    }
+
+    @Test
     void listRowsKeepPagingTagsAndFullContentWithoutHydratingEntities() {
         User owner = saveUser("row-owner", "row-owner@example.invalid", "작성자");
         Jar jar = saveJar(owner, "rows", LocalDateTime.now().minusDays(1));

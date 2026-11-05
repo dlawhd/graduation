@@ -179,6 +179,9 @@ public class NoteService {
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 쪽지 목록을 볼 수 있어.");
         boolean jarOpen = isJarOpen(jar);
 
+        // 오픈 전에는 타인의 쪽지 번호·검색 결과·전체 장수도 반환하지 않는다.
+        if (!jarOpen) return loadMyNotes(currentUserId,jarId,page,size,q,tag);
+
         // 3. 페이지 조회
         String query = q == null ? "" : q.trim();
         String tagQuery = tag == null ? "" : tag.trim();
@@ -258,6 +261,24 @@ public class NoteService {
                         attachment.getCaption()
                 ))
                 .toList();
+    }
+
+    /** 본인이 넣은 쪽지만 조회한다. 전체 개수와 검색도 DB의 작성자 조건 안에서 계산한다. */
+    public NoteListResponse listMyNotes(Long userId,Long jarId,int page,int size,String q,String tag) {
+        getJarOrThrow(jarId);
+        validateActiveMember(jarId,userId,"현재 저금통 멤버만 본인의 쪽지를 볼 수 있어.");
+        return loadMyNotes(userId,jarId,page,size,q,tag);
+    }
+    private NoteListResponse loadMyNotes(Long userId,Long jarId,int page,int size,String q,String tag) {
+        String query=q==null?"":q.trim(),tags=tag==null?"":tag.trim();
+        if(page<0||size<1||size>100||query.length()>200||tags.length()>100)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"검색어 또는 페이지 범위를 확인해 주세요.");
+        var rows=noteRepository.searchOwnListRows(jarId,userId,searchPattern(query),searchPattern(tags),PageRequest.of(page,size));
+        var attachments=getAttachmentResponseMap(rows.getContent().stream().map(NoteListRow::noteId).toList());
+        var items=rows.getContent().stream().map(n->new NoteListItem(n.noteId(),n.title(),makePreviewContent(n.content()),
+                n.noteDate(),n.location(),n.authorId(),n.authorName(),n.encrypted(),toOffsetDateTime(n.createdAt()),
+                safeTags(n.tags()),attachments.getOrDefault(n.noteId(),List.of()),null,List.of(),0L)).toList();
+        return new NoteListResponse(items,rows.getNumber(),rows.getSize(),rows.getTotalElements(),rows.getTotalPages());
     }
 
     private String searchPattern(String value) {
@@ -382,10 +403,18 @@ public class NoteService {
             Note note,
             Jar jar) {
 
+        boolean opened=isJarOpen(jar);
+        // 없는 번호와 타인의 번호를 구분하지 않아 오픈 전 작성 여부를 추측할 수 없게 한다.
+        if(!opened && !Objects.equals(note.getAuthor().getId(),currentUserId))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"쪽지를 찾을 수 없어.");
+        if(!opened) return new NoteDetailResponse(note.getNoteId(),jar.getJarId(),currentUserId,note.getAuthor().getName(),
+                note.getTitle(),note.getContent(),note.isEncrypted(),note.getNoteDate(),note.getLocation(),
+                toOffsetDateTime(note.getCreatedAt()),toOffsetDateTime(note.getUpdatedAt()),safeTags(note.getTags()),
+                toAttachmentResponses(note.getNoteId()),null,List.of(),0L);
         long commentCount = noteCommentService.countComments(note.getNoteId());
 
         // 이미 오픈된 저금통이면 진짜 내용 그대로 보여주기
-        if (isJarOpen(jar)) {
+        if (opened) {
             NoteReactionSummaryResponse reactionSummary =
                     noteReactionService.getSummary(
                             currentUserId,

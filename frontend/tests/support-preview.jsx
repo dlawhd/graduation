@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, Routes, Route, Link } from "react-router-dom";
 import "../src/index.css";
 import apiClient from "../src/api/apiClient";
-import { StompClientProvider } from "../src/realtime/StompClientProvider";
+import { StompClientProvider, useStompClient } from "../src/realtime/StompClientProvider";
 import AiCandidateGallery from "../src/features/jarDesign/components/AiCandidateGallery";
 import SupportInquiriesPage from "../src/pages/SupportInquiriesPage";
 import SupportNewPage from "../src/pages/SupportNewPage";
@@ -78,11 +78,17 @@ apiClient.defaults.adapter = async (config) => {
   } else throw new Error(`로컬에서 검증하지 않은 요청 차단: ${method} ${url}`);
   return {data:{data},status:200,statusText:"OK",headers:{},config};
 };
+/** 실시간 시험을 명시한 경우에만 가짜 브로커에 연결한다. 기존 문의 시험은 연결하지 않는다. */
+function TestConnection() {
+  const {start,stop}=useStompClient();
+  useEffect(()=>{if(!new URLSearchParams(location.search).has('realtime'))return;start();return()=>stop({clearSubscriptions:true});},[start,stop]);
+  return null;
+}
 function Preview() {
   const [snapshot,setSnapshot] = useState("");
   const [account,setAccount]=useState(me);window.fixture.switchUser=()=>setAccount({userId:2,name:'다른 계정'});
   const entry=new URLSearchParams(location.search).get('entry')||'/';
-  return <MemoryRouter initialEntries={[entry]}><StompClientProvider>
+  return <MemoryRouter initialEntries={[entry]}><StompClientProvider><TestConnection/>
     <header className="flex flex-wrap items-center gap-4 bg-white p-4 text-sm"><strong>문의함 로컬 검증 / 외부 요청 없음</strong><Link to="/">실패 후보</Link><Link to="/support/inquiries">내 문의</Link><Link to="/admin/support/inquiries">운영 문의함</Link><button onClick={()=>{failOnce=true;}}>다음 접수 실패</button><button onClick={()=>setSnapshot(`접수 요청 ${creates}회 / 저장된 문의 ${tickets.length}건 / 답변 ${replies}회`)}>요청 수 확인</button><span role="status">{snapshot}</span></header>
     <main className="mx-auto max-w-5xl px-3"><Routes>
       <Route path="/support/new" element={<SupportNewPage me={account} checkingAuth={false}/>} />

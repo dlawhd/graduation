@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import apiClient from "../../../api/apiClient";
+import { useUserStateRefresh } from "../../../realtime/useUserStateRefresh";
+import { useRequestGate } from "../../../api/useRequestGate";
 import {
   subscribeDailyDrawSocket,
 } from "../../../api/dailyDrawSocketApi";
@@ -44,6 +46,8 @@ export function useJarRealtimeEvents({
   navigate,
   loadMembers,
   loadJarDetail,
+  loadInvites,
+  jarZoomOpen,
   setJar,
   jarOpenCelebrationTimerRef,
   showJarOpenCelebration,
@@ -76,6 +80,34 @@ export function useJarRealtimeEvents({
 
   // 로그인 사용자 ID를 한 번 계산해서 모든 실시간 구독이 같이 사용한다.
   const currentUserId = getCurrentUserIdFromMe(me);
+  const refreshKind=useRef(null);
+  const refreshScope=`${jarId}:${currentUserId}`;
+  const resyncRequests=useRequestGate(refreshScope);
+  useUserStateRefresh({userId:currentUserId,scope:`jar:${jarId}`,enabled:Boolean(jarId),
+    accepts:event=>Number(event.jarId)===Number(jarId)&&["JAR_CHANGED","JAR_ACCESS_REVOKED","INVITES_CHANGED"].includes(event.type),
+    onEvent:event=>{
+      if(event.type==="JAR_ACCESS_REVOKED"){navigate("/jars",{replace:true,state:{jarAccessChanged:true}});return;}
+      const previous=refreshKind.current?.scope===refreshScope?refreshKind.current.type:null;
+      refreshKind.current={scope:refreshScope,type:previous&&previous!==event.type?"ALL":event.type};
+    },
+    refresh:async()=>{
+      // 다른 저금통·계정에서 남은 초대 갱신 예약을 새 화면에 적용하지 않는다.
+      const kind=refreshKind.current?.scope===refreshScope?refreshKind.current.type:null;
+      refreshKind.current=null;
+      if(kind==="INVITES_CHANGED"){await loadInvites();return;}
+      const current=resyncRequests.begin("reaction");
+      const refreshReaction=async()=>{
+        const response=await apiClient.get(`/api/v1/jars/${jarId}/notes/${jarZoomDetailNoteId}/reactions`);
+        const latest=noteEventLatestRef.current;
+        if(!current()||!latest?.jarZoomDetailOpen||Number(latest.jarZoomDetailNoteId)!==Number(jarZoomDetailNoteId))return;
+        latest.patchJarZoomDetailNote(jarZoomDetailNoteId,response.data?.data);
+        latest.patchJarZoomNoteInList(jarZoomDetailNoteId,response.data?.data);
+      };
+      // 재연결·탭 복귀에도 같은 재조회를 사용한다. 잠긴 쪽지의 목록/댓글은 읽지 않는다.
+      await Promise.allSettled([loadJarDetail({silent:true}),loadMembers(),
+        ...(jar?.isOpen&&jarZoomOpen?[loadJarZoomNotes()]:[]),
+        ...(jar?.isOpen&&jarZoomDetailOpen?[loadJarZoomComments(jarZoomDetailNoteId),refreshReaction()]:[])]);
+    }});
 
   /*
    * chatConnectionStateRef 역할

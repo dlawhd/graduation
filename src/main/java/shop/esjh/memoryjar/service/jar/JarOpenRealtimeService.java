@@ -31,9 +31,11 @@ public class JarOpenRealtimeService {
 
     // WebSocket 구독자들에게 메시지를 보내는 도구
     private final SimpMessagingTemplate messagingTemplate;
+    private final shop.esjh.memoryjar.service.UserStateRealtimeService userState;
 
-    public JarOpenRealtimeService(SimpMessagingTemplate messagingTemplate) {
+    public JarOpenRealtimeService(SimpMessagingTemplate messagingTemplate,shop.esjh.memoryjar.service.UserStateRealtimeService userState) {
         this.messagingTemplate = messagingTemplate;
+        this.userState=userState;
     }
 
     /*
@@ -51,6 +53,7 @@ public class JarOpenRealtimeService {
     ) {
         // 프론트가 구독할 주소
         String destination = "/topic/jars/" + jarId + "/open";
+        userState.jarChanged(jarId,"JAR_LIST_CHANGED");
 
         // 현재 트랜잭션이 살아 있으면 DB 커밋 성공 후에 보낸다.
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

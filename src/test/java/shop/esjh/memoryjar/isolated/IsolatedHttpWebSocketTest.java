@@ -257,6 +257,66 @@ class IsolatedHttpWebSocketTest {
         }
     }
 
+    @Test void personalRefreshAndOwnNotesRespectClosedJarPrivacy() throws Exception {
+        Browser owner = new Browser(); signup(owner);
+        Browser member = new Browser(); signup(member);
+        long ownerId = data(owner.get("/api/v1/me"), 200).path("userId").asLong();
+        long memberId = data(member.get("/api/v1/me"), 200).path("userId").asLong();
+        assertThat(ownerId).isPositive(); assertThat(memberId).isPositive();
+        long jar = owner.okPost("/api/v1/jars", Map.of("name", "내 쪽지 비공개 시험", "theme", "SPRING", "maxMembers", 3,
+                "openAt", "2099-01-01T00:00:00", "openMode", "ALL_AT_ONCE", "lockLevel", "TITLE_ONLY"), 201).path("jarId").asLong();
+        String base = "/api/v1/jars/" + jar;
+        try (SocketClient ownerSocket = owner.socket(); SocketClient memberSocket = member.socket()) {
+            ownerSocket.subscribeDestination("/topic/users/" + ownerId + "/state");
+            memberSocket.subscribeDestination("/topic/users/" + memberId + "/state");
+            var invite = owner.okPost(base + "/invites", Map.of("maxUses", 2), 201);
+            ownerSocket.await("INVITES_CHANGED");
+            member.okPost("/api/v1/jars/invites/join", Map.of("code", invite.path("code").asText()), 200);
+            ownerSocket.await("JAR_LIST_CHANGED"); memberSocket.await("JAR_LIST_CHANGED");
+            memberSocket.subscribeDestination("/topic/jars/" + jar + "/members");
+            // 다른 멤버는 새 쪽지의 존재를 소켓·검색 개수·번호 조회 어느 쪽으로도 알 수 없어야 한다.
+            ownerSocket.frames.clear(); memberSocket.frames.clear();
+            long note = owner.okPost(base + "/notes", Map.of("title", "작성자만 볼 제목", "content", "작성자만 볼 본문"), 201).path("noteId").asLong();
+            assertThat(data(owner.get(base + "/notes/mine"), 200).path("totalElements").asInt()).isEqualTo(1);
+            assertThat(data(owner.get(base + "/notes/" + note), 200).path("content").asText()).isEqualTo("작성자만 볼 본문");
+            for (String suffix : List.of("/notes", "/notes?q=작성자", "/notes/mine")) {
+                var list = data(member.get(base + suffix), 200);
+                assertThat(list.path("totalElements").asInt()).isZero();
+                assertThat(list.path("items").isEmpty()).isTrue();
+            }
+            assertThat(member.get(base + "/notes/" + note).statusCode()).isEqualTo(404);
+            assertThat(member.get(base + "/notes/999999999").statusCode()).isEqualTo(404);
+            assertThat(memberSocket.frames.poll(400, TimeUnit.MILLISECONDS)).isNull();
+            assertThat(ownerSocket.frames.poll(100, TimeUnit.MILLISECONDS)).isNull();
+
+            long inquiry = owner.okPost("/api/v1/support/inquiries/general", Map.of("category", "OTHER", "title", "개인 문의",
+                    "description", "화면 갱신 시험", "requestId", UUID.randomUUID().toString()), 200).path("inquiryId").asLong();
+            ownerSocket.await("SUPPORT_CHANGED");
+            owner.okPost("/api/v1/support/inquiries/" + inquiry + "/resolve", Map.of(), 200);
+            ownerSocket.await("SUPPORT_CHANGED");
+            assertThat(data(owner.get("/api/v1/support/inquiries/" + inquiry + "/view"), 200)
+                    .path("inquiry").path("status").asText()).isEqualTo("RESOLVED");
+            assertThat(memberSocket.frames.poll(200, TimeUnit.MILLISECONDS)).isNull();
+
+            owner.okPost(base + "/members/" + memberId + "/kick", Map.of(), 200);
+            memberSocket.await("JAR_ACCESS_REVOKED");
+            assertThat(member.get(base + "/notes/mine").statusCode()).isEqualTo(403);
+            // 유효한 본인 연결이 유지되어 강퇴 직후에도 개인 상태 신호를 받는다.
+            assertThat(memberSocket.socket.isInputClosed()).isFalse();
+            assertThat(owner.change("PATCH", base, Map.of("name", "변경된 시험 이름")).statusCode()).isEqualTo(200);
+            ownerSocket.await("JAR_CHANGED");
+            owner.okPost(base + "/invites/" + invite.path("inviteId").asLong() + "/revoke", Map.of(), 200);
+            ownerSocket.await("INVITES_CHANGED");
+            assertThat(owner.change("DELETE", base, Map.of()).statusCode()).isEqualTo(204);
+            ownerSocket.await("JAR_ACCESS_REVOKED");
+            assertThat(owner.get(base + "/notes/mine").statusCode()).isEqualTo(404);
+        }
+        try (SocketClient denied = member.socket()) {
+            denied.send("SUBSCRIBE\nid:other-state\ndestination:/topic/users/" + ownerId + "/state\n\n\0");
+            denied.await("ERROR");
+        }
+    }
+
     private record Account(String login, String email) { }
     private String email() { return UUID.randomUUID() + "@example.invalid"; }
     private Account signup(Browser browser) throws Exception {
@@ -288,6 +348,15 @@ class IsolatedHttpWebSocketTest {
             return client.send(request.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build(), HttpResponse.BodyHandlers.ofString());
         }
         JsonNode okPost(String path, Object body, int status) throws Exception { return data(post(path, body, true), status); }
+        /** 설정 변경과 삭제도 실제 CSRF 검사를 통과시킨다. */
+        HttpResponse<String> change(String method, String path, Object body) throws Exception {
+            var token = data(get("/api/v1/csrf"), 200);
+            var request = HttpRequest.newBuilder(uri(path)).timeout(Duration.ofSeconds(10))
+                    .header("Content-Type", "application/json")
+                    .header(token.path("headerName").asText(), token.path("token").asText())
+                    .method(method, HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build();
+            return client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
         /** 브라우저 FormData와 같은 파일/문자 필드를 전송하고 응답에 토큰 원문을 기록하지 않는다. */
         HttpResponse<String> multipart(String path,byte[] image,String requestId,boolean csrf) throws Exception {
             String boundary="support-"+UUID.randomUUID();var body=new java.io.ByteArrayOutputStream();
@@ -332,7 +401,9 @@ class IsolatedHttpWebSocketTest {
             fail("STOMP response deadline exceeded for " + marker);
         }
         void subscribe(long jar) throws Exception {
-            String destination = "/topic/jars/" + jar + "/chat";
+            subscribeDestination("/topic/jars/" + jar + "/chat");
+        }
+        void subscribeDestination(String destination) throws Exception {
             String subscriptionId = UUID.randomUUID().toString();
             send("SUBSCRIBE\nid:" + subscriptionId + "\ndestination:" + destination + "\n\n\0");
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);

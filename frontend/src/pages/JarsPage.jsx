@@ -11,6 +11,7 @@ import {
 } from "react-router-dom";
 import apiClient from "../api/apiClient";
 import { useRequestGate } from "../api/useRequestGate";
+import { useUserStateRefresh } from "../realtime/useUserStateRefresh";
 import {
   ONBOARDING_TUTORIAL_KEY,
 } from "../api/onboardingApi";
@@ -582,11 +583,11 @@ export default function JarsPage({ me, checkingAuth = false }) {
   const [totalElements, setTotalElements] = useState(0);
 
   // 저금통 목록 불러오는 함수
-  const loadJars = useCallback(async (targetPage = 0) => {
+  const loadJars = useCallback(async (targetPage = 0,{silent=false}={}) => {
     if (checkingAuth || !userId) return;
     const isCurrent = requests.begin("list");
     if (!isCurrent()) return;
-    setLoading(true);
+    if(!silent)setLoading(true);
     setError("");
     setSessionExpired(false);
 
@@ -601,6 +602,9 @@ export default function JarsPage({ me, checkingAuth = false }) {
       // 우리 서버는 항상 { data: ... } 형태로 감싸서 보내줘요.
       if (!isCurrent()) return;
       const data = res.data?.data;
+
+      if(targetPage>0 && !(data?.items?.length) && data?.totalPages<=targetPage)
+        return loadJars(Math.max(0,(data?.totalPages||1)-1),{silent});
 
       setItems(data?.items || []);
       setPage(data?.page || 0);
@@ -638,6 +642,10 @@ export default function JarsPage({ me, checkingAuth = false }) {
       if (isCurrent()) setLoading(false);
     }
   }, [checkingAuth, userId, requests]);
+  useUserStateRefresh({userId,scope:"jars-list",enabled:!checkingAuth,
+    accepts:event=>["JAR_CHANGED","JAR_LIST_CHANGED","JAR_ACCESS_REVOKED"].includes(event.type),
+    onEvent:event=>{if(event.type==="JAR_ACCESS_REVOKED")setItems(previous=>previous.filter(item=>Number(item.jarId)!==Number(event.jarId)));},
+    refresh:()=>loadJars(page,{silent:true})});
 
     /*
      * 새 저금통 만들기 버튼을 눌렀을 때 실행되는 함수
@@ -954,6 +962,7 @@ export default function JarsPage({ me, checkingAuth = false }) {
     <>
       {/* 처음 사용자에게 보여주는 Memory Jar 전체 소개 */}
       <WelcomeTutorialModal />
+      {location.state?.jarAccessChanged&&<StatusNotice title="저금통 참여 상태가 변경됐어요.">저금통이 종료되었거나 더 이상 참여 중이 아니어서 목록으로 이동했어요.</StatusNotice>}
 
       {/*
        * WELCOME 이후 새 저금통 만들기 버튼을 안내하는

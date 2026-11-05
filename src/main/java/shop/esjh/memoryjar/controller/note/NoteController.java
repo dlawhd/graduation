@@ -115,6 +115,15 @@ public class NoteController {
         return ApiResponse.of(response);
     }
 
+    /** 열리기 전에도 작성자 본인의 목록만 확인한다. 작성자 번호는 요청값 대신 로그인 정보에서 결정한다. */
+    @GetMapping("/mine")
+    public ApiResponse<NoteListResponse> myNotes(Authentication authentication,@PathVariable Long jarId,
+            @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="10") int size,
+            @RequestParam(defaultValue="") String q,@RequestParam(defaultValue="") String tag) {
+        validatePageAndSize(page,size);
+        return ApiResponse.of(noteService.listMyNotes(extractCurrentUserId(authentication),jarId,page,size,q,tag));
+    }
+
     // 쪽지 상세 조회 API
     @GetMapping("/{noteId}")
     public ApiResponse<NoteDetailResponse> getNoteDetail(

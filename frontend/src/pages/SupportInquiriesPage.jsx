@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useUserStateRefresh } from "../realtime/useUserStateRefresh";
 import { Link, useParams } from "react-router-dom";
 import { getSupportInquiries, getSupportPermissions, supportError } from "../api/supportApi";
 import { SUPPORT_STATUS, SUPPORT_STYLE, supportTime, canViewSupportInquiries } from "../features/support/supportView.mjs";
@@ -20,6 +21,7 @@ export default function SupportInquiriesPage({ me, checkingAuth, operator = fals
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [liveVersion,setLiveVersion]=useState(0),silentNext=useRef(false);
   const allowed = canViewSupportInquiries(operator, userId, permission);
   useEffect(() => {
     if (!operator || !userId) return;
@@ -32,18 +34,21 @@ export default function SupportInquiriesPage({ me, checkingAuth, operator = fals
   const before = cursors[page];
   useEffect(() => {
     if (!userId || checkingAuth || !allowed || inquiryId) return;
-    const controller = new AbortController(); setLoading(true); setResult(null); setError("");
+    const controller = new AbortController();const silent=silentNext.current;silentNext.current=false;
+    if(!silent){setLoading(true);setResult(null);}setError("");
     getSupportInquiries({ before, status: status || undefined, operator, signal: controller.signal })
       .then((data) => { if (!controller.signal.aborted) setResult(data); })
       .catch((e) => { if (!controller.signal.aborted) setError(supportError(e)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [userId, checkingAuth, allowed, inquiryId, before, status, operator, refresh]);
+  }, [userId, checkingAuth, allowed, inquiryId, before, status, operator, refresh,liveVersion]);
+  useUserStateRefresh({userId,scope:`support-list:${operator}`,enabled:!checkingAuth&&allowed&&!inquiryId,
+    accepts:event=>event.type==="SUPPORT_CHANGED",refresh:()=>{silentNext.current=true;setLiveVersion(n=>n+1);}});
   const base = operator ? "/admin/support/inquiries" : "/support/inquiries";
   const button = "support-letter-action";
   return <SupportLetterLayout backTo="/help" backLabel="도움말" title={operator?"운영 문의함":"내 문의"} description={operator?"문의 상황과 대화를 확인하고, 확인된 사실을 중심으로 답변해 주세요.":"일반 문의와 AI 생성 문의를 확인하고, 필요한 설명을 이어서 남길 수 있어요."} illustration={false}>
     <nav aria-label="문의 메뉴" className="flex flex-wrap gap-3">{!operator&&userId&&<Link to="/support/new" className="support-letter-action is-primary">문의하기</Link>}<Link to="/help" className="support-letter-action">도움말</Link></nav>
-    {checkingAuth ? <p role="status">로그인을 확인하고 있어요.</p> : !me ? <div className="support-letter-card"><p>로그인 후 문의를 확인할 수 있어요.</p><Link to="/" className="mt-3 inline-block text-emerald-700 underline">로그인 화면으로</Link></div> : operator && !allowed ? <div className="support-letter-card"><p role={error || permission ? "alert" : "status"}>{error || (permission ? "서비스 운영자만 이용할 수 있습니다. 저금통 관리자 권한과는 다릅니다." : "운영자 권한을 확인하고 있어요.")}</p>{error && <button className={button} onClick={() => setRefresh((n) => n + 1)}>다시 확인</button>}</div> : inquiryId ? <div className="support-letter-card"><Link to={base} className="mb-5 inline-block text-sm font-bold text-emerald-700">← 문의 목록</Link><SupportInquiryDetail key={`${userId}:${operator}:${inquiryId}`} inquiryId={inquiryId} operator={operator} /></div> : <>
+    {checkingAuth ? <p role="status">로그인을 확인하고 있어요.</p> : !me ? <div className="support-letter-card"><p>로그인 후 문의를 확인할 수 있어요.</p><Link to="/" className="mt-3 inline-block text-emerald-700 underline">로그인 화면으로</Link></div> : operator && !allowed ? <div className="support-letter-card"><p role={error || permission ? "alert" : "status"}>{error || (permission ? "서비스 운영자만 이용할 수 있습니다. 저금통 관리자 권한과는 다릅니다." : "운영자 권한을 확인하고 있어요.")}</p>{error && <button className={button} onClick={() => setRefresh((n) => n + 1)}>다시 확인</button>}</div> : inquiryId ? <div className="support-letter-card"><Link to={base} className="mb-5 inline-block text-sm font-bold text-emerald-700">← 문의 목록</Link><SupportInquiryDetail key={`${userId}:${operator}:${inquiryId}`} inquiryId={inquiryId} operator={operator} userId={userId} /></div> : <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {operator && <label className="text-sm font-semibold">처리 상태 <select value={status} onChange={(e) => { setStatus(e.target.value); setCursors([undefined]); setPage(0); }} className="ml-2 min-h-11 rounded-xl border border-slate-200 bg-white px-3"><option value="">전체</option>{["OPEN", "IN_PROGRESS", "WAITING_USER", "ANSWERED", "RESOLVED"].map((key) => <option key={key} value={key}>{SUPPORT_STATUS[key]}</option>)}</select></label>}
         <button type="button" disabled={loading} onClick={() => setRefresh((n) => n + 1)} className={button}>새로고침</button>

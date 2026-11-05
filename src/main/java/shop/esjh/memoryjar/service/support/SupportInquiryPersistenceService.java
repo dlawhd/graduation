@@ -37,6 +37,7 @@ public class SupportInquiryPersistenceService {
     private final SupportMessageRepository messages;
     private final SupportGuestSessionRepository guests;
     private final SupportRateLimitRepository limits;
+    private final shop.esjh.memoryjar.service.UserStateRealtimeService userState;
     private static final List<SupportInquiryStatus> SUBMITTED = List.of(SupportInquiryStatus.OPEN,
             SupportInquiryStatus.IN_PROGRESS, SupportInquiryStatus.ANSWERED,
             SupportInquiryStatus.WAITING_USER, SupportInquiryStatus.RESOLVED);
@@ -87,6 +88,7 @@ public class SupportInquiryPersistenceService {
         // 원본 보관과 접수 확정이 성공할 때만 같은 트랜잭션에 알림을 저장한다.
         // 이미 접수된 후보는 completeCopy를 다시 호출하지 않으므로 중복 알림도 만들지 않는다.
         notifications.notifySupportInquiryReceived(authorization.operatorsToNotify(), i.getInquiryId());
+        userState.supportChanged(i);
     }
 
     @Transactional
@@ -141,6 +143,7 @@ public class SupportInquiryPersistenceService {
         if (i.getStatus() == SupportInquiryStatus.OPEN) {
             i.startReview(now());
             audits.save(new SupportInquiryAudit(id, operatorId, "REVIEW_STARTED", now()));
+            userState.supportChanged(i);
         }
         return SupportInquiryResponse.from(i, true, now());
     }
@@ -157,6 +160,7 @@ public class SupportInquiryPersistenceService {
         messages.save(new SupportMessage(id, operatorId, "OPERATOR", text.strip(), null, false, now()));
         audits.save(new SupportInquiryAudit(id, operatorId, "REPLIED", now()));
         if (i.getOwnerId() != null) notifications.notifySupportReplied(users.getReferenceById(i.getOwnerId()), id);
+        userState.supportChanged(i);
         return SupportInquiryResponse.from(i, true, now());
     }
 

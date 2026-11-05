@@ -106,11 +106,14 @@ class NoteServiceTest {
         var jar = createJar(10L, LocalDateTime.now().plusDays(1), JarLockLevel.HIDDEN);
         when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true);
+        when(noteRepository.searchOwnListRows(eq(10L),eq(1L),any(),any(),any())).thenReturn(new PageImpl<>(List.of()));
         for (var query : List.of(new String[]{"비밀", ""}, new String[]{"", "비밀태그"})) {
-            var failure = catchThrowableOfType(() -> noteService.listNotes(1L, 10L, 0, 3, query[0], query[1]), ResponseStatusException.class);
-            assertThat(failure.getStatusCode().value()).isEqualTo(403);
+            var result = noteService.listNotes(1L, 10L, 0, 3, query[0], query[1]);
+            assertThat(result.totalElements()).isZero();
+            assertThat(result.items()).isEmpty();
         }
-        verifyNoInteractions(noteRepository);
+        verify(noteRepository,times(2)).searchOwnListRows(eq(10L),eq(1L),any(),any(),any());
+        verifyNoMoreInteractions(noteRepository);
     }
 
     @Test
@@ -334,13 +337,13 @@ class NoteServiceTest {
     }
 
     @Test
-    void listNotes_오픈전_HIDDEN이면_거의다숨긴다() {
+    void listNotes_오픈전_HIDDEN_본인목록은조회가능하다() {
         // given
         Long currentUserId = 1L;
         Long jarId = 10L;
 
         Jar lockedJar = createJar(10L, LocalDateTime.now().plusDays(3), JarLockLevel.HIDDEN);
-        User author = createUser(2L, "현수");
+        User author = createUser(1L, "현수");
 
         Note note = Note.builder()
                 .jar(lockedJar)
@@ -359,7 +362,7 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(lockedJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findListRowsByJarId(eq(jarId), any()))
+        when(noteRepository.searchOwnListRows(eq(jarId),eq(currentUserId),eq(""),eq(""),any()))
                 .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
 
         // when
@@ -367,23 +370,25 @@ class NoteServiceTest {
 
         // then
         NoteListItem item = response.items().get(0);
-        assertThat(item.title()).isEqualTo("오픈 전 쪽지");
-        assertThat(item.previewContent()).isEqualTo("아직 열리기 전이야.");
-        assertThat(item.noteDate()).isNull();
-        assertThat(item.location()).isNull();
-        assertThat(item.authorId()).isNull();
-        assertThat(item.authorName()).isNull();
-        assertThat(item.createdAt()).isNull();
+        assertThat(item.title()).isEqualTo(note.getTitle());
+        assertThat(item.previewContent()).isEqualTo(note.getContent());
+        assertThat(item.authorId()).isEqualTo(currentUserId);
+        assertThat(item.noteDate()).isEqualTo(note.getNoteDate());
+        assertThat(item.location()).isEqualTo(note.getLocation());
+        assertThat(item.commentCount()).isZero();
+        assertThat(response.totalElements()).isEqualTo(1);
+        verifyNoInteractions(noteCommentService,noteReactionService);
     }
 
+
     @Test
-    void listNotes_오픈전_META_ONLY면_날짜와장소만보여준다() {
+    void listNotes_오픈전_META_ONLY_본인목록은조회가능하다() {
         // given
         Long currentUserId = 1L;
         Long jarId = 10L;
 
         Jar lockedJar = createJar(10L, LocalDateTime.now().plusDays(3), JarLockLevel.META_ONLY);
-        User author = createUser(2L, "현수");
+        User author = createUser(1L, "현수");
 
         Note note = Note.builder()
                 .jar(lockedJar)
@@ -402,7 +407,7 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(lockedJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findListRowsByJarId(eq(jarId), any()))
+        when(noteRepository.searchOwnListRows(eq(jarId),eq(currentUserId),eq(""),eq(""),any()))
                 .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
 
         // when
@@ -410,23 +415,25 @@ class NoteServiceTest {
 
         // then
         NoteListItem item = response.items().get(0);
-        assertThat(item.title()).isEqualTo("오픈 전 쪽지");
-        assertThat(item.previewContent()).isEqualTo("아직 내용은 비밀이야.");
-        assertThat(item.noteDate()).isEqualTo(LocalDate.of(2026, 3, 20));
-        assertThat(item.location()).isEqualTo("부산");
-        assertThat(item.authorId()).isNull();
-        assertThat(item.authorName()).isNull();
-        assertThat(item.createdAt()).isEqualTo(OffsetDateTime.parse("2026-03-20T09:00:00+09:00"));
+        assertThat(item.title()).isEqualTo(note.getTitle());
+        assertThat(item.previewContent()).isEqualTo(note.getContent());
+        assertThat(item.authorId()).isEqualTo(currentUserId);
+        assertThat(item.noteDate()).isEqualTo(note.getNoteDate());
+        assertThat(item.location()).isEqualTo(note.getLocation());
+        assertThat(item.commentCount()).isZero();
+        assertThat(response.totalElements()).isEqualTo(1);
+        verifyNoInteractions(noteCommentService,noteReactionService);
     }
 
+
     @Test
-    void listNotes_오픈전_TITLE_ONLY면_제목만보여준다() {
+    void listNotes_오픈전_TITLE_ONLY_본인목록은조회가능하다() {
         // given
         Long currentUserId = 1L;
         Long jarId = 10L;
 
         Jar lockedJar = createJar(10L, LocalDateTime.now().plusDays(3), JarLockLevel.TITLE_ONLY);
-        User author = createUser(2L, "현수");
+        User author = createUser(1L, "현수");
 
         Note note = Note.builder()
                 .jar(lockedJar)
@@ -445,7 +452,7 @@ class NoteServiceTest {
         when(jarRepository.findByJarId(jarId)).thenReturn(Optional.of(lockedJar));
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
-        when(noteRepository.findListRowsByJarId(eq(jarId), any()))
+        when(noteRepository.searchOwnListRows(eq(jarId),eq(currentUserId),eq(""),eq(""),any()))
                 .thenReturn(new PageImpl<>(List.of(listRow(note)), PageRequest.of(0, 10), 1));
 
         // when
@@ -453,13 +460,16 @@ class NoteServiceTest {
 
         // then
         NoteListItem item = response.items().get(0);
-        assertThat(item.title()).isEqualTo("보이는 제목");
-        assertThat(item.previewContent()).isEqualTo("아직 내용은 비밀이야.");
-        assertThat(item.noteDate()).isEqualTo(LocalDate.of(2026, 3, 20));
-        assertThat(item.location()).isEqualTo("부산");
-        assertThat(item.authorId()).isNull();
-        assertThat(item.authorName()).isNull();
+        assertThat(item.title()).isEqualTo(note.getTitle());
+        assertThat(item.previewContent()).isEqualTo(note.getContent());
+        assertThat(item.authorId()).isEqualTo(currentUserId);
+        assertThat(item.noteDate()).isEqualTo(note.getNoteDate());
+        assertThat(item.location()).isEqualTo(note.getLocation());
+        assertThat(item.commentCount()).isZero();
+        assertThat(response.totalElements()).isEqualTo(1);
+        verifyNoInteractions(noteCommentService,noteReactionService);
     }
+
 
     @Test
     void getNoteDetail_오픈된저금통이면_전체내용을보여준다() {
@@ -509,7 +519,7 @@ class NoteServiceTest {
     }
 
     @Test
-    void getNoteDetail_오픈전_HIDDEN이면_상세도거의다숨긴다() {
+    void getNoteDetail_오픈전_HIDDEN_타인은없는번호와같이404() {
         // given
         Long currentUserId = 1L;
         Long jarId = 10L;
@@ -538,21 +548,16 @@ class NoteServiceTest {
         when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
 
         // when
-        NoteDetailResponse response = noteService.getNoteDetail(currentUserId, jarId, noteId);
+        var failure = catchThrowableOfType(() -> noteService.getNoteDetail(currentUserId, jarId, noteId), ResponseStatusException.class);
 
         // then
-        assertThat(response.authorId()).isNull();
-        assertThat(response.authorName()).isNull();
-        assertThat(response.title()).isEqualTo("오픈 전 쪽지");
-        assertThat(response.content()).isEqualTo("오픈 전이라 아직 내용을 볼 수 없어.");
-        assertThat(response.noteDate()).isNull();
-        assertThat(response.location()).isNull();
-        assertThat(response.createdAt()).isNull();
-        assertThat(response.updatedAt()).isNull();
+        assertThat(failure.getStatusCode().value()).isEqualTo(404);
+        verifyNoInteractions(noteAttachmentService,noteCommentService,noteReactionService);
     }
 
+
     @Test
-    void getNoteDetail_오픈전_META_ONLY면_날짜장소는보여준다() {
+    void getNoteDetail_오픈전_META_ONLY_타인은없는번호와같이404() {
         // given
         Long currentUserId = 1L;
         Long jarId = 10L;
@@ -581,21 +586,16 @@ class NoteServiceTest {
         when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
 
         // when
-        NoteDetailResponse response = noteService.getNoteDetail(currentUserId, jarId, noteId);
+        var failure = catchThrowableOfType(() -> noteService.getNoteDetail(currentUserId, jarId, noteId), ResponseStatusException.class);
 
         // then
-        assertThat(response.authorId()).isNull();
-        assertThat(response.authorName()).isNull();
-        assertThat(response.title()).isEqualTo("오픈 전 쪽지");
-        assertThat(response.content()).isEqualTo("오픈 전이라 아직 내용을 볼 수 없어.");
-        assertThat(response.noteDate()).isEqualTo(LocalDate.of(2026, 3, 25));
-        assertThat(response.location()).isEqualTo("제주");
-        assertThat(response.createdAt()).isEqualTo(OffsetDateTime.parse("2026-03-25T10:00:00+09:00"));
-        assertThat(response.updatedAt()).isEqualTo(OffsetDateTime.parse("2026-03-25T11:00:00+09:00"));
+        assertThat(failure.getStatusCode().value()).isEqualTo(404);
+        verifyNoInteractions(noteAttachmentService,noteCommentService,noteReactionService);
     }
 
+
     @Test
-    void getNoteDetail_오픈전_TITLE_ONLY면_제목만보여준다() {
+    void getNoteDetail_오픈전_TITLE_ONLY_타인은없는번호와같이404() {
         // given
         Long currentUserId = 1L;
         Long jarId = 10L;
@@ -624,16 +624,13 @@ class NoteServiceTest {
         when(noteRepository.findByJarIdAndNoteId(jarId, noteId)).thenReturn(Optional.of(note));
 
         // when
-        NoteDetailResponse response = noteService.getNoteDetail(currentUserId, jarId, noteId);
+        var failure = catchThrowableOfType(() -> noteService.getNoteDetail(currentUserId, jarId, noteId), ResponseStatusException.class);
 
         // then
-        assertThat(response.authorId()).isNull();
-        assertThat(response.authorName()).isNull();
-        assertThat(response.title()).isEqualTo("보이는 제목");
-        assertThat(response.content()).isEqualTo("오픈 전이라 아직 내용을 볼 수 없어.");
-        assertThat(response.noteDate()).isEqualTo(LocalDate.of(2026, 3, 25));
-        assertThat(response.location()).isEqualTo("제주");
+        assertThat(failure.getStatusCode().value()).isEqualTo(404);
+        verifyNoInteractions(noteAttachmentService,noteCommentService,noteReactionService);
     }
+
 
     @Test
     void getNoteDetail_쪽지가없으면_예외() {
@@ -669,7 +666,6 @@ class NoteServiceTest {
 
         Jar jar = mock(Jar.class);
         when(jar.getJarId()).thenReturn(jarId);
-        when(jar.getLockLevel()).thenReturn(JarLockLevel.HIDDEN);
 
         var row = new NoteListRow(100L, null, null, null, null, null, null, false, null, List.of());
 
@@ -677,8 +673,8 @@ class NoteServiceTest {
         when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(jarId, currentUserId))
                 .thenReturn(true);
 
-        when(noteRepository.findListRowsByJarId(eq(jarId), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(row), PageRequest.of(0, 10), 1));
+        when(noteRepository.searchOwnListRows(eq(jarId),eq(currentUserId),eq(""),eq(""),any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
         // 잠금 상태
         when(jarOpenService.ensureOpenedIfDue(jarId)).thenReturn(false);
@@ -687,8 +683,8 @@ class NoteServiceTest {
         NoteListResponse response = noteService.listNotes(currentUserId, jarId, 0, 10);
 
         // then
-        assertThat(response.items()).hasSize(1);
-        assertThat(response.items().get(0).attachments()).isEmpty();
+        assertThat(response.items()).isEmpty();
+        assertThat(response.totalElements()).isZero();
 
         verify(noteAttachmentService, never()).getAttachmentsByNoteIds(anyList());
     }
@@ -834,6 +830,25 @@ class NoteServiceTest {
         return new NoteListRow(note.getNoteId(), note.getTitle(), note.getContent(), note.getNoteDate(),
                 note.getLocation(), note.getAuthor().getId(), note.getAuthor().getName(), note.isEncrypted(),
                 note.getCreatedAt(), note.getTags());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(JarLockLevel.class)
+    void ownDetailBeforeOpeningContainsContentButNoSocialData(JarLockLevel level) {
+        var jar=createJar(10L,LocalDateTime.now().plusDays(2),level);
+        var note=Note.builder().jar(jar).author(createUser(1L,"나")).title("내 제목").content("내 본문").build();
+        setNoteFields(note,42L,LocalDateTime.now(),LocalDateTime.now());
+        when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
+        when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L,1L)).thenReturn(true);
+        when(noteRepository.findByJarIdAndNoteId(10L,42L)).thenReturn(Optional.of(note));
+        when(noteAttachmentService.getAttachments(42L)).thenReturn(List.of());
+        var result=noteService.getNoteDetail(1L,10L,42L);
+        assertThat(result.title()).isEqualTo("내 제목");
+        assertThat(result.content()).isEqualTo("내 본문");
+        assertThat(result.authorId()).isEqualTo(1L);
+        assertThat(result.commentCount()).isZero();
+        verify(noteAttachmentService).getAttachments(42L);
+        verifyNoInteractions(noteCommentService,noteReactionService);
     }
 
     private User createUser(Long id, String name) {

@@ -53,7 +53,7 @@ class SupportSafetyTest {
         return new SupportInquiryService(persistence, inquiries, s3, presigner, s3Properties);
     }
     SupportInquiryPersistenceService database() {
-        return new SupportInquiryPersistenceService(inquiries, audits, drafts, generations, users, authorization, notifications, rates, messages, guests, limits);
+        return new SupportInquiryPersistenceService(inquiries, audits, drafts, generations, users, authorization, notifications, rates, messages, guests, limits, mock(shop.esjh.memoryjar.service.UserStateRealtimeService.class));
     }
     SupportInquiry ticket(LocalDateTime time) {
         var draft = mock(JarDesignDraft.class);

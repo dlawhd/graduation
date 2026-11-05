@@ -1,0 +1,44 @@
+import React,{useEffect} from "react";
+import {createRoot} from "react-dom/client";
+import {MemoryRouter,Route,Routes,Link} from "react-router-dom";
+import "../src/index.css";
+import apiClient from "../src/api/apiClient";
+import {StompClientProvider,useStompClient} from "../src/realtime/StompClientProvider";
+import {OnboardingProvider} from "../src/features/onboarding/OnboardingProvider";
+import JarDetailPage from "../src/pages/JarDetailPage";
+import JarsPage from "../src/pages/JarsPage";
+
+/** 실제 화면을 합성 데이터·가짜 브로커로 검증한다. 알려지지 않은 API는 차단한다. */
+if(!import.meta.env.DEV)throw new Error("로컬 시험 전용");
+const me={userId:1,name:"나"};
+const jar={jarId:7,name:"나의 시험 저금통",description:"오픈 전 시험",theme:"SPRING",myRole:"OWNER",memberCount:2,maxMembers:5,
+  openAt:"2099-01-01T00:00:00+09:00",openMode:"ALL_AT_ONCE",lockLevel:"HIDDEN",isOpen:false,createdAt:"2026-01-01T00:00:00+09:00"};
+const pixel="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+const notes=Array.from({length:11},(_,i)=>({noteId:i+1,title:`나의 추억 ${i+1}`,previewContent:"내가 남긴 본문",content:`내가 남긴 본문 ${i+1}`,
+  authorId:1,authorName:"나",noteDate:"2026-11-01",location:"학교",tags:["추억"],attachments:[{id:i+1,url:pixel,contentType:"image/png",caption:"내 사진"}],commentCount:0}));
+window.fixture={jar,notes,requests:[],removed:false,failMine:false,invites:[],pending:[],deferDetail:false};
+apiClient.defaults.adapter=async config=>{
+  const {url,params={}}=config;window.fixture.requests.push({url,params});let data;
+  if(url==="/api/v1/me")data=me;
+  else if(url==="/api/v1/me/onboarding")data={version:1,items:["WELCOME","JAR_LIST","JAR_CREATE","JAR_DETAIL","JAR_INVITE","DAILY_DRAW"].map(tutorialKey=>({tutorialKey,handled:true,status:"COMPLETED"}))};
+  else if(url==="/api/v1/jars")data={items:window.fixture.removed?[]:[{...jar}],page:0,size:6,totalElements:window.fixture.removed?0:1,totalPages:1};
+  else if(url==="/api/v1/jars/7")data={...jar};
+  else if(url==="/api/v1/jars/7/members")data={items:[{userId:1,name:"나",role:"OWNER"},{userId:2,name:"친구",role:"MEMBER"}]};
+  else if(url==="/api/v1/jars/7/invites")data={items:[...window.fixture.invites]};
+  else if(url.endsWith("/chat/unread"))data={unreadCount:0};
+  else if(url==="/api/v1/jars/7/notes/mine"){
+    if(window.fixture.failMine){window.fixture.failMine=false;const e=new Error("test");e.response={status:503,data:{error:{message:"내 목록 시험 오류"}},config};throw e;}
+    const filtered=notes.filter(n=>n.title.includes(params.q||""));
+    data={items:filtered.slice((params.page||0)*10,(params.page||0)*10+10),page:params.page||0,totalElements:filtered.length,totalPages:Math.ceil(filtered.length/10)};
+  }else if(/^\/api\/v1\/jars\/7\/notes\/\d+$/.test(url)){
+    data={...notes.find(n=>n.noteId===Number(url.split('/').at(-1)))};
+    if(window.fixture.deferDetail)await new Promise(resolve=>window.fixture.pending.push(resolve));
+  }else throw new Error(`로컬 시험에 없는 API 차단: ${url}`);
+  return {data:{data},status:200,statusText:"OK",headers:{},config};
+};
+function Connection(){const {start,stop,connected}=useStompClient();useEffect(()=>{window.fixture.connected=connected;},[connected]);useEffect(()=>{start();return()=>stop({clearSubscriptions:true});},[start,stop]);return null;}
+const entry=new URLSearchParams(location.search).get("entry")||"/jars/7";
+createRoot(document.getElementById("root")).render(<MemoryRouter initialEntries={[entry]}><StompClientProvider><Connection/>
+  <OnboardingProvider userId={1} checkingAuth={false}><nav className="flex gap-5 p-4"><Link to="/jars">내 저금통 시험</Link><Link to="/jars/7">상세 시험</Link></nav>
+    <Routes><Route path="/jars" element={<JarsPage me={me}/>}/><Route path="/jars/:jarId" element={<JarDetailPage/>}/></Routes>
+  </OnboardingProvider></StompClientProvider></MemoryRouter>);

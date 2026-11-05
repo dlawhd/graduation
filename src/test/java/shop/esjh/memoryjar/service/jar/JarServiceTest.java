@@ -88,7 +88,8 @@ class JarServiceTest {
                 notificationService,
                 jarMemberRealtimeService,
                 chatSystemMessageService,
-                jarDesignViewService
+                jarDesignViewService,
+                org.mockito.Mockito.mock(shop.esjh.memoryjar.service.UserStateRealtimeService.class)
         );
     }
 

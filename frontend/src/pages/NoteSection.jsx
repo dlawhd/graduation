@@ -1291,6 +1291,14 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
   async function loadNotes(nextQuery = query) {
     if (!jar?.jarId) return;
+    // 잠긴 저금통의 공용 목록은 읽지 않는다. 본인 기록은 별도의 읽기 전용 창에서 조회한다.
+    if (!jar.isOpen) {
+      requests.begin("list");
+      setListData({ items: [], page: 0, size: nextQuery.size || 6, totalElements: 0, totalPages: 1 });
+      setNotesLoading(false);
+      setNotesError("");
+      return;
+    }
 
     const isCurrent = requests.begin("list");
     setNotesLoading(true);
@@ -2309,7 +2317,7 @@ async function handleCreateNote() {
     setQuery(initialQuery);
     setSearchForm({ q: "", tag: "" });
     loadNotes(initialQuery);
-  }, [jar?.jarId, initialQuery]);
+  }, [jar?.jarId, jar?.isOpen, initialQuery]);
 
   // 방금 만들어진 카드만 1.4초 동안 “새 카드” 취급하고 그 뒤에는 평범한 카드로 돌아가게 해줌
   useEffect(() => {

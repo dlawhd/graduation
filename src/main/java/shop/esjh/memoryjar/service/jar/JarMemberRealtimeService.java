@@ -25,9 +25,11 @@ public class JarMemberRealtimeService {
 
     // WebSocket 구독자들에게 메시지를 보내는 도구
     private final SimpMessagingTemplate messagingTemplate;
+    private final shop.esjh.memoryjar.service.UserStateRealtimeService userState;
 
-    public JarMemberRealtimeService(SimpMessagingTemplate messagingTemplate) {
+    public JarMemberRealtimeService(SimpMessagingTemplate messagingTemplate, shop.esjh.memoryjar.service.UserStateRealtimeService userState) {
         this.messagingTemplate = messagingTemplate;
+        this.userState = userState;
     }
 
     /*
@@ -41,6 +43,9 @@ public class JarMemberRealtimeService {
         if (jarId == null || event == null) {
             return;
         }
+
+        if(event.targetUserId()!=null)userState.membershipChanged(jarId,event.targetUserId(),
+                event.type()==shop.esjh.memoryjar.enums.jar.JarMemberEventType.MEMBER_KICKED || event.type()==shop.esjh.memoryjar.enums.jar.JarMemberEventType.MEMBER_LEFT);
 
         Runnable sendTask = () -> BestEffortDelivery.send("MEMBER", () -> messagingTemplate.convertAndSend(
                 "/topic/jars/" + jarId + "/members",

@@ -44,7 +44,7 @@ import static org.mockito.Mockito.*;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({JpaAuditConfig.class, SupportConfig.class, SupportAuthorization.class, SupportInquiryPersistenceService.class,
         SupportInquiryService.class, NotificationService.class, JarDesignFinalizePersistenceService.class, JarService.class,
-        SupportRateGuard.class, SupportAccessCrypto.class})
+        SupportRateGuard.class, SupportAccessCrypto.class, shop.esjh.memoryjar.service.UserStateRealtimeService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
     @Autowired PlatformTransactionManager transactions;
@@ -218,7 +218,9 @@ class SupportInquiryIntegrationTest extends AbstractMariaDbRepositoryTest {
         persistence.completeCopy(f.owner, target);
         assertThat(receivedNotificationCount(target.inquiryId())).isZero();
         assertThat(persistence.detail(f.owner, target.inquiryId(), false).status()).isEqualTo(SupportInquiryStatus.OPEN);
-        verifyNoInteractions(messages);
+        verify(messages).convertAndSend("/topic/users/" + f.owner + "/state",
+                new shop.esjh.memoryjar.service.UserStateRealtimeService.StateEvent("SUPPORT_CHANGED", null, target.inquiryId()));
+        verifyNoMoreInteractions(messages);
     }
 
     @Test void hourlyLimitIsSerializedAcrossDifferentCandidates() throws Exception {

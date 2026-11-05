@@ -32,6 +32,7 @@ public class SupportConversationService {
     private final NotificationService notifications;
     private final SupportAccessCrypto crypto;
     private final SupportAttachmentRepository attachments;
+    private final shop.esjh.memoryjar.service.UserStateRealtimeService userState;
 
     /** 재전송은 기존 접수를 반환한다. 같은 접수자의 생성 제한/중복 검사를 DB에서 직렬화한다. */
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -73,6 +74,7 @@ public class SupportConversationService {
                 request.errorCode(), occurredAt, now));
         audits.save(new SupportInquiryAudit(ticket.getInquiryId(), actor.authorId(), actor.role() + "_CREATED", now));
         notifications.notifySupportInquiryReceived(authorization.operatorsToNotify(), ticket.getInquiryId());
+        userState.supportChanged(ticket);
         return SupportInquiryResponse.from(ticket, false, now);
     }
     public SupportInquiryResponse detail(SupportActor actor, Long id) {
@@ -126,6 +128,7 @@ public class SupportConversationService {
         audits.save(new SupportInquiryAudit(id,actor.authorId(),actor.role()+"_MESSAGE",now));
         if (actor.operator() && i.getOwnerId()!=null) notifications.notifySupportReplied(users.getReferenceById(i.getOwnerId()),id);
         if (!actor.operator()) notifications.notifySupportFollowedUp(authorization.operatorsToNotify(),id);
+        userState.supportChanged(i);
         return SupportMessageResponse.from(message);
     }
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -135,6 +138,7 @@ public class SupportConversationService {
         var now=SupportInquiryPersistenceService.now(); i.resolve(resolved,now);
         audits.save(new SupportInquiryAudit(id,actor.authorId(),resolved?"RESOLVED":"REOPENED",now));
         if (!resolved && !actor.operator()) notifications.notifySupportFollowedUp(authorization.operatorsToNotify(),id);
+        userState.supportChanged(i);
         return SupportInquiryResponse.from(i,actor.operator(),now);
     }
     private long cursor(Long before) { if (before!=null && before<=0) throw problem(HttpStatus.BAD_REQUEST,"조회 번호가 올바르지 않습니다."); return before==null?Long.MAX_VALUE:before; }

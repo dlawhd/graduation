@@ -98,7 +98,8 @@ public class WebSocketDeliveryAuthorizationInterceptor implements ChannelInterce
             subscriptionAuthorization.validateSubscribe(headers);
             return message;
         } catch (org.springframework.security.access.AccessDeniedException denied) {
-            close(headers.getSessionId());
+            // 로그인은 유효하지만 한 저금통에서 나간 경우에는 그 자료의 배달만 막는다.
+            // 공용 연결을 닫으면 본인 채널의 강퇴/삭제 안내나 다른 저금통의 갱신까지 사라질 수 있다.
             return null;
         }
     }

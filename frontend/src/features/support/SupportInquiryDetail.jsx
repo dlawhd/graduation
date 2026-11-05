@@ -7,11 +7,13 @@ import { SUPPORT_STYLE, supportTime } from "./supportView.mjs";
 import { SUPPORT_CATEGORIES, supportTitle } from "./supportContext.mjs";
 import SupportStatusBadge from "./SupportStatusBadge";
 import SupportScreenshots from "./SupportScreenshots";
+import { useUserStateRefresh } from "../../realtime/useUserStateRefresh";
 
 /** 내 문의와 운영자 상세에서 같은 내용을 표시한다. 사진은 사용자가 열기를 눌러야 요청한다. */
-export default function SupportInquiryDetail({ inquiryId, operator = false, guest=false, onUpdated }) {
+export default function SupportInquiryDetail({ inquiryId, operator = false, guest=false, onUpdated,userId }) {
   const location=useLocation();const [refresh,setRefresh]=useState(0);
-  const gate=useRequestGate(`${inquiryId}:${operator}:${guest}:${location.key}:${refresh}`);
+  const gate=useRequestGate(`${inquiryId}:${operator}:${guest}:${location.key}`);
+  const loadedScope=useRef(null),pendingLive=useRef(false);
   const [ticket,setTicket]=useState(null),[messages,setMessages]=useState([]),[nextBefore,setNextBefore]=useState(null);
   const [attachments,setAttachments]=useState([]),[previews,setPreviews]=useState({}),[image,setImage]=useState(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[busy,setBusy]=useState(false);
@@ -24,13 +26,20 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, gues
   const mode={operator,guest};
   useLayoutEffect(()=>{inFlight.current=false;imageInFlight.current.clear();setBusy(false);setHistoryBusy(false);setPreviewBusy({});},[gate]);
   useEffect(()=>{
-    const controller=new AbortController(),current=gate.begin("view");setLoading(true);setError("");setTicket(null);setMessages([]);setAttachments([]);setPreviews({});setImage(null);setNextBefore(null);
+    const controller=new AbortController(),current=gate.begin("view"),silent=loadedScope.current===gate;
+    if(!silent){setLoading(true);setTicket(null);setMessages([]);setAttachments([]);setPreviews({});setImage(null);setNextBefore(null);}setError("");
     getSupportView(inquiryId,{operator,guest,signal:controller.signal}).then(data=>{if(!current())return;
-      setTicket(data.inquiry);setMessages(data.messages?.items||[]);setNextBefore(data.messages?.nextBefore||null);setAttachments(data.attachments||[]);
+      loadedScope.current=gate;setTicket(data.inquiry);
+      setMessages(previous=>!silent||data.inquiry.contentExpired?data.messages?.items||[]:Array.from(new Map([...previous,...(data.messages?.items||[])].map(m=>[m.messageId,m])).values()));
+      setNextBefore(data.messages?.nextBefore||null);setAttachments(data.attachments||[]);
+      if(data.inquiry.contentExpired){setPreviews({});setImage(null);}
       if(updatedPending.current){updatedPending.current=false;updatedCallback.current?.(data.inquiry);}
-    }).catch(e=>{if(current())setError(supportError(e));}).finally(()=>{if(current())setLoading(false);});
+    }).catch(e=>{if(current()){setError(supportError(e));if([401,403,404,410].includes(e?.response?.status)){setTicket(null);setMessages([]);setPreviews({});setImage(null);}}}).finally(()=>{if(current())setLoading(false);});
     return()=>controller.abort();
-  },[gate,inquiryId,operator,guest]);
+  },[gate,inquiryId,operator,guest,refresh]);
+  useUserStateRefresh({userId,scope:`support:${inquiryId}:${operator}`,enabled:!guest,
+    accepts:event=>event.type==="SUPPORT_CHANGED"&&Number(event.inquiryId)===Number(inquiryId),
+    refresh:()=>{if(inFlight.current){pendingLive.current=true;return;}setRefresh(n=>n+1);}});
   // 이미 발급된 URL은 즉시 철회할 수 없으므로 화면에서도 1분 뒤 지우고 새 발급을 요구한다.
   useEffect(()=>{
     const expiry=[image?.until,...Object.values(previews).map(p=>p.until)].filter(Boolean);if(!expiry.length)return;
@@ -41,7 +50,7 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, gues
     if(inFlight.current||filePending.current)return;inFlight.current=true;setBusy(true);setError("");const current=gate.begin("write");
     try {await action(current);if(current()){updatedPending.current=true;setRefresh(n=>n+1);}}
     catch(e){if(current())setError(supportError(e));}
-    finally{if(current()){inFlight.current=false;setBusy(false);}}
+    finally{if(current()){inFlight.current=false;setBusy(false);if(pendingLive.current){pendingLive.current=false;setRefresh(n=>n+1);}}}
   }
   async function addMessage(current) {
     for(const item of files.filter(f=>!f.uploaded)) {

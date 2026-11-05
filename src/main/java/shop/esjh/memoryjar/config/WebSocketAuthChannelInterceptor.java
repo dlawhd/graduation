@@ -37,7 +37,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
     // /topic/users/1/notifications 같은 알림 구독 주소를 검사하기 위한 패턴
     private static final Pattern USER_NOTIFICATION_TOPIC_PATTERN =
-            Pattern.compile("^/topic/users/(\\d+)/notifications$");
+            Pattern.compile("^/topic/users/(\\d+)/(?:notifications|state)$");
 
     // /topic/design-drafts/10/generations 같은 AI 생성 완료 구독 주소를 검사하기 위한 패턴
     private static final Pattern DESIGN_DRAFT_GENERATION_TOPIC_PATTERN =

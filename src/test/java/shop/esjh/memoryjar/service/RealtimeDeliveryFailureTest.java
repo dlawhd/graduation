@@ -27,9 +27,9 @@ class RealtimeDeliveryFailureTest {
     private Runnable event(Channel channel, SimpMessagingTemplate messages) {
         return switch (channel) {
             case NOTE -> () -> new NoteRealtimeService(messages).sendNoteEventAfterCommit(1L, 2L, mock(NoteRealtimeEventResponse.class));
-            case MEMBER -> () -> new JarMemberRealtimeService(messages).sendMemberEventAfterCommit(1L, mock(JarMemberSocketEventResponse.class));
+            case MEMBER -> () -> new JarMemberRealtimeService(messages,mock(UserStateRealtimeService.class)).sendMemberEventAfterCommit(1L, mock(JarMemberSocketEventResponse.class));
             case DAILY_DRAW -> () -> new JarDailyDrawRealtimeService(messages).sendDailyDrawEventAfterCommit(1L, mock(DailyDrawSocketEventResponse.class));
-            case OPEN -> () -> new JarOpenRealtimeService(messages).sendJarOpenedEventAfterCommit(1L, mock(JarOpenSocketEventResponse.class));
+            case OPEN -> () -> new JarOpenRealtimeService(messages,mock(UserStateRealtimeService.class)).sendJarOpenedEventAfterCommit(1L, mock(JarOpenSocketEventResponse.class));
             case CHAT -> {
                 var repository = mock(ChatMessageRepository.class);
                 when(repository.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));

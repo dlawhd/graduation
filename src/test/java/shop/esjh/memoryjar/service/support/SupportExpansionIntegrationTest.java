@@ -43,7 +43,8 @@ import static org.mockito.Mockito.*;
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
 @Import({JpaAuditConfig.class,SupportConfig.class,SupportAuthorization.class,SupportAccessCrypto.class,SupportRateGuard.class,
         SupportInquiryAccess.class,SupportConversationService.class,SupportGuestService.class,SupportInquiryPersistenceService.class,
-        SupportAttachmentPersistenceService.class,SupportScreenshotValidator.class,SupportAttachmentService.class,NotificationService.class})
+        SupportAttachmentPersistenceService.class,SupportScreenshotValidator.class,SupportAttachmentService.class,NotificationService.class,
+        shop.esjh.memoryjar.service.UserStateRealtimeService.class})
 @Transactional(propagation=Propagation.NOT_SUPPORTED)
 class SupportExpansionIntegrationTest extends AbstractMariaDbRepositoryTest {
     @Autowired PlatformTransactionManager transactions;

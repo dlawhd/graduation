@@ -99,6 +99,8 @@ class JarMemberRepositoryTest extends AbstractMariaDbRepositoryTest {
 
         assertThat(result).extracting(member -> member.getUser().getName())
                 .containsExactly("owner", "first", "second");
+        assertThat(jarMemberRepository.findActiveManagerUserIds(jar.getJarId()))
+                .containsExactlyInAnyOrder(owner.getId(), firstMember.getId());
     }
 
     @Test

@@ -3,6 +3,7 @@
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import { useRequestGate } from "../api/useRequestGate";
+import OwnNotesModal from "../features/jarDetail/components/OwnNotesModal";
 import {
   ONBOARDING_TUTORIAL_KEY,
 } from "../api/onboardingApi";
@@ -391,6 +392,7 @@ export default function JarDetailPage({ onSuccess }) {
 
   // 저금통 확대 보기 모달 상태
   const [jarZoomOpen, setJarZoomOpen] = useState(false);
+  const [ownNotesOpen,setOwnNotesOpen]=useState(false);
   const [jarZoomNotes, setJarZoomNotes] = useState([]);
   const [jarZoomPagination, setJarZoomPagination] = useState({ page: 0, totalPages: 0, totalElements: 0 });
   const jarZoomQueryRef = useRef({ page: 0, q: "", tag: "" });
@@ -401,6 +403,7 @@ export default function JarDetailPage({ onSuccess }) {
   // 다른 저금통으로 이동한 뒤 이전 요청이 늦게 도착해 목록을 덮어쓰지 않게 한다.
   useEffect(() => {
     ++jarZoomRequestRef.current;
+    setOwnNotesOpen(false);
     jarZoomQueryRef.current = { page: 0, q: "", tag: "" };
     setJarZoomNotes([]);
     setJarZoomPagination({ page: 0, totalPages: 0, totalElements: 0 });
@@ -915,6 +918,7 @@ useEffect(() => {
     invites,
     invitesLoading,
     invitesError,
+    loadInvites,
     inviteForm,
     setInviteForm,
     createInviteLoading,
@@ -1813,6 +1817,7 @@ useEffect(() => {
    * 오픈 축하 모달과 겹치는 것을 막는다.
    */
   const hasBlockingJarDetailModal =
+    ownNotesOpen ||
     jarZoomDetailOpen ||
     jarZoomOpen ||
     jarChatOpen ||
@@ -2216,6 +2221,8 @@ useEffect(() => {
     navigate,
     loadMembers,
     loadJarDetail,
+    loadInvites,
+    jarZoomOpen,
     setJar,
     jarOpenCelebrationTimerRef,
     showJarOpenCelebration,
@@ -2432,7 +2439,8 @@ useEffect(() => {
   ]);
 
     useEffect(() => {
-      if (!jar) return;
+      // 다른 멤버의 실시간 변경이 도착해도 현재 작성 중인 수정 내용은 보존한다.
+      if (!jar || editOpen) return;
 
       setEditForm({
         name: jar.name ?? "",
@@ -2449,7 +2457,7 @@ useEffect(() => {
         lockLevel: jar.lockLevel ?? "HIDDEN",
         openAt: formatDateTimeLocalValue(jar.openAt),
       });
-    }, [jar]);
+    }, [jar, editOpen]);
 
     useEffect(() => {
       if (!jar) return;
@@ -4050,6 +4058,7 @@ async function handleViewOpenedJarNotes() {
                   interactive
                 />
 
+                {!jar.isOpen&&<button type="button" onClick={()=>setOwnNotesOpen(true)} className="mt-12 min-h-11 rounded-full border border-emerald-200 bg-white/90 px-5 py-2 text-sm font-bold text-emerald-800 shadow-sm">내가 넣은 쪽지</button>}
                 {/* 저금통 아래 주요 버튼들 */}
                 <div className="mt-20 grid w-full max-w-xl gap-3 sm:grid-cols-3">
                   {/* 새 쪽지 작성 버튼 */}
@@ -4300,6 +4309,8 @@ async function handleViewOpenedJarNotes() {
           createRequestId={noteCreateRequestId}
           getJarDropTargetRect={getJarDropTargetRect}
         />
+
+        {ownNotesOpen&&<OwnNotesModal key={`${jarId}:${currentUserId}`} jarId={jarId} userId={currentUserId} onClose={()=>setOwnNotesOpen(false)}/>}
 
         <JarZoomModal
           open={jarZoomOpen}

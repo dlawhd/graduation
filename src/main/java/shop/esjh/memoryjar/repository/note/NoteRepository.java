@@ -10,6 +10,11 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
+    /** 작성자 조건을 목록과 전체 개수 조회에 모두 적용해 다른 사람의 작성 여부도 노출하지 않는다. */
+    @Query(value=LIST_ROW_SELECT+SEARCH_FILTER+" and n.author.id = :authorId order by n.createdAt desc, n.noteId desc",
+            countQuery="select count(n) from Note n "+SEARCH_FILTER+" and n.author.id = :authorId")
+    Page<NoteListRow> searchOwnListRows(@Param("jarId") Long jarId,@Param("authorId") Long authorId,
+            @Param("q") String q,@Param("tag") String tag,Pageable pageable);
 
     // API 응답 DTO와 분리한 목록 전용 값 조회다. 작성자 엔티티 전체나 변경 감지 상태를 읽지 않는다.
     String LIST_ROW_SELECT = """

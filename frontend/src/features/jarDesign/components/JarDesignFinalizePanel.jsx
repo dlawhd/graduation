@@ -254,14 +254,11 @@ export default function JarDesignFinalizePanel({
                 <option value="DAILY_DRAW">하루에 하나씩 열기</option>
               </select>
             </label>
-            <label className="block text-sm font-bold text-slate-700">잠금 공개 범위
-              <select value={form.lockLevel} onChange={(event) => setForm((current) => ({ ...current, lockLevel: event.target.value }))} disabled={formLocked}
-                className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-slate-800 disabled:bg-slate-50">
-                <option value="HIDDEN">완전히 숨김</option>
-                <option value="META_ONLY">기본 정보만 공개</option>
-                <option value="TITLE_ONLY">제목만 공개</option>
-              </select>
-            </label>
+            <div className="block text-sm font-bold text-slate-700">오픈 전 쪽지 공개
+              <p className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-normal leading-6 text-slate-600">
+                내가 넣은 쪽지만 확인할 수 있어요. 다른 멤버의 쪽지와 작성 여부는 저금통이 열린 뒤에 공개돼요.
+              </p>
+            </div>
           </div>
           {blockedReason && <p role="status" className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">{blockedReason}</p>}
           {error && <p role="alert" className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>}

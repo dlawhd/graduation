@@ -57,6 +57,7 @@ public class JarService {
     private final JarMemberRealtimeService jarMemberRealtimeService;
     private final ChatSystemMessageService chatSystemMessageService;
     private final JarDesignViewService jarDesignViewService;
+    private final shop.esjh.memoryjar.service.UserStateRealtimeService userState;
 
     public JarService(
             JarRepository jarRepository,
@@ -67,7 +68,8 @@ public class JarService {
             NotificationService notificationService,
             JarMemberRealtimeService jarMemberRealtimeService,
             ChatSystemMessageService chatSystemMessageService,
-            JarDesignViewService jarDesignViewService
+            JarDesignViewService jarDesignViewService,
+            shop.esjh.memoryjar.service.UserStateRealtimeService userState
     ) {
         this.jarRepository = jarRepository;
         this.jarMemberRepository = jarMemberRepository;
@@ -78,6 +80,7 @@ public class JarService {
         this.jarMemberRealtimeService = jarMemberRealtimeService;
         this.chatSystemMessageService = chatSystemMessageService;
         this.jarDesignViewService = jarDesignViewService;
+        this.userState=userState;
     }
 
     // 저금통을 새로 만드는 메서드야.
@@ -134,6 +137,7 @@ public class JarService {
         // 5. 만든 사람을 OWNER 멤버로도 저장
         JarMember ownerMember = JarMember.createOwner(savedJar, currentUser);
         jarMemberRepository.save(ownerMember);
+        userState.jarCreated(savedJar.getJarId(),currentUserId);
 
         return savedJar;
     }
@@ -361,6 +365,7 @@ public class JarService {
                 .build();
 
         JarInvite savedInvite = jarInviteRepository.save(invite);
+        userState.invitesChanged(jarId);
 
         // 7. 응답 만들기
         return new JarInviteCreateResponse(
@@ -630,6 +635,7 @@ public class JarService {
 
         // 4. 폐기 처리
         invite.revoke();
+        userState.invitesChanged(jarId);
 
         // 5. 응답 반환
         return new JarInviteRevokeResponse(
@@ -927,6 +933,7 @@ public class JarService {
 
         // 6. updatedAt 값을 응답에 안정적으로 쓰기 위해 save
         Jar savedJar = jarRepository.save(jar);
+        userState.jarChanged(jarId,"JAR_CHANGED");
 
         // 7. 응답 반환
         return new JarUpdateResponse(
@@ -980,6 +987,7 @@ public class JarService {
 
         // 5. 저금통 soft delete
         jarRepository.delete(jar);
+        userState.jarDeleted(jarId,memberIds);
     }
 
     // userId로 사용자 찾기

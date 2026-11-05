@@ -21,6 +21,7 @@ public class SupportAttachmentPersistenceService {
     private final SupportInquiryAccess access;
     private final SupportRateGuard rates;
     private final SupportInquiryAuditRepository audits;
+    private final shop.esjh.memoryjar.service.UserStateRealtimeService userState;
     public List<SupportAttachmentResponse> list(SupportActor actor,Long inquiryId) {
         var i=access.require(actor,inquiryId,false); access.activeContent(i);
         var now=SupportInquiryPersistenceService.now();
@@ -51,11 +52,12 @@ public class SupportAttachmentPersistenceService {
     }
     @Transactional
     public SupportAttachmentResponse finish(SupportActor actor,UploadTarget target,long bytes) {
-        access.activeContent(access.require(actor,target.inquiryId(),true));
+        var inquiry=access.require(actor,target.inquiryId(),true);access.activeContent(inquiry);
         var a=attachments.lock(target.id()).orElseThrow();
         if (!a.getExpiresAt().isAfter(SupportInquiryPersistenceService.now())) throw problem(HttpStatus.GONE,"첨부 보관 기간이 지났습니다.");
         if (!Objects.equals(a.getStorageKey(),target.key()) || !"UPLOADING".equals(a.getStatus())) throw problem(HttpStatus.CONFLICT,"첨부 상태가 바뀌었습니다.");
         a.ready(bytes);
+        userState.supportChanged(inquiry);
         audits.save(new shop.esjh.memoryjar.entity.support.SupportInquiryAudit(target.inquiryId(),actor.authorId(),actor.role()+"_ATTACHED",SupportInquiryPersistenceService.now()));
         return SupportAttachmentResponse.from(a);
     }
