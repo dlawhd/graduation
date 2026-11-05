@@ -14,8 +14,10 @@ const me={userId:1,name:"나"};
 const jar={jarId:7,name:"나의 시험 저금통",description:"오픈 전 시험",theme:"SPRING",myRole:"OWNER",memberCount:2,maxMembers:5,
   openAt:"2099-01-01T00:00:00+09:00",openMode:"ALL_AT_ONCE",lockLevel:"HIDDEN",isOpen:false,createdAt:"2026-01-01T00:00:00+09:00"};
 const pixel="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+// 썸네일과 원본을 구분하고, 가로 사진이 잘리지 않고 표시되는지도 검사한다.
+const originalPhoto="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#d7e9df"/><circle cx="600" cy="340" r="180" fill="#ecaab9"/><text x="600" y="650" text-anchor="middle" font-size="64" fill="#115b48">Memory Jar · Original</text></svg>');
 const notes=Array.from({length:11},(_,i)=>({noteId:i+1,title:`나의 추억 ${i+1}`,previewContent:"내가 남긴 본문",content:`내가 남긴 본문 ${i+1}`,
-  authorId:1,authorName:"나",noteDate:"2026-11-01",location:"학교",tags:["추억"],attachments:[{id:i+1,url:pixel,contentType:"image/png",caption:"내 사진"}],commentCount:0}));
+  authorId:1,authorName:"나",noteDate:"2026-11-01",location:"학교",tags:["추억"],attachments:[{id:i+1,url:originalPhoto,thumbnailUrl:pixel,contentType:"image/png",caption:"내 사진"}],commentCount:0}));
 window.fixture={jar,notes,requests:[],removed:false,failMine:false,invites:[],pending:[],deferDetail:false};
 apiClient.defaults.adapter=async config=>{
   const {url,params={}}=config;window.fixture.requests.push({url,params});let data;

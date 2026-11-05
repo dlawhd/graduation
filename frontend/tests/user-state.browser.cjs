@@ -47,6 +47,28 @@ async function setup(browser,width){
   assert.equal(await modal.getByRole('img').count(),1);
   require('node:fs').mkdirSync('../build/realtime-own-notes',{recursive:true});
   await page.screenshot({path:`../build/realtime-own-notes/own-notes-${width}.png`});
+  const photoButton=modal.getByRole('button',{name:'1번째 사진 크게 보기',exact:true});
+  const thumbnail=await photoButton.getByRole('img').getAttribute('src');
+  const readsBefore=await page.evaluate(()=>window.fixture.requests.filter(r=>r.url.includes('/notes/')).length);
+  await photoButton.click();
+  const imageViewer=page.getByRole('dialog',{name:'원본 사진 보기',exact:true});
+  const original=imageViewer.getByRole('img',{name:'원본 사진',exact:true});
+  await original.waitFor();
+  assert.notEqual(await original.getAttribute('src'),thumbnail);
+  assert.equal(await original.getAttribute('src'),await page.evaluate(()=>window.fixture.notes[0].attachments[0].url));
+  assert.equal(await original.evaluate(img=>img.naturalWidth),1200);
+  assert.equal(await original.evaluate(img=>getComputedStyle(img).objectFit),'contain');
+  assert.equal(await page.evaluate(()=>window.fixture.requests.filter(r=>r.url.includes('/notes/')).length),readsBefore);
+  await page.keyboard.press('Tab');
+  assert.equal(await imageViewer.getByRole('button',{name:'원본 사진 닫기',exact:true}).evaluate(b=>b===document.activeElement),true);
+  await page.screenshot({path:`../build/realtime-own-notes/original-photo-${width}.png`});
+  await page.keyboard.press('Escape');await imageViewer.waitFor({state:'hidden'});
+  await modal.waitFor();assert.equal(await photoButton.evaluate(b=>b===document.activeElement),true);
+  assert.equal(await page.evaluate(()=>document.body.style.overflow),'hidden');
+  await photoButton.click();await original.waitFor();await imageViewer.getByRole('button',{name:'원본 사진 닫기',exact:true}).click();
+  await modal.waitFor();await photoButton.click();await original.waitFor();
+  await imageViewer.click({position:width===390?{x:195,y:100}:{x:5,y:300}});await imageViewer.waitFor({state:'hidden'});await modal.waitFor();
+  passed.push({width,test:'own-note-original-photo-not-thumbnail-escape-close-backdrop-focus-no-api'});
   assert.equal(await modal.getByText('댓글',{exact:true}).count(),0);
   await modal.getByRole('button',{name:'← 내 쪽지 목록',exact:true}).click();
   await modal.getByRole('button',{name:'다음',exact:true}).click();await modal.getByText('내 쪽지 11개',{exact:true}).waitFor();
@@ -59,6 +81,16 @@ async function setup(browser,width){
   await page.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
   assert.equal(await page.getByRole('button',{name:'내가 넣은 쪽지',exact:true}).evaluate(b=>b===document.activeElement),true);
   passed.push({width,test:'own-notes-list-detail-attachment-search-page-empty-focus'});
+
+  await t.context.route('**/tests/own-note-missing.png',route=>route.fulfill({status:404,body:'missing'}));
+  await page.evaluate(()=>window.fixture.notes[1].attachments[0].url=location.origin+'/tests/own-note-missing.png');
+  await page.getByRole('button',{name:'내가 넣은 쪽지',exact:true}).click();
+  await modal.getByRole('button',{name:/나의 추억 2\s/}).click();
+  await modal.getByRole('button',{name:'1번째 사진 크게 보기',exact:true}).click();
+  await imageViewer.getByRole('alert').filter({hasText:'원본 사진을 불러오지 못했어요.'}).waitFor();
+  await imageViewer.getByRole('button',{name:'원본 사진 닫기',exact:true}).click();await modal.waitFor();
+  await modal.getByText('내가 남긴 본문 2',{exact:true}).waitFor();await page.keyboard.press('Escape');
+  passed.push({width,test:'own-note-original-photo-failure-keeps-note-readable'});
 
   await page.evaluate(()=>window.fixture.failMine=true);await page.getByRole('button',{name:'내가 넣은 쪽지',exact:true}).click();
   await modal.getByRole('alert').filter({hasText:'내 목록 시험 오류'}).waitFor();await modal.getByRole('button',{name:'다시 확인',exact:true}).click();

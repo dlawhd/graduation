@@ -149,3 +149,15 @@ GitHub 기록을 대조하니 `273e322`의 [백엔드 이미지 게시 실행](h
 수정 후 자동 배포와 같은 전체 `gradlew test`·`bootJar`가 성공했다. JUnit XML 합계는 2,104건 중 2,096건 통과·조건부 실행 8건 제외·실패/오류 0건이다. 문제가 된 `WriteSafetyIntegrationTest` 25건도 모두 통과했다. 배포 도구 단위 검사 53건과 인증 진단 도구 단위 검사 12건도 통과했다. 결과 로그는 로컬 `build/deployment-recovery-tests.log`, `deployment-recovery-python.log`, `deployment-recovery-auth.log`에 보관한다.
 
 운영 확인은 새 백엔드 배포 완료 후 본인 목록·검색·첨부와 소켓 재연결을 확인해야 한다. 이 기록 자체가 운영 배포 성공을 뜻하지 않는다.
+
+## 8. 본인 쪽지 사진의 원본 확대 보기 보완
+
+본인 쪽지 창은 첨부 캐러셀에 사진 클릭 처리를 전달하지 않아, 사진을 눌러도 확대되지 않았다. `OwnNotesModal.jsx`에서 기존 캐러셀의 `onImageClick`을 연결하고 저장된 첨부의 `url`로 원본을 여는 창을 추가했다. 미리보기의 `thumbnailUrl`·`previewUrl`을 원본으로 사용하지 않는다. 사진은 화면에 맞춰 전체 비율을 유지해 표시하고 첨부 설명도 함께 보여 준다.
+
+닫기 버튼·배경 클릭·Esc로 원본 창만 닫으며 본인 쪽지 내용은 유지한다. 사진 창에서 키보드 포커스가 배경으로 빠지지 않게 하고, 닫으면 누른 사진 버튼으로 돌아간다. 사진 로딩 중과 읽기 실패 상태를 구분한다. 영상 재생은 기존 캐러셀 동작을 유지한다.
+
+백엔드·API·권한·라이브러리는 변경하지 않았다. 기존에 본인 권한으로 조회한 첨부 주소를 재사용하며, 사진을 열기 위한 별도 REST 요청은 추가하지 않는다. 원본 파일 자체의 이미지 요청은 클릭할 때 발생한다.
+
+수정 파일은 `frontend/src/features/jarDetail/components/OwnNotesModal.jsx`, 시험 데이터 `frontend/tests/user-state-preview.jsx`, 검사 `frontend/tests/user-state.browser.cjs`와 이 문서다. 1280px·390px Chrome에서 원본/썸네일 주소 구분, 전체 비율 표시, 닫기·Esc·배경 클릭·포커스 복귀, 이미지 실패 후 쪽지 보존을 포함해 총 16시나리오가 통과했다. 프론트 빌드도 성공했으며 기존 대형 청크 경고는 유지된다.
+
+결과는 `build/realtime-own-notes/original-photo-browser-result.json`, `original-photo-build.log`, `original-photo-1280.png`, `original-photo-390.png`에 보관한다. 실제 개인 사진과 운영 화면은 이 로컬 합성 데이터 시험에 포함하지 않았다.
