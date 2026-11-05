@@ -133,3 +133,19 @@
 - `src/test/java/shop/esjh/memoryjar/service/support/SupportExpansionIntegrationTest.java`
 - `src/test/java/shop/esjh/memoryjar/service/support/SupportInquiryIntegrationTest.java`
 - `src/test/java/shop/esjh/memoryjar/service/support/SupportSafetyTest.java`
+
+## 7. 배포 버전 불일치 오류와 후속 수정
+
+2026-11-05 운영 화면에서 본인 목록 `GET .../notes/mine`이 400으로 실패하고 공용 소켓의 멤버·오픈·쪽지 구독에 STOMP `ERROR`가 반복되는 화면이 전달됐다.
+
+GitHub 기록을 대조하니 `273e322`의 [백엔드 이미지 게시 실행](https://github.com/dlawhd/graduation/actions/runs/41964726680)이 전체 테스트 단계에서 실패했고, [후속 배포](https://github.com/dlawhd/graduation/actions/runs/41965161261)는 건너뛰었다. 마지막 성공한 자동 배포는 `883b017`이었다. 프론트는 별도 Vercel 배포이므로 새 화면만 먼저 반영될 수 있다. 당시 EC2의 실행 이미지 SHA를 SSH로 직접 조회한 것은 아니다.
+
+이전 코드에는 `/notes/mine`이 없어 `/notes/{noteId}`의 숫자 변환에서 `mine`을 거절한다. 예외 처리기가 화면과 같은 `BAD_REQUEST`·‘요청 값이 올바르지 않습니다.’를 반환한다. 또한 이전 소켓 권한 검사는 `/topic/users/{id}/state`를 허용하지 않아, 신규 개인 구독 요청이 공용 연결의 오류로 이어진다. 여러 구독이 같은 연결 오류를 표시하므로 로그가 반복된다.
+
+직접 원인은 `JarService`에 추가한 `UserStateRealtimeService`가 기존 `WriteSafetyIntegrationTest`의 제한된 Spring 시험 구성에 등록되지 않은 것이다. 관련 152건의 검사에서는 이 클래스를 포함하지 못했다. 로컬에서 동일한 25건의 컨텍스트 시작 실패와 `NoSuchBeanDefinitionException`을 재현했다.
+
+수정: `src/test/java/shop/esjh/memoryjar/service/WriteSafetyIntegrationTest.java`에 `@MockitoBean UserStateRealtimeService`를 등록했다. 이 시험은 실제 DB의 권한·잠금·동시 쓰기 경합을 검증하므로 화면 전송만 대역으로 두며, 실제 신호 전달과 본인 전용 권한은 기존 HTTP·STOMP 통합 시험으로 검증한다. 운영 권한 검사를 완화하거나 테스트를 제외하지 않는다.
+
+수정 후 자동 배포와 같은 전체 `gradlew test`·`bootJar`가 성공했다. JUnit XML 합계는 2,104건 중 2,096건 통과·조건부 실행 8건 제외·실패/오류 0건이다. 문제가 된 `WriteSafetyIntegrationTest` 25건도 모두 통과했다. 배포 도구 단위 검사 53건과 인증 진단 도구 단위 검사 12건도 통과했다. 결과 로그는 로컬 `build/deployment-recovery-tests.log`, `deployment-recovery-python.log`, `deployment-recovery-auth.log`에 보관한다.
+
+운영 확인은 새 백엔드 배포 완료 후 본인 목록·검색·첨부와 소켓 재연결을 확인해야 한다. 이 기록 자체가 운영 배포 성공을 뜻하지 않는다.

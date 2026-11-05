@@ -59,6 +59,8 @@ class WriteSafetyIntegrationTest extends AbstractMariaDbRepositoryTest {
     @MockitoBean JarMemberRealtimeService memberRealtime;
     @MockitoBean ChatSystemMessageService systemMessages;
     @MockitoBean JarDesignViewService designViews;
+    // 이 검사는 실제 DB 잠금·권한 경쟁을 검증한다. 화면 갱신 전송은 다른 통합 검사에서 확인한다.
+    @MockitoBean UserStateRealtimeService userStateRealtime;
 
     private record Fixture(Long ownerId, Long guestId, Long jarId, Long noteId, String code) { }
 
