@@ -245,6 +245,12 @@ app:
     pool-size: ${APP_AI_GENERATION_POOL_SIZE:2}
     queue-capacity: ${APP_AI_GENERATION_QUEUE_CAPACITY:20}
 
+  maps:
+    naver-search:
+      # NAVER API HUB에서 발급한 검색 키다. 로그인용 키와 Maps 공개 ncpKeyId는 사용할 수 없다.
+      client-id: ${NAVER_LOCAL_SEARCH_CLIENT_ID:}
+      client-secret: ${NAVER_LOCAL_SEARCH_CLIENT_SECRET:}
+
   ai:
     cloudflare:
       # 실제 계정 ID와 API Token은 로컬/운영 환경 변수로만 주입한다.

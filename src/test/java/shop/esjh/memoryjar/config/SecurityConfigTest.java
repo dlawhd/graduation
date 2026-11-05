@@ -52,6 +52,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class SecurityConfigTest {
 
+    /** 새 검색 API도 기존 /api/** 인증 규칙을 통과해야 한다. */
+    @Test
+    void placeSearchRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/places/search").param("q", "서울숲"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // 서버를 진짜로 띄우지 않아도 가짜 HTTP 요청을 보내서 응답을 검증할 수 있게 도와주는 도구
     // GET /api/test/protected, POST /api/test/protected
     @Autowired

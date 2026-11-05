@@ -41,22 +41,59 @@
 .note-location-entry input { width:100%; min-width:0; flex:1; border-radius:12px; padding:10px 12px; }
 .note-map-trigger { display:flex; align-items:center; gap:6px; flex-shrink:0; border:1px solid #dce6da; border-radius:12px; padding:4px 8px 4px 4px; min-height:48px; color:#32624b; font-size:13px; font-weight:700; background:#fffefa; }
 .note-map-trigger svg { width:46px; height:38px; }
-.note-map-panel { position:relative; margin-top:12px; padding:12px; border:1px solid #dce6da; border-radius:14px; background:#f4f8f1; }
-.note-map-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:14px; font-weight:700; }
-.note-map-heading button,.note-map-retry { min-height:44px; padding:8px; font-size:13px; color:#32624b; }
-.note-map-search { display:flex; gap:6px; margin:8px 0; }
-.note-map-search input { width:100%; min-width:0; border-radius:10px; padding:8px; }
-.note-map-search button,.note-map-selection button { flex-shrink:0; border-radius:10px; background:#32624b; color:white; padding:8px 12px; min-height:44px; font-size:13px; font-weight:700; }
-.note-map-panel button:disabled { opacity:.45; }
-.note-map-panel > p { font-size:13px; line-height:1.6; }
-.note-map-canvas { width:100%; height:260px; border-radius:10px; overflow:hidden; }
-.note-map-hint { margin-top:8px; color:#667466; }
-.note-map-results { max-height:180px; overflow-y:auto; margin-top:8px; }
-.note-map-results li + li { border-top:1px solid #dce6da; }
-.note-map-results button { width:100%; padding:10px 4px; text-align:left; min-height:44px; }
-.note-map-results strong,.note-map-results span { display:block; font-size:13px; }
-.note-map-results span { color:#68766b; margin-top:4px; }
-.note-map-selection { margin-top:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.note-map-selection p { overflow-wrap:anywhere; font-size:13px; }
+/* 작성창의 스크롤·애니메이션 밖에 뜨는 독립 팝업이다. native dialog가 배경 클릭과 초점 이동을 막는다. */
+.note-map-dialog { position:fixed; inset:0; margin:auto; padding:0; width:min(960px,calc(100vw - 32px)); height:min(740px,calc(100dvh - 32px)); max-width:none; max-height:none; overflow:hidden; border:1px solid #dce6da; border-radius:22px; background:#fffefa; color:#213e33; box-shadow:0 24px 80px #0f232e45; }
+.note-map-dialog[open] { display:flex; flex-direction:column; }
+.note-map-dialog::backdrop { background:#0f172a8c; }
+.note-map-dialog button { cursor:pointer; font:inherit; }
+.note-map-dialog button:disabled { cursor:default; opacity:.45; }
+.note-map-dialog button:focus-visible,.note-map-dialog input:focus-visible { outline:2px solid #32624b; outline-offset:3px; }
+.note-map-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-shrink:0; padding:20px 22px; border-bottom:1px solid #e1e8dd; }
+.note-map-header h2 { margin:0; font-size:21px; font-weight:750; line-height:1.4; }
+.note-map-header p { margin-top:6px; color:#667466; font-size:13px; line-height:1.6; }
+.note-map-close { display:grid; place-items:center; flex-shrink:0; min-width:44px; min-height:44px; border:1px solid #dce6da; border-radius:12px; background:white; }
+.note-map-body { display:grid; grid-template-columns:270px minmax(0,1fr); gap:16px; flex:1; min-height:0; padding:16px; overflow:hidden; }
+.note-map-sidebar { display:flex; flex-direction:column; min-width:0; min-height:0; padding:12px; border:1px solid #e1e8dd; border-radius:14px; background:white; }
+.note-map-search { display:flex; gap:8px; flex-shrink:0; }
+.note-map-search input { width:100%; min-width:0; min-height:46px; border:1px solid #dce6da; border-radius:10px; padding:10px 12px; background:#fffefa; color:#213e33; font:inherit; font-size:14px; }
+.note-map-search button,.note-map-confirm { flex-shrink:0; min-height:46px; border:1px solid #32624b; border-radius:10px; background:#32624b; color:white; padding:10px 14px; font-size:14px; font-weight:700; }
+/* SDK가 내부 canvas의 픽셀 크기를 바꾸어도 바깥 지도 영역의 크기는 변하지 않는다. */
+.note-map-viewport { position:relative; min-width:0; min-height:240px; overflow:hidden; border:1px solid #e1e8dd; border-radius:14px; background:#edf2e8; }
+.note-map-canvas { position:absolute; top:0; left:0; width:100%; height:100%; margin:0; padding:0; border:0; overflow:hidden; }
+.note-map-dialog .note-map-place-marker { position:relative; display:flex; align-items:center; gap:6px; width:max-content; max-width:190px; min-height:40px; padding:7px 10px 7px 6px; border:1px solid #32624b; border-radius:12px; background:#fffefa; color:#214b36; box-shadow:0 3px 10px #183e3326; font-size:12px; font-weight:700; cursor:pointer; }
+.note-map-place-marker::after { content:""; position:absolute; left:11px; bottom:-5px; width:9px; height:9px; transform:rotate(45deg); background:inherit; border-right:1px solid #32624b; border-bottom:1px solid #32624b; }
+.note-map-place-number { display:grid; place-items:center; flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#32624b; color:white; font-size:12px; }
+.note-map-place-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-map-dialog .note-map-place-marker[aria-pressed="true"] { background:#215c41; color:white; }
+.note-map-place-marker[aria-pressed="true"] .note-map-place-number { background:white; color:#215c41; }
+.note-map-status { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; text-align:center; font-size:14px; line-height:1.7; }
+.note-map-retry { min-height:44px; border:1px solid #32624b; border-radius:10px; padding:8px 14px; background:white; color:#32624b; }
+.note-map-hint { margin-top:8px; color:#667466; font-size:12px; line-height:1.6; }
+.note-map-message { margin-top:10px; color:#94532c; font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+.note-map-results { min-height:0; overflow-y:auto; overscroll-behavior:contain; margin-top:12px; }
+.note-map-results li + li { border-top:1px solid #e1e8dd; }
+.note-map-results button { width:100%; padding:12px 10px; text-align:left; min-height:52px; border:0; border-radius:10px; background:transparent; overflow-wrap:anywhere; }
+.note-map-results button[aria-pressed="true"] { background:#e7f2e9; color:#075445; }
+.note-map-results strong,.note-map-results span { display:block; font-size:14px; }
+.note-map-results span { color:#68766b; margin-top:5px; font-size:12px; line-height:1.6; }
+.note-map-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-shrink:0; padding:16px 22px; border-top:1px solid #e1e8dd; background:#f0f5eb; }
+.note-map-selection { min-width:0; flex:1; }
+.note-map-selection-label { display:block; margin-bottom:5px; font-size:12px; font-weight:700; color:#32624b; }
+.note-map-selection > p[role="status"] { margin:0; overflow-wrap:anywhere; font-size:14px; line-height:1.6; }
+.note-map-actions { display:flex; gap:8px; flex-shrink:0; }
+.note-map-cancel { min-height:46px; border:1px solid #bdccbb; border-radius:10px; padding:10px 16px; font-size:14px; background:white; color:#32624b; }
 @media(min-width:640px) { .note-composer .note-composer-letter { min-height:250px; } }
-@media(max-width:380px) { .note-composer-steps { gap:24px; } .note-composer-steps li:not(:last-child)::after { right:-18px; width:12px; } .note-map-selection { align-items:stretch; flex-direction:column; } }
+@media(max-width:639px) {
+  .note-map-dialog { width:calc(100vw - 20px); height:calc(100dvh - 24px); border-radius:18px; }
+  .note-map-header { padding:14px; gap:8px; }
+  .note-map-header h2 { font-size:18px; }
+  .note-map-header p { font-size:12px; }
+  .note-map-body { display:flex; flex-direction:column; gap:12px; padding:12px; overflow-y:auto; overscroll-behavior:contain; }
+  .note-map-sidebar { flex:0 0 auto; padding:10px; }
+  .note-map-results { max-height:120px; margin-top:8px; }
+  .note-map-viewport { flex:1 0 240px; }
+  .note-map-footer { flex-direction:column; align-items:stretch; gap:12px; padding:12px 14px max(12px,env(safe-area-inset-bottom)); }
+  .note-map-actions > button { flex:1; }
+}
+@media(min-width:640px) and (max-height:600px) { .note-map-body { overflow-y:auto; overscroll-behavior:contain; } }
+@media(max-width:380px) { .note-composer-steps { gap:24px; } .note-composer-steps li:not(:last-child)::after { right:-18px; width:12px; } }

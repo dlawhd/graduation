@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-11-05 네이버 장소 검색: `PlaceSearchRequest(q)`는 공백이 아닌 최대 100자의 검색어를 받는다. `PlaceSearchItem(name, address, latitude, longitude)` 목록을 기존 `ApiResponse.data`로 반환한다. 좌표는 지도 선택용이며 쪽지 생성·조회 DTO의 `location` 문자열은 변경하지 않았다. [상세 계약·설정](NAVER_LOCATION_SETUP.md)
+
 > 2026-11-01: `NoteCreateRequest.attachments`는 선택 목록이지만 내부 null 항목은 허용하지 않는다. 공개 DTO 필드는 유지하며 JWT 내부에 `loginSessionId`를 추가한다. 기존 전체 댓글 DTO는 안전한 크기 범위에서 유지한다. [V54·V55 계약](SAFETY_FIXES_2026-11-01.md)을 확인한다.
 
 > 3D 이미지 읽기 증분: JarDesignResponse에 선택 필드 `imageTextureUrl`, `bodyArtworkTextureUrl`을 추가했다. 기존 필드/생성자를 유지한다. [3D 텍스처 읽기 계약](ai/AI_3D_TEXTURE_ACCESS.md)을 참고한다.
