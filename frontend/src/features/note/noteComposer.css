@@ -21,7 +21,15 @@
 .note-composer .note-attachments.is-compact .note-attachment-add { min-height:50px; padding:10px 12px; gap:10px; border-color:#e7e8e1; background:#fffefa; box-shadow:none; transform:none; }
 .note-attachments.is-compact .note-attachment-add-icon { width:26px; height:26px; border-radius:50%; background:#32624b; color:white; }
 .note-attachments.is-compact .note-attachment-add-icon svg { width:17px; height:17px; }
-.note-composer-options { border-color:#e7e8e1; background:#fffefa; }
+.note-composer-options { border-color:#e7e8e1; background:#fffefa; transition:background-color .15s,border-color .15s,box-shadow .15s; }
+/* 입력 중에는 강조하지 않고, 펼치기 제목에 마우스를 올렸을 때 둥근 바깥 박스가 반응한다. */
+@media (hover:hover) and (pointer:fine) {
+  .note-composer .note-attachments.is-compact .note-attachment-add:not(:disabled):hover,
+  .note-composer-options:has(> summary:hover) { border-color:#9ab79f; background:#f2f6ee; box-shadow:0 2px 8px #29403212; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .note-composer .note-attachments.is-compact .note-attachment-add,.note-composer-options { transition:none; }
+}
 .note-composer-options > summary { display:flex; align-items:center; gap:10px; list-style:none; }
 .note-composer-options > summary::-webkit-details-marker { display:none; }
 .note-options-chevron { margin-left:auto; transition:transform .2s; }

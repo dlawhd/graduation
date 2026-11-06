@@ -3,9 +3,11 @@ import { createPortal } from "react-dom";
 import { getOwnNotes, getOwnNoteDetail } from "../../../api/ownNoteApi";
 import { useRequestGate } from "../../../api/useRequestGate";
 import NoteAttachmentCarousel from "../../note/components/NoteAttachmentCarousel";
+import NoteImageNavigation from "../../note/components/NoteImageNavigation";
+import { getNoteImages, nextImageIndex } from "../../note/imageGallery.mjs";
 
 /** 오픈 전 작성자 본인의 쪽지만 확인하는 읽기 전용 창이다. 다른 멤버의 장수·본문과 댓글/리액션은 조회하지 않는다. */
-export default function OwnNotesModal({ jarId, userId, onClose }) {
+export default function OwnNotesModal({ jarId, userId, isOpen = false, onClose }) {
   const titleId = useId();
   const dialog = useRef(null);
   const closeButton = useRef(null);
@@ -26,6 +28,7 @@ export default function OwnNotesModal({ jarId, userId, onClose }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [image, setImage] = useState(null);
+  const photo = image?.items[image.index];
   currentImage.current = image;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -43,13 +46,20 @@ export default function OwnNotesModal({ jarId, userId, onClose }) {
         else onCloseRef.current();
         return;
       }
+      if (currentImage.current && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        event.preventDefault(); event.stopPropagation();
+        moveImage(event.key === "ArrowLeft" ? -1 : 1);
+        return;
+      }
       if (event.key !== "Tab") return;
       const activeDialog = currentImage.current ? imageDialog.current : dialog.current;
       const controls = Array.from(activeDialog?.querySelectorAll(
         'button:not(:disabled),input:not(:disabled),video[controls],[tabindex="0"]'
       ) || []).filter(el => el.getClientRects().length);
       const first = controls[0], last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      // 끝에 도달해 방금 누른 이동 버튼이 비활성화돼도 초점이 배경으로 빠지지 않게 한다.
+      if (!controls.includes(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first)?.focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     document.addEventListener("keydown", key);
@@ -63,19 +73,30 @@ export default function OwnNotesModal({ jarId, userId, onClose }) {
 
   // 확대를 닫으면 누른 사진 버튼으로 돌아간다. 쪽지 창의 포커스·스크롤 잠금은 유지한다.
   useEffect(() => {
-    if (image?.url) imageCloseButton.current?.focus();
+    if (image) imageCloseButton.current?.focus();
     else if (imageReturnFocus.current) {
       if (imageReturnFocus.current.isConnected) imageReturnFocus.current.focus();
       imageReturnFocus.current = null;
     }
-  }, [image?.url]);
+  }, [image !== null]);
 
   /** 캐러셀의 잘린 미리보기 대신, 서버가 본인 권한으로 반환한 원본 주소를 그대로 사용한다. */
   function openImage(attachment) {
     if (!attachment?.url) { setError("원본 사진 주소를 확인할 수 없어요. 쪽지를 다시 열어 주세요."); return; }
+    const items = getNoteImages(note?.attachments), index = items.indexOf(attachment);
+    if (index < 0) return;
     imageReturnFocus.current = document.activeElement;
     document.activeElement?.blur?.();
-    setImage({ url: attachment.url, caption: attachment.caption || "", status: "loading" });
+    setImage({ items, index, status: "loading" });
+  }
+
+  /** 이미 조회한 본인 첨부 안에서만 이동한다. 사진을 넘길 때 쪽지 API를 다시 호출하지 않는다. */
+  function moveImage(delta) {
+    setImage(current => {
+      if (!current) return current;
+      const index = nextImageIndex(current.index, delta, current.items.length);
+      return index === current.index ? current : { ...current, index, status: "loading" };
+    });
   }
 
   useEffect(() => {
@@ -116,7 +137,7 @@ export default function OwnNotesModal({ jarId, userId, onClose }) {
     <section ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} inert={image ? true : undefined} aria-hidden={image ? true : undefined} className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-[#fffdf8] shadow-xl">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4"><h2 id={titleId} className="text-lg font-black text-slate-800">내가 넣은 쪽지</h2><button ref={closeButton} type="button" onClick={onClose} className="min-h-11 rounded-xl border px-4 text-sm font-bold">닫기</button></header>
       <div className="space-y-4 overflow-y-auto overscroll-contain p-5">
-        <p className="rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-900">내가 넣은 쪽지만 확인할 수 있어요. 다른 멤버의 쪽지와 작성 여부는 저금통이 열린 뒤에 공개돼요.</p>
+        <p className="rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-900">{isOpen ? "내가 넣은 쪽지만 모아 볼 수 있어요. 함께 넣은 쪽지는 ‘전체 쪽지’에서 확인해 주세요." : "내가 넣은 쪽지만 확인할 수 있어요. 다른 멤버의 쪽지와 작성 여부는 저금통이 열린 뒤에 공개돼요."}</p>
         {error&&<p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}<button type="button" onClick={()=>selected?void openNote(selected):setRetry(n=>n+1)} className="ml-2 min-h-11 underline">다시 확인</button></p>}
         {selected?<>
           <button type="button" onClick={backToList} className="min-h-11 text-sm font-bold text-emerald-800">← 내 쪽지 목록</button>
@@ -146,14 +167,15 @@ export default function OwnNotesModal({ jarId, userId, onClose }) {
           className="min-h-11 rounded-xl border border-white/40 bg-white/10 px-4 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">원본 사진 닫기</button>
       </header>
       <div className="pointer-events-none relative flex min-h-0 flex-1 items-center justify-center">
+        <NoteImageNavigation index={image.index} total={image.items.length} onMove={moveImage}/>
         {image.status === "loading" && <p role="status" className="absolute text-sm text-white">원본 사진을 불러오고 있어요.</p>}
         {image.status === "error" && <p role="alert" className="max-w-md rounded-xl bg-white p-4 text-sm leading-6 text-rose-800">원본 사진을 불러오지 못했어요. 사진을 닫은 뒤 쪽지를 다시 열어 주세요.</p>}
-        <img key={image.url} src={image.url} alt="원본 사진" draggable={false} referrerPolicy="no-referrer"
+        <img key={`${image.index}:${photo.url}`} src={photo.url} alt="원본 사진" draggable={false} referrerPolicy="no-referrer"
           className={`pointer-events-auto max-h-full max-w-full object-contain ${image.status === "ready" ? "" : "hidden"}`}
-          onLoad={() => setImage(current => current?.url === image.url ? { ...current, status: "ready" } : current)}
-          onError={() => setImage(current => current?.url === image.url ? { ...current, status: "error" } : current)}/>
+          onLoad={() => setImage(current => current === image ? { ...current, status: "ready" } : current)}
+          onError={() => setImage(current => current === image ? { ...current, status: "error" } : current)}/>
       </div>
-      {image.caption && <p className="mx-auto max-h-28 w-full max-w-3xl shrink-0 overflow-y-auto whitespace-pre-wrap break-words rounded-xl bg-white/10 p-3 text-center text-sm leading-6 text-white">{image.caption}</p>}
+      {photo.caption && <p className="mx-auto max-h-28 w-full max-w-3xl shrink-0 overflow-y-auto whitespace-pre-wrap break-words rounded-xl bg-white/10 p-3 text-center text-sm leading-6 text-white">{photo.caption}</p>}
     </div>}
   </div>,document.body);
 }

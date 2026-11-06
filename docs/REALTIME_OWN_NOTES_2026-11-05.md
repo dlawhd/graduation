@@ -161,3 +161,46 @@ GitHub 기록을 대조하니 `273e322`의 [백엔드 이미지 게시 실행](h
 수정 파일은 `frontend/src/features/jarDetail/components/OwnNotesModal.jsx`, 시험 데이터 `frontend/tests/user-state-preview.jsx`, 검사 `frontend/tests/user-state.browser.cjs`와 이 문서다. 1280px·390px Chrome에서 원본/썸네일 주소 구분, 전체 비율 표시, 닫기·Esc·배경 클릭·포커스 복귀, 이미지 실패 후 쪽지 보존을 포함해 총 16시나리오가 통과했다. 프론트 빌드도 성공했으며 기존 대형 청크 경고는 유지된다.
 
 결과는 `build/realtime-own-notes/original-photo-browser-result.json`, `original-photo-build.log`, `original-photo-1280.png`, `original-photo-390.png`에 보관한다. 실제 개인 사진과 운영 화면은 이 로컬 합성 데이터 시험에 포함하지 않았다.
+
+## 9. 확대 사진의 이전·다음 이동과 사진 순서 표시 (2026-11-06)
+
+### 기존 동작과 변경 이유
+
+본인 쪽지는 한 장만 원본으로 확대했다. 공개된 쪽지의 확대창에는 별도 이동 코드가 있었지만,
+사진과 영상이 같은 번호에 포함되고 방향키 이동 때 확대 배율·위치 초기화가 일관되지 않았다.
+한 번 확대하면 같은 쪽지의 다른 사진도 확인할 수 있도록 두 화면의 이동 버튼과 번호 표시를 공통으로 구성했다.
+
+### 최종 동작
+
+- 누른 사진부터 열고, 왼쪽·오른쪽 버튼 또는 키보드 방향키로 이전·다음 사진을 본다.
+- `현재 사진 번호 / 전체 사진 수`를 한 장일 때도 표시한다. 영상·미지원 파일·원본 주소 없는 항목은 사진 수에 넣지 않는다.
+- 첫 장의 이전 버튼과 마지막 장의 다음 버튼은 비활성화한다. 연속 입력도 범위를 넘기거나 닫힌 창을 다시 열지 않는다.
+- 사진마다 설명과 로딩·실패 상태를 함께 바꾼다. 같은 URL을 가진 사진도 별개의 순서와 설명을 유지한다.
+- 실패한 사진에서 다른 사진으로 이동할 수 있고, 이전 사진의 늦은 로딩 결과가 현재 상태를 덮어쓰지 않게 한다.
+- 공개 쪽지의 기존 휠 확대·드래그·스와이프는 유지한다. 버튼·방향키·스와이프로 사진을 바꾸면 확대 배율과 이동 위치를 초기화한다.
+- Esc·닫기·배경 클릭은 사진 창만 닫는다. 닫은 뒤 누른 사진 버튼으로 초점을 복구한다.
+- 사진 창 아래의 쪽지 입력은 막고 Tab 초점을 안에 유지한다. 이동 버튼이 비활성화된 직후에도 배경으로 초점이 빠지지 않게 보완했다.
+
+### 변경 파일과 영향 범위
+
+- `frontend/src/features/jarDetail/components/OwnNotesModal.jsx`: 이미 조회한 본인 쪽지의 사진 목록·순서를 보관하고 원본 이동을 처리한다.
+- `frontend/src/features/jarDetail/components/JarZoomNoteDetailModal.jsx`: 사진 전용 목록과 공통 버튼을 사용하고 키보드·초점·확대 상태를 함께 관리한다.
+- `frontend/src/features/note/components/NoteImageNavigation.jsx`: 두 확대창의 좌우 버튼·사진 번호·접근성 이름을 공통으로 표시한다.
+- `frontend/src/features/note/imageGallery.mjs`, `imageGallery.test.mjs`: 사진 목록 선택과 안전한 순서 이동을 처리·검증한다.
+- `frontend/tests/note-gallery-preview.html`, `note-gallery-preview.jsx`, `note-gallery.browser.cjs`: 실제 컴포넌트를 합성 사진·API 대역으로 검증한다.
+
+새 의존성·백엔드·DB·API·권한 변경은 없다. 서버에서 현재 사용자에게 반환한 첨부만 사용하며,
+사진 이동을 위한 쪽지 API 재조회는 추가하지 않는다. 해당 원본 이미지 요청은 브라우저가 필요할 때 수행한다.
+영상은 기존 첨부 슬라이드에서 재생한다. 이번 작업은 사진 이동 기능의 공통화이며 쪽지 전체 구조를 바꾸지 않는다.
+
+### 실행한 검증과 결과
+
+- 프론트 Node 테스트 **296개 통과**(사진 목록·이동 신규 6개 포함).
+- `npm run build` 성공. 기존 500kB 초과 JS 청크 경고는 남아 있다.
+- `node frontend/tests/note-gallery.browser.cjs`: Chrome **390px·1280px**, 본인·공개 쪽지 양쪽에서 8개 시나리오 묶음 통과.
+  복수 사진, 영상 제외, 사진 순서, 원본 비율, 설명, 실패 후 이동, 연속 클릭, 방향키, Tab, 닫기 후 초점 복구,
+  한 장·사진 없음·동일 URL, 다른 쪽지로 변경 시 닫기, 공개 쪽지 휠 확대·드래그·스와이프와 배율 초기화를 검사했다.
+- `frontend`에서 `node tests/user-state.browser.cjs`: 기존 본인 쪽지 조회·검색·원본 확대와 실시간 관련 **16개 시나리오 통과**.
+- PC·모바일 합성 화면 캡처를 `build/note-gallery/`에서 확인했다. 이미지 요청 실패와 경계 이동에서 쪽지 API 호출 수가 늘지 않는 것도 확인했다.
+
+실제 사용자 사진·운영 배포 후 화면은 이 시험에 포함하지 않았다. 로컬 화면 새로고침 후 같은 쪽지의 여러 사진으로 마지막 사용 확인을 할 수 있다.

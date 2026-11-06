@@ -1,0 +1,90 @@
+/* 오픈 연출 안에만 적용한다. 저장된 저금통 그림은 변형하지 않고 정적인 2D 조각을 이동한다. */
+.jar-opening-dialog { position:fixed; inset:0; margin:auto; padding:0; width:min(650px,calc(100vw - 32px)); max-width:none; max-height:calc(100dvh - 32px); overflow:auto; overscroll-behavior:contain; border:1px solid #c7ceb5; border-radius:30px; background:#fbf6eb; color:#29472d; box-shadow:0 30px 110px #192b2366; }
+.jar-opening-dialog::backdrop { background:#17271f91; backdrop-filter:blur(5px); }
+.jar-opening-dialog button { cursor:pointer; font:inherit; }
+.jar-opening-dialog button:disabled { cursor:default; opacity:.5; }
+.jar-opening-dialog button:focus-visible { outline:3px solid #66855a; outline-offset:4px; }
+.jar-opening-paper { position:relative; isolation:isolate; overflow:hidden; padding:16px 32px 12px; background:radial-gradient(ellipse at 45% 52%,#fffefa 0%,#fbf5e9 65%,#f1e8d8 100%); }
+.jar-opening-paper::before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; opacity:.22; background-image:repeating-radial-gradient(circle at 20% 30%,transparent 0px,#b09a7412 1px,transparent 2px,transparent 5px); }
+.jar-opening-tools { position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; }
+.jar-opening-tools button { display:flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:8px 12px; border:1px solid transparent; border-radius:20px; color:#536444; background:#fffdf673; font-size:13px; }
+.jar-opening-tools button:hover { background:#e8eddf; }
+.jar-opening-tools svg { width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.jar-opening-heading { position:relative; z-index:1; text-align:center; margin-top:2px; }
+.jar-opening-eyebrow { color:#849276; font-size:10px; letter-spacing:.28em; font-weight:750; }
+.jar-opening-heading h2 { margin:7px 0 0; font-size:clamp(23px,4vw,30px); font-weight:800; letter-spacing:-.045em; line-height:1.35; }
+.jar-opening-ribbon { display:block; width:180px; height:18px; margin:3px auto 6px; }
+.jar-opening-stage-title { margin:0; font-size:20px; font-weight:750; letter-spacing:-.025em; color:#385337; }
+.jar-opening-progress { display:flex; justify-content:center; gap:9px; margin:10px 0 0; }
+.jar-opening-progress span { width:9px; height:9px; border:1px solid #a7b290; border-radius:50%; background:#faf8f0; }
+.jar-opening-progress span[data-filled="true"] { background:#819864; border-color:#819864; }
+.jar-opening-scene { position:relative; width:min(100%,370px,calc(100dvh - 380px)); min-width:190px; aspect-ratio:1; margin:4px auto; }
+.jar-opening-definitions { position:absolute; pointer-events:none; }
+.jar-opening-figure { position:absolute; inset:9% 9% 8%; z-index:2; pointer-events:none; }
+.jar-opening-surface { position:absolute; inset:0; }
+.jar-opening-figure[data-art-status="loading"] { opacity:.18; }
+.jar-opening-figure[data-art-status="error"] { visibility:hidden; }
+.jar-opening-piece { position:absolute; inset:0; }
+.jar-opening-piece-clip { width:100%; height:100%; }
+.jar-opening-piece-clip * { animation:none!important; transition:none!important; }
+.jar-opening-saved-art { width:100%; height:100%; }
+.jar-opening-dialog[data-phase="complete"] .jar-opening-piece { animation:jarShardFall 1.25s var(--piece-delay) cubic-bezier(.32,.05,.72,.6) both; }
+.jar-opening-dialog[data-phase="complete"] .jar-opening-piece-clip { filter:drop-shadow(1px 3px 2px #342b2260); }
+.jar-opening-halo { position:absolute; inset:18%; z-index:0; border-radius:50%; background:radial-gradient(circle,#fff5bf 0%,#ffe3a56b 40%,#ffe3a500 72%); opacity:0; transform:scale(.65); transition:opacity .5s,transform .8s; }
+.jar-opening-scene[data-hits="2"] .jar-opening-halo { opacity:.65; transform:scale(1); }
+.jar-opening-dialog[data-phase="complete"] .jar-opening-halo { opacity:1; transform:scale(1.55); }
+.jar-opening-cracks { position:absolute; inset:0; width:100%; height:100%; z-index:3; fill:none; stroke-linecap:round; stroke-linejoin:round; opacity:0; pointer-events:none; }
+.jar-opening-cracks[data-visible="true"] { opacity:1; }
+.jar-opening-crack-depth { stroke:#30271f; filter:drop-shadow(.5px 1px 1px #30271f80); }
+.jar-opening-crack-rim { stroke:#fff5da; stroke-width:.8; opacity:.8; }
+.jar-opening-crack-line path { stroke-dasharray:var(--crack-length); animation:jarCrackSpread .22s ease-out both; }
+.jar-opening-mallet { position:absolute; z-index:5; width:42%; transform:translate(-14.375%,-27.7778%); pointer-events:none; }
+.jar-opening-mallet-swing { transform:rotate(22deg); transform-origin:50% 90%; }
+.jar-opening-mallet svg { display:block; width:100%; height:auto; filter:drop-shadow(0 7px 8px #6c4c2520); }
+.jar-opening-dialog[data-phase="tapping"] .jar-opening-mallet-swing { animation:jarMalletTap .9s ease-in-out both; }
+.jar-opening-dialog[data-phase="tapping"] .jar-opening-surface { animation:jarMalletShake .9s ease-out both; }
+.jar-opening-letters { position:absolute; z-index:4; top:50%; left:50%; pointer-events:none; }
+.jar-opening-envelope { position:absolute; display:grid; place-items:center; width:49px; height:34px; margin-left:-24px; border:1px solid #d6bd8a; border-radius:6px; background:linear-gradient(32deg,#fbedd0,#fffdf4); color:#c88e6e; box-shadow:0 5px 14px #b89d6825; animation:jarLetterRise 1s var(--letter-delay) cubic-bezier(.15,.7,.25,1) both; }
+.jar-opening-envelope::before { content:""; position:absolute; inset:0; clip-path:polygon(0 0,100% 0,50% 60%); background:#e5ce9b50; }
+.jar-opening-sparks { position:absolute; left:50%; top:50%; z-index:3; pointer-events:none; }
+.jar-opening-sparks i { position:absolute; width:4px; height:4px; border-radius:50%; background:#fff5bc; box-shadow:0 0 8px #f4d898; animation:jarSparkRise 1.05s var(--letter-delay) ease-out both; }
+.jar-opening-art-message { position:absolute; z-index:6; inset:25% 3%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:16px; border-radius:20px; background:#fff9ecf0; color:#73634c; text-align:center; font-size:13px; line-height:1.8; }
+.jar-opening-art-message button { min-height:44px; border:1px solid #bac6a5; border-radius:12px; padding:8px 12px; background:white; color:#365c3c; }
+.jar-opening-copy { position:relative; z-index:6; min-height:30px; max-width:420px; margin:0 auto 8px; text-align:center; font-size:13px; color:#718065; line-height:1.6; }
+.jar-opening-actions { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:8px; }
+.jar-opening-primary { width:100%; min-height:57px; padding:13px 18px; border:1px solid #274525; border-radius:30px; background:linear-gradient(110deg,#2b502a,#345e32 65%,#284a27); color:#fffdf4; font-size:19px!important; font-weight:750!important; letter-spacing:-.025em; box-shadow:0 5px 12px #29412c17; transition:background .15s,box-shadow .15s; }
+.jar-opening-primary:hover:not(:disabled) { box-shadow:0 7px 18px #29412c30; background:#264d2a; }
+.jar-opening-primary span { color:#efd28d; }
+.jar-opening-later { min-height:44px; padding:8px 15px; border:0; border-radius:15px; background:transparent; color:#748264; font-size:13px!important; }
+.jar-opening-later:hover { background:#e9eddf; }
+.jar-opening-leaves { position:absolute; z-index:0; width:145px; opacity:.45; pointer-events:none; }
+.jar-opening-leaves.is-left { top:65px; left:-48px; transform:rotate(28deg); }
+.jar-opening-leaves.is-right { right:-35px; bottom:75px; transform:rotate(200deg); }
+.jar-opening-theme-art { position:relative; height:100%; width:100%; }
+.jar-opening-theme-lid { position:absolute; top:9%; left:12%; width:76%; height:14%; border:1px solid #a8b996; border-radius:50%; box-shadow:0 8px 12px #29403212; }
+.jar-opening-theme-body { position:absolute; display:flex; align-items:center; justify-content:center; overflow:hidden; top:20%; left:16%; width:68%; height:70%; border-width:3px; border-style:solid; border-radius:39% 39% 28% 28%; box-shadow:inset -8px -8px 20px #a4b98f20; }
+.jar-opening-theme-shine { position:absolute; left:12%; top:15%; width:8%; height:45%; border-radius:50%; background:#ffffffa0; transform:rotate(8deg); }
+@keyframes jarMalletTap { 0%,100% { transform:rotate(22deg); } 20% { transform:rotate(52deg); } 31.1% { transform:rotate(0deg); } 45% { transform:rotate(15deg); } 65% { transform:rotate(22deg); } }
+@keyframes jarMalletShake { 0%,30%,100% { transform:translate(0) rotate(0); } 34% { transform:translate(-1.3%,1%) rotate(-1.8deg); } 43% { transform:translate(.8%,-.5%) rotate(1.1deg); } 58% { transform:translate(-.3%,.3%); } }
+@keyframes jarCrackSpread { from { stroke-dashoffset:var(--crack-length); } to { stroke-dashoffset:0; } }
+@keyframes jarShardFall { 0% { transform:translate(0,0) rotate(0); opacity:1; } 24% { transform:translate(calc(var(--piece-x) * .3),-12px) rotate(calc(var(--piece-rotate) * .25)); opacity:1; } 100% { transform:translate(var(--piece-x),var(--piece-y)) rotate(var(--piece-rotate)); opacity:0; } }
+@keyframes jarLetterRise { from { opacity:0; transform:translate(0,30px) rotate(0) scale(.6); } to { opacity:1; transform:translate(var(--letter-x),var(--letter-y)) rotate(var(--letter-rotate)); } }
+@keyframes jarSparkRise { from { opacity:0; transform:translate(0,0) scale(.2); } to { opacity:.85; transform:translate(var(--spark-x),var(--spark-y)); } }
+/* 도중에 설정을 바꿔도 움직임만 멈추고 진행 단계와 버튼은 그대로 유지한다. */
+.jar-opening-dialog[data-reduced="true"] * { animation:none!important; transition:none!important; }
+.jar-opening-dialog[data-reduced="true"] .jar-opening-envelope { transform:translate(var(--letter-x),var(--letter-y)) rotate(var(--letter-rotate)); }
+.jar-opening-dialog[data-reduced="true"] .jar-opening-sparks { display:none; }
+.jar-opening-dialog[data-reduced="true"][data-phase="complete"] .jar-opening-piece { opacity:0; }
+@media(max-width:639px) {
+  .jar-opening-dialog { width:calc(100vw - 20px); max-height:calc(100dvh - 20px); border-radius:24px; }
+  .jar-opening-paper { padding:12px 18px 6px; }
+  .jar-opening-heading { margin-top:6px; }
+  .jar-opening-heading h2 { font-size:23px; }
+  .jar-opening-stage-title { font-size:18px; }
+  .jar-opening-scene { max-width:320px; }
+  .jar-opening-copy { font-size:12px; min-height:28px; }
+  .jar-opening-envelope { width:40px; height:29px; }
+  .jar-opening-tools button { font-size:12px; padding:6px 9px; }
+  .jar-opening-primary { min-height:54px; font-size:17px!important; }
+}
+@media(max-height:720px) and (min-width:640px) { .jar-opening-scene { width:min(290px,calc(100dvh - 380px)); } .jar-opening-paper { padding-top:14px; } .jar-opening-heading { margin-top:0; } }

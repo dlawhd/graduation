@@ -24,6 +24,7 @@ export default function JarVisual({
   jarRef,
   onClick,
   interactive = false,
+  notesButtonLabel = "쪽지 확인",
   frontViewRequest = 0,
 
   /*
@@ -289,7 +290,7 @@ export default function JarVisual({
               : ""
           }`}
         >
-          쪽지 확인
+          {notesButtonLabel}
         </button>
       )}
     </div>

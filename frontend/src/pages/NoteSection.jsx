@@ -672,7 +672,8 @@ function PaperComposeModal({
 
 
                 <details open={optionsOpen} onToggle={(event) => setOptionsOpen(event.currentTarget.open)} className="note-composer-options rounded-2xl border border-slate-200 bg-white/60 px-4">
-                  <summary className="min-h-11 cursor-pointer py-3 text-sm font-bold text-slate-700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/></svg><span>날짜·장소·태그 추가 <span className="sr-only">(선택)</span></span><span className="note-options-chevron" aria-hidden="true">⌄</span></summary>
+                  {/* 첨부 추가처럼 화살표로 hover를 알리고 공통 사각형 강조는 적용하지 않는다. */}
+                  <summary data-hover-feedback="custom" className="group min-h-11 cursor-pointer rounded-2xl py-3 text-sm font-bold text-slate-700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/></svg><span>날짜·장소·태그 추가 <span className="sr-only">(선택)</span></span><span className="note-options-chevron transition group-hover:translate-x-0.5 group-hover:text-slate-400" aria-hidden="true">⌄</span></summary>
                 <div className="grid gap-4 pb-4 pt-2 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold text-slate-500">

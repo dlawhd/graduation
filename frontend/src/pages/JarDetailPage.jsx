@@ -590,7 +590,7 @@ const jarOpenCelebrationStorageKey = useMemo(() => {
  * 저금통 오픈 축하 모달 열기 함수야.
  */
 const showJarOpenCelebration = useCallback(
-  (event = null) => {
+  (event = null, { replay = false } = {}) => {
     if (!currentUserId || !jarId || !jarOpenCelebrationStorageKey) {
       return;
     }
@@ -609,7 +609,7 @@ const showJarOpenCelebration = useCallback(
       const alreadySeen =
         sessionStorage.getItem(jarOpenCelebrationStorageKey) === "seen";
 
-      if (alreadySeen) {
+      if (alreadySeen && !replay) {
         return;
       }
     } catch {
@@ -4019,6 +4019,7 @@ async function handleViewOpenedJarNotes() {
                   jar={jar}
                   jarRef={jarVisualRef}
                   frontViewRequest={noteCreateRequestId}
+                  notesButtonLabel={jar.isOpen ? "전체 쪽지" : "쪽지 확인"}
                   onReloadDesignImage={reloadJarDesignImage}
 
                   /*
@@ -4058,7 +4059,12 @@ async function handleViewOpenedJarNotes() {
                   interactive
                 />
 
-                {!jar.isOpen&&<button type="button" onClick={()=>setOwnNotesOpen(true)} className="mt-12 min-h-11 rounded-full border border-emerald-200 bg-white/90 px-5 py-2 text-sm font-bold text-emerald-800 shadow-sm">내가 넣은 쪽지</button>}
+                {/* 공개 뒤에도 본인 쪽지 검색을 유지한다. 전체 쪽지는 위의 기존 열람 버튼으로 연다. */}
+                <div className="mt-12 flex flex-wrap justify-center gap-3">
+                  <button type="button" onClick={()=>setOwnNotesOpen(true)} className="min-h-11 rounded-full border border-emerald-200 bg-white/90 px-5 py-2 text-sm font-bold text-emerald-800 shadow-sm">내가 넣은 쪽지</button>
+                  {jar.isOpen && <button type="button" onClick={() => showJarOpenCelebration(null, { replay: true })}
+                    className="min-h-11 rounded-full border border-[#cbd5bc] bg-[#fffdf5] px-5 py-2 text-sm font-bold text-[#45653b] shadow-sm hover:bg-[#f1f5e8]">추억 열기 다시 보기</button>}
+                </div>
                 {/* 저금통 아래 주요 버튼들 */}
                 <div className="mt-20 grid w-full max-w-xl gap-3 sm:grid-cols-3">
                   {/* 새 쪽지 작성 버튼 */}
@@ -4310,7 +4316,7 @@ async function handleViewOpenedJarNotes() {
           getJarDropTargetRect={getJarDropTargetRect}
         />
 
-        {ownNotesOpen&&<OwnNotesModal key={`${jarId}:${currentUserId}`} jarId={jarId} userId={currentUserId} onClose={()=>setOwnNotesOpen(false)}/>}
+        {ownNotesOpen&&<OwnNotesModal key={`${jarId}:${currentUserId}`} jarId={jarId} userId={currentUserId} isOpen={jar.isOpen} onClose={()=>setOwnNotesOpen(false)}/>}
 
         <JarZoomModal
           open={jarZoomOpen}

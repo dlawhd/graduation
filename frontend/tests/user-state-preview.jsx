@@ -28,6 +28,9 @@ apiClient.defaults.adapter=async config=>{
   else if(url==="/api/v1/jars/7/members")data={items:[{userId:1,name:"나",role:"OWNER"},{userId:2,name:"친구",role:"MEMBER"}]};
   else if(url==="/api/v1/jars/7/invites")data={items:[...window.fixture.invites]};
   else if(url.endsWith("/chat/unread"))data={unreadCount:0};
+  else if(jar.isOpen && url==="/api/v1/jars/7/notes")data={items:[],page:0,totalElements:0,totalPages:0};
+  else if(jar.isOpen && url.endsWith("/daily-draw/today"))data={hasTodayDraw:false};
+  else if(jar.isOpen && url.endsWith("/daily-draw/history"))data={items:[],totalPages:0};
   else if(url==="/api/v1/jars/7/notes/mine"){
     if(window.fixture.failMine){window.fixture.failMine=false;const e=new Error("test");e.response={status:503,data:{error:{message:"내 목록 시험 오류"}},config};throw e;}
     const filtered=notes.filter(n=>n.title.includes(params.q||""));

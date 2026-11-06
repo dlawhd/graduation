@@ -15,6 +15,8 @@ export default function JarCustomDesignVisual({
   onReload = null,
   allow3D = false,
   frontViewRequest = 0,
+  onImageLoad = null,
+  onImageError = null,
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
@@ -98,7 +100,8 @@ export default function JarCustomDesignVisual({
         alt={alt}
         className={imageClassName}
         imageRendering={designImageRendering(design.aiStyle)}
-        onImageError={() => setImageFailed(true)}
+        onImageLoad={onImageLoad}
+        onImageError={() => { setImageFailed(true); onImageError?.(); }}
         allow3D={allow3D}
         slot={slot}
         frontViewRequest={frontViewRequest}

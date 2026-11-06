@@ -16,6 +16,8 @@ import {
  * 공통 첨부 컴포넌트야.
  */
 import NoteAttachmentCarousel from "../../note/components/NoteAttachmentCarousel";
+import NoteImageNavigation from "../../note/components/NoteImageNavigation";
+import { getNoteImages, nextImageIndex } from "../../note/imageGallery.mjs";
 
 /*
  * JarZoomNoteDetailModal 역할
@@ -71,8 +73,11 @@ export default function JarZoomNoteDetailModal({
   const hasContent = toSafeNoteText(note?.content).length > 0;
 
   // 첨부 이미지 확대 보기 상태
-  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [gallery, setGallery] = useState(null);
+  const selectedIndex = gallery?.index ?? null;
+  const imageStatus = gallery?.status || "loading";
   const [zoom, setZoom] = useState(1);
+  const imageDialogRef = useRef(null), imageCloseRef = useRef(null), imageReturnFocusRef = useRef(null);
 
   /*
    * 확대 이미지 DOM을 직접 잡기 위한 ref야.
@@ -86,8 +91,41 @@ export default function JarZoomNoteDetailModal({
    */
   const zoomImageRef = useRef(null);
 
-  const images = note?.attachments || [];
-  const currentImage = selectedIndex !== null ? images[selectedIndex] : null;
+  const images = gallery?.items || [];
+  const currentImage = open && !loading && !error && gallery?.noteId === note?.noteId && selectedIndex !== null ? images[selectedIndex] : null;
+
+  /** 현재 갤러리 범위만 이동하고 닫은 뒤 도착하는 입력은 무시한다. */
+  function setSelectedIndex(value) {
+    setGallery(current => {
+      if (!current) return current;
+      const requested = typeof value === "function" ? value(current.index) : value;
+      if (requested === null) return null;
+      const index = nextImageIndex(requested, 0, current.items.length);
+      if (index === null) return null;
+      return index === current.index ? current : { ...current, index, status: "loading" };
+    });
+  }
+
+  // 다른 쪽지로 바뀌거나 닫히면 이전 사진을 남겨 두지 않는다.
+  useEffect(() => { setSelectedIndex(null); }, [open, note?.noteId]);
+
+  // 사진 이동 때는 초점을 옮기지 않고, 확대창을 열고 닫을 때만 복구한다.
+  useEffect(() => {
+    if (!currentImage) return undefined;
+    const previous = imageReturnFocusRef.current, overflow = document.body.style.overflow;
+    previous?.blur?.(); imageCloseRef.current?.focus();
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [Boolean(currentImage)]);
+
+  /** 버튼·키보드 이동 모두 같은 경계 검사를 거치고 확대 배율·이동 위치를 초기화한다. */
+  function moveImage(delta) {
+    setSelectedIndex(index => nextImageIndex(index, delta, images.length));
+    setZoom(1); setPosition({ x: 0, y: 0 }); setDragging(false); setSwipeStart(null);
+  }
 
   // 확대 이미지 드래그 이동 상태
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -325,26 +363,36 @@ export default function JarZoomNoteDetailModal({
    */
   useEffect(() => {
     const handler = (e) => {
-      if (selectedIndex === null) return;
+      if (!currentImage) return;
+
+      if (["Escape", "ArrowRight", "ArrowLeft"].includes(e.key)) {
+        e.preventDefault(); e.stopPropagation();
+      }
 
       if (e.key === "Escape") {
         setSelectedIndex(null);
       }
 
       if (e.key === "ArrowRight") {
-        setSelectedIndex((prev) =>
-          prev < images.length - 1 ? prev + 1 : prev
-        );
+        moveImage(1);
       }
 
       if (e.key === "ArrowLeft") {
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+        moveImage(-1);
+      }
+      if (e.key === "Tab") {
+        const controls = Array.from(imageDialogRef.current?.querySelectorAll('button:not(:disabled)') || []);
+        const first = controls[0], last = controls.at(-1);
+        if (!controls.includes(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first)?.focus(); }
+        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
       }
     };
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [selectedIndex, images.length]);
+    // 아래의 첨부 슬라이드가 같은 방향키 입력을 함께 처리하지 않게 먼저 받는다.
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [currentImage, images.length]);
 
   // Hook 선언이 끝난 뒤에 open 체크를 해야 한다.
   if (!open) return null;
@@ -379,7 +427,7 @@ export default function JarZoomNoteDetailModal({
         `}
       </style>
 
-      <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
+      <div role="dialog" aria-label="쪽지 상세 보기" aria-modal="true" inert={currentImage ? true : undefined} aria-hidden={currentImage ? true : undefined} className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
         <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -494,7 +542,12 @@ export default function JarZoomNoteDetailModal({
                           attachment,
                           index
                         ) => {
-                          setSelectedIndex(index);
+                          const photos = getNoteImages(note.attachments);
+                          const photoIndex = photos.indexOf(attachment);
+                          if (photoIndex < 0) return;
+                          imageReturnFocusRef.current = document.activeElement;
+                          document.activeElement?.blur?.();
+                          setGallery({ noteId: note.noteId, items: photos, index: photoIndex, status: "loading" });
 
                           // 다른 사진에서 사용했던 확대 배율을 초기화
                           setZoom(1);
@@ -609,6 +662,7 @@ export default function JarZoomNoteDetailModal({
 
       {currentImage && (
         <div
+          ref={imageDialogRef} role="dialog" aria-modal="true" aria-label="원본 사진 보기"
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80"
           onClick={() =>
             setSelectedIndex(null)
@@ -626,33 +680,19 @@ export default function JarZoomNoteDetailModal({
           }
         >
         {/* 현재 보고 있는 첨부 순서 */}
-        {images.length > 1 && (
-          <div className="absolute left-1/2 top-6 z-20 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1.5 text-xs font-black text-white backdrop-blur-sm">
-            {selectedIndex + 1} /{" "}
-            {images.length}
-          </div>
-        )}
-          {selectedIndex > 0 && (
-            <button
-              type="button"
-              className="absolute left-6 text-3xl text-white"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedIndex((prev) => prev - 1);
-                setZoom(1);
-                setPosition({ x: 0, y: 0 });
-              }}
-            >
-              ←
-            </button>
-          )}
+        <NoteImageNavigation index={selectedIndex} total={images.length} onMove={moveImage}/>
+          {imageStatus === "loading" && <p role="status" className="absolute text-sm text-white">원본 사진을 불러오고 있어요.</p>}
+          {imageStatus === "error" && <p role="alert" className="z-10 max-w-sm rounded-xl bg-white p-4 text-sm text-rose-800">원본 사진을 불러오지 못했어요. 다른 사진을 선택하거나 쪽지를 다시 열어 주세요.</p>}
 
           {currentImage.contentType?.startsWith("image/") ? (
             <img
+              key={`${selectedIndex}:${currentImage.url}`} draggable={false} referrerPolicy="no-referrer"
+              onLoad={() => setGallery(current => current === gallery ? { ...current, status: "ready" } : current)}
+              onError={() => setGallery(current => current === gallery ? { ...current, status: "error" } : current)}
               ref={zoomImageRef}
               src={currentImage.url}
-              alt="확대 이미지"
-              className={`max-h-[80vh] max-w-[90vw] rounded-2xl shadow-lg transition ${
+              alt="원본 사진"
+              className={`max-h-[80vh] max-w-[90vw] object-contain rounded-2xl shadow-lg transition ${imageStatus === "ready" ? "" : "invisible"} ${
                 dragging
                   ? "cursor-grabbing"
                   : zoom > 1
@@ -690,7 +730,7 @@ export default function JarZoomNoteDetailModal({
           {toSafeNoteText(currentImage.caption) && (
             <div
               className="
-                absolute bottom-6 left-1/2
+                absolute bottom-6 left-1/2 max-h-28 overflow-y-auto break-words
                 w-[calc(100%-2rem)] max-w-xl
                 -translate-x-1/2
                 rounded-2xl
@@ -713,25 +753,11 @@ export default function JarZoomNoteDetailModal({
             </div>
           )}
 
-          {selectedIndex < images.length - 1 && (
-            <button
-              type="button"
-              className="absolute right-6 text-3xl text-white"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedIndex((prev) => prev + 1);
-                setZoom(1);
-                setPosition({ x: 0, y: 0 });
-              }}
-            >
-              →
-            </button>
-          )}
-
           <button
+            ref={imageCloseRef} aria-label="원본 사진 닫기"
             type="button"
-            className="absolute right-6 top-6 text-xl text-white"
-            onClick={() => setSelectedIndex(null)}
+            className="absolute right-4 top-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-xl text-white focus-visible:outline-2 focus-visible:outline-white"
+            onClick={event => { event.stopPropagation(); setSelectedIndex(null); }}
           >
             ✕
           </button>
