@@ -106,6 +106,9 @@ tasks.withType<Test> {
 	// 테스트 실행 시 application-test.yml을 기본으로 읽게 한다.
 	// GitHub Actions, 로컬 Gradle 테스트에서 OAuth2/JWT 테스트용 설정이 빠지지 않도록 한다.
 	systemProperty("spring.profiles.active", "test")
+	// 전체 검증에서 서로 다른 Spring 설정의 DB 풀이 누적되지 않도록 오래된 테스트 컨텍스트를 닫는다.
+	// 운영 DB 연결 설정은 바꾸지 않는다.
+	systemProperty("spring.test.context.cache.maxSize", "8")
 }
 
 // 운영 애플리케이션을 띄우지 않고 임시 DB와 대역 경계만 사용하는 통합 검증이다.

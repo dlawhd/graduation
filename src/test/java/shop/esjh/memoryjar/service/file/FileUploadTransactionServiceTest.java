@@ -2,6 +2,8 @@ package shop.esjh.memoryjar.service.file;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -34,7 +36,7 @@ import static org.mockito.Mockito.when;
  * 파일 업로드 완료 과정의 마지막 DB 처리를 검증한다.
  *
  * 1. 잠금 조회 후 파일이 COMPLETED 상태로 변경되는지 확인한다.
- * 2. 다른 요청이 먼저 완료한 파일은 다시 완료되지 않는지 확인한다.
+ * 2. 다른 요청이 먼저 완료한 파일은 상태를 바꾸지 않고 같은 결과를 복구하는지 확인한다.
  * 3. JPA 변경 감지를 사용하므로 save()를 직접 호출하지 않는지 확인한다.
  */
 @ExtendWith(MockitoExtension.class)
@@ -115,8 +117,8 @@ class FileUploadTransactionServiceTest {
     }
 
     @Test
-    @DisplayName("최종 완료 실패 - 잠금을 기다리는 동안 다른 요청이 먼저 완료했으면 409")
-    void markCompleted_fail_completedByAnotherRequest() {
+    @DisplayName("완료 재시도 - 다른 요청이 먼저 완료했으면 같은 결과를 반환")
+    void markCompleted_recoversCompletedByAnotherRequest() {
         // given
         /*
          * 다른 요청이 먼저 완료했다고 가정하여
@@ -133,22 +135,10 @@ class FileUploadTransactionServiceTest {
                 .thenReturn(Optional.of(upload));
 
         // when
-        ResponseStatusException exception =
-                catchThrowableOfType(
-                        () -> fileUploadTransactionService.markCompleted(
-                                100L,
-                                1L,
-                                FilePurpose.NOTE
-                        ),
-                        ResponseStatusException.class
-                );
-
-        // then
-        assertThat(exception.getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
-
-        assertThat(exception.getReason())
-                .isEqualTo("이미 완료 처리된 파일이야.");
+        var completedAt = upload.getCompletedAt();
+        var receipt = fileUploadTransactionService.markCompleted(100L, 1L, FilePurpose.NOTE);
+        assertThat(receipt.s3Key()).isEqualTo(upload.getS3Key());
+        assertThat(upload.getCompletedAt()).isEqualTo(completedAt);
 
         // 기존 COMPLETED 상태가 그대로 유지되어야 한다.
         assertThat(upload.getStatus())
@@ -161,6 +151,30 @@ class FileUploadTransactionServiceTest {
         // 이미 완료된 파일이므로 다시 저장하지 않는다.
         verify(fileUploadRepository, never())
                 .save(any(FileUpload.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FileUploadStatus.class, names = {"COMPLETED", "CONSUMED"})
+    void completionReceiptStillRequiresOwnerAndPurpose(FileUploadStatus status) {
+        var upload = createUpload(100L, 1L, FilePurpose.NOTE, status);
+        when(fileUploadRepository.findByS3Key(upload.getS3Key())).thenReturn(Optional.of(upload));
+        assertThat(fileUploadTransactionService.getCompletionTarget(1L, upload.getS3Key(), FilePurpose.NOTE).existing())
+                .isEqualTo(fileUploadTransactionService.completedReceipt(1L, upload.getS3Key(), FilePurpose.NOTE));
+        assertThat(catchThrowableOfType(() -> fileUploadTransactionService.completedReceipt(2L, upload.getS3Key(), FilePurpose.NOTE),
+                ResponseStatusException.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        var differentPurpose = java.util.Arrays.stream(FilePurpose.values()).filter(p -> p != FilePurpose.NOTE).findFirst().orElseThrow();
+        assertThat(catchThrowableOfType(() -> fileUploadTransactionService.completedReceipt(1L, upload.getS3Key(), differentPurpose),
+                ResponseStatusException.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(upload.getStatus()).isEqualTo(status);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FileUploadStatus.class, names = {"EXPIRED", "UNUSED_DELETING", "UNUSED_DELETED"})
+    void completionDoesNotRestoreExpiredOrDeletingFiles(FileUploadStatus status) {
+        var upload = createUpload(100L, 1L, FilePurpose.NOTE, status);
+        when(fileUploadRepository.findByS3Key(upload.getS3Key())).thenReturn(Optional.of(upload));
+        assertThat(catchThrowableOfType(() -> fileUploadTransactionService.completedReceipt(1L, upload.getS3Key(), FilePurpose.NOTE),
+                ResponseStatusException.class).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     }
 
     /*

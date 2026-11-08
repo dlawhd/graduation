@@ -72,7 +72,8 @@ public class FileUploadTransactionService {
                 upload.getId(),
                 upload.getS3Key(),
                 upload.getContentType(),
-                upload.getSize()
+                upload.getSize(),
+                receiptIfCompleted(upload)
         );
     }
 
@@ -109,13 +110,27 @@ public class FileUploadTransactionService {
                 purpose
         );
 
-        upload.markCompleted();
+        if (upload.getStatus() == FileUploadStatus.PRESIGNED) upload.markCompleted();
 
         /*
          * @Transactional 안에서 조회한 Entity이므로
          * 별도로 save()를 호출하지 않아도
          * JPA 변경 감지가 UPDATE를 실행한다.
          */
+        return receiptIfCompleted(upload);
+    }
+
+    /** 최종 사본이 확정된 경우만 영수증을 복구한다. 정리 중·만료·다른 사용자의 파일은 허용하지 않는다. */
+    @Transactional(readOnly = true)
+    public FileCompleteResponse completedReceipt(Long userId, String key, FilePurpose purpose) {
+        var upload = fileUploadRepository.findByS3Key(key).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "업로드 기록을 찾을 수 없어."));
+        validateCompletable(upload, userId, purpose);
+        return receiptIfCompleted(upload);
+    }
+
+    private FileCompleteResponse receiptIfCompleted(FileUpload upload) {
+        if (upload.getStatus() != FileUploadStatus.COMPLETED && upload.getStatus() != FileUploadStatus.CONSUMED) return null;
         return new FileCompleteResponse(
                 upload.getS3Key(),
                 upload.getPurpose(),
@@ -123,6 +138,7 @@ public class FileUploadTransactionService {
                 upload.getContentType(),
                 upload.getSize(),
                 upload.getCompletedAt()
+                        .truncatedTo(java.time.temporal.ChronoUnit.MICROS)
                         .atOffset(KST_OFFSET)
         );
     }
@@ -154,16 +170,17 @@ public class FileUploadTransactionService {
             );
         }
 
-        // PRESIGNED 상태의 파일만 완료 처리할 수 있다.
+        // 신규 완료와 기존 영수증 복구만 허용한다. 삭제 예약된 파일을 다시 사용할 수는 없다.
         if (upload.getStatus() == FileUploadStatus.EXPIRED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "업로드 시간이 지났어. 파일을 다시 첨부해 줘.");
         }
-        if (upload.getStatus()
-                != FileUploadStatus.PRESIGNED) {
+        if (upload.getStatus() != FileUploadStatus.PRESIGNED
+                && upload.getStatus() != FileUploadStatus.COMPLETED
+                && upload.getStatus() != FileUploadStatus.CONSUMED) {
 
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "이미 완료 처리된 파일이야."
+                    "사용할 수 없는 업로드 상태야. 파일을 다시 첨부해 줘."
             );
         }
     }

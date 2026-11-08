@@ -1,5 +1,5 @@
 import { useRequestGate } from "../../../api/useRequestGate";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
 import apiClient, { fetchCsrf } from "../../../api/apiClient";
 import { ROLE_LABEL } from "../constants/jarDetailLabels";
 
@@ -16,7 +16,8 @@ import { ROLE_LABEL } from "../constants/jarDetailLabels";
  * 를 JarDetailPage 대신 맡아주는 "멤버 관리 담당자"다.
  */
 export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
-  const requests = useRequestGate(jarId);
+  const requests = useRequestGate(`${jarId}:${jar?.myRole || ""}`);
+  const mutationPending = useRef(false);
   // 저금통에 참여 중인 멤버 목록
   const [members, setMembers] = useState([]);
 
@@ -28,6 +29,9 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
   const [roleUpdateLoadingId, setRoleUpdateLoadingId] = useState(null);
   const [kickLoadingId, setKickLoadingId] = useState(null);
   const [leaveLoading, setLeaveLoading] = useState(false);
+
+  // 화면·권한 변경 뒤 이전 요청의 알림·이동·로딩 종료를 새 화면에 적용하지 않는다.
+  useLayoutEffect(() => { mutationPending.current = false; setLeaveLoading(false); setRoleUpdateLoadingId(null); setKickLoadingId(null); }, [requests]);
 
   // 방장이 아니고, 현재 어떤 역할이든 있으면 나가기 가능하다.
   const canLeaveJar = !!jar?.myRole && jar.myRole !== "OWNER";
@@ -101,6 +105,7 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
    * 현재 사용자가 저금통에서 나가는 함수야.
    */
   const handleLeaveJar = useCallback(async () => {
+    if (mutationPending.current) return;
     if (!canLeaveJar) {
       window.alert("방장은 저금통을 바로 나갈 수 없어요.");
       return;
@@ -112,15 +117,21 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
 
     if (!ok) return;
 
+    if (mutationPending.current) return;
+    const current = requests.begin("mutation"); if (!current()) return;
+    mutationPending.current = true;
     setLeaveLoading(true);
 
     try {
       await fetchCsrf();
+      if (!current()) return;
       await apiClient.post(`/api/v1/jars/${jarId}/leave`);
+      if (!current()) return;
 
       window.alert("저금통에서 나갔어요.");
       navigate("/jars", { replace: true });
     } catch (e) {
+      if (!current()) return;
       const serverMessage =
         e?.response?.data?.error?.message ||
         e?.response?.data?.message ||
@@ -129,15 +140,16 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
 
       window.alert(serverMessage);
     } finally {
-      setLeaveLoading(false);
+      if (current()) { mutationPending.current = false; setLeaveLoading(false); }
     }
-  }, [canLeaveJar, jarId, navigate]);
+  }, [canLeaveJar, jarId, navigate, requests]);
 
   /*
    * 멤버 역할을 OWNER가 변경하는 함수야.
    */
   const handleChangeMemberRole = useCallback(
     async (targetUserId, nextRole) => {
+      if (mutationPending.current) return;
       if (!canChangeMemberRole) {
         window.alert("멤버 역할 변경은 방장만 할 수 있어요.");
         return;
@@ -149,21 +161,29 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
 
       if (!ok) return;
 
+      if (mutationPending.current) return;
+      const current = requests.begin("mutation"); if (!current()) return;
+      mutationPending.current = true;
       setRoleUpdateLoadingId(targetUserId);
 
       try {
         await fetchCsrf();
+        if (!current()) return;
 
         await apiClient.patch(
           `/api/v1/jars/${jarId}/members/${targetUserId}/role`,
           { role: nextRole }
         );
 
+        if (!current()) return;
         await loadMembers();
+        if (!current()) return;
         await loadJarDetail();
+        if (!current()) return;
 
         window.alert("멤버 역할을 변경했어요.");
       } catch (e) {
+        if (!current()) return;
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -172,10 +192,10 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
 
         window.alert(serverMessage);
       } finally {
-        setRoleUpdateLoadingId(null);
+        if (current()) { mutationPending.current = false; setRoleUpdateLoadingId(null); }
       }
     },
-    [canChangeMemberRole, jarId, loadJarDetail, loadMembers]
+    [canChangeMemberRole, jarId, loadJarDetail, loadMembers, requests]
   );
 
   /*
@@ -183,6 +203,7 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
    */
   const handleKickMember = useCallback(
     async (targetUserId, targetName, targetRole) => {
+      if (mutationPending.current) return;
       if (!canKickMembers) {
         window.alert("멤버 강퇴는 방장 또는 관리자만 할 수 있어요.");
         return;
@@ -199,17 +220,25 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
 
       if (!ok) return;
 
+      if (mutationPending.current) return;
+      const current = requests.begin("mutation"); if (!current()) return;
+      mutationPending.current = true;
       setKickLoadingId(targetUserId);
 
       try {
         await fetchCsrf();
+        if (!current()) return;
         await apiClient.post(`/api/v1/jars/${jarId}/members/${targetUserId}/kick`);
 
+        if (!current()) return;
         await loadMembers();
+        if (!current()) return;
         await loadJarDetail();
+        if (!current()) return;
 
         window.alert("멤버를 강퇴했어요.");
       } catch (e) {
+        if (!current()) return;
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -218,10 +247,10 @@ export function useJarMembers({ jarId, jar, navigate, loadJarDetail }) {
 
         window.alert(serverMessage);
       } finally {
-        setKickLoadingId(null);
+        if (current()) { mutationPending.current = false; setKickLoadingId(null); }
       }
     },
-    [canKickMembers, jarId, loadJarDetail, loadMembers]
+    [canKickMembers, jarId, loadJarDetail, loadMembers, requests]
   );
 
   return {

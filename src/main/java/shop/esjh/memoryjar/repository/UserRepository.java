@@ -22,6 +22,20 @@ import java.util.Optional;
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    /** 소켓 배달마다 로그인·기기·멤버 생존을 같은 DB 시점의 한 쿼리로 검사한다. 캐시로 권한을 연장하지 않는다. */
+    @Query(value = """
+            SELECT EXISTS(SELECT 1 FROM users u
+              JOIN jar_members m ON m.user_id=u.id AND m.jar_id=:jarId AND m.deleted_at IS NULL
+              JOIN jars j ON j.jar_id=m.jar_id AND j.deleted_at IS NULL
+              WHERE u.id=:userId AND u.deleted_at IS NULL AND u.session_version=:version
+                AND (:sessionId IS NULL OR EXISTS(SELECT 1 FROM refresh_tokens t
+                  WHERE t.user_id=u.id AND t.session_id=:sessionId AND t.deleted_at IS NULL
+                    AND t.revoked_at IS NULL AND t.expires_at > :now)))
+            """, nativeQuery = true)
+    long countCurrentJarSession(@Param("userId") long userId, @Param("version") long version,
+            @Param("sessionId") String sessionId, @Param("jarId") long jarId,
+            @Param("now") java.time.LocalDateTime now);
+
     // 사용자 버전과 현재 기기의 로그인 생존 여부를 한 쿼리로 검사한다.
     @Query(value = """
             SELECT EXISTS(SELECT 1 FROM users u WHERE u.id = :userId

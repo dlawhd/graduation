@@ -55,7 +55,7 @@ import static org.mockito.Mockito.when;
  * 2. 트랜잭션 밖 S3 확인
  * 3. 비관적 잠금 DB 완료 처리
  *
- * 최종 결과는 반드시 성공 1개와 409 충돌 1개여야 한다.
+ * 최종 결과는 반드시 성공 2개와 동일한 완료 상태여야 한다.
  */
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=none")
 @Testcontainers
@@ -92,8 +92,8 @@ class FileUploadCompletionConcurrencyTest
     private S3Properties s3Properties;
 
     @Test
-    @DisplayName("같은 파일 완료 요청 두 개가 동시에 들어오면 하나만 성공하고 하나는 409가 된다")
-    void concurrentCompleteUpload_allowsOnlyOneSuccess()
+    @DisplayName("같은 파일 완료 요청 두 개가 동시에 들어오면 둘 다 기존 완료 결과로 성공한다")
+    void concurrentCompleteUpload_returnsSuccessForBothRetries()
             throws Exception {
         // given
         TestData testData = createCommittedTestData();
@@ -212,12 +212,12 @@ class FileUploadCompletionConcurrencyTest
 
             /*
              * 어느 스레드가 먼저 잠금을 잡을지는 정해져 있지 않다.
-             * 따라서 순서와 관계없이 성공 1개, 충돌 1개인지 확인한다.
+             * 따라서 순서와 관계없이 두 성공 결과인지 확인한다.
              */
             assertThat(List.of(firstResult, secondResult))
                     .containsExactlyInAnyOrder(
                             CompletionResult.SUCCESS,
-                            CompletionResult.CONFLICT
+                            CompletionResult.SUCCESS
                     );
 
         } finally {
@@ -250,7 +250,7 @@ class FileUploadCompletionConcurrencyTest
      * 실제 FileService 완료 API 흐름을 한 번 실행한다.
      *
      * 첫 번째 요청은 성공하고,
-     * 두 번째 요청은 잠금 획득 후 최신 COMPLETED 상태를 읽어 409가 된다.
+     * 두 번째 요청도 잠금 획득 후 최신 COMPLETED 상태의 결과를 반환한다.
      */
     private CompletionResult completeOnce(
             Long userId,

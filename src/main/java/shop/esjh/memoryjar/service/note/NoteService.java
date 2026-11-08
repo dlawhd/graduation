@@ -67,7 +67,7 @@ public class NoteService {
     }
 
     // 쪽지를 새로 작성하는 기능
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public NoteCreateResponse createNote(
             Long currentUserId,
             Long jarId,
@@ -88,6 +88,21 @@ public class NoteService {
         // 3. 현재 사용자가 이 저금통의 active 멤버인지 검사
         lockActiveMember(jarId, currentUserId, "현재 저금통 멤버만 쪽지를 작성할 수 있어.");
 
+        // 멤버 행 잠금으로 같은 작성자의 재시도를 순서대로 읽고 UNIQUE 제약으로도 보호한다.
+        String requestId = request.requestId();
+        String fingerprint = null;
+        if (requestId != null) {
+            if (!requestId.matches("[A-Za-z0-9_-]{1,64}")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성 요청 번호를 확인해 주세요.");
+            requestId = requestId.toLowerCase(java.util.Locale.ROOT);
+            fingerprint = NoteCreateFingerprint.of(request);
+            var existing = noteRepository.findByJar_JarIdAndAuthor_IdAndClientRequestId(jarId, currentUserId, requestId);
+            if (existing.isPresent()) {
+                if (!fingerprint.equals(existing.get().getRequestFingerprint()))
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "같은 작성 요청 번호의 내용이 달라요. 내용을 확인해 주세요.");
+                return createdResponse(existing.get());
+            }
+        }
+
         // 4. 태그 정리(중복 제거, 공백 제거, 너무 긴 글자 자르기 등을 해줌)
         List<String> normalizedTags = normalizeTags(request.tags());
 
@@ -104,6 +119,7 @@ public class NoteService {
                 .build();
 
         // 6. 저장
+        note.identifyCreateRequest(requestId, fingerprint);
         Note savedNote = noteRepository.save(note);
 
         // 7. 첨부가 있으면 "complete 끝난 내 파일"만 연결
@@ -115,6 +131,10 @@ public class NoteService {
         );
 
         // 8. 응답 반환
+        return createdResponse(savedNote);
+    }
+
+    private NoteCreateResponse createdResponse(Note savedNote) {
         return new NoteCreateResponse(
                 savedNote.getNoteId(),
                 savedNote.getJar().getJarId(),
@@ -125,7 +145,7 @@ public class NoteService {
                 savedNote.getNoteDate(),
                 savedNote.getLocation(),
                 safeTags(savedNote.getTags()),
-                toOffsetDateTime(savedNote.getCreatedAt())
+                toOffsetDateTime(savedNote.getCreatedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS))
         );
     }
 

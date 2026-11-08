@@ -47,7 +47,7 @@ class WebSocketDeliveryAuthorizationInterceptorTest {
     @Test
     void membershipRevokedStopsExistingChatAndNoteSubscriptions() {
         when(sessions.isCurrent(1L, 0L)).thenReturn(true);
-        when(members.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true, false, false);
+        when(sessions.isCurrentJarSession(1L, 0L, null, 10L)).thenReturn(true, false, false);
         var message = delivery("/topic/jars/10/chat");
         assertThat(interceptor.preSend(message, null)).isSameAs(message);
         assertThat(interceptor.preSend(message, null)).isNull();
@@ -99,7 +99,7 @@ class WebSocketDeliveryAuthorizationInterceptorTest {
             if (SimpMessageHeaderAccessor.getMessageType(message.getHeaders()) == SimpMessageType.MESSAGE) delivered.add(message);
         });
         when(sessions.isCurrent(1L, 0L)).thenReturn(true);
-        when(members.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L, 1L)).thenReturn(true, false);
+        when(sessions.isCurrentJarSession(1L, 0L, null, 10L)).thenReturn(true, false);
         broker.start();
         try {
             var connect = SimpMessageHeaderAccessor.create(SimpMessageType.CONNECT);

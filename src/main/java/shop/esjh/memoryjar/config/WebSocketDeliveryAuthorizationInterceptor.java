@@ -17,6 +17,7 @@ import shop.esjh.memoryjar.jwt.SessionValidityService;
 /** 이미 구독한 소켓도 실제 배달 직전에 현재 로그인과 저금통 권한을 다시 검사한다. */
 @Component
 public class WebSocketDeliveryAuthorizationInterceptor implements ChannelInterceptor {
+    private static final java.util.regex.Pattern JAR_TOPIC = java.util.regex.Pattern.compile("^/topic/jars/([0-9]+)(?:/.*)?$");
     private final Map<String, Principal> sessions = new ConcurrentHashMap<>();
     private final Map<String, org.springframework.web.socket.WebSocketSession> connections = new ConcurrentHashMap<>();
     private final SessionValidityService sessionValidityService;
@@ -88,6 +89,22 @@ public class WebSocketDeliveryAuthorizationInterceptor implements ChannelInterce
         // SimpleBroker의 배달 프레임에는 STOMP command가 없을 수 있다. 공통 SIMP 타입으로 검사한다.
         if (headers.getMessageType() != SimpMessageType.MESSAGE) return message;
         Principal user = sessions.get(headers.getSessionId());
+        String destination = headers.getDestination();
+        var jarTopic = destination == null ? null : JAR_TOPIC.matcher(destination);
+        if (jarTopic != null && jarTopic.matches()) {
+            try {
+                long jarId = Long.parseLong(jarTopic.group(1));
+                if (user instanceof Authentication authentication && authentication.getPrincipal() instanceof Map<?, ?> values
+                        && values.get("tokenExpiresAt") instanceof Number expiry && expiry.longValue() > System.currentTimeMillis()
+                        && values.get("sessionVersion") instanceof Number version && values.get("userId") != null
+                        && (values.get("loginSessionId") == null || values.get("loginSessionId") instanceof String)
+                        && sessionValidityService.isCurrentJarSession(Long.parseLong(values.get("userId").toString()),
+                            version.longValue(), (String) values.get("loginSessionId"), jarId)) return message;
+            } catch (NumberFormatException invalid) { return null; }
+            // 차단 사유가 멤버 탈퇴라면 본인 채널을 유지한다. 로그인까지 폐기됐을 때만 연결을 닫는다.
+            if (!isCurrent(user)) close(headers.getSessionId());
+            return null;
+        }
         if (!isCurrent(user)) {
             close(headers.getSessionId());
             return null;

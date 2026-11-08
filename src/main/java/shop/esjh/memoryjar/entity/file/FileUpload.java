@@ -71,6 +71,12 @@ public class FileUpload extends BaseEntity {
     @Column(name = "consumed_at")
     private LocalDateTime consumedAt;
 
+    @Column(name = "unused_cleanup_after")
+    private LocalDateTime unusedCleanupAfter;
+
+    @Column(name = "unused_cleaned_at", updatable = false)
+    private LocalDateTime unusedCleanedAt;
+
     @Column(name = "staging_cleanup_after", updatable = false)
     private LocalDateTime stagingCleanupAfter;
 
@@ -105,6 +111,7 @@ public class FileUpload extends BaseEntity {
     public void markCompleted() {
         this.status = FileUploadStatus.COMPLETED;
         this.completedAt = LocalDateTime.now(KST);
+        if (purpose == FilePurpose.NOTE) this.unusedCleanupAfter = completedAt.plusDays(7);
     }
 
     // note 등에 연결해서 다시 못 쓰게 막을 때 쓰는 메서드

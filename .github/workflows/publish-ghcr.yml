@@ -3,6 +3,20 @@ name: Publish Docker image to GHCR
 on:
   push:
     branches: ["main"]
+    # 프론트·문서만 바뀐 푸시는 API 컨테이너를 교체하지 않는다.
+    paths:
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'tools/deploy/**'
+      - '.github/workflows/publish-ghcr.yml'
+      - '.github/workflows/deploy.yml'
 
 permissions:
   contents: read

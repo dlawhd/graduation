@@ -1975,3 +1975,9 @@ JarDesignFinalizeResponse
 | 첨부파일 정렬 공개 API | DTO와 내부 Service만 존재 |
 
 최종 미리보기 UX는 위 Finalize 응답 DTO를 사용해 생성된 `jarId`의 상세 화면으로 이동한다. 기존 Jar 목록·상세 응답은 Optional `JarDesignResponse`를 포함하고, 프론트는 같은 Slot Overlay 규칙으로 목록·상세·확대·오픈 연출을 표시한다. Slot Editor는 위 Slot 요청 DTO에 연결돼 있다. DTO 개수 등 이전 단계의 집계는 이번 표시 연결 작업에서 전수 재검증하지 않았다.
+## 2026-11-08 V58 증분
+
+`NoteCreateRequest`에 선택 문자열 `requestId`(1~64자, 영숫자·밑줄·하이픈)를 추가했다.
+서버는 이를 소문자로 정규화한다. 기존 Java 내부 호출과 구 클라이언트는 이 값 없이도 동작한다.
+기존 `NoteCreateResponse` 및 `FileCompleteResponse`의 필드 구조는 바꾸지 않는다.
+같은 작성 요청 번호의 내용이 달라지면 409이며, 같은 내용이면 기존 쪽지 응답을 반환한다.

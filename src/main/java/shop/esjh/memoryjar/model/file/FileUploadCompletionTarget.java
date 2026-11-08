@@ -21,6 +21,10 @@ public record FileUploadCompletionTarget(
         String contentType,
 
         // Presigned URL 발급 당시 요청한 파일 크기
-        Long size
+        Long size,
+        shop.esjh.memoryjar.dto.file.response.FileCompleteResponse existing
 ) {
+    public FileUploadCompletionTarget(Long uploadId, String s3Key, String contentType, Long size) {
+        this(uploadId, s3Key, contentType, size, null);
+    }
 }

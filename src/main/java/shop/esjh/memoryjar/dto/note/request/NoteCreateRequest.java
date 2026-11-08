@@ -40,6 +40,14 @@ public record NoteCreateRequest(
         // 태그도 선택
         // 예: ["여행", "봄", "웃음"]
         @Size(max = 10)
-        List<@NotBlank @Size(max = 30) String> tags
+        List<@NotBlank @Size(max = 30) String> tags,
+
+        // 구 클라이언트는 생략할 수 있다. 같은 작성 요청의 재전송은 같은 번호를 사용한다.
+        @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9_-]{1,64}")
+        String requestId
 ) {
+    public NoteCreateRequest(String title, String content, LocalDate noteDate, String location,
+            List<NoteAttachmentCreateRequest> attachments, List<String> tags) {
+        this(title, content, noteDate, location, attachments, tags, null);
+    }
 }

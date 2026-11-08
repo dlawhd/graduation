@@ -1,5 +1,5 @@
 import { useRequestGate } from "../../../api/useRequestGate";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
 import apiClient, { fetchCsrf } from "../../../api/apiClient";
 
 // 초대코드는 한 번에 2개씩만 보여준다.
@@ -19,7 +19,8 @@ const INVITES_PER_PAGE = 2;
  * 를 JarDetailPage 대신 맡아주는 "초대 관리 담당자"다.
  */
 export function useJarInvites({ jarId, jar }) {
-  const requests = useRequestGate(jarId);
+  const requests = useRequestGate(`${jarId}:${jar?.myRole || ""}`);
+  const mutationPending = useRef(false);
   // 초대코드 목록 상태
   const [invites, setInvites] = useState([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
@@ -34,6 +35,9 @@ export function useJarInvites({ jarId, jar }) {
   // 초대코드 생성/폐기 버튼 로딩 상태
   const [createInviteLoading, setCreateInviteLoading] = useState(false);
   const [revokeLoadingId, setRevokeLoadingId] = useState(null);
+
+  // 화면·권한 변경 뒤 이전 요청의 알림·이동·로딩 종료를 새 화면에 적용하지 않는다.
+  useLayoutEffect(() => { mutationPending.current = false; setCreateInviteLoading(false); setRevokeLoadingId(null); }, [requests]);
 
   // 초대코드 목록은 2개씩 페이지처럼 보여준다.
   const [invitePage, setInvitePage] = useState(1);
@@ -220,10 +224,14 @@ export function useJarInvites({ jarId, jar }) {
 
       const maxUses = Math.min(50, Math.max(1, Number(inviteForm.maxUses || 1)));
 
+      if (mutationPending.current || !canManageInvites) return null;
+      const current = requests.begin("mutation"); if (!current()) return null;
+      mutationPending.current = true;
       setCreateInviteLoading(true);
 
       try {
         await fetchCsrf();
+        if (!current()) return;
 
         const res = await apiClient.post(`/api/v1/jars/${jarId}/invites`, {
           expiresInHours,
@@ -232,7 +240,9 @@ export function useJarInvites({ jarId, jar }) {
 
         const created = res.data?.data;
 
+        if (!current()) return;
         await loadInvites();
+        if (!current()) return;
 
         // 새 코드를 만들면 첫 페이지로 보내서 바로 보이게 한다.
         setInvitePage(1);
@@ -251,6 +261,7 @@ export function useJarInvites({ jarId, jar }) {
          */
         return created;
       } catch (e) {
+        if (!current()) return;
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -260,10 +271,10 @@ export function useJarInvites({ jarId, jar }) {
         window.alert(serverMessage);
         return null;
       } finally {
-        setCreateInviteLoading(false);
+        if (current()) { mutationPending.current = false; setCreateInviteLoading(false); }
       }
     },
-    [getInviteUrl, inviteForm.expiresInHours, inviteForm.maxUses, jarId, loadInvites]
+    [getInviteUrl, inviteForm.expiresInHours, inviteForm.maxUses, jarId, loadInvites, requests, canManageInvites]
   );
 
   /*
@@ -300,19 +311,27 @@ export function useJarInvites({ jarId, jar }) {
    */
   const handleRevokeInvite = useCallback(
     async (inviteId) => {
+      if (mutationPending.current) return;
       const ok = window.confirm("이 초대코드를 폐기할까요?");
 
       if (!ok) return;
 
+      if (mutationPending.current || !canManageInvites) return;
+      const current = requests.begin("mutation"); if (!current()) return;
+      mutationPending.current = true;
       setRevokeLoadingId(inviteId);
 
       try {
         await fetchCsrf();
+        if (!current()) return;
         await apiClient.post(`/api/v1/jars/${jarId}/invites/${inviteId}/revoke`);
 
+        if (!current()) return;
         await loadInvites();
+        if (!current()) return;
         window.alert("초대코드를 폐기했어요.");
       } catch (e) {
+        if (!current()) return;
         const serverMessage =
           e?.response?.data?.error?.message ||
           e?.response?.data?.message ||
@@ -321,10 +340,10 @@ export function useJarInvites({ jarId, jar }) {
 
         window.alert(serverMessage);
       } finally {
-        setRevokeLoadingId(null);
+        if (current()) { mutationPending.current = false; setRevokeLoadingId(null); }
       }
     },
-    [jarId, loadInvites]
+    [jarId, loadInvites, requests, canManageInvites]
   );
 
   /*

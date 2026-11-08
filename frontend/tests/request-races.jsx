@@ -39,12 +39,16 @@ window.race = {
 
 function Hooks() {
   const [id, setId] = useState("1");
+  const [role, setRole] = useState(mode === "mutations" ? "MEMBER" : "OWNER");
   const detail = useJarDetail(id);
-  const jar = useMemo(() => ({ jarId: Number(id), myRole: "OWNER" }), [id]);
-  const members = useJarMembers({ jarId: id, jar, navigate: () => {}, loadJarDetail: detail.loadJarDetail });
+  const jar = useMemo(() => ({ jarId: Number(id), myRole: role }), [id, role]);
+  const members = useJarMembers({ jarId: id, jar, navigate: to => (window.race.navigations ||= []).push(to), loadJarDetail: detail.loadJarDetail });
   const invites = useJarInvites({ jarId: id, jar });
   useEffect(() => {
     window.race.switchJar = setId;
+    window.race.setRole = setRole;
+    window.race.leave = members.handleLeaveJar;
+    window.race.createInvite = () => invites.handleCreateInvite({ preventDefault() {} });
     window.race.reload = () => { detail.loadJarDetail(); members.loadMembers(); invites.loadInvites(); };
   });
   return <pre id="snapshot">{JSON.stringify({ id, jar: detail.jar, members: members.members, invites: invites.invites,
@@ -59,5 +63,5 @@ function AppFixture() {
 }
 
 createRoot(document.getElementById("root")).render(
-  mode === "hooks" ? <Hooks /> : mode === "app" ? <BrowserRouter><AppFixture /></BrowserRouter> : <p>인증 요청 시험 준비</p>
+  mode === "hooks" || mode === "mutations" ? <Hooks /> : mode === "app" ? <BrowserRouter><AppFixture /></BrowserRouter> : <p>인증 요청 시험 준비</p>
 );

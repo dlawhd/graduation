@@ -50,12 +50,37 @@ def github_head(repository):
         raise DeployError('FRESHNESS_LOOKUP_FAILED') from None
 
 
+def frontend_only_comparison(comparison, expected):
+    """경로 필터 이후 쌓인 프론트·문서만 허용한다. 비교 누락·분기·백엔드 rename은 모두 거절한다."""
+    files = comparison.get('files')
+    if not isinstance(files, list):
+        return False
+    if comparison.get('status') != 'ahead' or comparison.get('merge_base_commit', {}).get('sha') != expected or len(files) >= 300:
+        return False
+    def allowed(path):
+        return isinstance(path, str) and (path.startswith(('frontend/', 'docs/')) or '/' not in path and path.endswith('.md'))
+    return all(allowed(row.get('filename')) and ('previous_filename' not in row or allowed(row['previous_filename'])) for row in files)
+
+
+def github_backend_unchanged(repository, expected, latest):
+    token = os.environ.get('GITHUB_TOKEN', '')
+    require(bool(token), 'GITHUB_TOKEN_REQUIRED')
+    request = urllib.request.Request(f'https://api.github.com/repos/{repository}/compare/{expected}...{latest}',
+        headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'User-Agent': 'memoryjar-deploy'})
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(request, timeout=10) as response:
+            return frontend_only_comparison(json.load(response), expected)
+    except Exception:
+        raise DeployError('FRESHNESS_LOOKUP_FAILED') from None
+
+
 class Deployer:
     """명령 실행·최신 커밋 조회·대기를 주입해 운영 변경 없이 실패/원복 경로를 시험할 수 있다."""
-    def __init__(self, root, manifest, expected_sha, repository, run=command, head=github_head, pause=time.sleep):
+    def __init__(self, root, manifest, expected_sha, repository, run=command, head=github_head, pause=time.sleep, equivalent=None):
         self.root = pathlib.Path(root).resolve()
         self.manifest, self.expected_sha, self.repository = manifest, expected_sha, repository
         self.run, self.head, self.pause = run, head, pause
+        self.equivalent = equivalent or (github_backend_unchanged if head is github_head else lambda *args: False)
         self.base = self.root / 'docker-compose.prod.yml'
         self.diag = self.root / 'docker-compose.diagnostics.yml'
         self.files = ['-f', str(self.base)]
@@ -92,7 +117,9 @@ class Deployer:
             'http://127.0.0.1:9091/actuator/' + name], timeout=5))
 
     def fresh(self):
-        require(self.head(self.repository) == self.expected_sha, 'STALE_COMMIT_REFUSED')
+        latest = self.head(self.repository)
+        require(bool(re.fullmatch(r'[0-9a-f]{40}', latest or '')), 'FRESHNESS_LOOKUP_FAILED')
+        require(latest == self.expected_sha or self.equivalent(self.repository, self.expected_sha, latest), 'STALE_COMMIT_REFUSED')
 
     def save(self, name, value):
         path = self.record / name

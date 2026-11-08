@@ -126,6 +126,21 @@ public class FileService {
                                 request.purpose()
                         );
 
+        if (target.existing() != null) return target.existing();
+        try {
+            return completeVerifiedUpload(currentUserId, request, target);
+        } catch (RuntimeException failure) {
+            // 다른 완료 요청이 임시 파일을 지웠거나 DB 커밋 응답만 유실된 경우 최초 결과를 돌려준다.
+            try {
+                var committed = fileUploadTransactionService.completedReceipt(currentUserId, request.s3Key(), request.purpose());
+                if (committed != null) return committed;
+            } catch (RuntimeException verificationUnavailable) { /* 확인 불가 시 성공으로 추측하지 않는다. */ }
+            throw failure;
+        }
+    }
+
+    private FileCompleteResponse completeVerifiedUpload(Long currentUserId, FileCompleteRequest request, FileUploadCompletionTarget target) {
+
         /*
          * 2단계
          *

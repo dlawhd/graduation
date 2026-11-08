@@ -1,5 +1,6 @@
 // src/api/apiClient.js
 import axios from "axios";
+import { refreshSharedSession } from "./authRefreshCoordination.mjs";
 import { recordSupportFailure, clearSupportFailure } from "../features/support/supportContext.mjs";
 import {
   markSessionExpiredError,
@@ -21,11 +22,24 @@ let refreshController = null;
 let authEpoch = 0;
 let changingAuth = false;
 
+// 여러 탭의 로그인 경계도 맞춘다. 비밀 쿠키나 사용자 정보 대신 변경 신호만 전달한다.
+const authChannel = typeof window !== "undefined" && typeof BroadcastChannel === "function"
+  ? new BroadcastChannel("memoryjar-auth-boundary") : null;
+if (authChannel) authChannel.onmessage = event => {
+  if (event.data !== "changed") return;
+  authEpoch += 1;
+  csrfToken = "";
+  refreshController?.abort(); refreshPromise = null;
+  clearSupportFailure();
+  notifySessionExpired();
+};
+
 /** 로그아웃 시작 즉시 이전 요청의 재시도를 차단한다. 서버의 로그인 묶음 폐기가 보안 경계다. */
 export function beginAuthChange() {
   clearSupportFailure();
   authEpoch += 1;
   changingAuth = true;
+  authChannel?.postMessage("changed");
   refreshController?.abort();
   refreshPromise = null;
 }
@@ -92,6 +106,7 @@ apiClient.interceptors.response.use(
     if (/\/api\/v1\/auth\/(login|signup|logout|password-reset)$/.test(response.config.url || "")) {
       clearSupportFailure();
       authEpoch += 1;
+      authChannel?.postMessage("changed");
       csrfToken = "";
       refreshController?.abort();
       refreshPromise = null;
@@ -143,16 +158,31 @@ apiClient.interceptors.response.use(
     originalRequest._retry = true;
 
     try {
-      // refresh는 POST 요청이라 CSRF 토큰이 필요할 수 있음
-      await ensureCsrf();
       if (changingAuth || staleRequest(originalRequest)) throw authChangedError();
 
       // 여러 API가 동시에 401을 받아도 refresh는 한 번만 보내기
       if (!refreshPromise) {
         const controller = new AbortController();
         refreshController = controller;
-        const pending = apiClient
-          .post("/api/v1/auth/refresh", null, { signal: controller.signal })
+        const pending = refreshSharedSession({
+          signal: controller.signal,
+          probe: async () => {
+            if (changingAuth || staleRequest(originalRequest)) throw authChangedError();
+            try {
+              await apiClient.get("/api/v1/me", { _skipAuthRefresh: true, signal: controller.signal });
+              return true;
+            } catch (failure) {
+              if (failure?.response?.status === 401) return false;
+              throw failure;
+            }
+          },
+          refresh: async () => {
+            // 탭 간 대기 뒤에는 현재 세션의 CSRF를 다시 읽는다. 서버의 토큰 재사용 방어는 유지한다.
+            await fetchCsrf();
+            if (changingAuth || staleRequest(originalRequest)) throw authChangedError();
+            await apiClient.post("/api/v1/auth/refresh", null, { signal: controller.signal });
+          },
+        })
           .finally(() => {
             if (refreshPromise === pending) {
               refreshPromise = null;

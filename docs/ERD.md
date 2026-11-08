@@ -1398,3 +1398,11 @@ V37 : AI 생성 실패 원인 코드 허용 목록 확장 (기존 상태 조합�
 기존 문의의 답변을 `OPERATOR` 대화 1개로 이관하고 `reply` 필드도 유지한다. `(owner_id, client_request_id)`·`(guest_session_id, client_request_id)` 유일 제약으로 중복 접수를 막는다. 목록/생성 제한/첨부/정리용 인덱스를 추가한다. 알림의 기존 허용 유형을 보존하면서 `SUPPORT_FOLLOWED_UP`을 추가한다.
 
 관련 API와 검증은 [문의 확장 기록](SUPPORT_EXPANSION_2026-11-02.md)을 참고한다.
+## 2026-11-08 V58 증분
+
+- `notes.client_request_id VARCHAR(64) NULL`, `request_fingerprint VARCHAR(64) NULL`.
+  `(jar_id, author_id, client_request_id)` UNIQUE로 재전송 중복을 방지한다. 기존 NULL 번호는 허용한다.
+- `file_uploads.unused_cleanup_after DATETIME(6) NULL`, `unused_cleaned_at DATETIME(6) NULL`.
+  상태에 `UNUSED_DELETING`, `UNUSED_DELETED`를 추가한다.
+  `COMPLETED → CONSUMED` 연결과 `COMPLETED → UNUSED_DELETING` 예약은 같은 업로드 행을 경합한다.
+  실제 `note_attachments` 참조가 있으면 미사용 정리는 실행하지 않는다.

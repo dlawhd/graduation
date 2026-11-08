@@ -1166,6 +1166,7 @@ const [composerStep, setComposerStep] = useState("form");
 const [createLoading, setCreateLoading] = useState(false);
 // 같은 프레임의 연속 클릭에서도 저장 요청은 하나만 보낸다.
 const createInFlight = useRef(false);
+const createAttempt = useRef({ key: null, id: null });
 const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
 
   // 저장 완료 후 저금통으로 날아가는 작은 쪽지 상태
@@ -1423,6 +1424,7 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
  * 새 쪽지 작성 상태를 처음 상태로 되돌리는 함수
  */
 function resetWriteForm() {
+  createAttempt.current = { key: null, id: null };
   // URL.createObjectURL로 만든 임시 주소를 해제한다.
   // 해제하지 않으면 브라우저 메모리가 계속 남을 수 있다.
   (writeForm.attachments || []).forEach(
@@ -1525,6 +1527,10 @@ async function handleCreateNote() {
 
 
   const payload = buildCreatePayload(writeForm);
+  const attemptKey = JSON.stringify({ jarId: jar.jarId, payload });
+  // 응답 유실 후 같은 제출은 같은 번호로 복구한다. 실제 내용을 바꾸면 새 작성으로 구분한다.
+  if (createAttempt.current.key !== attemptKey) createAttempt.current = { key: attemptKey, id: crypto.randomUUID() };
+  payload.requestId = createAttempt.current.id;
 
   createInFlight.current = true;
   setCreateLoading(true);

@@ -20,6 +20,34 @@ import java.util.Optional;
  */
 public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
 
+    @Query(value = """
+            SELECT f.upload_id FROM file_uploads f
+            WHERE f.purpose='NOTE' AND f.status IN ('COMPLETED','UNUSED_DELETING')
+              AND f.unused_cleanup_after <= :now AND f.unused_cleaned_at IS NULL
+              AND f.s3_key LIKE 'notes/%' AND f.s3_key NOT LIKE '%.pending'
+              AND NOT EXISTS (SELECT 1 FROM note_attachments a WHERE a.s3_key=f.s3_key)
+            ORDER BY f.unused_cleanup_after, f.upload_id LIMIT 50
+            """, nativeQuery = true)
+    List<Long> findUnusedCleanupIds(@Param("now") java.time.LocalDateTime now);
+
+    /** 첨부 연결의 COMPLETED→CONSUMED 갱신과 같은 행을 경합한다. 확보 후에는 새 연결이 실패한다. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+            UPDATE file_uploads f SET f.status='UNUSED_DELETING', f.unused_cleanup_after=:retryAt, f.updated_at=:now
+            WHERE f.upload_id=:id AND f.purpose='NOTE' AND f.status IN ('COMPLETED','UNUSED_DELETING')
+              AND f.unused_cleaned_at IS NULL AND f.unused_cleanup_after <= :now
+              AND NOT EXISTS (SELECT 1 FROM note_attachments a WHERE a.s3_key=f.s3_key)
+            """, nativeQuery = true)
+    int claimUnusedCleanup(@Param("id") Long id, @Param("now") java.time.LocalDateTime now,
+                           @Param("retryAt") java.time.LocalDateTime retryAt);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+            UPDATE file_uploads SET status='UNUSED_DELETED', unused_cleaned_at=:now, updated_at=:now
+            WHERE upload_id=:id AND status='UNUSED_DELETING'
+            """, nativeQuery = true)
+    int markUnusedCleaned(@Param("id") Long id, @Param("now") java.time.LocalDateTime now);
+
     /** 중복 연결 검사는 DB에서 원자적으로 수행한다. 겹치는 파일은 항상 같은 키 순서로 잠근다. */
     @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
     @Query(value = """

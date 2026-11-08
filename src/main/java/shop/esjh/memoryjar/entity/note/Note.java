@@ -68,6 +68,18 @@ public class Note extends BaseEntity {
     @Column(name = "tags_json", columnDefinition = "TEXT")
     private List<String> tags = new ArrayList<>();
 
+    @Column(name = "client_request_id", length = 64, updatable = false)
+    private String clientRequestId;
+
+    @Column(name = "request_fingerprint", length = 64, updatable = false)
+    private String requestFingerprint;
+
+    /** 저장 내용과 요청 번호를 함께 확정해 응답이 끊겨도 같은 쪽지를 다시 찾는다. */
+    public void identifyCreateRequest(String requestId, String fingerprint) {
+        this.clientRequestId = requestId;
+        this.requestFingerprint = fingerprint;
+    }
+
     // Builder로 Note를 만들 때 쓰는 생성자
     // Builder 쓰는 이유 : 나중에 필드가 늘면 더 복잡해짐, 순서를 헷갈리기 쉬움, 한눈에 보기 쉬움
     @Builder
