@@ -61,6 +61,9 @@ import static org.mockito.Mockito.when;
 class FileServiceTransactionBoundaryTest
         extends AbstractMariaDbRepositoryTest {
 
+    @MockitoBean private UploadedMediaValidator mediaValidator;
+    @MockitoBean private FileUploadReservationService reservations;
+
     @Autowired
     private FileService fileService;
 

@@ -307,4 +307,11 @@ class SupportExpansionIntegrationTest extends AbstractMariaDbRepositoryTest {
         });
         assertThat(results).allMatch(code->code==200||code==409);assertThat(conversations.detail(owner,id).status()).isEqualTo(SupportInquiryStatus.RESOLVED);
     }
+    @Test void stateToggleLimitCountsChangesButNotSameStateRetries() {
+        var actor=user();var ticket=create(actor);long id=ticket.inquiryId();
+        for(int i=0;i<20;i++)conversations.resolve(actor,id,i%2==0);
+        assertThatCode(()->conversations.resolve(actor,id,false)).doesNotThrowAnyException();
+        status(429,()->conversations.resolve(actor,id,true));
+        status(404,()->conversations.resolve(user(),id,true));
+    }
 }

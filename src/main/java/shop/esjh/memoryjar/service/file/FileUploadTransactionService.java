@@ -134,7 +134,7 @@ public class FileUploadTransactionService {
         return new FileCompleteResponse(
                 upload.getS3Key(),
                 upload.getPurpose(),
-                upload.getPublicUrl(),
+                "/api/v1/files/uploads/"+upload.getId()+"/content",
                 upload.getContentType(),
                 upload.getSize(),
                 upload.getCompletedAt()

@@ -63,6 +63,7 @@ class NoteCommentServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock private shop.esjh.memoryjar.service.jar.JarOpenService jarOpenService;
     private NoteCommentService noteCommentService;
 
     @Mock
@@ -72,6 +73,7 @@ class NoteCommentServiceTest {
     private NoteRealtimeService noteRealtimeService;
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(jarOpenService.isOpened(any())).thenReturn(true);
         noteCommentService = new NoteCommentService(
                 noteCommentRepository,
                 noteRepository,
@@ -79,13 +81,15 @@ class NoteCommentServiceTest {
                 jarMemberRepository,
                 userRepository,
                 notificationService,
-                noteRealtimeService
+                noteRealtimeService, jarOpenService
         );
     }
 
-    @Test
-    @DisplayName("댓글 생성 성공 - 최신 댓글 개수를 WebSocket 이벤트에 담는다")
-    void createComment_success() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
+    @DisplayName("본인 쪽지 댓글은 오픈 전에도 저장하지만 비공개 알림은 보내지 않는다")
+    void createComment_success(boolean opened) {
+        when(jarOpenService.isOpened(10L)).thenReturn(opened);
         // given
         Long currentUserId = 1L;
         Long jarId = 10L;
@@ -233,6 +237,8 @@ class NoteCommentServiceTest {
 
         assertThat(sentEvent.commentCount())
                 .isEqualTo(1L);
+        if(opened) verify(notificationService).notifyNoteCommented(any(),any(),any());
+        else org.mockito.Mockito.verifyNoInteractions(notificationService);
     }
 
     @Test
@@ -842,5 +848,23 @@ class NoteCommentServiceTest {
                 return commentCount;
             }
         };
+    }
+    @Test void closedOtherAuthorsNoteIsIndistinguishableFromMissingOnEveryRoute() {
+        var viewer=createUser(1L,"요청자");var author=createUser(2L,"작성자");var jar=createJar(10L);var note=createNote(100L,jar,author);
+        org.mockito.Mockito.lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        org.mockito.Mockito.lenient().when(jarRepository.findByJarId(10L)).thenReturn(Optional.of(jar));
+        org.mockito.Mockito.lenient().when(jarMemberRepository.existsByJar_JarIdAndUser_IdAndDeletedAtIsNull(10L,1L)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L,1L)).thenReturn(Optional.of(org.mockito.Mockito.mock(shop.esjh.memoryjar.entity.jar.JarMember.class)));
+        org.mockito.Mockito.lenient().when(noteRepository.findByJarIdAndNoteId(10L,100L)).thenReturn(Optional.of(note));
+        org.mockito.Mockito.lenient().when(noteRepository.findByJarIdAndNoteIdForUpdate(10L,100L)).thenReturn(Optional.of(note));
+        when(jarOpenService.isOpened(10L)).thenReturn(false);
+        java.util.List<org.assertj.core.api.ThrowableAssert.ThrowingCallable> routes=List.of(
+          ()->noteCommentService.getCommentList(1L,10L,100L),
+          ()->noteCommentService.getCommentPage(1L,10L,100L,0L,10,null),
+          ()->noteCommentService.createComment(1L,10L,100L,new NoteCommentCreateRequest("비공개 검사",null)),
+          ()->noteCommentService.updateComment(1L,10L,100L,9L,new NoteCommentUpdateRequest("수정")),
+          ()->noteCommentService.deleteComment(1L,10L,100L,9L));
+        for(var route:routes)assertThatThrownBy(route).isInstanceOfSatisfying(ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(404));
+        org.mockito.Mockito.verifyNoInteractions(noteCommentRepository,notificationService,noteRealtimeService);
     }
 }

@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "DenyUnapprovedReadersOfPrivateAttachments",
+    "Effect": "Deny",
+    "Principal": "*",
+    "Action": ["s3:GetObject", "s3:GetObjectVersion"],
+    "Resource": [
+      "arn:aws:s3:::<BUCKET>/notes/*",
+      "arn:aws:s3:::<BUCKET>/profiles/*",
+      "arn:aws:s3:::<BUCKET>/jars/*"
+    ],
+    "Condition": {"ArnNotEquals": {"aws:PrincipalArn": [
+      "arn:aws:iam::<ACCOUNT_ID>:role/MemoryJarEc2RuntimeRole",
+      "arn:aws:iam::<ACCOUNT_ID>:role/<APPROVED_OPERATOR_ROLE>"
+    ]}}
+  }]
+}

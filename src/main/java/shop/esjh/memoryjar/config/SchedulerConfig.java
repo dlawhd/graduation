@@ -29,6 +29,12 @@ public class SchedulerConfig {
         return scheduler("file-cleanup-");
     }
 
+    /** 저장소 장애로 파일 삭제가 오래 걸려도 인증 요청 제한 기록은 정해진 주기로 정리한다. */
+    @Bean
+    public ThreadPoolTaskScheduler securityCleanupTaskScheduler() {
+        return scheduler("security-cleanup-");
+    }
+
     private ThreadPoolTaskScheduler scheduler(String prefix) {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1);

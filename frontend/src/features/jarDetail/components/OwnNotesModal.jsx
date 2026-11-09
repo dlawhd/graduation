@@ -1,3 +1,4 @@
+import { PrivateImage } from "../../../components/PrivateMedia";
 import { useEffect, useRef, useState, useId } from "react";
 import { createPortal } from "react-dom";
 import { getOwnNotes, getOwnNoteDetail } from "../../../api/ownNoteApi";
@@ -170,7 +171,7 @@ export default function OwnNotesModal({ jarId, userId, isOpen = false, onClose }
         <NoteImageNavigation index={image.index} total={image.items.length} onMove={moveImage}/>
         {image.status === "loading" && <p role="status" className="absolute text-sm text-white">원본 사진을 불러오고 있어요.</p>}
         {image.status === "error" && <p role="alert" className="max-w-md rounded-xl bg-white p-4 text-sm leading-6 text-rose-800">원본 사진을 불러오지 못했어요. 사진을 닫은 뒤 쪽지를 다시 열어 주세요.</p>}
-        <img key={`${image.index}:${photo.url}`} src={photo.url} alt="원본 사진" draggable={false} referrerPolicy="no-referrer"
+        <PrivateImage key={`${image.index}:${photo.url}`} src={photo.url} alt="원본 사진" draggable={false} referrerPolicy="no-referrer"
           className={`pointer-events-auto max-h-full max-w-full object-contain ${image.status === "ready" ? "" : "hidden"}`}
           onLoad={() => setImage(current => current === image ? { ...current, status: "ready" } : current)}
           onError={() => setImage(current => current === image ? { ...current, status: "error" } : current)}/>

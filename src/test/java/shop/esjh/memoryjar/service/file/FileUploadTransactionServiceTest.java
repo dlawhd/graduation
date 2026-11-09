@@ -91,7 +91,7 @@ class FileUploadTransactionServiceTest {
                 .isEqualTo(FilePurpose.NOTE);
 
         assertThat(response.publicUrl())
-                .isEqualTo(upload.getPublicUrl());
+                .isEqualTo("/api/v1/files/uploads/"+upload.getId()+"/content");
 
         assertThat(response.contentType())
                 .isEqualTo(upload.getContentType());

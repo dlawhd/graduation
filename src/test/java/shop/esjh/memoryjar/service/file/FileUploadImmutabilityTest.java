@@ -31,6 +31,7 @@ import static org.mockito.Mockito.*;
 
 /** 임시 업로드를 다시 쓰거나 완료 요청이 겹쳐도 확정 파일이 바뀌지 않는지 검증한다. 실제 AWS는 호출하지 않는다. */
 class FileUploadImmutabilityTest {
+    private final UploadedMediaValidator mediaValidator=mock(UploadedMediaValidator.class);
     private final S3Client s3 = mock(S3Client.class);
     private final FileUploadTransactionService transactions = mock(FileUploadTransactionService.class);
     private final S3Properties properties = new S3Properties();
@@ -41,7 +42,7 @@ class FileUploadImmutabilityTest {
 
     private FileService service(S3Client client) {
         return new FileService(mock(S3PresignService.class), client, properties, mock(UserRepository.class),
-                mock(FileUploadRepository.class), transactions);
+                transactions, mediaValidator,mock(FileUploadReservationService.class));
     }
 
     @BeforeEach void fixture() {
@@ -98,7 +99,7 @@ class FileUploadImmutabilityTest {
                     new shop.esjh.memoryjar.dto.file.request.FilePresignRequest(FilePurpose.NOTE, "photo.png", "image/png", 4L));
             var upload = URI.create(response.uploadUrl());
             assertThat(upload.getPath()).endsWith(response.s3Key() + ".pending");
-            assertThat(response.publicUrl()).endsWith(response.s3Key());
+            assertThat(response.publicUrl()).isEqualTo("/api/v1/files/pending");
             String query = URLDecoder.decode(upload.getRawQuery(), StandardCharsets.UTF_8);
             assertThat(query).contains("content-length");
         }
@@ -168,5 +169,22 @@ class FileUploadImmutabilityTest {
             assertThat(copies.get()).isEqualTo(2);
             assertThat(signedConditions.get()).isEqualTo(2);
         } finally { server.stop(0); }
+    }
+    @Test void existingFinalObjectMustPassContentValidationBeforeCompletion() {
+        when(s3.copyObject(any(CopyObjectRequest.class))).thenThrow(S3Exception.builder().statusCode(412).build());
+        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"invalid fixture media"))
+                .when(mediaValidator).validatePublished(eq(target),anyString());
+        assertThatThrownBy(()->service(s3).completeUpload(1L,request)).isInstanceOfSatisfying(ResponseStatusException.class,
+                error->assertThat(error.getStatusCode().value()).isEqualTo(400));
+        verify(transactions,never()).markCompleted(anyLong(),anyLong(),any());
+    }
+
+    @Test void invalidStagingContentNeverGetsPublishedOrMarkedCompleted() {
+        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"invalid fixture media"))
+                .when(mediaValidator).validate(eq(target),anyString());
+        assertThatThrownBy(()->service(s3).completeUpload(1L,request)).isInstanceOfSatisfying(ResponseStatusException.class,
+                error->assertThat(error.getStatusCode().value()).isEqualTo(400));
+        verify(s3,never()).copyObject(any(CopyObjectRequest.class));
+        verify(transactions,never()).markCompleted(anyLong(),anyLong(),any());
     }
 }

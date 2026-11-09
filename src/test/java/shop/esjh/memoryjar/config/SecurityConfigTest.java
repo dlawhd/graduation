@@ -66,6 +66,9 @@ class SecurityConfigTest {
 
     // OAuth2 로그인(예: 네이버 로그인)에 필요한 클라이언트 등록 정보 저장소
     @MockitoBean
+    private shop.esjh.memoryjar.security.AuthRequestLimits requestLimits;
+
+    @MockitoBean
     private ClientRegistrationRepository clientRegistrationRepository;
 
     @MockitoBean

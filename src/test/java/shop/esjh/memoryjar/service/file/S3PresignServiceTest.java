@@ -58,7 +58,7 @@ class S3PresignServiceTest {
     private ArgumentCaptor<PutObjectPresignRequest> presignRequestCaptor;
 
     @Test
-    @DisplayName("presigned URL 생성 성공 - NOTE 파일이면 notes 폴더 아래 경로와 public URL을 만든다")
+    @DisplayName("presigned URL 생성 성공 - NOTE 파일이면 notes 폴더 아래 경로와 비공개 업로드 티켓을 만든다")
     void createPresignedUrl_success_note() throws Exception {
         // given
         stubAllowedTypes();
@@ -81,8 +81,8 @@ class S3PresignServiceTest {
         assertThat(response.uploadUrl()).isEqualTo("https://s3-presigned-url.test/upload");
         assertThat(response.s3Key()).startsWith("notes/");
         assertThat(response.s3Key()).endsWith(".png");
-        assertThat(response.publicUrl()).startsWith("https://cdn.test.com/notes/");
-        assertThat(response.publicUrl()).endsWith(".png");
+        assertThat(response.publicUrl()).isEqualTo("/api/v1/files/pending");
+        assertThat(response.publicUrl()).doesNotContain(response.s3Key());
         assertThat(response.expiresAt()).isNotNull();
 
         verify(s3Presigner, times(1)).presignPutObject(any(PutObjectPresignRequest.class));
@@ -210,7 +210,7 @@ class S3PresignServiceTest {
         // then
         assertThat(response.s3Key()).startsWith("profiles/");
         assertThat(response.s3Key()).endsWith(".jpg");
-        assertThat(response.publicUrl()).startsWith("https://cdn.test.com/profiles/");
+        assertThat(response.publicUrl()).isEqualTo("/api/v1/files/pending");
     }
 
     @Test
@@ -235,20 +235,19 @@ class S3PresignServiceTest {
         // then
         assertThat(response.s3Key()).startsWith("jars/");
         assertThat(response.s3Key()).endsWith(".webp");
-        assertThat(response.publicUrl()).startsWith("https://cdn.test.com/jars/");
+        assertThat(response.publicUrl()).isEqualTo("/api/v1/files/pending");
     }
 
     @Test
-    @DisplayName("presigned URL 생성 성공 - publicBaseUrl 끝에 슬래시가 있어도 URL이 정상 생성된다")
+    @DisplayName("presigned URL 생성 성공 - 공개 CDN 설정과 무관하게 업로드 URL을 생성한다")
     void createPresignedUrl_success_publicBaseUrlWithSlash() {
         // given
         stubAllowedTypes();
         stubMaxSize(10L * 1024 * 1024);
         stubS3BasicConfig();
         stubPresignerSuccess();
-        when(s3Properties.getPublicBaseUrl()).thenReturn("https://cdn.test.com/");
 
-        when(s3Properties.getPublicBaseUrl()).thenReturn("https://cdn.test.com/");
+
 
         FilePresignRequest request = new FilePresignRequest(
                 FilePurpose.NOTE,
@@ -261,7 +260,7 @@ class S3PresignServiceTest {
         FilePresignResponse response = s3PresignService.createPresignedUrl(request);
 
         // then
-        assertThat(response.publicUrl()).startsWith("https://cdn.test.com/notes/");
+        assertThat(response.publicUrl()).isEqualTo("/api/v1/files/pending");
         assertThat(response.publicUrl()).doesNotContain("//notes/");
     }
 
@@ -286,7 +285,7 @@ class S3PresignServiceTest {
         // then
         assertThat(response.s3Key()).startsWith("notes/");
         assertThat(response.s3Key()).endsWith(".png");
-        assertThat(response.publicUrl()).startsWith("https://cdn.test.com/notes/");
+        assertThat(response.publicUrl()).isEqualTo("/api/v1/files/pending");
     }
 
     @Test
@@ -568,34 +567,12 @@ class S3PresignServiceTest {
     }
 
     @Test
-    @DisplayName("publicBaseUrl 검증 실패 - 설정이 없으면 500")
-    void createPresignedUrl_fail_publicBaseUrlMissing() {
-        // given
-        stubAllowedTypes();
-        stubMaxSize(10L * 1024 * 1024);
-
-        when(s3Properties.getBucket()).thenReturn("test-bucket");
-        when(s3Properties.getPresignExpSeconds()).thenReturn(300);
-        when(s3Properties.getPublicBaseUrl()).thenReturn("  ");
-        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
-                .thenReturn(presignedPutObjectRequest);
-
-        FilePresignRequest request = new FilePresignRequest(
-                FilePurpose.NOTE,
-                "photo.png",
-                "image/png",
-                1024L
-        );
-
-        // when
-        ResponseStatusException ex = catchThrowableOfType(
-                () -> s3PresignService.createPresignedUrl(request),
-                ResponseStatusException.class
-        );
-
-        // then
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        assertThat(ex.getReason()).isEqualTo("publicBaseUrl 설정이 필요해요.");
+    @DisplayName("공개 CDN 주소가 없어도 비공개 업로드 티켓을 발급한다")
+    void privateUploadDoesNotRequirePublicBaseUrl() {
+        stubAllowedTypes(); stubMaxSize(10L*1024*1024); stubS3BasicConfig(); stubPresignerSuccess();
+        var response=s3PresignService.createPresignedUrl(new FilePresignRequest(FilePurpose.NOTE,"photo.png","image/png",1024L));
+        assertThat(response.publicUrl()).isEqualTo("/api/v1/files/pending");
+        verify(s3Properties,never()).getPublicBaseUrl();
     }
 
     @Test
@@ -644,7 +621,7 @@ class S3PresignServiceTest {
     private void stubS3BasicConfig() {
         when(s3Properties.getBucket()).thenReturn("test-bucket");
         when(s3Properties.getPresignExpSeconds()).thenReturn(300);
-        when(s3Properties.getPublicBaseUrl()).thenReturn("https://cdn.test.com");
+
     }
 
     private void stubPresignerSuccess() {

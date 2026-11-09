@@ -146,4 +146,20 @@ class JarDesignDraftUploadServiceTest {
                 .isSameAs(originalFailure);
         verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
     }
+    @Test void thirdConcurrentOriginalIsRejectedBeforeReadingImageAndSlotsReturnAfterFailure() throws Exception {
+        var entered=new java.util.concurrent.CountDownLatch(2);var release=new java.util.concurrent.CountDownLatch(1);
+        when(userRepository.existsById(1L)).thenAnswer(call->{entered.countDown();if(!release.await(10,java.util.concurrent.TimeUnit.SECONDS))throw new AssertionError("timeout");return false;});
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var a=pool.submit(()->assertThatThrownBy(()->uploadService.uploadOriginalAndCreateDraft(1L,null,JarBodyStyle.CAT)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class));
+            var b=pool.submit(()->assertThatThrownBy(()->uploadService.uploadOriginalAndCreateDraft(1L,null,JarBodyStyle.CAT)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class));
+            assertThat(entered.await(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(()->uploadService.uploadOriginalAndCreateDraft(1L,null,JarBodyStyle.CAT))
+                .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(429));
+            verifyNoInteractions(imageValidator,moderationService,s3Client,persistenceService);
+            release.countDown();a.get(10,java.util.concurrent.TimeUnit.SECONDS);b.get(10,java.util.concurrent.TimeUnit.SECONDS);
+            assertThatThrownBy(()->uploadService.uploadOriginalAndCreateDraft(1L,null,JarBodyStyle.CAT))
+                .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(404));
+        } finally {release.countDown();pool.shutdownNow();}
+    }
 }

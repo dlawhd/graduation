@@ -270,16 +270,7 @@ public class NoteService {
 
     private List<NoteAttachmentResponse> toAttachmentResponses(Long noteId) {
         return noteAttachmentService.getAttachments(noteId).stream()
-                .map(attachment -> new NoteAttachmentResponse(
-                        attachment.getId(),
-                        attachment.getSortOrder(),
-                        attachment.getS3Key(),
-                        attachment.getUrl(),
-                        attachment.getThumbnailUrl(),
-                        attachment.getContentType(),
-                        attachment.getSize(),
-                        attachment.getCaption()
-                ))
+                .map(attachment -> NoteAttachmentResponse.protectedResponse(attachment))
                 .toList();
     }
 
@@ -547,16 +538,7 @@ public class NoteService {
                 .collect(Collectors.groupingBy(
                         attachment -> attachment.getNote().getNoteId(),
                         java.util.stream.Collectors.mapping(
-                                attachment -> new NoteAttachmentResponse(
-                                        attachment.getId(),
-                                        attachment.getSortOrder(),
-                                        attachment.getS3Key(),
-                                        attachment.getUrl(),
-                                        attachment.getThumbnailUrl(),
-                                        attachment.getContentType(),
-                                        attachment.getSize(),
-                                        attachment.getCaption()
-                                ),
+                                attachment -> NoteAttachmentResponse.protectedResponse(attachment),
                                 java.util.stream.Collectors.toList()
                         )
                 ));

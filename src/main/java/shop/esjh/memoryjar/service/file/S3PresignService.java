@@ -48,6 +48,8 @@ public class S3PresignService {
 
         // 1. 파일 타입 검증
         validateContentType(request.contentType());
+        if (request.purpose()!=FilePurpose.NOTE && !request.contentType().startsWith("image/"))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"프로필과 저금통에는 사진만 올릴 수 있어요.");
 
         // 2. 파일 종류에 맞는 최대 크기를 검사한다.
         // 사진은 10MB, 영상은 30MB 기준으로 검사한다.
@@ -85,7 +87,8 @@ public class S3PresignService {
                 .plusSeconds(s3Properties.getPresignExpSeconds());
 
         // 9. public URL 만들기
-        String publicUrl = createPublicUrl(s3Key);
+        // 내부 티켓의 임시 값이다. 예약 서비스가 DB 번호로 읽기 경로를 확정한 뒤에만 클라이언트에 응답한다.
+        String publicUrl = "/api/v1/files/pending";
 
         // 10. 응답 반환
         return new FilePresignResponse(

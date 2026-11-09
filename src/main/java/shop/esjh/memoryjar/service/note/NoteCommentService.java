@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
  *
  * 이번 댓글 규칙
  * - 저금통 active 멤버만 가능
- * - 오픈 전에도 댓글 가능
+ * - 오픈 전에는 본인 쪽지의 댓글만 접근 가능하며 외부 알림은 보내지 않는다.
  * - 수정/삭제는 작성자 본인만 가능
  * - 댓글 정렬은 오래된 순서가 위
  */
@@ -61,6 +61,7 @@ public class NoteCommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final NoteRealtimeService noteRealtimeService;
+    private final shop.esjh.memoryjar.service.jar.JarOpenService jarOpenService;
 
     public NoteCommentService(
             NoteCommentRepository noteCommentRepository,
@@ -69,7 +70,8 @@ public class NoteCommentService {
             JarMemberRepository jarMemberRepository,
             UserRepository userRepository,
             NotificationService notificationService,
-            NoteRealtimeService noteRealtimeService
+            NoteRealtimeService noteRealtimeService,
+            shop.esjh.memoryjar.service.jar.JarOpenService jarOpenService
     ) {
         this.noteCommentRepository = noteCommentRepository;
         this.noteRepository = noteRepository;
@@ -78,6 +80,7 @@ public class NoteCommentService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.noteRealtimeService = noteRealtimeService;
+        this.jarOpenService = jarOpenService;
     }
 
     // 댓글 작성
@@ -99,7 +102,7 @@ public class NoteCommentService {
 
         // 4. 이 저금통 안의 쪽지인지 확인
         // 삭제와 작성이 같은 쪽지에서 겹치면 순서대로 처리해 삭제된 부모 아래 답글이 남지 않게 한다.
-        Note note = getNoteForUpdate(jarId, noteId);
+        Note note = getNoteForUpdate(currentUserId, jarId, noteId);
 
         // 5. 입력값 정리
         String normalizedContent = normalizeContent(request.content());
@@ -138,13 +141,14 @@ public class NoteCommentService {
         );
 
         // 8-2. 부모 댓글이 없으면 "내 쪽지에 댓글"
-        if (parentComment == null) {
+        boolean publiclyOpened=jarOpenService.isOpened(jarId);
+        if (publiclyOpened && parentComment == null) {
             notificationService.notifyNoteCommented(
                     note.getAuthor(),   // Note 엔티티 getter 이름에 맞게 확인
                     note.getJar(),
                     payload
             );
-        } else {
+        } else if (publiclyOpened) {
             // 답글이면 "내 댓글에 답글"
             notificationService.notifyCommentReplied(
                     List.of(parentComment.getUser()),
@@ -225,7 +229,7 @@ public class NoteCommentService {
         getUserOrThrow(currentUserId);
         getJarOrThrow(jarId);
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글 목록을 볼 수 있어.");
-        getNoteOrThrow(jarId, noteId);
+        getNoteOrThrow(currentUserId, jarId, noteId);
         List<NoteComment> rows = noteCommentRepository.findPageAfter(noteId, cursor,
                 PageRequest.of(0, size + 1));
         boolean hasMore = rows.size() > size;
@@ -271,7 +275,7 @@ public class NoteCommentService {
         validateActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글 목록을 볼 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
-        getNoteOrThrow(jarId, noteId);
+        getNoteOrThrow(currentUserId, jarId, noteId);
 
         List<NoteComment> comments =
                 noteCommentRepository.findTop1001ByNote_NoteIdOrderByCreatedAtAscCommentIdAsc(noteId);
@@ -310,7 +314,7 @@ public class NoteCommentService {
 
         // 4. 이 저금통 안의 쪽지인지 확인
         // 생성·삭제와 같은 쪽지 잠금으로 수정 중 삭제 및 삭제된 답글의 부활을 막는다.
-        getNoteForUpdate(jarId, noteId);
+        getNoteForUpdate(currentUserId, jarId, noteId);
 
         // 5. 이 쪽지에 속한 댓글인지 확인
         NoteComment comment = getCommentOrThrow(noteId, commentId);
@@ -387,7 +391,7 @@ public class NoteCommentService {
         lockActiveMember(jarId, currentUserId, "현재 저금통 멤버만 댓글을 삭제할 수 있어.");
 
         // 4. 이 저금통 안의 쪽지인지 확인
-        getNoteForUpdate(jarId, noteId);
+        getNoteForUpdate(currentUserId, jarId, noteId);
 
         // 5. 삭제하려는 댓글이 이 쪽지 안에 있는 댓글인지 확인
         NoteComment comment = getCommentOrThrow(noteId, commentId);
@@ -488,18 +492,30 @@ public class NoteCommentService {
      * 왜 jarId와 noteId를 같이 보냐면?
      * 다른 저금통의 쪽지를 잘못 건드리는 걸 막기 위해서
      */
-    private Note getNoteOrThrow(Long jarId, Long noteId) {
-        return noteRepository.findByJarIdAndNoteId(jarId, noteId)
+    private Note getNoteOrThrow(Long userId, Long jarId, Long noteId) {
+        Note note = noteRepository.findByJarIdAndNoteId(jarId, noteId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "쪽지를 찾을 수 없어."
                 ));
+        requireVisibleNote(userId, note);
+        return note;
     }
 
     /** 댓글 작성·하위 답글 삭제가 경합할 때 사용할 안정적인 잠금 기준은 부모 쪽지다. */
-    private Note getNoteForUpdate(Long jarId, Long noteId) {
-        return noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)
+    private Note getNoteForUpdate(Long userId, Long jarId, Long noteId) {
+        Note note = noteRepository.findByJarIdAndNoteIdForUpdate(jarId, noteId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "쪽지를 찾을 수 없어."));
+        requireVisibleNote(userId, note);
+        return note;
+    }
+
+    /** 없는 번호와 비공개 타인 쪽지를 같은 404로 응답해 작성 여부도 공개하지 않는다.
+     * 댓글 잠금 안에서 새 오픈 트랜잭션을 시작하지 않고 이미 커밋된 오픈 기록만 읽는다. */
+    private void requireVisibleNote(Long userId, Note note) {
+        if (!note.isAuthor(userId) && !jarOpenService.isOpened(note.getJar().getJarId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "쪽지를 찾을 수 없어.");
+        }
     }
 
     /*

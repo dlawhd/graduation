@@ -23,11 +23,14 @@ public class NoteRealtimeService {
 
     // WebSocket 구독자들에게 메시지를 보내는 도구
     private final SimpMessagingTemplate messagingTemplate;
+    private final shop.esjh.memoryjar.service.jar.JarOpenService jarOpenService;
 
     public NoteRealtimeService(
-            SimpMessagingTemplate messagingTemplate
+            SimpMessagingTemplate messagingTemplate,
+            shop.esjh.memoryjar.service.jar.JarOpenService jarOpenService
     ) {
         this.messagingTemplate = messagingTemplate;
+        this.jarOpenService = jarOpenService;
     }
 
     /*
@@ -44,6 +47,9 @@ public class NoteRealtimeService {
         if (jarId == null || noteId == null || event == null) {
             return;
         }
+        // 본인이 닫힌 쪽지에 댓글을 남겨도 쪽지 번호·작성자·댓글 수를 다른 멤버에게 보내지 않는다.
+        // 발행기는 오픈을 실행하지 않는다. 실제 오픈 기록이 커밋된 이후만 공통 채널에 전달한다.
+        if (!jarOpenService.isOpened(jarId)) return;
 
         /*
          * 새 프론트가 구독할 저금통 전체 쪽지 주소다.

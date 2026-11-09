@@ -8,6 +8,7 @@ import java.util.List;
 
 @Getter
 @Setter
+@org.springframework.validation.annotation.Validated
 @ConfigurationProperties(prefix = "app.file")
 public class FileProperties {
 
@@ -27,6 +28,16 @@ public class FileProperties {
      *
      * 순서로 파일 업로드 제한값을 전달해준다.
      */
+
+    // 계정 행을 잠근 뒤 검사하므로 여러 서버에서도 한도를 동시에 넘길 수 없다.
+    @jakarta.validation.constraints.Min(1)
+    private int maxUploadsPerHour = 60;
+    @jakarta.validation.constraints.Min(1)
+    private int maxPendingUploads = 20;
+    @jakarta.validation.constraints.Min(1)
+    private long maxAccountBytes = 1073741824L;
+    @jakarta.validation.constraints.NotBlank
+    private String ffprobeExecutable = "ffprobe";
 
     // 사진의 최대 업로드 크기(byte)
     // 현재 기본값은 application.yml 기준 10MB다.

@@ -91,6 +91,9 @@ class FileServiceTest {
     @Mock
     private FileUploadTransactionService fileUploadTransactionService;
 
+    @Mock private UploadedMediaValidator mediaValidator;
+    @Mock private FileUploadReservationService reservations;
+
     @InjectMocks
     private FileService fileService;
 
@@ -135,6 +138,10 @@ class FileServiceTest {
         when(s3PresignService.createPresignedUrl(request))
                 .thenReturn(presignResponse);
 
+        var protectedTicket=new FilePresignResponse(presignResponse.uploadUrl(),presignResponse.s3Key(),
+                "/api/v1/files/uploads/100/content",presignResponse.expiresAt());
+        when(reservations.reserve(CURRENT_USER_ID,request,presignResponse)).thenReturn(protectedTicket);
+
         // when
         FilePresignResponse result =
                 fileService.createPresignedUrl(
@@ -143,21 +150,11 @@ class FileServiceTest {
                 );
 
         // then
-        assertThat(result).isEqualTo(presignResponse);
+        assertThat(result.uploadUrl()).isEqualTo(presignResponse.uploadUrl());
+        assertThat(result.publicUrl()).startsWith("/api/v1/files/uploads/");
 
-        verify(fileUploadRepository)
-                .save(fileUploadCaptor.capture());
-
-        FileUpload savedUpload = fileUploadCaptor.getValue();
-
-        assertThat(savedUpload.getUser()).isEqualTo(currentUser);
-        assertThat(savedUpload.getPurpose()).isEqualTo(FilePurpose.NOTE);
-        assertThat(savedUpload.getStatus())
-                .isEqualTo(FileUploadStatus.PRESIGNED);
-        assertThat(savedUpload.getS3Key()).isEqualTo(S3_KEY);
-        assertThat(savedUpload.getPublicUrl()).isEqualTo(PUBLIC_URL);
-        assertThat(savedUpload.getContentType()).isEqualTo(CONTENT_TYPE);
-        assertThat(savedUpload.getSize()).isEqualTo(FILE_SIZE);
+        verify(reservations).reserve(CURRENT_USER_ID,request,presignResponse);
+        assertThat(result).isEqualTo(protectedTicket);
     }
 
     @Test

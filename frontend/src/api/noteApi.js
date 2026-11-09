@@ -1,3 +1,4 @@
+import { resolvePrivateMedia } from "./privateMedia.mjs";
 // src/api/noteApi.js
 
 import apiClient, { fetchCsrf } from "./apiClient";
@@ -16,7 +17,7 @@ import apiClient, { fetchCsrf } from "./apiClient";
  * 진짜 우리가 쓰는 값만 꺼내주는 작은 도우미 함수
  */
 function extractData(response) {
-  return response?.data?.data;
+  return resolvePrivateMedia(response?.data?.data, apiClient.defaults.baseURL, window.location.origin);
 }
 
 /**

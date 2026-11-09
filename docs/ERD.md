@@ -1,5 +1,7 @@
 # Memory Jar ERD — Markdown 문서판
 
+> 2026-11-08: V59 요청 제한, V60 업로드 한도·미사용 정리, 비공개 댓글·첨부 읽기 경로를 추가했다. 기존 DTO 필드는 유지하며 첨부 url은 권한 확인 API 경로다. [구현·설정·검증과 운영 미적용 사항](SECURITY_HARDENING_2026-11-08.md)을 확인한다.
+
 > 2026-11-01 V54·V55: `refresh_tokens.session_id VARCHAR(64) NOT NULL`과 로그인 묶음 인덱스를 추가한다. `file_uploads.staging_cleanup_after/staging_cleaned_at DATETIME(6)` 및 정리 인덱스를 추가하고 미완료 만료 상태 `EXPIRED`를 사용한다. 기존 마이그레이션·완료 파일·첨부 관계는 유지한다. [계약·검증](SAFETY_FIXES_2026-11-01.md)을 확인한다.
 
 > 2026-10-07 V49 증분: 문의/감사 테이블과 후보별 UNIQUE, 정리 인덱스를 추가하고 알림 CHECK에 `SUPPORT_REPLIED`를 추가한다. 기존 마이그레이션은 유지한다. [AI 실패 문의 계약](AI_SUPPORT_V49.md)을 확인한다.

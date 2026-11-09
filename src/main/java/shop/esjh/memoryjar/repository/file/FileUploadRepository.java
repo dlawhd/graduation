@@ -20,12 +20,24 @@ import java.util.Optional;
  */
 public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
 
+    interface UploadUsage { long getRecentCount(); long getPendingCount(); long getStoredBytes(); }
+    @Query(value="""
+        SELECT COALESCE(SUM(created_at>=:since),0) recentCount,
+          COALESCE(SUM(status='PRESIGNED'),0) pendingCount,
+          COALESCE(SUM(CASE WHEN status IN ('PRESIGNED','COMPLETED','CONSUMED','UNUSED_DELETING') OR staging_cleaned_at IS NULL THEN size ELSE 0 END),0) storedBytes
+        FROM file_uploads WHERE user_id=:userId
+        """,nativeQuery=true)
+    UploadUsage usage(@Param("userId") Long userId,@Param("since") java.time.LocalDateTime since);
+
     @Query(value = """
             SELECT f.upload_id FROM file_uploads f
-            WHERE f.purpose='NOTE' AND f.status IN ('COMPLETED','UNUSED_DELETING')
+            WHERE f.purpose IN ('NOTE','PROFILE','JAR') AND f.status IN ('COMPLETED','UNUSED_DELETING')
               AND f.unused_cleanup_after <= :now AND f.unused_cleaned_at IS NULL
-              AND f.s3_key LIKE 'notes/%' AND f.s3_key NOT LIKE '%.pending'
+              AND (f.s3_key LIKE 'notes/%' OR f.s3_key LIKE 'profiles/%' OR f.s3_key LIKE 'jars/%') AND f.s3_key NOT LIKE '%.pending'
               AND NOT EXISTS (SELECT 1 FROM note_attachments a WHERE a.s3_key=f.s3_key)
+              AND NOT EXISTS (SELECT 1 FROM jar_designs d WHERE d.final_s3_key=f.s3_key OR d.body_artwork_s3_key=f.s3_key)
+              AND NOT EXISTS (SELECT 1 FROM jar_design_drafts d WHERE d.original_s3_key=f.s3_key OR d.body_artwork_s3_key=f.s3_key)
+              AND NOT EXISTS (SELECT 1 FROM jar_ai_generations g WHERE g.generated_s3_key=f.s3_key OR g.candidate_upload_s3_key=f.s3_key)
             ORDER BY f.unused_cleanup_after, f.upload_id LIMIT 50
             """, nativeQuery = true)
     List<Long> findUnusedCleanupIds(@Param("now") java.time.LocalDateTime now);
@@ -34,9 +46,12 @@ public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @Query(value = """
             UPDATE file_uploads f SET f.status='UNUSED_DELETING', f.unused_cleanup_after=:retryAt, f.updated_at=:now
-            WHERE f.upload_id=:id AND f.purpose='NOTE' AND f.status IN ('COMPLETED','UNUSED_DELETING')
+            WHERE f.upload_id=:id AND f.purpose IN ('NOTE','PROFILE','JAR') AND f.status IN ('COMPLETED','UNUSED_DELETING')
               AND f.unused_cleaned_at IS NULL AND f.unused_cleanup_after <= :now
               AND NOT EXISTS (SELECT 1 FROM note_attachments a WHERE a.s3_key=f.s3_key)
+              AND NOT EXISTS (SELECT 1 FROM jar_designs d WHERE d.final_s3_key=f.s3_key OR d.body_artwork_s3_key=f.s3_key)
+              AND NOT EXISTS (SELECT 1 FROM jar_design_drafts d WHERE d.original_s3_key=f.s3_key OR d.body_artwork_s3_key=f.s3_key)
+              AND NOT EXISTS (SELECT 1 FROM jar_ai_generations g WHERE g.generated_s3_key=f.s3_key OR g.candidate_upload_s3_key=f.s3_key)
             """, nativeQuery = true)
     int claimUnusedCleanup(@Param("id") Long id, @Param("now") java.time.LocalDateTime now,
                            @Param("retryAt") java.time.LocalDateTime retryAt);

@@ -51,9 +51,15 @@ public class FileUpload extends BaseEntity {
     @Column(name = "s3_key", nullable = false, unique = true, length = 500)
     private String s3Key;
 
-    // 브라우저가 접근할 공개 URL
+    // 기존 컬럼 이름은 유지하지만, 새 예약에는 공개 저장소 주소 대신 보호된 API 경로를 저장한다.
     @Column(name = "public_url", nullable = false, length = 1000)
     private String publicUrl;
+
+    /** DB 번호가 발급된 뒤 보호 주소를 확정한다. IDENTITY 방식이므로 같은 짧은 예약 트랜잭션에서 한 번 갱신한다. */
+    public void useProtectedReadPath() {
+        if (id == null) throw new IllegalStateException("저장된 업로드만 읽기 주소를 확정할 수 있습니다.");
+        this.publicUrl = "/api/v1/files/uploads/" + id + "/content";
+    }
 
     // 이미지/png, 영상/mp4 같은 타입
     @Column(name = "content_type", nullable = false, length = 100)
@@ -111,7 +117,7 @@ public class FileUpload extends BaseEntity {
     public void markCompleted() {
         this.status = FileUploadStatus.COMPLETED;
         this.completedAt = LocalDateTime.now(KST);
-        if (purpose == FilePurpose.NOTE) this.unusedCleanupAfter = completedAt.plusDays(7);
+        this.unusedCleanupAfter = completedAt.plusDays(7);
     }
 
     // note 등에 연결해서 다시 못 쓰게 막을 때 쓰는 메서드

@@ -23,15 +23,18 @@ class NoteRealtimeServiceTest {
     @Mock
     private SimpMessagingTemplate messagingTemplate;
 
+    @Mock private shop.esjh.memoryjar.service.jar.JarOpenService jarOpenService;
+
     @Test
     @DisplayName("쪽지 이벤트를 저금통 전체 주소와 기존 상세 주소에 전송한다")
     void sendNoteEvent_sendsToJarNotesTopic() {
+        org.mockito.Mockito.when(jarOpenService.isOpened(10L)).thenReturn(true);
         // given
         Long jarId = 10L;
         Long noteId = 1L;
 
         NoteRealtimeService service =
-                new NoteRealtimeService(messagingTemplate);
+                new NoteRealtimeService(messagingTemplate, jarOpenService);
 
         NoteRealtimeEventResponse event =
                 NoteRealtimeEventResponse.reactionChanged(
@@ -62,5 +65,10 @@ class NoteRealtimeServiceTest {
                 "/topic/jars/10/notes/1",
                 event
         );
+    }
+    @Test void closedJarDoesNotPublishEvenToLegacyTopic() {
+        var service=new NoteRealtimeService(messagingTemplate,jarOpenService);
+        service.sendNoteEventAfterCommit(10L,1L,NoteRealtimeEventResponse.reactionChanged(10L,1L,100L,"작성자"));
+        org.mockito.Mockito.verifyNoInteractions(messagingTemplate);
     }
 }

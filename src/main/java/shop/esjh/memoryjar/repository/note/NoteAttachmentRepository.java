@@ -9,6 +9,13 @@ import java.util.Optional;
 
 public interface NoteAttachmentRepository extends JpaRepository<NoteAttachment, Long> {
 
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM NoteAttachment a JOIN FETCH a.note n JOIN FETCH n.jar JOIN FETCH n.author WHERE a.id=:id")
+    Optional<NoteAttachment> findForRead(@org.springframework.data.repository.query.Param("id") Long id);
+
+    // 예전 COMPLETED 기록이나 삭제된 첨부도 미연결 파일로 오인하지 않도록 이 조회만 삭제 제한을 적용하지 않는다.
+    @org.springframework.data.jpa.repository.Query(value="SELECT attachment_id FROM note_attachments WHERE s3_key=:key",nativeQuery=true)
+    Optional<Long> findHistoricalReference(@org.springframework.data.repository.query.Param("key") String key);
+
     // note 1번에 사진 3개가 있으면 sortOrder 0, 1, 2 순서대로 가져옴
     List<NoteAttachment> findAllByNoteOrderBySortOrderAsc(Note note);
 

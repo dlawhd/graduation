@@ -45,6 +45,7 @@ class WriteSafetyQuerySmokeTest {
     @Autowired NoteCommentService comments;
     @MockitoBean NotificationService notifications;
     @MockitoBean NoteRealtimeService realtime;
+    @MockitoBean shop.esjh.memoryjar.service.jar.JarOpenService opening;
 
     @Test
     void actualQueriesKeepRootLinksAndHandle1100ReplyLevels() {

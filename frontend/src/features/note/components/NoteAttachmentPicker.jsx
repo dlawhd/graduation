@@ -1,3 +1,4 @@
+import { PrivateImage, PrivateVideo } from "../../../components/PrivateMedia";
 import { useRef } from "react";
 /*
  * dnd-kit 역할
@@ -290,7 +291,7 @@ function SortableAttachmentCard({
           )}
 
         {isImage ? (
-          <img
+          <PrivateImage
             src={previewSource}
             alt={`${index + 1}번째 첨부 ${displayName}`}
 
@@ -301,7 +302,7 @@ function SortableAttachmentCard({
             className="h-full w-full object-cover"
           />
         ) : isVideo ? (
-          <video
+          <PrivateVideo
             src={previewSource}
             controls
             draggable={false}

@@ -31,6 +31,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final LocalAuthService localAuthService;
     private final EmailVerificationDispatchService emailVerificationDispatchService;
+    private final shop.esjh.memoryjar.security.AuthRequestLimits requestLimits;
     /*
      * 인증번호 확인과 verificationToken 검증 담당
      */
@@ -44,7 +45,8 @@ public class AuthController {
             JwtTokenProvider jwtTokenProvider,
             LocalAuthService localAuthService,
             EmailVerificationDispatchService emailVerificationDispatchService,
-            EmailVerificationService emailVerificationService
+            EmailVerificationService emailVerificationService,
+            shop.esjh.memoryjar.security.AuthRequestLimits requestLimits
     ) {
         this.refreshTokenService = refreshTokenService;
         this.authCookieService = authCookieService;
@@ -52,6 +54,7 @@ public class AuthController {
         this.localAuthService = localAuthService;
         this.emailVerificationDispatchService = emailVerificationDispatchService;
         this.emailVerificationService = emailVerificationService;
+        this.requestLimits = requestLimits;
     }
 
     /*
@@ -142,8 +145,12 @@ public class AuthController {
              */
             @Valid
             @RequestBody
-            EmailVerificationSendRequest request
+            EmailVerificationSendRequest request,
+            HttpServletRequest clientRequest
     ) {
+        // 클라이언트가 임의로 보낸 전달 헤더를 IP로 신뢰하지 않는다.
+        requestLimits.email(request.email(), requestLimits.clientAddress(clientRequest));
+
 
         /*
          * DB 저장과 AWS SES 발송을 연결한다.
@@ -257,8 +264,12 @@ public class AuthController {
 
             @Valid
             @RequestBody
-            EmailVerificationSendRequest request
+            EmailVerificationSendRequest request,
+            HttpServletRequest clientRequest
     ) {
+        // 클라이언트가 임의로 보낸 전달 헤더를 IP로 신뢰하지 않는다.
+        requestLimits.email(request.email(), requestLimits.clientAddress(clientRequest));
+
 
         EmailVerificationDispatchService
                 .VerificationDispatchResult result =
@@ -450,8 +461,12 @@ public class AuthController {
 
             @Valid
             @RequestBody
-            PasswordResetEmailVerificationSendRequest request
+            PasswordResetEmailVerificationSendRequest request,
+            HttpServletRequest clientRequest
     ) {
+        // 클라이언트가 임의로 보낸 전달 헤더를 IP로 신뢰하지 않는다.
+        requestLimits.email(request.email(), requestLimits.clientAddress(clientRequest));
+
 
         /*
          * 먼저:
@@ -641,8 +656,11 @@ public class AuthController {
              * 로그인 성공 후
              * JWT 쿠키를 응답에 심기 위해 필요하다.
              */
-            HttpServletResponse httpResponse
+            HttpServletResponse httpResponse,
+            HttpServletRequest clientRequest
     ) {
+        try (var permit = requestLimits.beginLogin(request.loginId(), requestLimits.clientAddress(clientRequest))) {
+
 
         /*
          * 실제 아이디 / 비밀번호 검사
@@ -681,6 +699,7 @@ public class AuthController {
         return ApiResponse.of(
                 response
         );
+        }
     }
 
     // ✅ POST /api/v1/auth/refresh

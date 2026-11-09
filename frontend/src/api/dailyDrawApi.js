@@ -1,3 +1,4 @@
+import { resolvePrivateMedia } from "./privateMedia.mjs";
 // src/api/dailyDrawApi.js
 import apiClient, { fetchCsrf } from "./apiClient";
 
@@ -28,7 +29,7 @@ import apiClient, { fetchCsrf } from "./apiClient";
  * 이 함수를 만들어 반복을 줄여줘.
  */
 function unwrapData(res) {
-  return res?.data?.data;
+  return resolvePrivateMedia(res?.data?.data, apiClient.defaults.baseURL, window.location.origin);
 }
 
 /*

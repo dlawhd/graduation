@@ -79,4 +79,12 @@ class FileUnusedCleanupIntegrationTest extends AbstractMariaDbRepositoryTest {
             assertThat(uploads.findById(f.getId()).orElseThrow().getStatus()).isEqualTo(removed?FileUploadStatus.UNUSED_DELETING:FileUploadStatus.CONSUMED);
         } finally {start.countDown();executor.shutdownNow();}
     }
+    @Test void oldUnusedProfileAndJarFilesAreAlsoClaimedButReferencedFilesStay() {
+        var profile=fixture(false);var jar=fixture(false);var linked=fixture(true);
+        jdbc.update("UPDATE file_uploads SET purpose='PROFILE',s3_key=? WHERE upload_id=?","profiles/"+UUID.randomUUID()+".png",profile.getId());
+        jdbc.update("UPDATE file_uploads SET purpose='JAR',s3_key=? WHERE upload_id=?","jars/"+UUID.randomUUID()+".png",jar.getId());
+        jdbc.update("UPDATE file_uploads SET purpose='PROFILE' WHERE upload_id=?",linked.getId());
+        assertThat(persistence.claim(profile.getId(),now())).isPresent();assertThat(persistence.claim(jar.getId(),now())).isPresent();
+        assertThat(persistence.claim(linked.getId(),now())).isEmpty();
+    }
 }

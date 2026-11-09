@@ -11,11 +11,8 @@ import shop.esjh.memoryjar.dto.file.request.FilePresignRequest;
 import shop.esjh.memoryjar.dto.file.response.FileCompleteResponse;
 import shop.esjh.memoryjar.dto.file.response.FilePresignResponse;
 import shop.esjh.memoryjar.entity.User;
-import shop.esjh.memoryjar.entity.file.FileUpload;
-import shop.esjh.memoryjar.enums.file.FileUploadStatus;
 import shop.esjh.memoryjar.model.file.FileUploadCompletionTarget;
 import shop.esjh.memoryjar.repository.UserRepository;
-import shop.esjh.memoryjar.repository.file.FileUploadRepository;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -43,11 +40,12 @@ import java.nio.charset.StandardCharsets;
 public class FileService {
     private static final Logger log = LoggerFactory.getLogger(FileService.class);
 
+    private final UploadedMediaValidator mediaValidator;
+    private final FileUploadReservationService reservations;
     private final S3PresignService s3PresignService;
     private final S3Client s3Client;
     private final S3Properties s3Properties;
     private final UserRepository userRepository;
-    private final FileUploadRepository fileUploadRepository;
     private final FileUploadTransactionService fileUploadTransactionService;
 
     public FileService(
@@ -55,14 +53,14 @@ public class FileService {
             S3Client s3Client,
             S3Properties s3Properties,
             UserRepository userRepository,
-            FileUploadRepository fileUploadRepository,
-            FileUploadTransactionService fileUploadTransactionService
+            FileUploadTransactionService fileUploadTransactionService,
+            UploadedMediaValidator mediaValidator, FileUploadReservationService reservations
     ) {
+        this.mediaValidator=mediaValidator; this.reservations=reservations;
         this.s3PresignService = s3PresignService;
         this.s3Client = s3Client;
         this.s3Properties = s3Properties;
         this.userRepository = userRepository;
-        this.fileUploadRepository = fileUploadRepository;
         this.fileUploadTransactionService =
                 fileUploadTransactionService;
     }
@@ -71,31 +69,15 @@ public class FileService {
      * Presigned URL을 발급하고
      * DB에 PRESIGNED 상태의 업로드 기록을 저장한다.
      */
-    @Transactional
+    @Transactional(propagation=Propagation.NOT_SUPPORTED)
     public FilePresignResponse createPresignedUrl(
             Long currentUserId,
             FilePresignRequest request
     ) {
-        User currentUser =
-                getUserOrThrow(currentUserId);
-
-        FilePresignResponse response =
-                s3PresignService.createPresignedUrl(request);
-
-        FileUpload upload = FileUpload.builder()
-                .user(currentUser)
-                .purpose(request.purpose())
-                .status(FileUploadStatus.PRESIGNED)
-                .s3Key(response.s3Key())
-                .publicUrl(response.publicUrl())
-                .contentType(request.contentType())
-                .size(request.size())
-                .build();
-
-        upload.scheduleStagingCleanup(response.expiresAt());
-        fileUploadRepository.save(upload);
-
-        return response;
+        getUserOrThrow(currentUserId);
+        // 서명 자체는 로컬 연산이지만 인증정보 갱신은 네트워크를 사용할 수 있어 DB 잠금 밖에서 준비한다.
+        FilePresignResponse ticket=s3PresignService.createPresignedUrl(request);
+        return reservations.reserve(currentUserId,request,ticket);
     }
 
     /*
@@ -155,6 +137,8 @@ public class FileService {
                 headObject
         );
 
+        mediaValidator.validate(target,headObject.eTag());
+
         // 검사한 원본 버전만, 아직 없는 완료 위치로 복사한다. 모든 S3 I/O는 DB 트랜잭션 밖이다.
         publishImmutableFile(target, headObject);
 
@@ -197,7 +181,12 @@ public class FileService {
         } catch (S3Exception failure) {
             if (failure.statusCode() == 412) {
                 // 다른 완료 요청이나 DB 저장 실패 후 재시도가 이미 확정한 객체는 변경하지 않는다.
-                try { validateUploadedFile(target, headObjectOrThrow(target.s3Key())); return; }
+                try {
+                    var published=headObjectOrThrow(target.s3Key());
+                    validateUploadedFile(target,published);
+                    mediaValidator.validatePublished(target,published.eTag());
+                    return;
+                }
                 catch (ResponseStatusException missing) {
                     if (missing.getStatusCode().value() != 404) throw missing;
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "검사 중 파일이 변경됐어. 다시 업로드해 줘.");

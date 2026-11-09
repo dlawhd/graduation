@@ -133,8 +133,12 @@ public class SupportConversationService {
     }
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public SupportInquiryResponse resolve(SupportActor actor,Long id,boolean resolved) {
+        var stateLimit = rates.lock("support-state:" + actor.scope());
         var i=access.require(actor,id,true); access.activeContent(i);
         if ((i.getStatus()==SupportInquiryStatus.RESOLVED)==resolved) return SupportInquiryResponse.from(i,actor.operator(),SupportInquiryPersistenceService.now());
+        // 같은 상태 재전송은 그대로 복구하고, 상태를 번갈아 바꿔 알림을 쌓는 요청만 제한한다.
+        if (!stateLimit.consume(actor.operator() ? 1000 : 20, java.time.Duration.ofHours(1), SupportInquiryPersistenceService.now()))
+            throw problem(HttpStatus.TOO_MANY_REQUESTS, "문의 상태 변경이 많습니다. 잠시 후 다시 시도해 주세요.");
         var now=SupportInquiryPersistenceService.now(); i.resolve(resolved,now);
         audits.save(new SupportInquiryAudit(id,actor.authorId(),resolved?"RESOLVED":"REOPENED",now));
         if (!resolved && !actor.operator()) notifications.notifySupportFollowedUp(authorization.operatorsToNotify(),id);

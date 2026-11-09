@@ -1,3 +1,4 @@
+import { PrivateImage } from "../../../components/PrivateMedia";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactionBar from "./ReactionBar";
@@ -685,7 +686,7 @@ export default function JarZoomNoteDetailModal({
           {imageStatus === "error" && <p role="alert" className="z-10 max-w-sm rounded-xl bg-white p-4 text-sm text-rose-800">원본 사진을 불러오지 못했어요. 다른 사진을 선택하거나 쪽지를 다시 열어 주세요.</p>}
 
           {currentImage.contentType?.startsWith("image/") ? (
-            <img
+            <PrivateImage
               key={`${selectedIndex}:${currentImage.url}`} draggable={false} referrerPolicy="no-referrer"
               onLoad={() => setGallery(current => current === gallery ? { ...current, status: "ready" } : current)}
               onError={() => setGallery(current => current === gallery ? { ...current, status: "error" } : current)}
@@ -710,7 +711,7 @@ export default function JarZoomNoteDetailModal({
               }}
             />
           ) : currentImage.contentType?.startsWith("video/") ? (
-            <video
+            <PrivateVideo
               src={currentImage.url}
               controls
               autoPlay

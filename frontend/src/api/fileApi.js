@@ -1,3 +1,4 @@
+import { resolvePrivateMedia } from "./privateMedia.mjs";
 // src/api/fileApi.js
 import apiClient, { fetchCsrf } from "./apiClient";
 
@@ -8,7 +9,7 @@ import apiClient, { fetchCsrf } from "./apiClient";
 
 // 서버 응답이 { data: ... } 구조라서 진짜 값만 꺼내는 작은 함수
 function extractData(response) {
-  return response?.data?.data;
+  return resolvePrivateMedia(response?.data?.data, apiClient.defaults.baseURL, window.location.origin);
 }
 
 /*

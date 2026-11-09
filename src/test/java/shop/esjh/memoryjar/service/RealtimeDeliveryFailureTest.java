@@ -25,8 +25,10 @@ class RealtimeDeliveryFailureTest {
     enum Channel { NOTE, MEMBER, DAILY_DRAW, OPEN, CHAT }
 
     private Runnable event(Channel channel, SimpMessagingTemplate messages) {
+        var opened = mock(JarOpenService.class);
+        lenient().when(opened.isOpened(anyLong())).thenReturn(true);
         return switch (channel) {
-            case NOTE -> () -> new NoteRealtimeService(messages).sendNoteEventAfterCommit(1L, 2L, mock(NoteRealtimeEventResponse.class));
+            case NOTE -> () -> new NoteRealtimeService(messages, opened).sendNoteEventAfterCommit(1L, 2L, mock(NoteRealtimeEventResponse.class));
             case MEMBER -> () -> new JarMemberRealtimeService(messages,mock(UserStateRealtimeService.class)).sendMemberEventAfterCommit(1L, mock(JarMemberSocketEventResponse.class));
             case DAILY_DRAW -> () -> new JarDailyDrawRealtimeService(messages).sendDailyDrawEventAfterCommit(1L, mock(DailyDrawSocketEventResponse.class));
             case OPEN -> () -> new JarOpenRealtimeService(messages,mock(UserStateRealtimeService.class)).sendJarOpenedEventAfterCommit(1L, mock(JarOpenSocketEventResponse.class));

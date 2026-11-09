@@ -1,3 +1,4 @@
+import { PrivateImage, PrivateVideo } from "../../../components/PrivateMedia";
 import {
   useEffect,
   useRef,
@@ -323,7 +324,7 @@ export default function NoteAttachmentCarousel({
                             index + 1
                           }번째 사진 크게 보기`}
                         >
-                          <img
+                          <PrivateImage
                             src={
                               previewSource
                             }
@@ -335,7 +336,7 @@ export default function NoteAttachmentCarousel({
                           />
                         </button>
                       ) : (
-                        <img
+                        <PrivateImage
                           src={previewSource}
                           alt={`${
                             index + 1
@@ -345,7 +346,7 @@ export default function NoteAttachmentCarousel({
                         />
                       )
                     ) : isVideo ? (
-                      <video
+                      <PrivateVideo
                         src={
                           attachment.url ||
                           previewSource

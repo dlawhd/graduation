@@ -8,7 +8,7 @@ import shop.esjh.memoryjar.config.properties.S3Properties;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
-/** 7일간 연결되지 않은 NOTE 완료 파일을 한 번에 50개씩 정리하고, 저장소 장애 시 DB에 재시도를 남긴다. */
+/** 7일간 연결되지 않은 NOTE·PROFILE·JAR 완료 파일을 한 번에 50개씩 정리하고, 저장소 장애 시 DB에 재시도를 남긴다. */
 @Component
 public class FileUnusedCleanupScheduler {
     private static final Logger log = LoggerFactory.getLogger(FileUnusedCleanupScheduler.class);

@@ -24,7 +24,7 @@ class FileCompletionRecoveryTest {
     private final FileCompleteResponse receipt=new FileCompleteResponse("notes/retry.png",FilePurpose.NOTE,
             "https://fixture.invalid/photo","image/png",10L,OffsetDateTime.parse("2026-11-08T12:00:00+09:00"));
     FileService service(){storage.setBucket("fixture");return new FileService(mock(S3PresignService.class),s3,storage,
-            mock(UserRepository.class),mock(FileUploadRepository.class),database);}
+            mock(UserRepository.class),database,mock(UploadedMediaValidator.class),mock(FileUploadReservationService.class));}
     @Test void completedSnapshotAvoidsAllStorageCalls() {
         when(database.getCompletionTarget(1L,request.s3Key(),request.purpose()))
                 .thenReturn(new FileUploadCompletionTarget(1L,request.s3Key(),"image/png",10L,receipt));

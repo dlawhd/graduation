@@ -31,6 +31,8 @@ import java.util.UUID;
 @Service
 @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
 public class JarDesignDraftUploadService {
+    private final shop.esjh.memoryjar.security.BoundedWorkGate imageWork =
+            new shop.esjh.memoryjar.security.BoundedWorkGate(2);
 
     private static final Logger log = LoggerFactory.getLogger(JarDesignDraftUploadService.class);
 
@@ -76,6 +78,14 @@ public class JarDesignDraftUploadService {
     /** 테두리 PNG는 별도 심사/비공개 저장하며 AI 입력 사진과 합치지 않는다. 구 요청은 파일 없이도 동작한다. */
     public JarDesignDraftCreateResponse uploadOriginalAndCreateDraft(Long userId,MultipartFile image,JarBodyStyle bodyStyle,
             shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,MultipartFile bodyArtwork) {
+        // 디코딩·심사·저장 전체에 슬롯을 유지한다. 업로드 요청 스레드가 무제한으로 큰 이미지를 풀지 못한다.
+        try (var permit = imageWork.acquire()) {
+            return processOriginal(userId, image, bodyStyle, customBody, bodyArtwork);
+        }
+    }
+
+    private JarDesignDraftCreateResponse processOriginal(Long userId, MultipartFile image, JarBodyStyle bodyStyle,
+            shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody, MultipartFile bodyArtwork) {
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
         if(bodyArtwork!=null && (bodyStyle!=JarBodyStyle.CUSTOM||customBody==null))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"테두리 그림은 직접 만든 틀에서만 사용할 수 있습니다.");

@@ -395,16 +395,7 @@ public class JarDailyDrawService {
 
     // NoteAttachment 엔티티를 기존 NoteAttachmentResponse DTO로 바꾼다.
     private NoteAttachmentResponse toAttachmentResponse(NoteAttachment attachment) {
-        return new NoteAttachmentResponse(
-                attachment.getId(),
-                attachment.getSortOrder(),
-                attachment.getS3Key(),
-                attachment.getUrl(),
-                attachment.getThumbnailUrl(),
-                attachment.getContentType(),
-                attachment.getSize(),
-                attachment.getCaption()
-        );
+        return NoteAttachmentResponse.protectedResponse(attachment);
     }
 
     /*

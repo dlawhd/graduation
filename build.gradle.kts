@@ -2,13 +2,16 @@ import org.gradle.kotlin.dsl.testImplementation
 
 plugins {
 	id("java")
-	id("org.springframework.boot") version "3.5.10"
+	id("org.springframework.boot") version "3.5.16"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "com.example"
 version = "0.0.1-SNAPSHOT"
 description = "Demo project for Spring Boot"
+
+// 같은 Servlet/Tomcat 10.1 계열에서 WebSocket 종료·쓰기 보안 수정을 적용한다.
+extra["tomcat.version"] = "10.1.61"
 
 java {
 	toolchain {

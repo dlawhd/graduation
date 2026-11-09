@@ -73,6 +73,9 @@ class FileUploadCompletionConcurrencyTest
 
     private static final int CONCURRENT_REQUEST_COUNT = 2;
 
+    @MockitoBean private UploadedMediaValidator mediaValidator;
+    @MockitoBean private FileUploadReservationService reservations;
+
     @Autowired
     private FileService fileService;
 

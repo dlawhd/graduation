@@ -18,7 +18,7 @@ public class FileUnusedCleanupPersistenceService {
     @Transactional
     public Optional<String> claim(Long id, LocalDateTime now) {
         var key = uploads.findStagingKeyForUpdate(id);
-        if (key.isEmpty() || !key.get().startsWith("notes/") || key.get().endsWith(".pending")) return Optional.empty();
+        if (key.isEmpty() || !(key.get().startsWith("notes/") || key.get().startsWith("profiles/") || key.get().startsWith("jars/")) || key.get().endsWith(".pending")) return Optional.empty();
         if (uploads.claimUnusedCleanup(id, now, now.plusMinutes(5)) != 1) return Optional.empty();
         return key;
     }

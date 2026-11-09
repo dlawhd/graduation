@@ -43,6 +43,9 @@ class AuthControllerTest {
 
     // 가짜 객체(mock)
     @MockitoBean
+    private shop.esjh.memoryjar.security.AuthRequestLimits requestLimits;
+
+    @MockitoBean
     private RefreshTokenService refreshTokenService;
 
     @MockitoBean
@@ -1194,5 +1197,13 @@ class AuthControllerTest {
         ).checkLoginIdAvailability(
                 "EunSeo01"
         );
+    }
+    @Test void requestLimitRejectsLoginBeforePasswordCheckOrCookieIssuance() throws Exception {
+        given(requestLimits.beginLogin(anyString(),org.mockito.ArgumentMatchers.nullable(String.class)))
+                .willThrow(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"limit fixture"));
+        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"loginId\":\"member01\",\"password\":\"Memory123!\"}"))
+                .andExpect(status().isTooManyRequests());
+        verifyNoInteractions(localAuthService,refreshTokenService,authCookieService);
     }
 }

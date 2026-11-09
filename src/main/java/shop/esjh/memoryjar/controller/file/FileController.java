@@ -48,7 +48,7 @@ public class FileController {
         return ApiResponse.of(response);
     }
 
-    private Long extractCurrentUserId(Authentication authentication) {
+    static Long extractCurrentUserId(Authentication authentication) {
         if (authentication == null) {
             throw new ResponseStatusException(UNAUTHORIZED, "인증이 필요합니다.");
         }
