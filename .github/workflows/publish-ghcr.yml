@@ -29,7 +29,7 @@ jobs:
     steps:
       # GitHub 저장소 코드를 가져온다.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # 백엔드 테스트를 실행하기 위해 Java 17을 준비한다.
       - name: Set up Java 17
