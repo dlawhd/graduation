@@ -21,6 +21,14 @@ public class SupportAdminController {
     private final SupportConversationService conversations;
     private final SupportAttachmentService attachments;
     private final SupportAttachmentPersistenceService attachmentPersistence;
+    private final OperatorMfaService mfa;
+
+    /** 이 컨트롤러의 모든 읽기·변경·사진 요청은 본문 처리 전에 추가 인증부터 확인한다. */
+    @ModelAttribute
+    void requireAdditionalAuthentication(Authentication auth, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        mfa.requireVerified(auth);
+    }
     @GetMapping("/{id}/view")
     public ApiResponse<SupportDetailResponse> view(Authentication auth,@PathVariable Long id) {
         return ApiResponse.of(conversations.view(SupportActor.operator(currentUserId(auth)),id));

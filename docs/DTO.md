@@ -1,5 +1,7 @@
 # 각 API의 Request/Response DTO
 
+> 2026-11-10: 운영자 MFA 상태는 `configured/enrolled/bootstrapAvailable/verifiedUntil`, 등록 응답은 `secret/issuer/account/expiresAt`, 인증 결과는 `verifiedUntil/recoveryCodes`를 사용한다. 날짜는 UTC `Z` 표기이고 비밀 응답은 no-store다. 기존 문의 DTO는 유지한다. [API 계약과 키 보관](OPERATOR_SECURITY_2026-11-10.md)을 확인한다.
+
 > 2026-11-08: V59 요청 제한, V60 업로드 한도·미사용 정리, 비공개 댓글·첨부 읽기 경로를 추가했다. 기존 DTO 필드는 유지하며 첨부 url은 권한 확인 API 경로다. [구현·설정·검증과 운영 미적용 사항](SECURITY_HARDENING_2026-11-08.md)을 확인한다.
 
 > 2026-11-05 네이버 장소 검색: `PlaceSearchRequest(q)`는 공백이 아닌 최대 100자의 검색어를 받는다. `PlaceSearchItem(name, address, latitude, longitude)` 목록을 기존 `ApiResponse.data`로 반환한다. 좌표는 지도 선택용이며 쪽지 생성·조회 DTO의 `location` 문자열은 변경하지 않았다. [상세 계약·설정](NAVER_LOCATION_SETUP.md)

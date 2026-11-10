@@ -52,6 +52,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class SecurityConfigTest {
 
+    @Test
+    void operatorAdditionalAuthenticationStillRequiresLogin() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/support/mfa")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/admin/support/mfa/verification").with(csrf())
+                .contentType("application/json").content("{\"code\":\"123456\",\"recovery\":false}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void operatorAdditionalAuthenticationDoesNotBypassCsrf() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/support/mfa/verification").with(user("csrf-fixture"))
+                .contentType("application/json").content("{\"code\":\"123456\",\"recovery\":false}"))
+                .andExpect(status().isForbidden());
+    }
+
     /** 새 검색 API도 기존 /api/** 인증 규칙을 통과해야 한다. */
     @Test
     void placeSearchRequiresAuthentication() throws Exception {

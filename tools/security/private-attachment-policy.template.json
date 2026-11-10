@@ -1,18 +1,33 @@
 {
   "Version": "2012-10-17",
   "Statement": [{
-    "Sid": "DenyUnapprovedReadersOfPrivateAttachments",
+    "Sid": "AllowRuntimeReadPrivateMedia",
+    "Effect": "Allow",
+    "Principal": {"AWS": "arn:aws:iam::<ACCOUNT_ID>:role/MemoryJarEc2RuntimeRole"},
+    "Action": "s3:GetObject",
+    "Resource": [
+      "arn:aws:s3:::<BUCKET>/notes/*",
+      "arn:aws:s3:::<BUCKET>/profiles/*",
+      "arn:aws:s3:::<BUCKET>/jars/*",
+      "arn:aws:s3:::<BUCKET>/support-attachments/*",
+      "arn:aws:s3:::<BUCKET>/support-inquiries/*",
+      "arn:aws:s3:::<BUCKET>/jar-design-drafts/*",
+      "arn:aws:s3:::<BUCKET>/jar-designs/*"
+    ]
+  }, {
+    "Sid": "DenyUnapprovedReadersOfPrivateMedia",
     "Effect": "Deny",
     "Principal": "*",
     "Action": ["s3:GetObject", "s3:GetObjectVersion"],
     "Resource": [
       "arn:aws:s3:::<BUCKET>/notes/*",
       "arn:aws:s3:::<BUCKET>/profiles/*",
-      "arn:aws:s3:::<BUCKET>/jars/*"
+      "arn:aws:s3:::<BUCKET>/jars/*",
+      "arn:aws:s3:::<BUCKET>/support-attachments/*",
+      "arn:aws:s3:::<BUCKET>/support-inquiries/*",
+      "arn:aws:s3:::<BUCKET>/jar-design-drafts/*",
+      "arn:aws:s3:::<BUCKET>/jar-designs/*"
     ],
-    "Condition": {"ArnNotEquals": {"aws:PrincipalArn": [
-      "arn:aws:iam::<ACCOUNT_ID>:role/MemoryJarEc2RuntimeRole",
-      "arn:aws:iam::<ACCOUNT_ID>:role/<APPROVED_OPERATOR_ROLE>"
-    ]}}
+    "Condition": {"ArnNotEquals": {"aws:PrincipalArn": "arn:aws:iam::<ACCOUNT_ID>:role/MemoryJarEc2RuntimeRole"}}
   }]
 }

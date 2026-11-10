@@ -1,5 +1,6 @@
 // src/api/apiClient.js
 import axios from "axios";
+import { notifyOperatorMfaRequired } from "./operatorMfaEvents.mjs";
 import { refreshSharedSession } from "./authRefreshCoordination.mjs";
 import { recordSupportFailure, clearSupportFailure } from "../features/support/supportContext.mjs";
 import {
@@ -125,6 +126,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
     if (staleRequest(originalRequest)) return Promise.reject(authChangedError());
+    notifyOperatorMfaRequired(error);
     if (typeof window !== "undefined" && originalRequest._supportPath===window.location.pathname) recordSupportFailure(error,window.location);
 
     // 이 요청은 401이 나도 refresh를 시도하지 않기로 표시된 요청이면 그대로 에러 반환

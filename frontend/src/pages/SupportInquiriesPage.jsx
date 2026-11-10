@@ -8,9 +8,18 @@ import SupportStatusBadge from "../features/support/SupportStatusBadge";
 import StatusNotice from "../components/feedback/StatusNotice";
 import { supportTitle, SUPPORT_CATEGORIES } from "../features/support/supportContext.mjs";
 import SupportLetterLayout from "../features/support/SupportLetterLayout";
+import OperatorMfaGate from "../features/support/OperatorMfaGate";
 
 /** 내 문의와 운영 문의함을 표시한다. 목록은 커서로 나누고 권한은 서버에서 다시 검사한다. */
 export default function SupportInquiriesPage({ me, checkingAuth, operator = false }) {
+  const userId = me?.userId ?? me?.id;
+  const content = <SupportInquiriesContent me={me} checkingAuth={checkingAuth} operator={operator}/>;
+  return operator && userId && !checkingAuth
+    ? <OperatorMfaGate key={userId} userId={userId}>{content}</OperatorMfaGate> : content;
+}
+
+/** 일반 문의의 기존 목록·상세·실시간 갱신은 유지하고, 운영 화면만 추가 인증 뒤에 마운트한다. */
+function SupportInquiriesContent({ me, checkingAuth, operator }) {
   const { inquiryId } = useParams();
   const userId = me?.userId ?? me?.id;
   const [permission, setPermission] = useState(null);

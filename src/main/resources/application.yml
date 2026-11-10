@@ -147,6 +147,10 @@ app:
   support:
     # 실제 운영자 계정 번호는 배포 환경에서만 지정한다. 비어 있으면 전원 거부한다.
     operator-user-ids: ${SUPPORT_OPERATOR_USER_IDS:}
+    mfa:
+      # 키는 서버 환경변수로만 주입한다. 미설정 시 일반 서비스는 유지하고 운영 문의 읽기·변경은 차단한다.
+      encryption-key: ${APP_SUPPORT_MFA_ENCRYPTION_KEY:}
+      bootstrap-secret: ${APP_SUPPORT_MFA_BOOTSTRAP_SECRET:}
   frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
 
   # --------------------------------------------------

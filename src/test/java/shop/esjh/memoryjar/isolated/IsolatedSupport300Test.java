@@ -38,7 +38,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @SpringBootTest(classes=MemoryJarApplication.class,webEnvironment=SpringBootTest.WebEnvironment.DEFINED_PORT,
         properties={"server.port=8080","server.address=0.0.0.0","spring.docker.compose.enabled=false",
                 "management.server.port=9091","management.server.address=127.0.0.1",
-                "app.cookie.secure=false","app.cookie.domain=","app.cookie.same-site=Lax"})
+                "app.cookie.secure=false","app.cookie.domain=","app.cookie.same-site=Lax",
+                "app.support.mfa.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                "app.support.mfa.bootstrap-secret=isolated-test-only-operator-bootstrap-secret"})
 class IsolatedSupport300Test {
     @PersistenceContext EntityManager em;
     @Autowired PlatformTransactionManager transactions;
@@ -47,6 +49,7 @@ class IsolatedSupport300Test {
     @Autowired ObjectMapper json;
     @Autowired JwtTokenProvider jwt;
     @Autowired SupportProperties operators;
+    @Autowired shop.esjh.memoryjar.repository.RefreshTokenRepository refreshTokens;
     @Autowired ResourceUsageEndpoint resources;
     @MockitoBean S3Client s3;
     @MockitoBean S3Presigner presigner;
@@ -74,7 +77,12 @@ class IsolatedSupport300Test {
         guestSecurityBoundary();
         var actors=new TransactionTemplate(transactions).execute(tx->{
             var op=User.builder().email("support-operator@example.invalid").name("시험 운영자").build();em.persist(op);operators.setOperatorUserIds(Set.of(op.getId()));
-            operatorActor=new Actor("accessToken="+jwt.createAccessToken(op.getId().toString(),Map.of("sessionVersion",0)),null,0);
+            // 운영자 추가 인증은 실제 기기 로그인을 요구한다. 일반 사용자의 기존 부하 입력과는 분리한다.
+            String sessionId=UUID.randomUUID().toString();
+            refreshTokens.save(shop.esjh.memoryjar.entity.RefreshToken.builder().user(op).sessionId(sessionId)
+                    .tokenHash(UUID.randomUUID().toString().replace("-","").repeat(2))
+                    .expiresAt(LocalDateTime.now(ZoneId.of("Asia/Seoul")).plusDays(1)).build());
+            operatorActor=new Actor("accessToken="+jwt.createAccessToken(op.getId().toString(),Map.of("sessionVersion",0,"loginSessionId",sessionId)),null,0);
             List<Actor> result=new ArrayList<>();
             for(int n=0;n<300;n++) {
                 var user=User.builder().email("support-"+n+"@example.invalid").name("가상 이용자 "+n).build();em.persist(user);
@@ -89,6 +97,11 @@ class IsolatedSupport300Test {
             var operatorCsrf=round(List.of(operatorActor),"operator-csrf","GET","/api/v1/csrf",a->null).get(0);
             String operatorCookie=operatorCsrf.headers().allValues("set-cookie").stream().filter(s->s.startsWith("XSRF-TOKEN=")).findFirst().orElseThrow().split(";",2)[0];
             operatorActor=new Actor(operatorActor.cookie()+"; "+operatorCookie,data(operatorCsrf).path("token").asText(),0);
+            var enrollment=round(List.of(operatorActor),"operator-mfa-enrollment","POST","/api/v1/admin/support/mfa/enrollment",
+                    a->"{\"bootstrapCode\":\"isolated-test-only-operator-bootstrap-secret\"}").get(0);
+            String setupKey=data(enrollment).path("secret").asText();assertThat(setupKey).matches("[A-Z2-7]{32}");
+            round(List.of(operatorActor),"operator-mfa-confirmation","POST","/api/v1/admin/support/mfa/confirmation",
+                    a->"{\"code\":\""+shop.esjh.memoryjar.security.OperatorMfaTestCodes.current(setupKey)+"\"}");
             var csrf=round(actors,"csrf","GET","/api/v1/csrf",a->null);
             List<Actor> prepared=new ArrayList<>();
             for(int n=0;n<300;n++) {
