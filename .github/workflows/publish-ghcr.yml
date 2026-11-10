@@ -82,7 +82,7 @@ jobs:
       # 테스트가 통과한 경우에만 Docker 이미지를 빌드하고 GHCR에 push한다.
       - name: Build & Push
         id: image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
