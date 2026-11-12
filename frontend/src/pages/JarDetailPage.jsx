@@ -36,9 +36,8 @@ import {
 } from "../features/jarDetail/constants/jarDetailLabels";
 import {
   formatDate,
-  formatDateTimeLocalValue,
-  toKstOffsetDateTime,
 } from "../features/jarDetail/utils/jarDetailDateUtils";
+import { formatJarOpenTime, isFutureJarOpenTime } from "../features/jarDetail/utils/jarOpenTime.mjs";
 import { measureJarDropTarget } from "../features/jarDetail/utils/noteFlightGeometry.mjs";
 import {
   normalizeCommentItems,
@@ -147,7 +146,7 @@ function getInviteStatus(invite, palette) {
   };
 }
 
-export default function JarDetailPage({ onSuccess }) {
+export default function JarDetailPage({ me, onSuccess }) {
   const { feedback, notify, dismiss } = useFeedback();
   const [editErrors, setEditErrors] = useState({});
   const [editError, setEditError] = useState("");
@@ -485,11 +484,10 @@ export default function JarDetailPage({ onSuccess }) {
     openAt: "",
   });
 
-// useJarDetail: 저금통 상세 정보와 내 정보
+// 저금통 상세를 조회한다. 로그인 계정은 App에서 전달한다.
 const {
   jar,
   setJar,
-  me,
   loading,
   error,
   sessionExpired,
@@ -601,6 +599,9 @@ const showJarOpenCelebration = useCallback(
      * state 대신 Ref를 사용해서
      * 이 함수가 불필요하게 다시 만들어지는 것도 막는다.
      */
+    // 소켓이 먼저 도착해도 이 화면에서 잠긴 상태를 본 경우에만 자동 재생한다.
+    if (!replay && previousJarOpenStateRef.current !== false) return;
+
     if (jarOpenCelebrationOpenRef.current) {
       return;
     }
@@ -663,71 +664,23 @@ useEffect(() => {
   }
 }, [jarId]);
 
-  /*
-   * REST 오픈 상태 감지 역할
-   *
-   * WebSocket 이벤트를 놓쳤더라도
-   * GET /api/v1/jars/{jarId} 응답의 isOpen이 true라면
-   * 축하 모달을 보여주는 fallback이야.
-   *
-   * 처리할 수 있는 상황:
-   * - 저금통이 열린 뒤 상세 페이지에 들어온 경우
-   * - WebSocket이 잠시 끊어진 경우
-   * - WebSocket 재연결 중에 열린 경우
-   * - 서버 재시작 중에 열린 경우
-   */
+  // 소켓 이벤트를 놓쳐도 REST의 잠김 → 열림 전환을 감지한다.
   useEffect(() => {
-    if (!jar) {
-      return;
-    }
+    if (!jar || Number(jar.jarId) !== Number(jarId)) return;
 
-    /*
-     * jarId가 바뀐 직후에는 잠깐 이전 저금통 정보가 남아 있을 수 있다.
-     * 현재 주소의 jarId와 응답의 jarId가 다르면 처리하지 않는다.
-     */
-    if (Number(jar.jarId) !== Number(jarId)) {
-      return;
-    }
-
-    const currentIsOpen = Boolean(jar.isOpen);
-    const previousIsOpen = previousJarOpenStateRef.current;
-
-    /*
-     * 다음 REST 조회 때 비교할 수 있도록 현재 상태를 기억한다.
-     */
-    previousJarOpenStateRef.current = currentIsOpen;
-
-    if (!currentIsOpen) {
-      return;
-    }
-
-    /*
-     * jar 객체가 아니라 현재 URL의 jarId를 사용한다.
-     *
-     * 다른 저금통으로 이동하는 짧은 순간에
-     * 이전 jar 데이터가 섞이는 것을 막는다.
-     */
-    showJarOpenCelebration({
-      jarId: Number(jarId),
-      eventType: "JAR_OPENED",
-      isOpen: true,
-      openedAt: jar.openAt,
-      message: "저금통이 열렸어요.",
-    });
-
-    /*
-     * 잠금 상태에서 열린 상태로 처음 바뀐 경우
-     * NoteSection도 다시 조회하게 만든다.
-     *
-     * null → true:
-     * 이미 열린 뒤 상세 페이지에 처음 들어온 경우
-     *
-     * false → true:
-     * 상세 페이지를 보고 있는 중에 저금통이 열린 경우
-     */
-    if (previousIsOpen !== true) {
+    const isOpen = Boolean(jar.isOpen);
+    if (isOpen && previousJarOpenStateRef.current === false) {
+      showJarOpenCelebration({
+        jarId: Number(jarId),
+        eventType: "JAR_OPENED",
+        isOpen: true,
+        openedAt: jar.openAt,
+        message: "저금통이 열렸어요.",
+      });
+      // 잠겨 있던 쪽지 목록을 열린 상태로 갱신한다.
       setNoteSectionRefreshKey((prev) => prev + 1);
     }
+    previousJarOpenStateRef.current = isOpen;
   }, [
     jarId,
     jar?.jarId,
@@ -2455,7 +2408,7 @@ useEffect(() => {
         maxMembers: String(jar.maxMembers ?? 2),
         openMode: jar.openMode ?? "ALL_AT_ONCE",
         lockLevel: jar.lockLevel ?? "HIDDEN",
-        openAt: formatDateTimeLocalValue(jar.openAt),
+        openAt: formatJarOpenTime(jar.openAt),
       });
     }, [jar, editOpen]);
 
@@ -2523,6 +2476,12 @@ async function handleUpdateJar(e) {
     return;
   }
 
+  const originalOpenAt = formatJarOpenTime(jar.openAt);
+  if (editForm.openAt !== originalOpenAt && !isFutureJarOpenTime(editForm.openAt)) {
+    setEditErrors({ openAt: "한국 시간 기준으로 지금보다 나중인 오픈 시간을 정해 주세요." });
+    return;
+  }
+
   setEditLoading(true);
 
   try {
@@ -2552,8 +2511,6 @@ async function handleUpdateJar(e) {
      * datetime-local 입력값과 같은 모양으로 바꾼 뒤 비교해야
      * 같은 시간을 서로 다르다고 잘못 판단하지 않는다.
      */
-    const originalOpenAt = formatDateTimeLocalValue(jar.openAt);
-
     // 오픈 날짜가 실제로 바뀌었을 때만 전송
     if (editForm.openAt !== originalOpenAt) {
       updatePayload.openAt = editForm.openAt;
@@ -4339,7 +4296,7 @@ async function handleViewOpenedJarNotes() {
           open={jarChatOpen}
           jar={jar}
           palette={palette}
-          currentUserId={me?.userId}
+          currentUserId={currentUserId}
           onClose={handleCloseJarChat}
         />
 
@@ -4422,8 +4379,8 @@ async function handleViewOpenedJarNotes() {
 
             <div className="sm:col-span-2">
               <InfoItem
-                label="오픈일"
-                value={formatDate(jar.openAt)}
+                label="오픈일 (KST)"
+                value={formatDate(jar.openAt, "Asia/Seoul")}
                 className={palette.infoBox}
               />
             </div>
@@ -4458,7 +4415,7 @@ async function handleViewOpenedJarNotes() {
           onLoadMoreComments={() => loadJarZoomComments(jarZoomDetailNoteId, { append: true })}
           commentsLoading={jarZoomCommentsLoading}
           commentsError={jarZoomCommentsError}
-          currentUserId={me?.userId}
+          currentUserId={currentUserId}
           commentDraft={commentDraft}
           onCommentDraftChange={setCommentDraft}
           onCreateComment={handleCreateComment}
@@ -5140,7 +5097,7 @@ async function handleViewOpenedJarNotes() {
 
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold text-slate-500">
-                    오픈일
+                    오픈일 (한국 시간 · KST)
                   </span>
                   <input
                     type="datetime-local"

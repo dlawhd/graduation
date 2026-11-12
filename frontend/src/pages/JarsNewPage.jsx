@@ -9,6 +9,7 @@ import apiClient, { fetchCsrf } from "../api/apiClient";
 import CreationExperience from "../features/jarDesign/components/CreationExperience";
 import CreationChoices from "../features/jarDesign/components/CreationChoices";
 import { presentCreation } from "../features/jarDesign/creationTiming.mjs";
+import { isFutureJarOpenTime } from "../features/jarDetail/utils/jarOpenTime.mjs";
 import SandIcon from "../components/icons/SandIcon";
 import LavenderIcon from "../components/icons/LavenderIcon";
 import MoonlightIcon from "../components/icons/MoonlightIcon";
@@ -93,7 +94,7 @@ const JAR_TEMPLATES = [
       maxMembers: 2,
       openAt: "",
       openMode: "ALL_AT_ONCE",
-      lockLevel: "TITLE_ONLY",
+      lockLevel: "HIDDEN",
     },
   },
   {
@@ -129,7 +130,7 @@ const JAR_TEMPLATES = [
       maxMembers: 4,
       openAt: "",
       openMode: "ALL_AT_ONCE",
-      lockLevel: "TITLE_ONLY",
+      lockLevel: "HIDDEN",
     },
   },
   {
@@ -147,7 +148,7 @@ const JAR_TEMPLATES = [
       maxMembers: 4,
       openAt: "",
       openMode: "DAILY_DRAW",
-      lockLevel: "META_ONLY",
+      lockLevel: "HIDDEN",
     },
   },
   {
@@ -183,7 +184,7 @@ const JAR_TEMPLATES = [
       maxMembers: 4,
       openAt: "",
       openMode: "ALL_AT_ONCE",
-      lockLevel: "META_ONLY",
+      lockLevel: "HIDDEN",
     },
   },
   {
@@ -201,7 +202,7 @@ const JAR_TEMPLATES = [
       maxMembers: 4,
       openAt: "",
       openMode: "DAILY_DRAW",
-      lockLevel: "META_ONLY",
+      lockLevel: "HIDDEN",
     },
   },
   {
@@ -219,26 +220,10 @@ const JAR_TEMPLATES = [
       maxMembers: 2,
       openAt: "",
       openMode: "ALL_AT_ONCE",
-      lockLevel: "TITLE_ONLY",
+      lockLevel: "HIDDEN",
     },
   },
 ];
-
-// ==============================
-// datetime-local -> OffsetDateTime 문자열
-// ==============================
-function toOffsetDateTimeString(localValue) {
-  if (!localValue) return "";
-
-  const date = new Date(localValue);
-  const offsetMinutes = -date.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? "+" : "-";
-  const absMinutes = Math.abs(offsetMinutes);
-  const offsetHour = String(Math.floor(absMinutes / 60)).padStart(2, "0");
-  const offsetMinute = String(absMinutes % 60).padStart(2, "0");
-
-  return `${localValue}:00${sign}${offsetHour}:${offsetMinute}`;
-}
 
 // ==============================
 // 타입별 색/배경/저금통 스타일
@@ -1945,6 +1930,10 @@ function DefaultJarCreatePage() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (creationInFlight.current) return;
+    if (!isFutureJarOpenTime(form.openAt)) {
+      setError("한국 시간 기준으로 지금보다 나중인 오픈 시간을 정해 주세요.");
+      return;
+    }
     creationInFlight.current = true;
     setLoading(true);
     setError("");
@@ -2497,15 +2486,16 @@ function DefaultJarCreatePage() {
                       : ""
                   }`}
                 >
-                  <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
+                  <label htmlFor="jar-create-open-at" className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
                     <span className="text-base">
                       📅
                     </span>
 
-                    오픈 날짜
+                    오픈 날짜와 시간 (한국 시간 · KST)
                   </label>
 
                   <input
+                    id="jar-create-open-at"
                     type="datetime-local"
                     name="openAt"
                     value={form.openAt}

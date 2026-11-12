@@ -118,6 +118,7 @@ public class JarService {
 
         // 2. openAt 변환값을 먼저 변수에 담아두기
         LocalDateTime openAt = request.openAt();
+        validateFutureOpenAt(openAt, LocalDateTime.now(KST));
 
         // 3. 저금통 엔티티 만들기
         Jar jar = Jar.builder()
@@ -854,7 +855,8 @@ public class JarService {
         // 실제로 오픈 정책을 바꾸는 경우에만 이미 열린 저금통인지 검사
         if (wantsToChangeOpenPolicy) {
             // 잠금 대기 중 오픈되거나 오픈 시각이 지난 경우도 확인한다. 이 조회는 새 잠금을 잡지 않는다.
-            boolean alreadyOpened = alreadyOpenedBeforeLock || !jar.getOpenAt().isAfter(LocalDateTime.now(KST))
+            LocalDateTime now = LocalDateTime.now(KST);
+            boolean alreadyOpened = alreadyOpenedBeforeLock || !jar.getOpenAt().isAfter(now)
                     || jarOpenService.findOpenedJarIdSet(List.of(jarId)).contains(jarId);
 
             if (alreadyOpened) {
@@ -863,6 +865,7 @@ public class JarService {
                         "이미 열린 저금통은 오픈 정책을 다시 바꿀 수 없어."
                 );
             }
+            if (openAtChanged) validateFutureOpenAt(request.openAt(), now);
         }
 
         // 3. 현재 값 가져오기
@@ -1045,6 +1048,14 @@ public class JarService {
                 "초대코드 생성에 실패했어. 다시 시도해줘."
         );
     }
+    /** 생성과 오픈일 변경에서 서버의 한국 시간을 기준으로 미래 시각만 허용한다. */
+    private void validateFutureOpenAt(LocalDateTime openAt, LocalDateTime now) {
+        if (openAt == null || !openAt.isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "한국 시간 기준으로 지금보다 나중인 오픈 시간을 정해 주세요.");
+        }
+    }
+
     /*
      * DB에 저장된 LocalDateTime은 한국 시간 벽시계값이라고 가정하고
      * 응답용 OffsetDateTime(+09:00)으로 감싸주는 함수

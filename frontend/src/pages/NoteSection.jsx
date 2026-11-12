@@ -253,65 +253,6 @@ function formatDateOnly(value) {
   });
 }
 
-// 현재 저금통 상태에 따라 note 안내 문구 만들기
-function getLockGuide(jar) {
-  if (!jar) {
-    return {
-      chip: "확인 중",
-      title: "쪽지 상태를 확인하고 있어요.",
-      description: "잠시만 기다려 주세요.",
-      chipClass: "bg-slate-100 text-slate-600",
-    };
-  }
-
-  if (jar.isOpen) {
-    return {
-      chip: "OPEN",
-      title: "지금은 쪽지 내용을 바로 볼 수 있어요.",
-      description: "저금통이 열린 상태라서 목록과 상세에서 추억 내용을 확인할 수 있어요.",
-      chipClass: "bg-emerald-100 text-emerald-700",
-    };
-  }
-
-}
-
-// 카드에서 제목을 어떻게 보여줄지 정하기
-function getVisibleTitle(note, jar) {
-  const title = toSafeText(note?.title);
-
-  if (jar?.isOpen) {
-    return title || "제목 없는 추억";
-  }
-
-  if (jar?.lockLevel === "TITLE_ONLY") {
-    return title || "제목 없는 추억";
-  }
-
-  return "잠겨 있는 추억";
-}
-
-// 카드에서 짧은 설명 보여주기
-function getCardSummary(note, jar) {
-  const content = toSafeText(note?.content);
-
-  if (jar?.isOpen && content) {
-    if (content.length <= 72) return content;
-    return `${content.slice(0, 72)}...`;
-  }
-
-  if (jar?.lockLevel === "TITLE_ONLY") {
-    return "오픈 전이라 내용은 아직 비밀이에요.";
-  }
-
-  if (jar?.lockLevel === "META_ONLY") {
-    return "오픈 전이라 날짜, 장소, 태그 같은 정보만 보여줘요.";
-  }
-
-  return "오픈 전이라 아직 내용은 볼 수 없어요.";
-}
-
-
-
 // reactionCounts 배열을 안전하게 정리
 function normalizeReactionCounts(counts) {
   if (!Array.isArray(counts)) return [];
@@ -1197,7 +1138,6 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
   const [uploadError, setUploadError] =
     useState("");
 
-  const lockGuide = useMemo(() => getLockGuide(jar), [jar]);
 
   // 화면에 잠깐 뜨는 토스트를 보여주는 함수
   function showToast(type, message) {

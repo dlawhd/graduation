@@ -12,7 +12,6 @@ import {
  *
  * 쉽게 말하면:
  * - 저금통 상세 정보 가져오기
- * - 현재 로그인한 내 정보 가져오기
  * - 로딩/에러 상태 관리하기
  * 를 JarDetailPage 대신 맡아주는 "상세 정보 담당자"다.
  */
@@ -20,9 +19,6 @@ export function useJarDetail(jarId) {
   const requests = useRequestGate(jarId);
   // 서버에서 받아온 저금통 상세 정보
   const [jar, setJar] = useState(null);
-
-  // 현재 로그인한 사용자 정보
-  const [me, setMe] = useState(null);
 
   // 상세 화면 전체 로딩 상태
   const [loading, setLoading] = useState(true);
@@ -112,34 +108,7 @@ export function useJarDetail(jarId) {
   );
 
   /*
-   * 현재 로그인한 사용자 정보를 불러오는 함수야.
-   *
-   * 이 값은 WebSocket 이벤트에서 "내가 강퇴 대상인지" 판단할 때 사용한다.
-   */
-  const loadMe = useCallback(async () => {
-    const isCurrent = requests.begin("me");
-    try {
-      const res = await apiClient.get("/api/v1/me");
-      if (isCurrent()) setMe(res.data?.data || null);
-    } catch (e) {
-      if (!isCurrent()) return;
-      /*
-       * 단순한 내 정보 조회 실패는 null로 두지만,
-       * Refresh Token까지 만료된 경우에는
-       * 상세 화면 전체를 재로그인 상태로 전환한다.
-       */
-      if (
-        isSessionExpiredError(e)
-      ) {
-        setSessionExpired(true);
-      }
-
-      setMe(null);
-    }
-  }, [requests]);
-
-  /*
-   * jarId가 바뀌면 상세 정보와 내 정보를 새로 불러온다.
+   * jarId가 바뀌면 상세 정보를 새로 불러온다. 계정 정보는 App에서 확인한다.
    *
    * 예:
    * - /jars/10 에서 /jars/20 으로 이동하면
@@ -148,17 +117,14 @@ export function useJarDetail(jarId) {
   useEffect(() => {
     setJar(null);
     loadJarDetail();
-    loadMe();
-  }, [loadJarDetail, loadMe]);
+  }, [loadJarDetail]);
 
   return {
     jar,
     setJar,
-    me,
     loading,
     error,
     sessionExpired,
     loadJarDetail,
-    loadMe,
   };
 }

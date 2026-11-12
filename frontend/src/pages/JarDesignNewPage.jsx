@@ -8,7 +8,7 @@ import JarBodyPicker from "../features/jarDesign/components/JarBodyPicker";
 import JarDesignImage from "../features/jarDesign/components/JarDesignImage";
 import { getJarBody } from "../features/jarDesign/jarBodies.mjs";
 import JarBodyWorkshop from "../features/jarDesign/components/JarBodyWorkshop";
-import { BODY_DRAFT_KEY, readBodyDraft } from "../features/jarDesign/customJarBody.mjs";
+import { readBodyDraft, writeBodyDraft } from "../features/jarDesign/customJarBody.mjs";
 import { prepareSourceImage, SOURCE_IMAGE_ACCEPT } from "../features/jarDesign/sourceImageFile.mjs";
 import {
   createJarDesignDraft,
@@ -17,7 +17,7 @@ import {
 } from "../api/jarDesignDraftApi";
 
 /** Canvas 또는 외부 원본으로 Draft를 만들고 AI 후보 보관함으로 이어지는 별도 사전 디자인 화면이다. */
-export default function JarDesignNewPage() {
+export default function JarDesignNewPage({ userId }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   // 같은 주소로 사진 선택 상태만 저장하는 replace는 유효한 제작 요청을 취소하지 않는다.
@@ -25,7 +25,7 @@ export default function JarDesignNewPage() {
   const [inputMode, setInputMode] = useState("DRAW");
   const [sourceImage, setSourceImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [customBody, setCustomBody] = useState(() => { try { return readBodyDraft(window.sessionStorage); } catch { return null; } });
+  const [customBody, setCustomBody] = useState(() => { try { return readBodyDraft(window.sessionStorage, userId); } catch { return null; } });
   const [catalogOpen, setCatalogOpen] = useState(false);
   // URL에서 단계를 읽어 새로고침과 브라우저 뒤로 가기도 같은 선택으로 복원한다. 파일은 메모리에만 둔다.
   const draftId = parseDraftId(searchParams.get("draft"));
@@ -48,9 +48,9 @@ export default function JarDesignNewPage() {
     setSaving(false);
   }, [requestGate]);
   useEffect(() => {
-    try { if (customBody) window.sessionStorage.setItem(BODY_DRAFT_KEY, JSON.stringify(customBody)); }
+    try { writeBodyDraft(window.sessionStorage, userId, customBody); }
     catch { /* 저장 공간이 막혀도 현재 탭의 편집과 업로드는 계속할 수 있다. */ }
-  }, [customBody]);
+  }, [customBody, userId]);
   const stepKey = draftId ? `draft:${draftId}` : imageStep ? "image" : "body";
   // 같은 경로의 query만 바뀌어도 새 단계의 첫 제목부터 보여준다. 사진 교체·모양 탐색에는 이동하지 않는다.
   useLayoutEffect(() => {

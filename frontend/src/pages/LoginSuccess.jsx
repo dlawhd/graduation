@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import { readLoginReturn, rememberLoginReturn } from "../api/loginReturn.mjs";
 import MemoryJarLogoIcon from "../components/icons/MemoryJarLogoIcon";
 
 /*
@@ -12,26 +13,6 @@ import MemoryJarLogoIcon from "../components/icons/MemoryJarLogoIcon";
  * 아주 짧게 완료 상태를 보여준 뒤 목적지로 이동한다.
  */
 const SUCCESS_VIEW_DELAY_MS = 2500;
-
-/*
- * 로그인 전에 저장한 이동 주소를 안전하게 꺼내는 함수
- *
- * 서비스 내부 주소(/로 시작하는 주소)만 허용하고,
- * 저장된 주소가 없거나 올바르지 않으면 저금통 목록으로 이동한다.
- */
-function getSafeRedirectTarget() {
-  const storedTarget = sessionStorage.getItem("postLoginRedirect");
-
-  if (
-    !storedTarget ||
-    !storedTarget.startsWith("/") ||
-    storedTarget.startsWith("//")
-  ) {
-    return "/jars";
-  }
-
-  return storedTarget;
-}
 
 /*
  * LoginSuccessJarVisual 역할
@@ -88,7 +69,7 @@ export default function LoginSuccess() {
   const [error, setError] = useState("");
 
   // 화면이 열린 순간 이동할 목적지를 한 번만 결정한다.
-  const [redirectTarget] = useState(() => getSafeRedirectTarget());
+  const [redirectTarget] = useState(() => readLoginReturn() ?? "/jars");
 
   useEffect(() => {
     let ignore = false;
@@ -126,13 +107,12 @@ export default function LoginSuccess() {
           ? `${displayName}님 로그인됐어요!`
           : "로그인이 완료됐어요!";
 
-        sessionStorage.setItem("loginSuccessToast", toastMessage);
-
-        // 원래 이동 주소를 꺼냈으므로 저장된 값을 정리한다.
-        sessionStorage.removeItem("postLoginRedirect");
+        try { sessionStorage.setItem("loginSuccessToast", toastMessage); }
+        catch { /* 완료 알림 저장 실패와 로그인 결과는 별개다. */ }
 
         // 완료 상태를 아주 잠깐 보여준 뒤 목적지로 이동한다.
         moveTimer = window.setTimeout(() => {
+          rememberLoginReturn(null);
           navigate(redirectTarget, { replace: true });
         }, SUCCESS_VIEW_DELAY_MS);
       } catch (requestError) {
@@ -188,7 +168,7 @@ const title =
       : phase === "done"
         ? isInviteRedirect
           ? "초대받은 저금통으로 이동하고 있어요."
-          : "내 추억 저금통으로 이동하고 있어요."
+          : redirectTarget === "/jars" ? "내 추억 저금통으로 이동하고 있어요." : "보던 화면으로 돌아가고 있어요."
         : "잠시만 기다려 주세요.";
 
   return (

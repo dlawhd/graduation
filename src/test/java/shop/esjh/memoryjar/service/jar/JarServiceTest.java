@@ -30,12 +30,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -103,6 +105,26 @@ class JarServiceTest {
     }
 
     @Test
+    @DisplayName("기본 생성과 디자인 최종화는 한국 시간으로 이미 지난 오픈일을 거부한다")
+    void createRejectsPastKoreanOpeningTime() {
+        User owner = User.builder().id(1L).name("테스트").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        JarCreateRequest request = new JarCreateRequest(
+                "저금통", null, JarTheme.SPRING, 2,
+                LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusMinutes(1),
+                JarOpenMode.ALL_AT_ONCE, JarLockLevel.HIDDEN
+        );
+
+        assertThatThrownBy(() -> jarService.createJar(1L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThatThrownBy(() -> jarService.createJarForDesignFinalize(1L, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(jarRepository, never()).save(any(Jar.class));
+    }
+
+    @Test
     void createJar는_저금통과_OWNER멤버를_함께_생성한다() {
         // given
         User user = User.builder()
@@ -119,7 +141,7 @@ class JarServiceTest {
                 "1년 뒤에 열어보자",
                 JarTheme.SPRING,
                 2,
-                LocalDateTime.of(2026, 12, 31, 0, 0, 0),
+                LocalDateTime.now(ZoneId.of("Asia/Seoul")).plusDays(1),
                 JarOpenMode.ALL_AT_ONCE,
                 JarLockLevel.HIDDEN
         );

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { basicBodyOutline, customJarBody, customContainWindow, outlineError, readBodyDraft, MAX_BODY_POINTS } from "./customJarBody.mjs";
+import { basicBodyOutline, customJarBody, customContainWindow, outlineError, readBodyDraft, writeBodyDraft, MAX_BODY_POINTS } from "./customJarBody.mjs";
 import { getJarBody } from "./jarBodies.mjs";
 
 test("three unadorned templates have valid independent shapes",()=>{
@@ -22,9 +22,35 @@ test("malformed coordinates, scripts, tiny lines and too many points are rejecte
 test("self-intersecting or duplicate outlines cannot be applied",()=>{
   for(const points of [[{x:.1,y:.1},{x:.9,y:.9},{x:.1,y:.9},{x:.9,y:.1}], [{x:.1,y:.1},{x:.9,y:.1},{x:.9,y:.1},{x:.1,y:.9}]]) assert.ok(outlineError({points,color:"#abcdef"}));
 });
-test("storage errors and corrupt drafts do not break creation; valid shape restores",()=>{
-  const value=basicBodyOutline("SQUARE");assert.deepEqual(readBodyDraft({getItem:()=>JSON.stringify(value)}),value);
-  assert.equal(readBodyDraft({getItem:()=>"{broken"}),null);assert.equal(readBodyDraft({getItem:()=>{throw Error();}}),null);assert.equal(getJarBody("CUSTOM"),null);
+test("storage errors and corrupt drafts do not break creation", () => {
+  assert.equal(readBodyDraft({ getItem: () => "{broken" }, 1), null);
+  assert.equal(readBodyDraft({ getItem: () => { throw Error(); } }, 1), null);
+  assert.equal(getJarBody("CUSTOM"), null);
+});
+
+test("account drafts restore only for their owner and the old shared draft is discarded", () => {
+  const sharedKey = "memoryjar.body-workshop.v1";
+  const firstDraft = basicBodyOutline("SQUARE");
+  const secondDraft = basicBodyOutline("JAR");
+  const values = new Map([[sharedKey, JSON.stringify(firstDraft)]]);
+  const storage = {
+    getItem: key => values.get(key),
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+
+  assert.equal(readBodyDraft(storage, 1), null);
+  writeBodyDraft(storage, 1, firstDraft);
+  assert.equal(values.has(sharedKey), false);
+  assert.equal(readBodyDraft(storage, 2), null);
+  assert.equal(readBodyDraft(storage, null), null);
+  writeBodyDraft(storage, 2, secondDraft);
+  assert.deepEqual(readBodyDraft(storage, 1), firstDraft);
+  assert.deepEqual(readBodyDraft(storage, 2), secondDraft);
+
+  writeBodyDraft(storage, 2, null);
+  assert.equal(readBodyDraft(storage, 2), null);
+  assert.deepEqual(readBodyDraft(storage, 1), firstDraft);
 });
 
 test("whole image fits inside round and concave custom outlines without clipping corners",()=>{

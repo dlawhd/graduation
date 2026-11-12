@@ -78,6 +78,7 @@ function formatDate(dateTime) {
   if (Number.isNaN(date.getTime())) return "-";
 
   return date.toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -1132,7 +1133,7 @@ export default function JarsPage({ me, checkingAuth = false }) {
                         <div className="jar-shelf-date">
                           <div>
                             <p className="jar-shelf-date-label">
-                              {jar.isOpen ? "오픈 날짜" : "열리는 날"}
+                              {jar.isOpen ? "오픈 날짜 (KST)" : "열리는 날 (KST)"}
                             </p>
                             <p className="jar-shelf-date-value">
                               {formatDate(jar.openAt)}

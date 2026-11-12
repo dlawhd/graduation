@@ -9,7 +9,7 @@
  * "2026. 06. 28. 오전 10:00"처럼 사람이 읽기 좋게 바꿔줘.
  */
 
-export function formatDate(dateTime) {
+export function formatDate(dateTime, timeZone) {
   if (!dateTime) return "-";
 
   const date = new Date(dateTime);
@@ -19,50 +19,13 @@ export function formatDate(dateTime) {
   }
 
   return date.toLocaleString("ko-KR", {
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-/*
- * input type="datetime-local"에 넣기 좋은 형태로 바꿔주는 함수야.
- *
- * 예:
- * 2026-06-28T10:30:00+09:00
- * → 2026-06-28T10:30
- */
-export function formatDateTimeLocalValue(dateTime) {
-  if (!dateTime) return "";
-
-  const date = new Date(dateTime);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hour}:${minute}`;
-}
-
-/*
- * datetime-local 값을 백엔드 OffsetDateTime 형태로 바꿔주는 함수야.
- *
- * 예:
- * 2026-06-28T10:30
- * → 2026-06-28T10:30:00+09:00
- */
-export function toKstOffsetDateTime(localValue) {
-  if (!localValue) return null;
-
-  return `${localValue}:00+09:00`;
 }
 
 export function formatNoteDateOnly(value) {

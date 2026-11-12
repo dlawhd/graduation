@@ -43,7 +43,7 @@ function CreationFixture() {
   const navigate = useNavigate();
   useEffect(() => { window.fixture.navigate = navigate; }, [navigate]);
   return <Routes><Route path="/jars/new" element={<p>제작 화면을 떠났어요</p>}/>
-    <Route path="*" element={<JarDesignNewPage/>}/></Routes>;
+    <Route path="*" element={<JarDesignNewPage userId={1}/>}/></Routes>;
 }
 createRoot(document.getElementById("root")).render(new URLSearchParams(location.search).get("fixture") === "draw"
   ? <DrawFixture/> : <BrowserRouter><StompClientProvider><CreationFixture/></StompClientProvider></BrowserRouter>);

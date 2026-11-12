@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { rememberLoginReturn } from "../api/loginReturn.mjs";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import MemoryJarLogoIcon from "../components/icons/MemoryJarLogoIcon";
 import InviteLetterIcon from "../components/icons/InviteLetterIcon";
@@ -330,10 +331,7 @@ export default function InvitePage({ me, checkingAuth }) {
        * OAuth 로그인이 끝난 뒤 다시 현재 초대 페이지로
        * 돌아오기 위해 목적지를 저장해.
        */
-      sessionStorage.setItem(
-        "postLoginRedirect",
-        `/invite/${inviteCode}`,
-      );
+      rememberLoginReturn(`/invite/${inviteCode}`);
 
       /*
        * 로그인 후 초대 페이지에 돌아왔을 때
@@ -397,7 +395,7 @@ export default function InvitePage({ me, checkingAuth }) {
 
       if (status === 401 || status === 403) {
         // 다시 로그인한 뒤 현재 초대 페이지로 돌아오게 해.
-        sessionStorage.setItem("postLoginRedirect", `/invite/${inviteCode}`);
+        rememberLoginReturn(`/invite/${inviteCode}`);
         sessionStorage.setItem(INVITE_AUTO_JOIN_KEY, inviteCode);
         setLoginRequired(true);
       } else {

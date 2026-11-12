@@ -1,3 +1,4 @@
+import { rememberLoginReturn } from "../../api/loginReturn.mjs";
 import {
   useEffect,
   useState,
@@ -109,6 +110,7 @@ export default function LoginJarCard({
   checkingSession,
   redirectingProvider,
   errorMessage,
+  loginReturnTo,
   onNaverLogin,
   onGoogleLogin,
   onKakaoLogin,
@@ -331,8 +333,9 @@ export default function LoginJarCard({
        * App을 새로 시작하면
        * /api/v1/me가 새 로그인 정보를 읽는다.
        */
+      rememberLoginReturn(null);
       window.location.replace(
-        "/jars"
+        loginReturnTo ?? "/jars"
       );
 
     } catch (error) {

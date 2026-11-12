@@ -45,6 +45,29 @@ const base = process.env.TEST_BASE_URL || 'http://127.0.0.1:3004';
       await modal.waitFor(); assert.equal(await modal.locator('.jar-opening-progress').getAttribute('aria-label'), '0 / 3번 두드림');
       await page.keyboard.press('Escape'); await modal.waitFor({ state: 'detached' });
       assert.equal(await page.evaluate(() => document.body.style.overflow), '');
+      // 열린 뒤 새 탭에서 처음 접속하면 버튼을 누르기 전까지 연출이 열리지 않는다.
+      const openedPage = await context.newPage();
+      await openedPage.goto(base + "/tests/user-state-preview.html?opened=1");
+      await openedPage.getByRole("button", { name: "전체 쪽지", exact: true }).waitFor();
+      const alreadyOpenModal = openedPage.getByRole("dialog", { name: "톡톡, 추억이 열리는 순간" });
+      assert.equal(await alreadyOpenModal.count(), 0);
+      await openedPage.getByRole("button", { name: "추억 열기 다시 보기", exact: true }).click();
+      await alreadyOpenModal.waitFor();
+      await openedPage.keyboard.press("Escape");
+      await alreadyOpenModal.waitFor({ state: "detached" });
+
+      // 마우스로 열린 채팅창은 즉시 닫히지 않고, 키보드로 닫으면 호출 버튼으로 돌아간다.
+      const chatButton = openedPage.getByRole("button", { name: "저금통 채팅", exact: true });
+      await chatButton.click();
+      const chat = openedPage.getByRole("dialog", { name: "나의 시험 저금통 채팅" });
+      await chat.waitFor();
+      assert.equal(await chat.getByRole("button", { name: "닫기", exact: true }).evaluate(button => button === document.activeElement), true);
+      await openedPage.keyboard.press("Tab");
+      assert.equal(await chat.evaluate(dialog => dialog.contains(document.activeElement)), true);
+      await openedPage.keyboard.press("Escape");
+      await chat.waitFor({ state: "detached" });
+      assert.equal(await chatButton.evaluate(button => button === document.activeElement), true);
+      await openedPage.close();
       assert.deepEqual(errors, []);
       passed.push({ width, test: '잠금 전 비노출·REST 공개 감지·추억 목록 이동·확인 기록·중복 표시 방지·다시 보기·Esc' });
       await context.close();

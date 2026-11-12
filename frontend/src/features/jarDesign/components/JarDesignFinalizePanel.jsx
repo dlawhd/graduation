@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import CreationExperience from "./CreationExperience";
 import ThemeMoodPicker, { ThemePreviewStage } from "./ThemeMoodPicker";
 import { presentCreation } from "../creationTiming.mjs";
+import { isFutureJarOpenTime, jarOpenTimeAfterDays } from "../../jarDetail/utils/jarOpenTime.mjs";
 import { getThemeIcon } from "../../jarDetail/theme/jarDetailTheme";
 import { draftImageRendering } from "../imageRendering.mjs";
 import { Link, useNavigate } from "react-router-dom";
@@ -26,7 +27,7 @@ const INITIAL_JAR_FORM = {
   maxMembers: 2,
   openAt: "",
   openMode: "ALL_AT_ONCE",
-  lockLevel: "TITLE_ONLY",
+  lockLevel: "HIDDEN",
 };
 
 const THEME_LABELS = {
@@ -126,7 +127,7 @@ export default function JarDesignFinalizePanel({
       return "최대 인원은 2명에서 50명 사이로 정해 주세요.";
     }
     if (!form.openAt) return "저금통을 열 날짜와 시간을 정해 주세요.";
-    if (new Date(form.openAt).getTime() <= Date.now()) return "오픈 날짜와 시간은 지금보다 나중으로 정해 주세요.";
+    if (!isFutureJarOpenTime(form.openAt)) return "한국 시간 기준으로 지금보다 나중인 오픈 시간을 정해 주세요.";
     return "";
   }
 
@@ -242,10 +243,10 @@ export default function JarDesignFinalizePanel({
               <input type="number" min="2" max="50" value={form.maxMembers} onChange={(event) => setForm((current) => ({ ...current, maxMembers: event.target.value }))}
                 required disabled={formLocked} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />
             </label>
-            <label className="block text-sm font-bold text-slate-700 sm:col-span-2">오픈 날짜와 시간
+            <label className="block text-sm font-bold text-slate-700 sm:col-span-2">오픈 날짜와 시간 (한국 시간 · KST)
               <input type="datetime-local" value={form.openAt} onChange={(event) => setForm((current) => ({ ...current, openAt: event.target.value }))}
                 required disabled={formLocked} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />
-              <span className="mt-2 flex flex-wrap gap-2">{[[7, "일주일 뒤"], [30, "한 달 뒤"], [100, "100일 뒤"]].map(([days, label]) => <button key={days} type="button" disabled={formLocked} onClick={() => { const date = new Date(); date.setDate(date.getDate() + days); const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); setForm((current) => ({ ...current, openAt: local })); }} className="rounded-full bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700">{label}</button>)}</span>
+              <span className="mt-2 flex flex-wrap gap-2">{[[7, "일주일 뒤"], [30, "30일 뒤"], [100, "100일 뒤"]].map(([days, label]) => <button key={days} type="button" disabled={formLocked} onClick={() => setForm((current) => ({ ...current, openAt: jarOpenTimeAfterDays(days) }))} className="rounded-full bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700">{label}</button>)}</span>
             </label>
             <label className="block text-sm font-bold text-slate-700">오픈 방식
               <select value={form.openMode} onChange={(event) => setForm((current) => ({ ...current, openMode: event.target.value }))} disabled={formLocked}

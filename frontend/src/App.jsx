@@ -15,10 +15,6 @@ import Home from "./pages/Home";
 import StatusNotice from "./components/feedback/StatusNotice";
 import FeedbackToast from "./components/feedback/FeedbackToast";
 import LoginSuccess from "./pages/LoginSuccess";
-import JarsPage from "./pages/JarsPage";
-import JarsNewPage from "./pages/JarsNewPage";
-import JarDesignNewPage from "./pages/JarDesignNewPage";
-import JarDetailPage from "./pages/JarDetailPage";
 import InvitePage from "./pages/InvitePage";
 import { useRequestGate } from "./api/useRequestGate";
 import { createCoalescedRefresh } from "./api/coalescedRefresh.mjs";
@@ -65,6 +61,10 @@ import MobileHeaderMenu from "./components/layout/MobileHeaderMenu";
 import { getSupportPermissions } from "./api/supportApi";
 import { supportNotificationPath } from "./features/support/supportView.mjs";
 import SupportHelpLink from "./features/support/SupportHelpLink";
+const JarsPage = lazy(() => import("./pages/JarsPage"));
+const JarsNewPage = lazy(() => import("./pages/JarsNewPage"));
+const JarDesignNewPage = lazy(() => import("./pages/JarDesignNewPage"));
+const JarDetailPage = lazy(() => import("./pages/JarDetailPage"));
 const SupportInquiriesPage = lazy(() => import("./pages/SupportInquiriesPage"));
 const SupportNewPage = lazy(() => import("./pages/SupportNewPage"));
 const SupportHelpPage = lazy(() => import("./pages/SupportHelpPage"));
@@ -1478,13 +1478,25 @@ useEffect(() => {
             }
           />
           <Route path="/login/success" element={<LoginSuccess />} />
-          <Route path="/jars" element={<JarsPage key={supportUserId} me={me} checkingAuth={checkingAuth} />} />
-          <Route path="/jars/new" element={<JarsNewPage />} />
+          <Route path="/jars" element={
+            <Suspense fallback={<StatusNotice type="loading" title="내 저금통을 준비하고 있어요." />}>
+              <JarsPage key={supportUserId} me={me} checkingAuth={checkingAuth} />
+            </Suspense>
+          } />
+          <Route path="/jars/new" element={
+            <Suspense fallback={<StatusNotice type="loading" title="만들기 화면을 준비하고 있어요." />}>
+              <JarsNewPage />
+            </Suspense>
+          } />
           <Route path="/help" element={<Suspense fallback={<p className="p-6">도움말을 준비하고 있어요.</p>}><SupportHelpPage/></Suspense>} />
           <Route path="/support/new" element={<Suspense fallback={<p className="p-6">문의 화면을 준비하고 있어요.</p>}><SupportNewPage key={supportUserId} me={me} checkingAuth={checkingAuth}/></Suspense>} />
           <Route path="/support/login-help" element={<Suspense fallback={<p className="p-6">로그인 도움을 준비하고 있어요.</p>}><SupportLoginHelpPage/></Suspense>} />
-          <Route path="/jars/design/new" element={<JarDesignNewPage />} />
-          <Route path="/jars/:jarId" element={<JarDetailRoute userId={getCurrentUserId(me)} checkingAuth={checkingAuth} onSuccess={setLoginToastMessage} />} />
+          <Route path="/jars/design/new" element={checkingAuth
+            ? <StatusNotice type="loading" title="로그인 상태를 확인하고 있어요." />
+            : <Suspense fallback={<StatusNotice type="loading" title="디자인 공방을 준비하고 있어요." />}>
+                <JarDesignNewPage key={supportUserId} userId={getCurrentUserId(me)} />
+              </Suspense>} />
+          <Route path="/jars/:jarId" element={<JarDetailRoute me={me} checkingAuth={checkingAuth} onSuccess={setLoginToastMessage} />} />
           <Route path="/support/inquiries" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
           <Route path="/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
           <Route path="/admin/support/inquiries" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator /></Suspense>} />
@@ -1494,6 +1506,13 @@ useEffect(() => {
            * InvitePage에서 /api/v1/me를 다시 호출하지 않아 중복 요청을 줄인다.
            */}
           <Route path="/invite/:code" element={<InvitePage me={me} checkingAuth={checkingAuth} />} />
+          <Route path="*" element={<section className="mx-auto max-w-lg px-5 py-20 text-center">
+            <h1 className="text-2xl font-black text-slate-900">페이지를 찾을 수 없어요</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">주소를 확인하거나 아래에서 다시 시작해 주세요.</p>
+            <Link to={me ? "/jars" : "/"} className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-emerald-800 px-5 font-bold text-white">
+              {me ? "내 저금통으로" : "홈으로"}
+            </Link>
+          </section>} />
         </Routes>
       </main>
     </div>
@@ -1502,9 +1521,11 @@ useEffect(() => {
 }
 
 /** 저금통이나 계정이 바뀌면 이전 모달·폼·비동기 작업 상태를 새 화면에 넘기지 않는다. */
-function JarDetailRoute({ userId, checkingAuth, onSuccess }) {
+function JarDetailRoute({ me, checkingAuth, onSuccess }) {
   const { jarId } = useParams();
   // 최초 계정 확인 전후로 상세 페이지를 두 번 마운트해 같은 조회를 반복하지 않는다.
   if (checkingAuth) return <StatusNotice type="loading" title="로그인 상태를 확인하고 있어요." />;
-  return <JarDetailPage key={`${userId}:${jarId}`} onSuccess={onSuccess} />;
+  return <Suspense fallback={<StatusNotice type="loading" title="저금통을 준비하고 있어요." />}>
+    <JarDetailPage key={`${getCurrentUserId(me)}:${jarId}`} me={me} onSuccess={onSuccess} />
+  </Suspense>;
 }

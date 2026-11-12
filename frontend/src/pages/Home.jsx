@@ -8,7 +8,8 @@
 // 이 파일 안에는 헤더를 따로 만들지 않아요.
 // ------------------------------------------------------------
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { loginReturnTarget, rememberLoginReturn } from "../api/loginReturn.mjs";
 import {
   SecureMemoryIcon,
   SharedMemoryIcon,
@@ -36,6 +37,8 @@ export default function Home({
   checkingAuth,
 }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = loginReturnTarget(searchParams.get("returnTo"));
 
   // 백엔드 주소
   // 예: https://api.esjh.shop
@@ -85,7 +88,7 @@ export default function Home({
      * 저금통 목록으로 이동한다.
      */
     if (me) {
-      navigate("/jars", {
+      navigate(returnTo ?? "/jars", {
         replace: true,
       });
     }
@@ -93,6 +96,7 @@ export default function Home({
     checkingAuth,
     me,
     navigate,
+    returnTo,
   ]);
 
   // --------------------------------------------------------
@@ -125,6 +129,7 @@ export default function Home({
     setRedirectingProvider(provider);
 
     // Spring Security OAuth 로그인 시작 주소로 이동한다.
+    rememberLoginReturn(returnTo);
     window.location.href = `${BACKEND}/oauth2/authorization/${provider}`;
   };
 
@@ -250,6 +255,7 @@ export default function Home({
             {/* 실제 로그인 동작을 포함한 저금통 컴포넌트 */}
             <LoginJarCard
               checkingSession={checkingAuth}
+              loginReturnTo={returnTo}
               redirectingProvider={redirectingProvider}
               errorMessage={errorMessage}
 

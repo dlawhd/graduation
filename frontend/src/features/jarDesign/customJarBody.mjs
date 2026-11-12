@@ -2,7 +2,12 @@
 import { contoursFit, insetBodyContours } from "./bodyContours.mjs";
 const round = n => Math.round(n * 100000) / 100000;
 export const MAX_BODY_POINTS = 96;
-export const BODY_DRAFT_KEY = "memoryjar.body-workshop.v1";
+const BODY_DRAFT_KEY = "memoryjar.body-workshop.v1";
+
+/** 이전 공용 키와 구분해 로그인한 계정만 자기 본체 초안을 읽게 한다. */
+function bodyDraftKey(userId) {
+  return /^[1-9]\d*$/.test(String(userId)) ? `${BODY_DRAFT_KEY}:${userId}` : null;
+}
 export function outlineError(value) {
   const points = value?.points;
   if (!Array.isArray(points) || points.length < 3) return "외곽선을 넓게 그리거나 점을 3개 이상 찍어주세요.";
@@ -99,7 +104,22 @@ export function customContainWindow(body, frame) {
   }
   return best;
 }
-export function readBodyDraft(storage) {
-  try { const value=JSON.parse(storage?.getItem(BODY_DRAFT_KEY)); return customJarBody(value) ? value : null; }
-  catch { return null; }
+export function readBodyDraft(storage, userId) {
+  const key = bodyDraftKey(userId);
+  if (!key) return null;
+  try {
+    const value = JSON.parse(storage?.getItem(key));
+    return customJarBody(value) ? value : null;
+  } catch { return null; }
+}
+
+/** 같은 탭에서도 계정별로 저장한다. 소유자가 없는 기존 공용 초안은 폐기한다. */
+export function writeBodyDraft(storage, userId, value) {
+  const key = bodyDraftKey(userId);
+  if (!key) return;
+  try {
+    storage.removeItem(BODY_DRAFT_KEY);
+    if (value) storage.setItem(key, JSON.stringify(value));
+    else storage.removeItem(key);
+  } catch { /* 저장소가 제한돼도 현재 화면에서 편집할 수 있다. */ }
 }

@@ -1,5 +1,6 @@
 // src/components/auth/SessionExpiredPage.jsx
 
+import { rememberLoginReturn } from "../../api/loginReturn.mjs";
 import {
   useState,
 } from "react";
@@ -271,10 +272,7 @@ export default function SessionExpiredPage({
      * /jars/10
      * /jars/10?tab=members
      */
-    sessionStorage.setItem(
-      "postLoginRedirect",
-      redirectTarget
-    );
+    rememberLoginReturn(redirectTarget);
 
 
     // 이전 오류 문구를 지운다.

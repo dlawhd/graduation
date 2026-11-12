@@ -6,7 +6,6 @@ import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.jar.Jar;
 import shop.esjh.memoryjar.entity.note.Note;
 import shop.esjh.memoryjar.entity.note.NoteAttachment;
-import shop.esjh.memoryjar.enums.jar.JarLockLevel;
 import shop.esjh.memoryjar.enums.note.NoteReactionEmoji;
 import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.repository.jar.JarMemberRepository;
@@ -209,10 +208,6 @@ public class NoteService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "검색어 또는 페이지 범위를 확인해 주세요.");
         }
         Pageable pageable = PageRequest.of(page, size);
-        // 잠긴 본문에 검색을 허용하면 결과 개수만으로도 비공개 내용을 추측할 수 있다.
-        if ((!query.isEmpty() || !tagQuery.isEmpty()) && !jarOpen) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "저금통이 열린 뒤에 검색할 수 있어요.");
-        }
         Page<NoteListRow> notePage = query.isEmpty() && tagQuery.isEmpty()
                 ? noteRepository.findListRowsByJarId(jar.getJarId(), pageable)
                 : noteRepository.searchListRowsByJarId(jarId, searchPattern(query), searchPattern(tagQuery), pageable);
@@ -220,25 +215,10 @@ public class NoteService {
         // noteId만 뽑기: 같은 페이지의 첨부·리액션·댓글 조회에서 한 목록을 재사용한다.
         List<Long> noteIds = notes.stream().map(NoteListRow::noteId).toList();
 
-        // 4. 첨부파일을 한 번에 조회해서 noteId별로 묶어둠
-        Map<Long, List<NoteAttachmentResponse>> attachmentMap = jarOpen
-                ? getAttachmentResponseMap(noteIds)
-                : Map.of();
-
-        // 5. 리액션 개수도 noteId별로 한 번에 조회해서 묶어둠
-        Map<Long, List<NoteReactionCountItem>> reactionMap = jarOpen
-                ? noteReactionService.getCountMapByNoteIds(
-                noteIds
-        )
-                : Map.of();
-
-        // 6. 내가 각 쪽지에 누른 리액션도 noteId별로 한 번에 조회해서 묶어둠
-        Map<Long, NoteReactionEmoji> myReactionMap = jarOpen
-                ? noteReactionService.getMyReactionMapByNoteIds(
-                currentUserId,
-                noteIds
-        )
-                : Map.of();
+        // 열린 저금통의 첨부와 리액션은 페이지 전체를 한 번에 조회한다.
+        Map<Long, List<NoteAttachmentResponse>> attachmentMap = getAttachmentResponseMap(noteIds);
+        Map<Long, List<NoteReactionCountItem>> reactionMap = noteReactionService.getCountMapByNoteIds(noteIds);
+        Map<Long, NoteReactionEmoji> myReactionMap = noteReactionService.getMyReactionMapByNoteIds(currentUserId, noteIds);
 
         // 7. 댓글 개수도 noteId별로 한 번에 조회해서 묶어둠
         Map<Long, Long> commentCountMap = noteCommentService.getCommentCountMapByNoteIds(
@@ -249,8 +229,6 @@ public class NoteService {
         List<NoteListItem> items = notes.stream()
                 .map(note -> toNoteListItem(
                         note,
-                        jar,
-                        jarOpen,
                         attachmentMap,
                         reactionMap,
                         myReactionMap,
@@ -378,34 +356,27 @@ public class NoteService {
     // 목록 응답 만들기
     private NoteListItem toNoteListItem(
             NoteListRow note,
-            Jar jar,
-            boolean jarOpen,
             Map<Long, List<NoteAttachmentResponse>> attachmentMap,
             Map<Long, List<NoteReactionCountItem>> reactionMap,
             Map<Long, NoteReactionEmoji> myReactionMap,
             Map<Long, Long> commentCountMap
     ) {
-        // 이미 계산한 jarOpen 값을 그대로 사용
-        if (jarOpen) {
-            return new NoteListItem(
-                    note.noteId(),
-                    note.title(),
-                    makePreviewContent(note.content()),
-                    note.noteDate(),
-                    note.location(),
-                    note.authorId(),
-                    note.authorName(),
-                    note.encrypted(),
-                    toOffsetDateTime(note.createdAt()),
-                    safeTags(note.tags()),
-                    attachmentMap.getOrDefault(note.noteId(), List.of()),
-                    myReactionMap.get(note.noteId()),
-                    reactionMap.getOrDefault(note.noteId(), List.of()),
-                    commentCountMap.getOrDefault(note.noteId(), 0L)
-            );
-        }
-
-        return toMaskedNoteListItem(note, jar.getLockLevel(), commentCountMap);
+        return new NoteListItem(
+                note.noteId(),
+                note.title(),
+                makePreviewContent(note.content()),
+                note.noteDate(),
+                note.location(),
+                note.authorId(),
+                note.authorName(),
+                note.encrypted(),
+                toOffsetDateTime(note.createdAt()),
+                safeTags(note.tags()),
+                attachmentMap.getOrDefault(note.noteId(), List.of()),
+                myReactionMap.get(note.noteId()),
+                reactionMap.getOrDefault(note.noteId(), List.of()),
+                commentCountMap.getOrDefault(note.noteId(), 0L)
+        );
     }
 
     // 상세 응답 만들기
@@ -424,102 +395,32 @@ public class NoteService {
                 toAttachmentResponses(note.getNoteId()),null,List.of(),0L);
         long commentCount = noteCommentService.countComments(note.getNoteId());
 
-        // 이미 오픈된 저금통이면 진짜 내용 그대로 보여주기
-        if (opened) {
-            NoteReactionSummaryResponse reactionSummary =
-                    noteReactionService.getSummary(
-                            currentUserId,
-                            jar.getJarId(),
-                            note.getNoteId()
-                    );
+        // 열린 뒤에는 본문과 첨부, 리액션을 함께 반환한다.
+        NoteReactionSummaryResponse reactionSummary =
+                noteReactionService.getSummary(
+                        currentUserId,
+                        jar.getJarId(),
+                        note.getNoteId()
+                );
 
-            return new NoteDetailResponse(
-                    note.getNoteId(),
-                    note.getJar().getJarId(),
-                    note.getAuthor().getId(),
-                    note.getAuthor().getName(),
-                    note.getTitle(),
-                    note.getContent(),
-                    note.isEncrypted(),
-                    note.getNoteDate(),
-                    note.getLocation(),
-                    toOffsetDateTime(note.getCreatedAt()),
-                    toOffsetDateTime(note.getUpdatedAt()),
-                    safeTags(note.getTags()),
-                    toAttachmentResponses(note.getNoteId()),
-                    reactionSummary.myReaction(),
-                    reactionSummary.counts(),
-                    commentCount
-            );
-        }
-
-        // 아직 오픈 전이면 lockLevel에 맞게 마스킹
-        return toMaskedNoteDetailResponse(note, jar.getLockLevel(), commentCount);
-    }
-
-    // 목록용 마스킹
-    private NoteListItem toMaskedNoteListItem(
-            NoteListRow note,
-            JarLockLevel lockLevel,
-            Map<Long, Long> commentCountMap) {
-        long commentCount = commentCountMap.getOrDefault(note.noteId(), 0L);
-
-        return switch (lockLevel) {
-
-            // 완전 숨김: 제목/내용/날짜/장소 거의 다 숨김
-            case HIDDEN -> new NoteListItem(
-                    note.noteId(),
-                    "오픈 전 쪽지",
-                    "아직 열리기 전이야.",
-                    null,
-                    null,
-                    null,
-                    null,
-                    note.encrypted(),
-                    null,
-                    List.of(),
-                    List.of(),
-                    null,
-                    List.of(),
-                    commentCount
-            );
-
-            // 메타만 공개: 날짜/장소는 보여주고 제목/내용은 숨김
-            case META_ONLY -> new NoteListItem(
-                    note.noteId(),
-                    "오픈 전 쪽지",
-                    "아직 내용은 비밀이야.",
-                    note.noteDate(),
-                    note.location(),
-                    null,
-                    null,
-                    note.encrypted(),
-                    toOffsetDateTime(note.createdAt()),
-                    List.of(),
-                    List.of(),
-                    null,
-                    List.of(),
-                    commentCount
-            );
-
-            // 제목만 공개: 제목은 보이고 내용은 숨김
-            case TITLE_ONLY -> new NoteListItem(
-                    note.noteId(),
-                    note.title(),
-                    "아직 내용은 비밀이야.",
-                    note.noteDate(),
-                    note.location(),
-                    null,
-                    null,
-                    note.encrypted(),
-                    toOffsetDateTime(note.createdAt()),
-                    List.of(),
-                    List.of(),
-                    null,
-                    List.of(),
-                    commentCount
-            );
-        };
+        return new NoteDetailResponse(
+                note.getNoteId(),
+                note.getJar().getJarId(),
+                note.getAuthor().getId(),
+                note.getAuthor().getName(),
+                note.getTitle(),
+                note.getContent(),
+                note.isEncrypted(),
+                note.getNoteDate(),
+                note.getLocation(),
+                toOffsetDateTime(note.getCreatedAt()),
+                toOffsetDateTime(note.getUpdatedAt()),
+                safeTags(note.getTags()),
+                toAttachmentResponses(note.getNoteId()),
+                reactionSummary.myReaction(),
+                reactionSummary.counts(),
+                commentCount
+        );
     }
 
     // 미리 다 가져와서 묶어둠
@@ -542,75 +443,6 @@ public class NoteService {
                                 java.util.stream.Collectors.toList()
                         )
                 ));
-    }
-
-    // 상세용 마스킹
-    private NoteDetailResponse toMaskedNoteDetailResponse(
-            Note note,
-            JarLockLevel lockLevel,
-            long commentCount) {
-        return switch (lockLevel) {
-
-            // 완전 숨김: 제목, 내용, 날짜, 장소, 작성자 정보까지 다 숨김
-            case HIDDEN -> new NoteDetailResponse(
-                    note.getNoteId(),
-                    note.getJar().getJarId(),
-                    null,
-                    null,
-                    "오픈 전 쪽지",
-                    "오픈 전이라 아직 내용을 볼 수 없어.",
-                    note.isEncrypted(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    List.of(),
-                    List.of(),
-                    null,
-                    List.of(),
-                    commentCount
-            );
-
-            // 메타만 공개: 날짜, 장소 정도만 보여주고 나머지는 숨김
-            case META_ONLY -> new NoteDetailResponse(
-                    note.getNoteId(),
-                    note.getJar().getJarId(),
-                    null,
-                    null,
-                    "오픈 전 쪽지",
-                    "오픈 전이라 아직 내용을 볼 수 없어.",
-                    note.isEncrypted(),
-                    note.getNoteDate(),
-                    note.getLocation(),
-                    toOffsetDateTime(note.getCreatedAt()),
-                    toOffsetDateTime(note.getUpdatedAt()),
-                    List.of(),
-                    List.of(),
-                    null,
-                    List.of(),
-                    commentCount
-            );
-
-            // 제목만 공개: 제목은 보여주고 내용은 숨김
-            case TITLE_ONLY -> new NoteDetailResponse(
-                    note.getNoteId(),
-                    note.getJar().getJarId(),
-                    null,
-                    null,
-                    note.getTitle(),
-                    "오픈 전이라 아직 내용을 볼 수 없어.",
-                    note.isEncrypted(),
-                    note.getNoteDate(),
-                    note.getLocation(),
-                    toOffsetDateTime(note.getCreatedAt()),
-                    toOffsetDateTime(note.getUpdatedAt()),
-                    List.of(),
-                    List.of(),
-                    null,
-                    List.of(),
-                    commentCount
-            );
-        };
     }
 
     // null 방지용

@@ -1,5 +1,5 @@
 // src/pages/JarChatPanel.jsx
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   getChatMessages,
   getChatUnreadCount,
@@ -193,6 +193,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
   // 첫 안 읽은 메시지부터 30개만 가져온 경우,
   // 그 뒤에 이어지는 메시지가 더 있을 수 있다.
   const [hasNewer, setHasNewer] = useState(false);
+  const [showNewMessages, setShowNewMessages] = useState(false);
 
   // 이후 메시지 더 불러오는 중인지
   const [loadingNewer, setLoadingNewer] = useState(false);
@@ -232,6 +233,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
 
   // 이전 메시지 더 보기 중에는 아래로 자동 스크롤하면 안 되므로 구분용 ref
   const shouldScrollToBottomRef = useRef(true);
+  const lastDisplayedMessageId = useRef(null);
 
   // 더보기로 메시지를 붙인 뒤 이동해야 할 메시지 ID
   // 예: 30번 아래에 31~60번을 붙이면, 맨 아래 60번이 아니라 31번으로 이동해야 한다.
@@ -248,12 +250,27 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
   /*
    * 채팅창 맨 아래로 이동
    */
+  /** 메시지 추가 전의 위치를 기준으로 따라갈지 결정한다. 소켓과 REST에 같은 기준을 적용한다. */
+  const isNearBottom = useCallback(() => {
+    const box = scrollBoxRef.current;
+    return !box || box.scrollHeight - box.clientHeight - box.scrollTop <= 64;
+  }, []);
+
+  const prepareIncomingScroll = useCallback((incoming) => {
+    if (isNearBottom()) return;
+    shouldScrollToBottomRef.current = false;
+    if (Number(getLastMessageId(incoming)) > Number(lastDisplayedMessageId.current)) {
+      setShowNewMessages(true);
+    }
+  }, [isNearBottom]);
+
   const scrollToBottom = useCallback(() => {
     const box = scrollBoxRef.current;
 
     if (!box) return;
 
     box.scrollTop = box.scrollHeight;
+    setShowNewMessages(false);
   }, []);
 
   /*
@@ -291,7 +308,8 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
    * 하지만 "이전 메시지 더 보기"는 위쪽에 메시지를 붙이는 거라
    * 아래로 이동하면 사용자가 보던 위치가 튀어버려.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
+    lastDisplayedMessageId.current = getLastMessageId(messages);
     // 로딩 중에는 아직 메시지 DOM이 없을 수 있으므로 스크롤하지 않는다.
     if (loading) return;
 
@@ -320,9 +338,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
       shouldScrollToBottomRef.current = true;
 
       // 메시지 DOM이 화면에 그려진 다음 31번 위치로 이동한다.
-      window.requestAnimationFrame(() => {
-        scrollToMessage(pendingScrollMessageId, "start");
-      });
+      scrollToMessage(pendingScrollMessageId, "start");
 
       return;
     }
@@ -349,14 +365,12 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
     ) {
       unreadInitialScrollDoneRef.current = true;
 
-      window.requestAnimationFrame(() => {
-        scrollToMessage(firstUnreadMessageId);
-      });
+      scrollToMessage(firstUnreadMessageId);
       return;
     }
 
-    // 일반 새 메시지, 내가 보낸 메시지는 맨 아래로 이동한다.
-    window.requestAnimationFrame(scrollToBottom);
+    // 메시지가 추가되기 전에 하단 근처에 있었던 경우만 따라간다.
+    scrollToBottom();
   }, [messages, firstUnreadMessageId, loading, scrollToBottom, scrollToMessage]);
 
   /*
@@ -445,6 +459,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
       historyCursorRef.current = lastMessageId;
 
       setMessages(items);
+      setShowNewMessages(false);
       setHasNext(Boolean(data?.hasNext));
       setNextBeforeMessageId(data?.nextBeforeMessageId ?? null);
       setFirstUnreadMessageId(firstUnreadId);
@@ -508,6 +523,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
     // 이전 저금통의 채팅 메시지를 비운다.
     setMessages([]);
     historyCursorRef.current = null;
+    setShowNewMessages(false);
     pendingSendRef.current = null;
 
     // 입력창에 남아 있던 글을 비운다.
@@ -587,8 +603,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
             return;
           }
 
-          shouldScrollToBottomRef.current =
-            true;
+          prepareIncomingScroll([normalizedMessage]);
 
           setMessages((prev) => {
             return mergeUniqueMessages(
@@ -626,6 +641,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
     currentUserId,
     loadUnreadCount,
     subscribe,
+    prepareIncomingScroll,
   ]);
 
   /*
@@ -802,7 +818,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
         mine: true,
       };
 
-      shouldScrollToBottomRef.current = true;
+      prepareIncomingScroll([normalizedMessage]);
 
       setMessages((prev) =>
         mergeUniqueMessages(prev, [normalizedMessage])
@@ -872,7 +888,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
           return;
         }
 
-        shouldScrollToBottomRef.current = true;
+        prepareIncomingScroll(newItems);
 
         setMessages((prev) => {
           return mergeUniqueMessages(prev, newItems);
@@ -903,7 +919,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
       if (catchUpRef.current === pollNewMessages) catchUpRef.current = null;
       window.clearInterval(timerId);
     };
-  }, [jarId, webSocketConnected, loadInitialMessages, loadUnreadCount]);
+  }, [jarId, webSocketConnected, loadInitialMessages, loadUnreadCount, prepareIncomingScroll]);
 
   /*
    * 전송 버튼 활성화 여부
@@ -955,6 +971,7 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
       {/* 채팅 메시지 영역 */}
       <div
         ref={scrollBoxRef}
+        onScroll={() => { if (isNearBottom()) setShowNewMessages(false); }}
         aria-label="채팅 메시지"
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f5f7f4] p-4 sm:p-6"
       >
@@ -1102,7 +1119,16 @@ export default function JarChatPanel({ jarId, currentUserId, embedded = false })
             )}
           </div>
         )}
-    </div>
+      </div>
+
+      {showNewMessages && (
+        <div className="relative z-10 h-0 shrink-0">
+          <button type="button" onClick={scrollToBottom}
+            className="absolute bottom-3 left-1/2 min-h-11 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-800 px-4 text-sm font-bold text-white shadow-lg">
+            새 메시지 보기 ↓
+          </button>
+        </div>
+      )}
 
       {/* 입력창 */}
       <form onSubmit={handleSubmit} className="flex shrink-0 gap-2 border-t border-slate-100 bg-white p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:p-4">

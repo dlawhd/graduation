@@ -31,7 +31,7 @@ if (window.__MEMORYJAR_AUDIT_TEST__ === true) {
     <StompClientProvider><OnboardingContext.Provider value={onboarding}>
       {view === "visual" ? <VisualFixture /> : view === "composer" ?
         <NoteSection jar={jar} palette={getThemePalette("SPRING")} formatDate={String} createRequestId={1} /> :
-        <Routes><Route path="/jars/:jarId" element={<JarDetailPage />} /></Routes>}
+        <Routes><Route path="/jars/:jarId" element={<JarDetailPage me={{ userId: 1 }} />} /></Routes>}
     </OnboardingContext.Provider></StompClientProvider>
   </MemoryRouter>);
 } else document.getElementById("root").textContent = "자동 회귀 시험에서만 활성화합니다.";
