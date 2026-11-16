@@ -8,6 +8,7 @@ on:
   schedule:
     - cron: '23 3 * * 1'
   workflow_dispatch:
+  workflow_call:
 
 # 외부 PR의 코드는 운영 러너·운영 비밀값에 접근하지 않는다.
 permissions:
@@ -54,6 +55,19 @@ jobs:
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           category: /language:${{ matrix.language }}
+  frontend-audit:
+    name: Frontend dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - run: npm audit --audit-level=high
+        working-directory: frontend
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

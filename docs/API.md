@@ -464,6 +464,17 @@ Response는 회원가입과 동일한 `LocalAuthResponse`야.
 
 소셜 로그인만 사용하는 회원은 `loginId`가 null일 수 있어.
 
+### 소셜 로그인 수단 연결
+
+기존 연결은 공급자와 공급자 고유 ID로 조회해 로그인한다. 새 소셜 로그인 수단의 이메일이 이미 등록돼 있으면 기존 방식으로 로그인하도록 안내한다. 로그인 후 내 정보에서 새 연결을 시작할 수 있다.
+
+| Method | API | 응답 |
+| --- | --- | --- |
+| GET | `/api/v1/me/social-connections` | 연결된 공급자 목록 |
+| POST | `/api/v1/me/social-connections/{provider}` | OAuth 시작 경로를 담은 `path` |
+
+경로의 공급자는 `naver`, `google`, `kakao` 중 하나다. POST에는 CSRF 토큰이 필요하다. 공급자 인증을 마치면 서버가 연결을 시작한 로그인 세션, 공급자 ID 및 이메일을 확인한다.
+
 ## 1-4. 비밀번호 찾기 및 재설정
 
 현재는 네 단계로 진행돼.
@@ -474,6 +485,8 @@ Response는 회원가입과 동일한 `LocalAuthResponse`야.
 | 2. 이메일 발송 | POST | `/api/v1/auth/password-reset/email-verifications` | PasswordResetEmailVerificationSendRequest | EmailVerificationSendResponse |
 | 3. 인증번호 확인 | POST | `/api/v1/auth/password-reset/email-verifications/confirm` | PasswordResetEmailVerificationConfirmRequest | PasswordResetEmailVerificationConfirmResponse |
 | 4. 비밀번호 변경 | POST | `/api/v1/auth/password-reset` | PasswordResetRequest | PasswordResetResponse |
+
+아이디 확인은 입력 형식만 검증한다. 발송 요청에는 가입 정보 일치 여부와 관계없이 같은 형식으로 접수를 응답하고, 가입 정보가 일치할 때만 메일을 발송한다. 인증번호 확인 실패는 공통 안내를 반환한다.
 
 각 단계의 요청 데이터는 다음과 같아.
 

@@ -93,6 +93,8 @@ class JarDesignViewServiceTest {
         ArgumentCaptor<GetObjectPresignRequest> requestCaptor =
                 ArgumentCaptor.forClass(GetObjectPresignRequest.class);
         verify(s3Presigner).presignGetObject(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().signatureDuration()).isEqualTo(java.time.Duration.ofSeconds(60));
+        assertThat(requestCaptor.getValue().getObjectRequest().responseCacheControl()).isEqualTo("private, no-store");
         assertThat(requestCaptor.getValue().getObjectRequest().bucket()).isEqualTo("private-test-bucket");
         assertThat(requestCaptor.getValue().getObjectRequest().key())
                 .isEqualTo("jar-designs/1/final.png");

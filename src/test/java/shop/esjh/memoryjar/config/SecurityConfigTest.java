@@ -53,6 +53,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SecurityConfigTest {
 
     @Test
+    void socialConnectionStartRequiresCurrentAuthenticationAndCsrf() throws Exception {
+        String base = "/api/v1/me/social-connections";
+        mockMvc.perform(get(base)).andExpect(status().isUnauthorized());
+        mockMvc.perform(post(base + "/google").with(csrf())).andExpect(status().isUnauthorized());
+
+        var principal = java.util.Map.of("userId", "17", "sessionVersion", 2L, "loginSessionId", "current-session");
+        var authenticated = org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+                .authenticated(principal, null, List.of());
+        var fixture = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                .authentication(authenticated);
+        mockMvc.perform(post(base + "/google").with(fixture)).andExpect(status().isForbidden());
+        mockMvc.perform(post(base + "/google").with(fixture).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.data.path").value(org.hamcrest.Matchers.startsWith("/oauth2/authorization/google?link=")));
+    }
+
+    @Test
     void operatorAdditionalAuthenticationStillRequiresLogin() throws Exception {
         mockMvc.perform(get("/api/v1/admin/support/mfa")).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/v1/admin/support/mfa/verification").with(csrf())

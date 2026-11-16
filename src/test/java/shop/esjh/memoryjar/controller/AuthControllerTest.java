@@ -46,6 +46,9 @@ class AuthControllerTest {
     private shop.esjh.memoryjar.security.AuthRequestLimits requestLimits;
 
     @MockitoBean
+    private shop.esjh.memoryjar.service.PasswordRecoveryService passwordRecoveryService;
+
+    @MockitoBean
     private RefreshTokenService refreshTokenService;
 
     @MockitoBean

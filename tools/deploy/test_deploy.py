@@ -91,7 +91,7 @@ class FakeDocker:
 class DeploymentTest(unittest.TestCase):
     def run_case(self, fail=None, diagnostics=True, heads=None, change_manifest=None, read_diagnostics=False):
         with tempfile.TemporaryDirectory(prefix='memoryjar-deployment-test-') as directory:
-            root = pathlib.Path(directory)
+            root = pathlib.Path(directory).resolve()
             (root/'docker-compose.prod.yml').write_text('services: {}')
             if diagnostics:
                 (root/'docker-compose.diagnostics.yml').write_text('services: {}')

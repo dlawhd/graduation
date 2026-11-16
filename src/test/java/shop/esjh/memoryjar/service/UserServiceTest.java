@@ -30,8 +30,7 @@ import static org.mockito.Mockito.*;
  * 여러 소셜 로그인 수단을 함께 사용할 수 있는지 확인한다.
  *
  * 특히 같은 이메일의 새로운 OAuth Provider가 들어왔을 때
- * User를 하나 더 만들지 않고
- * 기존 Memory Jar User에게 로그인 수단만 추가하는지 검증한다.
+ * 일반 로그인에서 연결을 거절하고, 로그인한 사용자가 시작한 연결만 저장하는지 검증한다.
  */
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -126,11 +125,11 @@ class UserServiceTest {
         assertThat(result)
                 .isSameAs(existingUser);
 
-        // 최신 이메일로 변경
+        // 공급자의 프로필 이메일은 계정 복구 이메일을 변경하지 않는다.
         assertThat(
                 result.getEmail()
         ).isEqualTo(
-                "new@example.com"
+                "old@example.com"
         );
 
         /*
@@ -373,496 +372,47 @@ class UserServiceTest {
                 .isSameAs(savedUser);
     }
 
-    /*
-     * 이번 기능에서 가장 중요한 테스트다.
-     *
-     * 기존 NAVER 회원이 같은 이메일의 Google로
-     * 처음 로그인하면 새 User를 만들지 않고
-     * 기존 User에게 GOOGLE 로그인 수단을 추가해야 한다.
-     */
-    @Test
-    void findOrCreateOAuthUser_기존_NAVER회원이_같은이메일로_GOOGLE로그인하면_같은User에_GOOGLE을_연결한다() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GOOGLE", "KAKAO", "NAVER"})
+    void matchingEmailRequiresExplicitLink(String provider) {
+        var user = User.builder().email("owner@example.com").build();
+        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
 
-        // given
-        String email =
-                "user@example.com";
-
-        /*
-         * 이미 NAVER로 가입한 기존 User
-         */
-        User existingNaverUser =
-                User.builder()
-                        .provider("NAVER")
-                        .providerId("naver-123")
-                        .email(email)
-                        .name("기존이름")
-                        .birthyear("2000")
-                        .build();
-
-        /*
-         * GOOGLE OAuth 연결은 아직 없다.
-         */
-        when(
-                userOAuthAccountRepository
-                        .findByProviderAndProviderId(
-                                "GOOGLE",
-                                "google-sub-999"
-                        )
-        ).thenReturn(
-                Optional.empty()
-        );
-
-        /*
-         * 하지만 동일 이메일의 기존 NAVER User가 있다.
-         */
-        when(
-                userRepository.findByEmail(email)
-        ).thenReturn(
-                Optional.of(
-                        existingNaverUser
-                )
-        );
-
-        when(
-                userRepository.save(
-                        existingNaverUser
-                )
-        ).thenReturn(
-                existingNaverUser
-        );
-
-        // when
-        User result =
-                userService.findOrCreateOAuthUser(
-                        "GOOGLE",
-                        "google-sub-999",
-                        email,
-                        "Google에서 받은 새 이름",
-                        null
-                );
-
-        // then
-
-        /*
-         * 새로운 User가 아니라
-         * 기존 NAVER User가 그대로 반환되어야 한다.
-         */
-        assertThat(result)
-                .isSameAs(
-                        existingNaverUser
-                );
-
-        /*
-         * users.provider/providerId는
-         * 첫 로그인 수단인 NAVER 그대로 유지한다.
-         */
-        assertThat(
-                result.getProvider()
-        ).isEqualTo(
-                "NAVER"
-        );
-
-        assertThat(
-                result.getProviderId()
-        ).isEqualTo(
-                "naver-123"
-        );
-
-        /*
-         * =========================================================
-         * 기존 Memory Jar 닉네임은 유지한다.
-         * =========================================================
-         *
-         * NAVER로 처음 가입한 기존 User의 닉네임:
-         *
-         * 기존이름
-         *
-         * Google 로그인에서 받은 이름:
-         *
-         * Google에서 받은 새 이름
-         *
-         * 이 경우 Google 이름으로 덮어쓰지 않는다.
-         */
-        assertThat(
-                result.getName()
-        ).isEqualTo(
-                "기존이름"
-        );
-
-        /*
-         * Google에는 birthyear가 없으므로
-         * 기존 NAVER birthyear를 유지한다.
-         */
-        assertThat(
-                result.getBirthyear()
-        ).isEqualTo(
-                "2000"
-        );
-
-        /*
-         * GOOGLE OAuth 계정 연결이 새로 저장됐는지 확인한다.
-         */
-        ArgumentCaptor<UserOAuthAccount> oauthCaptor =
-                ArgumentCaptor.forClass(
-                        UserOAuthAccount.class
-                );
-
-        verify(
-                userOAuthAccountRepository
-        ).save(
-                oauthCaptor.capture()
-        );
-
-        UserOAuthAccount newGoogleAccount =
-                oauthCaptor.getValue();
-
-        assertThat(
-                newGoogleAccount.getUser()
-        ).isSameAs(
-                existingNaverUser
-        );
-
-        assertThat(
-                newGoogleAccount.getProvider()
-        ).isEqualTo(
-                "GOOGLE"
-        );
-
-        assertThat(
-                newGoogleAccount.getProviderId()
-        ).isEqualTo(
-                "google-sub-999"
-        );
-
-        /*
-         * User를 새로 만드는 save가 아니라
-         * 기존 User 갱신 save만 한 번 실행된다.
-         */
-        verify(
-                userRepository,
-                times(1)
-        ).save(
-                existingNaverUser
-        );
+        assertThatThrownBy(() -> userService.findOrCreateOAuthUser(provider, "new-id",
+                "owner@example.com", "새 이름", null))
+                .isInstanceOf(UserService.OAuthLinkRequiredException.class);
+        verify(userRepository, never()).save(any());
+        verify(userOAuthAccountRepository, never()).save(any());
     }
 
-    /*
-     * 기존 NAVER 회원이 같은 이메일의 KAKAO로 처음 로그인하면
-     * 새로운 User를 만들지 않고
-     * 기존 User에 KAKAO 로그인 수단만 추가해야 한다.
-     *
-     * Google 로그인 추가 때 만든 다중 OAuth 구조를
-     * Kakao도 그대로 재사용할 수 있는지 검증하는 핵심 테스트다.
-     */
     @Test
-    void findOrCreateOAuthUser_기존_NAVER회원이_같은이메일로_KAKAO로그인하면_같은User에_KAKAO를_연결한다() {
+    void explicitLinkAddsOnlyTheProviderToTheCurrentAccount() {
+        var user = User.builder().email("owner@example.com").build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userRepository.countCurrentSession(eq(1L), eq(2L), eq("session"), any())).thenReturn(1L);
 
-        // given
-        String email =
-                "user@example.com";
+        userService.linkOAuthAccount(1L, 2L, "session", "google", "google-id", "owner@example.com");
 
-        /*
-         * 이미 NAVER로 가입한 기존 Memory Jar User
-         */
-        User existingNaverUser =
-                User.builder()
-                        .provider("NAVER")
-                        .providerId("naver-123")
-                        .email(email)
-                        .name("기존이름")
-                        .birthyear("2000")
-                        .build();
-
-        /*
-         * 이 Kakao 계정은 아직 연결된 적이 없다.
-         */
-        when(
-                userOAuthAccountRepository
-                        .findByProviderAndProviderId(
-                                "KAKAO",
-                                "123456789"
-                        )
-        ).thenReturn(
-                Optional.empty()
-        );
-
-        /*
-         * 하지만 같은 이메일의 기존 NAVER User는 존재한다.
-         */
-        when(
-                userRepository.findByEmail(email)
-        ).thenReturn(
-                Optional.of(
-                        existingNaverUser
-                )
-        );
-
-        when(
-                userRepository.save(
-                        existingNaverUser
-                )
-        ).thenReturn(
-                existingNaverUser
-        );
-
-        // when
-        User result =
-                userService.findOrCreateOAuthUser(
-                        "KAKAO",
-                        "123456789",
-                        email,
-                        "카카오에서 받은 이름",
-                        null
-                );
-
-        // then
-
-        /*
-         * User를 새로 만들지 않고
-         * 기존 NAVER User를 그대로 사용해야 한다.
-         */
-        assertThat(result)
-                .isSameAs(
-                        existingNaverUser
-                );
-
-        /*
-         * users 테이블의 첫 로그인 Provider 정보는
-         * 기존 NAVER 그대로 유지한다.
-         */
-        assertThat(
-                result.getProvider()
-        ).isEqualTo(
-                "NAVER"
-        );
-
-        assertThat(
-                result.getProviderId()
-        ).isEqualTo(
-                "naver-123"
-        );
-
-        /*
-         * 기존 Memory Jar 닉네임은 유지한다.
-         *
-         * Kakao가 내려준 프로필 이름은
-         * 이미 사용 중인 닉네임을 덮어쓰지 않는다.
-         */
-        assertThat(
-                result.getName()
-        ).isEqualTo(
-                "기존이름"
-        );
-
-        /*
-         * Kakao에서는 birthyear를 새로 받지 않으므로
-         * 기존 NAVER 회원의 값이 유지되어야 한다.
-         */
-        assertThat(
-                result.getBirthyear()
-        ).isEqualTo(
-                "2000"
-        );
-
-        /*
-         * 새로 생성된 KAKAO OAuth 연결을 잡아온다.
-         */
-        ArgumentCaptor<UserOAuthAccount> oauthCaptor =
-                ArgumentCaptor.forClass(
-                        UserOAuthAccount.class
-                );
-
-        verify(
-                userOAuthAccountRepository
-        ).save(
-                oauthCaptor.capture()
-        );
-
-        UserOAuthAccount newKakaoAccount =
-                oauthCaptor.getValue();
-
-        assertThat(
-                newKakaoAccount.getUser()
-        ).isSameAs(
-                existingNaverUser
-        );
-
-        assertThat(
-                newKakaoAccount.getProvider()
-        ).isEqualTo(
-                "KAKAO"
-        );
-
-        assertThat(
-                newKakaoAccount.getProviderId()
-        ).isEqualTo(
-                "123456789"
-        );
-
-        /*
-         * 기존 User를 갱신하는 save만 실행되어야 한다.
-         * 새로운 별도의 User를 만들면 안 된다.
-         */
-        verify(
-                userRepository,
-                times(1)
-        ).save(
-                existingNaverUser
-        );
+        var saved = ArgumentCaptor.forClass(UserOAuthAccount.class);
+        verify(userOAuthAccountRepository).save(saved.capture());
+        assertThat(saved.getValue().getUser()).isSameAs(user);
+        assertThat(saved.getValue().getProvider()).isEqualTo("GOOGLE");
+        verify(userRepository, never()).save(any());
     }
 
-    /*
-     * 반대 방향도 검증한다.
-     *
-     * Google로 먼저 가입한 사람이
-     * 나중에 같은 이메일의 NAVER로 로그인해도
-     * 같은 User를 사용해야 한다.
-     */
     @Test
-    void findOrCreateOAuthUser_기존_GOOGLE회원이_같은이메일로_NAVER로그인하면_같은User에_NAVER를_연결한다() {
+    void revokedSessionOrMismatchingEmailCannotLink() {
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(User.builder()
+                .email("owner@example.com").build()));
+        when(userRepository.countCurrentSession(eq(1L), eq(2L), eq("session"), any())).thenReturn(0L, 1L);
 
-        // given
-        String email =
-                "user@gmail.com";
-
-        User existingGoogleUser =
-                User.builder()
-                        .provider("GOOGLE")
-                        .providerId("google-original-123")
-                        .email(email)
-                        .name("Google회원")
-                        .birthyear(null)
-                        .build();
-
-        /*
-         * NAVER 연결은 아직 없다.
-         */
-        when(
-                userOAuthAccountRepository
-                        .findByProviderAndProviderId(
-                                "NAVER",
-                                "naver-new-999"
-                        )
-        ).thenReturn(
-                Optional.empty()
-        );
-
-        /*
-         * 같은 이메일의 GOOGLE User는 존재한다.
-         */
-        when(
-                userRepository.findByEmail(email)
-        ).thenReturn(
-                Optional.of(
-                        existingGoogleUser
-                )
-        );
-
-        when(
-                userRepository.save(
-                        existingGoogleUser
-                )
-        ).thenReturn(
-                existingGoogleUser
-        );
-
-        // when
-        User result =
-                userService.findOrCreateOAuthUser(
-                        "NAVER",
-                        "naver-new-999",
-                        email,
-                        "네이버이름",
-                        "2001"
-                );
-
-        // then
-
-        assertThat(result)
-                .isSameAs(
-                        existingGoogleUser
-                );
-
-        /*
-         * 첫 가입 Provider는 GOOGLE 그대로 유지한다.
-         */
-        assertThat(
-                result.getProvider()
-        ).isEqualTo(
-                "GOOGLE"
-        );
-
-        assertThat(
-                result.getProviderId()
-        ).isEqualTo(
-                "google-original-123"
-        );
-
-        /*
-         * =========================================================
-         * 닉네임은 기존 값을 유지한다.
-         * =========================================================
-         *
-         * 기존 Google User의 닉네임:
-         * Google회원
-         *
-         * NAVER에서 내려준 이름:
-         * 네이버이름
-         *
-         * OAuth 로그인은 기존 Memory Jar 닉네임을
-         * 덮어쓰지 않는다.
-         */
-        assertThat(
-                result.getName()
-        ).isEqualTo(
-                "Google회원"
-        );
-
-
-        /*
-         * birthyear는 닉네임과 다르다.
-         *
-         * NAVER에서 새로운 출생연도를 내려줬으므로
-         * 최신 프로필 정보로 갱신한다.
-         */
-        assertThat(
-                result.getBirthyear()
-        ).isEqualTo(
-                "2001"
-        );
-
-        ArgumentCaptor<UserOAuthAccount> oauthCaptor =
-                ArgumentCaptor.forClass(
-                        UserOAuthAccount.class
-                );
-
-        verify(
-                userOAuthAccountRepository
-        ).save(
-                oauthCaptor.capture()
-        );
-
-        UserOAuthAccount newNaverAccount =
-                oauthCaptor.getValue();
-
-        assertThat(
-                newNaverAccount.getUser()
-        ).isSameAs(
-                existingGoogleUser
-        );
-
-        assertThat(
-                newNaverAccount.getProvider()
-        ).isEqualTo(
-                "NAVER"
-        );
-
-        assertThat(
-                newNaverAccount.getProviderId()
-        ).isEqualTo(
-                "naver-new-999"
-        );
+        assertThatThrownBy(() -> userService.linkOAuthAccount(1L, 2L, "session", "google", "id", "owner@example.com"))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> userService.linkOAuthAccount(1L, 2L, "session", "google", "id", "other@example.com"))
+                .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(userOAuthAccountRepository);
     }
+
 
     @Test
     void findOrCreateOAuthUser_기존닉네임이_비어있으면_OAuth이름을_최초닉네임으로_사용한다() {
@@ -966,12 +516,12 @@ class UserServiceTest {
 
 
         /*
-         * 이메일 역시 최신 값으로 갱신된다.
+         * 복구용 이메일은 소셜 로그인 때 변경하지 않는다.
          */
         assertThat(
                 result.getEmail()
         ).isEqualTo(
-                "new@example.com"
+                "old@example.com"
         );
     }
 

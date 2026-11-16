@@ -42,6 +42,27 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class SocialAuthorizationRequestResolverTest {
 
+    @Test
+    void linkStateIsIncludedInTheActualProviderRedirect() {
+        var path = "/oauth2/authorization/google";
+        var request = new MockHttpServletRequest("GET", path);
+        request.setServletPath(path);
+        var identity = new shop.esjh.memoryjar.auth.SocialAccountLink.Identity(1L, 2L, "session");
+        String start = shop.esjh.memoryjar.auth.SocialAccountLink.start(request, identity, "google");
+        request.addParameter("link", start.substring(start.indexOf('=') + 1));
+
+        OAuth2AuthorizationRequest result = resolver.resolve(request);
+
+        assertThat(result.getState()).startsWith("link.");
+        String encodedQuery = java.net.URI.create(result.getAuthorizationRequestUri()).getRawQuery();
+        String encodedState = java.util.Arrays.stream(encodedQuery.split("&"))
+                .filter(parameter -> parameter.startsWith("state="))
+                .findFirst().orElseThrow().substring("state=".length());
+        assertThat(java.net.URLDecoder.decode(encodedState, java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo(result.getState());
+        assertThat(result.getAdditionalParameters()).containsEntry("prompt", "select_account");
+    }
+
     // 이번 테스트에서 실제로 검사할 Resolver
     private SocialAuthorizationRequestResolver resolver;
 

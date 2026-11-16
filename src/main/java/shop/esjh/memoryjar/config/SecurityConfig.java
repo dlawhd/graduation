@@ -233,6 +233,13 @@ public class SecurityConfig {
                                 )
                         )
                         .successHandler(oAuth2SuccessHandler)
+                        .failureHandler((request, response, failure) -> {
+                            if (shop.esjh.memoryjar.auth.SocialAccountLink.isLink(request.getParameter("state"))) {
+                                response.sendRedirect(appProperties.getFrontendUrl() + "/account/connections?result=failed");
+                            } else {
+                                response.sendRedirect(appProperties.getFrontendUrl() + "/?loginError=retry");
+                            }
+                        })
                 );
 
         // ✅ API 요청이 들어왔을 때 먼저 accessToken을 검사해서 "로그인한 사용자"인지 세팅해줘야 하기 때문

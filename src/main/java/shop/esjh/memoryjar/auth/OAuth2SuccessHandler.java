@@ -145,28 +145,34 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
          * Provider별 전용 메서드로 읽은 뒤
          * 공통 OAuthProfile 형태로 바꾼다.
          */
-        OAuthProfile profile =
-                extractOAuthProfile(
-                        registrationId,
-                        attributes
-                );
+        String state = request.getParameter("state");
+        OAuthProfile profile;
+        try {
+            profile = extractOAuthProfile(registrationId, attributes);
+        } catch (IllegalArgumentException invalidProfile) {
+            if (!SocialAccountLink.isLink(state)) {
+                throw invalidProfile;
+            }
+            SocialAccountLink.consume(request, registrationId, state);
+            response.sendRedirect(frontendUrl + "/account/connections?result=failed");
+            return;
+        }
+        if (SocialAccountLink.isLink(state)) {
+            finishLink(request, response, registrationId, state, profile);
+            return;
+        }
 
-        /*
-         * NAVER / GOOGLE / KAKAO 모두
-         * 현재 출생연도를 OAuth 로그인에서 새로 받지 않는다.
-         * UserService의 기존 메서드 구조는 그대로 유지하되,
-         * birthyear 자리에는 null을 전달한다.
-         *
-         * 기존 DB에 저장되어 있는 birthyear 값이 있다면
-         * User.updateProfile()에서 null로 덮어쓰지 않기 때문에 그대로 유지된다.
-         */
-        User user = userService.findOrCreateOAuthUser(
-                profile.provider(),
-                profile.providerId(),
-                profile.email(),
-                profile.name(),
-                null
-        );
+        User user;
+        try {
+            // 소셜 공급자에서 출생연도를 새로 받지 않는다.
+            user = userService.findOrCreateOAuthUser(profile.provider(), profile.providerId(), profile.email(), profile.name(), null);
+        } catch (UserService.OAuthLinkRequiredException refused) {
+            response.sendRedirect(frontendUrl + "/?loginError=link-required");
+            return;
+        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+            response.sendRedirect(frontendUrl + "/?loginError=retry");
+            return;
+        }
 
         /*
          * RefreshToken을 발급한다.
@@ -276,6 +282,37 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
      * 어떤 OAuth Provider인지 확인한 뒤
      * Provider별 사용자 정보 추출 메서드로 보내준다.
      */
+    /** 연결 콜백은 기존 JWT가 증명한 계정·세션에만 연결하고 로그인 쿠키는 발급하지 않는다. */
+    private void finishLink(HttpServletRequest request, HttpServletResponse response, String registrationId,
+            String state, OAuthProfile profile) throws IOException {
+        var identity = SocialAccountLink.consume(request, registrationId, state);
+        boolean linked = false;
+        if (identity != null && hasSameSession(request, identity)) {
+            try {
+                userService.linkOAuthAccount(identity.userId(), identity.version(), identity.sessionId(),
+                        profile.provider(), profile.providerId(), profile.email());
+                linked = true;
+            } catch (org.springframework.dao.DataIntegrityViolationException | org.springframework.web.server.ResponseStatusException conflict) {
+                // 공급자 ID의 DB 유일성 제약도 여러 계정에서 동시에 연결하는 경우를 막는다.
+            }
+        }
+        response.sendRedirect(frontendUrl + "/account/connections?result=" + (linked ? "linked" : "failed"));
+    }
+
+    private boolean hasSameSession(HttpServletRequest request, SocialAccountLink.Identity identity) {
+        if (request.getCookies() == null) return false;
+        for (var cookie : request.getCookies()) {
+            if (!"accessToken".equals(cookie.getName())) continue;
+            return jwtTokenProvider.parseValidatedClaims(cookie.getValue()).filter(claims -> {
+                Number version = claims.get("sessionVersion", Number.class);
+                return Long.toString(identity.userId()).equals(claims.getSubject()) && version != null
+                        && identity.version() == version.longValue()
+                        && identity.sessionId().equals(claims.get("loginSessionId", String.class));
+            }).isPresent();
+        }
+        return false;
+    }
+
     private OAuthProfile extractOAuthProfile(
             String registrationId,
             Map<String, Object> attributes

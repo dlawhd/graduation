@@ -160,7 +160,7 @@ function OpeningExperience({ jar, palette, event, onClose, onViewNotes, onReload
     if (viewNotes) onViewNotes?.(); else onClose?.();
   }
   /** 만료된 이미지 주소는 기존 상세 재조회로만 갱신한다. 창을 닫은 뒤 응답은 반영하지 않는다. */
-  async function reloadArt() {
+  const reloadArt = useCallback(async () => {
     if (reloadLocked.current || !onReloadDesignImage) return;
     reloadLocked.current = true; setReloading(true);
     try {
@@ -169,7 +169,17 @@ function OpeningExperience({ jar, palette, event, onClose, onViewNotes, onReload
       if (success) setArtAttempt(value => value + 1); else failed();
     } catch { if (alive.current) failed(); }
     finally { reloadLocked.current = false; if (alive.current) setReloading(false); }
-  }
+  }, [failed, onReloadDesignImage]);
+
+  const refreshedExpiredArtwork = useRef(false);
+  useEffect(() => {
+    if (state.hits || !onReloadDesignImage || refreshedExpiredArtwork.current) return;
+    const expiresAt = Date.parse(jar.design?.imageExpiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return;
+    // 오래 열어 둔 상세에서 다시 재생할 때 한 번만 새 서명 주소를 받는다.
+    refreshedExpiredArtwork.current = true;
+    void reloadArt();
+  }, [jar.design?.imageExpiresAt, onReloadDesignImage, reloadArt, state.hits]);
 
   /** 단계 변경으로 버튼이 사라지거나 비활성화돼도 Tab 초점은 연출 창 안에 유지한다. */
   function keepFocus(event) {

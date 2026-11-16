@@ -237,55 +237,9 @@ public class LocalAuthService {
         );
     }
 
-    /*
-     * =========================================================
-     * 비밀번호 찾기 - LOCAL 아이디 존재 확인
-     * =========================================================
-     *
-     * 회원가입의 아이디 중복 확인과 반대 역할이다.
-     *
-     *
-     * 회원가입:
-     *
-     * 존재하지 않아야 성공
-     *
-     *
-     * 비밀번호 찾기:
-     *
-     * 존재해야 다음 단계로 이동
-     */
-    public PasswordResetLoginIdCheckResponse
-    checkPasswordResetLoginId(
-            String loginId
-    ) {
-
-        /*
-         * 기존 LOCAL 로그인과 동일하게
-         * trim + 소문자 + 형식 검증
-         */
-        String normalizedLoginId =
-                normalizeLoginId(
-                        loginId
-                );
-
-
-        /*
-         * @SQLRestriction 때문에
-         * soft delete된 Credential은 자동으로 제외된다.
-         *
-         * 즉 현재 실제 사용 가능한 LOCAL 계정만 true.
-         */
-        boolean valid =
-                userLocalCredentialRepository
-                        .existsByLoginId(
-                                normalizedLoginId
-                        );
-
-
-        return new PasswordResetLoginIdCheckResponse(
-                normalizedLoginId,
-                valid
-        );
+    /** 복구 화면에는 입력 형식만 확인하고 가입 여부를 반환하지 않는다. */
+    public PasswordResetLoginIdCheckResponse checkPasswordResetLoginId(String loginId) {
+        return new PasswordResetLoginIdCheckResponse(normalizeLoginId(loginId), true);
     }
 
     /*
@@ -339,7 +293,7 @@ public class LocalAuthService {
                                 () ->
                                         new ResponseStatusException(
                                                 HttpStatus.BAD_REQUEST,
-                                                "등록된 자체 로그인 아이디가 아니에요."
+                                                "아이디, 이메일 또는 복구 인증 정보를 다시 확인해 주세요."
                                         )
                         );
 
@@ -366,7 +320,7 @@ public class LocalAuthService {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "입력한 이메일이 해당 아이디의 가입 이메일과 일치하지 않아요."
+                    "아이디, 이메일 또는 복구 인증 정보를 다시 확인해 주세요."
             );
         }
 
@@ -410,19 +364,6 @@ public class LocalAuthService {
             String newPassword,
             String newPasswordConfirm
     ) {
-
-        /*
-         * 서버에서 아이디 + 이메일을 다시 확인한다.
-         *
-         * 프론트가 이전 단계에서 확인했다고 해서
-         * 그 상태를 그대로 믿지 않는다.
-         */
-        PasswordResetIdentity identity =
-                verifyPasswordResetIdentity(
-                        loginId,
-                        email
-                );
-
 
         /*
          * 새 비밀번호와 확인 비밀번호가
@@ -476,11 +417,28 @@ public class LocalAuthService {
          * 뒤쪽 DB 저장에서 문제가 발생하면
          * consume 처리도 함께 rollback된다.
          */
-        emailVerificationService
-                .consumePasswordResetVerification(
-                        identity.email(),
-                        passwordResetToken
+        /*
+         * 서버에서 아이디 + 이메일을 다시 확인한다.
+         *
+         * 프론트가 이전 단계에서 확인했다고 해서
+         * 그 상태를 그대로 믿지 않는다.
+         */
+        PasswordResetIdentity identity =
+                verifyPasswordResetIdentity(
+                        loginId,
+                        email
                 );
+
+
+        try {
+            emailVerificationService.consumePasswordResetVerification(identity.email(), passwordResetToken);
+        } catch (ResponseStatusException exception) {
+            if (!exception.getStatusCode().is4xxClientError()) {
+                throw exception;
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "아이디, 이메일 또는 복구 인증 정보를 다시 확인해 주세요.");
+        }
 
 
         /*
@@ -515,7 +473,7 @@ public class LocalAuthService {
                                 () ->
                                         new ResponseStatusException(
                                                 HttpStatus.BAD_REQUEST,
-                                                "등록된 자체 로그인 아이디가 아니에요."
+                                                "아이디, 이메일 또는 복구 인증 정보를 다시 확인해 주세요."
                                         )
                         );
 

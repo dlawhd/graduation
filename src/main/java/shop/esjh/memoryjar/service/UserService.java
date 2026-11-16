@@ -11,6 +11,9 @@ import shop.esjh.memoryjar.policy.NicknamePolicy;
 import shop.esjh.memoryjar.repository.UserOAuthAccountRepository;
 import shop.esjh.memoryjar.repository.UserRepository;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
 import java.util.Locale;
 
 /*
@@ -41,9 +44,8 @@ import java.util.Locale;
  * 연결 순서:
  *
  * 1. Provider + ProviderId로 이미 연결된 OAuth 계정인지 확인
- * 2. 처음 사용하는 OAuth 계정이면 같은 이메일의 User를 확인
- * 3. 같은 이메일의 User가 있으면 그 User에 새로운 OAuth 계정을 연결
- * 4. User도 없다면 새로운 User와 OAuth 계정을 생성
+ * 2. 처음 보는 소셜 ID는 이메일 충돌을 확인한 뒤 새 계정을 만든다.
+ * 3. 기존 계정에 로그인 수단을 추가할 때는 별도의 연결 절차를 거친다.
  */
 @Service
 public class UserService {
@@ -152,7 +154,7 @@ public class UserService {
 
             // 로그인할 때 받은 최신 프로필 정보로 갱신한다.
             user.updateProfile(
-                    email,
+                    null,
                     name,
                     birthyear
             );
@@ -160,117 +162,52 @@ public class UserService {
             return userRepository.save(user);
         }
 
-        /*
-         * 2단계.
-         *
-         * OAuth 계정 연결 기록은 없지만,
-         * 같은 이메일을 사용하는 Memory Jar 회원이 있는지 확인한다.
-         *
-         * 예:
-         *
-         * 기존:
-         * 은서
-         * └─ NAVER
-         *    └─ abc@gmail.com
-         *
-         * 처음 KAKAO 로그인:
-         * KAKAO
-         * └─ abc@gmail.com
-         *
-         * 이메일이 같다면 새로운 User를 또 만들지 않고
-         * 기존 은서 User를 찾아서 KAKAO 계정을 연결한다.
-         *
-         * GOOGLE도 같은 방식으로 동작한다.
-         */
-        User user = userRepository
-                .findByEmail(email)
-                .orElse(null);
+        // 이메일 일치만으로 기존 계정에 접근 권한을 주지 않는다.
+        if (userRepository.findByEmail(email).isPresent()) throw new OAuthLinkRequiredException();
 
-        /*
-         * 3단계.
-         *
-         * 같은 이메일의 기존 회원도 없다면
-         * Memory Jar에 처음 들어온 사용자이므로 새 User를 만든다.
-         */
-        if (user == null) {
-
-            user = User.builder()
-                    .email(email)
-                    .name(name)
-                    .birthyear(birthyear)
-
-                    /*
-                     * 기존 users.provider / provider_id 컬럼은
-                     * 현재 프로젝트의 기존 코드와 테스트 호환성을 위해
-                     * 당장은 유지한다.
-                     *
-                     * 새 사용자의 "첫 로그인 Provider"를 여기에 기록한다.
-                     *
-                     * 실제 여러 OAuth 계정 연결 정보는
-                     * 아래 UserOAuthAccount에서 관리한다.
-                     */
-                    .provider(normalizedProvider)
-                    .providerId(providerId)
-                    .build();
-
-            // 새 Memory Jar 회원을 먼저 저장한다.
-            user = userRepository.save(user);
-
-        } else {
-
-            /*
-             * 기존 회원을 발견했다면
-             * 로그인에서 받은 최신 프로필 정보로 갱신한다.
-             *
-             * 기존 provider / providerId는 변경하지 않는다.
-             *
-             * 예:
-             * NAVER로 처음 가입했다면
-             * users.provider는 NAVER 그대로 유지한다.
-             */
-            user.updateProfile(
-                    email,
-                    name,
-                    birthyear
-            );
-
-            user = userRepository.save(user);
-        }
-
-        /*
-         * 4단계.
-         *
-         * 이번에 로그인한 OAuth 계정을
-         * 찾은 Memory Jar User에게 새로 연결한다.
-         *
-         * 예:
-         *
-         * user_id = 1
-         *
-         * 기존:
-         * NAVER + naver-123
-         *
-         * 이번 로그인:
-         * GOOGLE + google-456
-         *
-         * 결과:
-         *
-         * user_id 1
-         * ├─ NAVER
-         * └─ GOOGLE
-         */
-        UserOAuthAccount newOAuthAccount =
-                UserOAuthAccount.builder()
-                        .user(user)
-                        .provider(normalizedProvider)
-                        .providerId(providerId)
-                        .build();
-
-        userOAuthAccountRepository.save(newOAuthAccount);
-
-        // 어느 로그인 수단을 사용했든 최종적으로 같은 User를 반환한다.
+        User user = userRepository.save(User.builder()
+                .email(email).name(name).birthyear(birthyear)
+                .provider(normalizedProvider).providerId(providerId).build());
+        addOAuthAccount(user, normalizedProvider, providerId);
         return user;
     }
+
+    /** 호출한 로그인 세션과 소셜 계정을 확인하고 현재 사용자의 로그인 수단만 추가한다. */
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public void linkOAuthAccount(long userId, long version, String sessionId, String provider, String providerId, String email) {
+        String normalizedProvider = normalizeProvider(provider);
+        User user = userRepository.findByIdForUpdate(userId).orElseThrow(this::linkConflict);
+        // 로그아웃·비밀번호 재설정과 같은 사용자 행을 잠근 상태에서 세션을 확인한다.
+        if (userRepository.countCurrentSession(userId, version, sessionId,
+                LocalDateTime.now(ZoneId.of("Asia/Seoul"))) != 1L) throw linkConflict();
+        if (!StringUtils.hasText(providerId) || !StringUtils.hasText(email)
+                || !email.equalsIgnoreCase(user.getEmail())) throw linkConflict();
+
+        var linked = userOAuthAccountRepository.findByProviderAndProviderId(normalizedProvider, providerId);
+        if (linked.isPresent()) {
+            if (!linked.get().getUser().getId().equals(user.getId())) throw linkConflict();
+            return;
+        }
+        if (userOAuthAccountRepository.findByUser_IdAndProvider(userId, normalizedProvider).isPresent()) throw linkConflict();
+        addOAuthAccount(user, normalizedProvider, providerId);
+    }
+
+    public List<String> connectedOAuthProviders(long userId) {
+        return userOAuthAccountRepository.findAllByUser_Id(userId).stream()
+                .map(UserOAuthAccount::getProvider).sorted().toList();
+    }
+
+    private void addOAuthAccount(User user, String provider, String providerId) {
+        userOAuthAccountRepository.save(UserOAuthAccount.builder()
+                .user(user).provider(provider).providerId(providerId).build());
+    }
+
+    private ResponseStatusException linkConflict() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "소셜 계정을 연결할 수 없습니다.");
+    }
+
+    /** 이메일이 이미 등록된 경우에만 호출자에게 명시적 연결 절차를 안내한다. */
+    public static final class OAuthLinkRequiredException extends RuntimeException {}
 
     /*
      * =========================================================

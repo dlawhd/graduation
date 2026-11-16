@@ -61,6 +61,7 @@ import MobileHeaderMenu from "./components/layout/MobileHeaderMenu";
 import { getSupportPermissions } from "./api/supportApi";
 import { supportNotificationPath } from "./features/support/supportView.mjs";
 import SupportHelpLink from "./features/support/SupportHelpLink";
+const SocialConnectionsPage = lazy(() => import("./pages/SocialConnectionsPage"));
 const JarsPage = lazy(() => import("./pages/JarsPage"));
 const JarsNewPage = lazy(() => import("./pages/JarsNewPage"));
 const JarDesignNewPage = lazy(() => import("./pages/JarDesignNewPage"));
@@ -1204,6 +1205,10 @@ useEffect(() => {
                                    * 내정보 패널은 닫고,
                                    * 별도의 큰 선택창을 연다.
                                    */}
+                                  <div className="border-b border-slate-100 px-5 py-3">
+                                    <Link to="/account/connections" onClick={() => setProfileOpen(false)}
+                                      className="flex min-h-11 items-center text-sm font-bold text-emerald-800">로그인 수단 연결</Link>
+                                  </div>
                                   <div className="profile-menu-help border-b border-slate-100 px-5 py-4">
                                     <button
                                       type="button"
@@ -1477,6 +1482,11 @@ useEffect(() => {
               <FindPasswordPage />
             }
           />
+          <Route path="/account/connections" element={
+            <Suspense fallback={<StatusNotice type="loading">연결 화면을 준비하고 있어요.</StatusNotice>}>
+              <SocialConnectionsPage key={supportUserId} userId={supportUserId} checkingAuth={checkingAuth} />
+            </Suspense>
+          } />
           <Route path="/login/success" element={<LoginSuccess />} />
           <Route path="/jars" element={
             <Suspense fallback={<StatusNotice type="loading" title="내 저금통을 준비하고 있어요." />}>

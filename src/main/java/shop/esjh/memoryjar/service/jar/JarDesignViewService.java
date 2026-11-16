@@ -62,30 +62,22 @@ public class JarDesignViewService {
      * URL 발급만 실패한 경우에도 Jar 상세 전체가 사라지지 않도록 이미지 URL만 null로 둔다.
      */
     private JarDesignResponse toResponse(JarDesign design) {
-        int expiresInSeconds = s3Properties.getPresignExpSeconds();
+        int expiresInSeconds = Math.min(s3Properties.getDesignReadExpSeconds(), 60);
         String imageUrl = null;
         OffsetDateTime imageExpiresAt = null;
-        String bodyArtworkUrl=null;
+        String bodyArtworkUrl = null;
 
         if (expiresInSeconds > 0 && hasText(s3Properties.getBucket()) && hasText(design.getFinalS3Key())) {
             try {
-                imageUrl = s3Presigner.presignGetObject(
-                                GetObjectPresignRequest.builder()
-                                        .signatureDuration(Duration.ofSeconds(expiresInSeconds))
-                                        .getObjectRequest(GetObjectRequest.builder()
-                                                .bucket(s3Properties.getBucket())
-                                                .key(design.getFinalS3Key())
-                                                .responseContentType("image/png")
-                                                .build())
-                                        .build())
-                        .url()
-                        .toString();
+                imageUrl = signImage(design.getFinalS3Key(), expiresInSeconds);
                 imageExpiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(expiresInSeconds);
-                if(design.getBodyArtworkS3Key()!=null) bodyArtworkUrl=s3Presigner.presignGetObject(GetObjectPresignRequest.builder()
-                        .signatureDuration(Duration.ofSeconds(expiresInSeconds)).getObjectRequest(GetObjectRequest.builder()
-                                .bucket(s3Properties.getBucket()).key(design.getBodyArtworkS3Key()).responseContentType("image/png").build()).build()).url().toString();
+                if (hasText(design.getBodyArtworkS3Key())) {
+                    bodyArtworkUrl = signImage(design.getBodyArtworkS3Key(), expiresInSeconds);
+                }
             } catch (RuntimeException exception) {
-                imageUrl=null;imageExpiresAt=null;bodyArtworkUrl=null;
+                imageUrl = null;
+                imageExpiresAt = null;
+                bodyArtworkUrl = null;
                 // 사용자 화면에는 내부 S3 정보와 SDK 예외를 노출하지 않고 재조회 가능한 빈 URL만 전달한다.
                 log.warn("Jar 최종 디자인 미리보기 URL 발급에 실패했습니다. jarId={}",
                         design.getJar().getJarId());
@@ -105,6 +97,19 @@ public class JarDesignViewService {
                 "/api/v1/jars/"+design.getJar().getJarId()+"/design/texture?part=IMAGE",
                 design.getBodyArtworkS3Key()==null?null:"/api/v1/jars/"+design.getJar().getJarId()+"/design/texture?part=BODY"
         );
+    }
+
+    /** 서명 주소가 만료된 뒤 브라우저 캐시에서 같은 응답을 재사용하지 않게 한다. */
+    private String signImage(String key, int expiresInSeconds) {
+        return s3Presigner.presignGetObject(GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofSeconds(expiresInSeconds))
+                .getObjectRequest(GetObjectRequest.builder()
+                        .bucket(s3Properties.getBucket())
+                        .key(key)
+                        .responseContentType("image/png")
+                        .responseCacheControl("private, no-store")
+                        .build())
+                .build()).url().toString();
     }
 
     private boolean hasText(String value) {

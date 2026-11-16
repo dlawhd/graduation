@@ -47,6 +47,13 @@ public class AuthRequestLimits {
                 new Rule("email-global", emailGlobal, Duration.ofHours(1)));
     }
 
+    /** 회원가입 아이디 확인과 복구 코드 확인을 IP·서버 단위로 제한한다. */
+    public void accountLookup(String purpose, String clientAddress) {
+        Duration window = Duration.ofMinutes(1);
+        budgets.consume(new Rule(purpose + "-ip:" + clientAddress, 30, window),
+                new Rule(purpose + "-global", 300, window));
+    }
+
     private String normalized(String value) { return value == null ? "" : value.strip().toLowerCase(Locale.ROOT); }
 
     // 새 키의 최대 생성량보다 빠르게 정리하되 한 번에 긴 삭제 트랜잭션을 만들지 않는다.

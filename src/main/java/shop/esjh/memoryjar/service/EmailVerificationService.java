@@ -69,6 +69,12 @@ public class EmailVerificationService {
     private static final long CODE_EXPIRE_MINUTES =
             5;
 
+    /** 복구 접수 확인과 실제 인증번호에 같은 유효 시간을 적용한다. */
+    static LocalDateTime codeExpiresAt(LocalDateTime issuedAt) {
+        return issuedAt.plusMinutes(CODE_EXPIRE_MINUTES);
+    }
+
+
 
     /*
      * 인증번호 재전송 대기시간
@@ -835,9 +841,7 @@ public class EmailVerificationService {
          * 지금부터 5분 뒤가 인증번호 만료시간이다.
          */
         LocalDateTime codeExpiresAt =
-                now.plusMinutes(
-                        CODE_EXPIRE_MINUTES
-                );
+                codeExpiresAt(now);
 
 
         EmailVerification verification;

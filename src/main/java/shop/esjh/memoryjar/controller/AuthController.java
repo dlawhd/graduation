@@ -26,6 +26,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    private final PasswordRecoveryService passwordRecoveryService;
     private final RefreshTokenService refreshTokenService;
     private final AuthCookieService authCookieService;
     private final JwtTokenProvider jwtTokenProvider;
@@ -44,6 +45,7 @@ public class AuthController {
             AuthCookieService authCookieService,
             JwtTokenProvider jwtTokenProvider,
             LocalAuthService localAuthService,
+            PasswordRecoveryService passwordRecoveryService,
             EmailVerificationDispatchService emailVerificationDispatchService,
             EmailVerificationService emailVerificationService,
             shop.esjh.memoryjar.security.AuthRequestLimits requestLimits
@@ -52,6 +54,7 @@ public class AuthController {
         this.authCookieService = authCookieService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.localAuthService = localAuthService;
+        this.passwordRecoveryService = passwordRecoveryService;
         this.emailVerificationDispatchService = emailVerificationDispatchService;
         this.emailVerificationService = emailVerificationService;
         this.requestLimits = requestLimits;
@@ -93,8 +96,10 @@ public class AuthController {
              *
              * 값을 받는다.
              */
-            @RequestParam String loginId
+            @RequestParam String loginId,
+            HttpServletRequest clientRequest
     ) {
+        requestLimits.accountLookup("signup-id", requestLimits.clientAddress(clientRequest));
 
         LoginIdAvailabilityResponse response =
                 localAuthService
@@ -464,47 +469,8 @@ public class AuthController {
             PasswordResetEmailVerificationSendRequest request,
             HttpServletRequest clientRequest
     ) {
-        // 클라이언트가 임의로 보낸 전달 헤더를 IP로 신뢰하지 않는다.
         requestLimits.email(request.email(), requestLimits.clientAddress(clientRequest));
-
-
-        /*
-         * 먼저:
-         *
-         * loginId + email
-         *
-         * 이 같은 LOCAL 계정인지 확인한다.
-         */
-        LocalAuthService.PasswordResetIdentity identity =
-                localAuthService
-                        .verifyPasswordResetIdentity(
-                                request.loginId(),
-                                request.email()
-                        );
-
-
-        /*
-         * 같은 계정일 때만
-         * PASSWORD_RESET 인증번호 발급.
-         */
-        EmailVerificationDispatchService
-                .VerificationDispatchResult result =
-                emailVerificationDispatchService
-                        .sendPasswordResetVerificationCode(
-                                identity.email()
-                        );
-
-
-        EmailVerificationSendResponse response =
-                new EmailVerificationSendResponse(
-                        result.email(),
-                        result.expiresAt()
-                );
-
-
-        return ApiResponse.of(
-                response
-        );
+        return ApiResponse.of(passwordRecoveryService.requestCode(request.loginId(), request.email()));
     }
 
     /*
@@ -522,32 +488,11 @@ public class AuthController {
     )
     public ApiResponse<PasswordResetEmailVerificationConfirmResponse>
     confirmPasswordResetEmailVerification(
-
-            @Valid
-            @RequestBody
-            PasswordResetEmailVerificationConfirmRequest request
+            @Valid @RequestBody PasswordResetEmailVerificationConfirmRequest request,
+            HttpServletRequest clientRequest
     ) {
-
-        /*
-         * 인증번호 확인 전에도
-         * 아이디 + 이메일 관계를 다시 확인한다.
-         */
-        LocalAuthService.PasswordResetIdentity identity =
-                localAuthService
-                        .verifyPasswordResetIdentity(
-                                request.loginId(),
-                                request.email()
-                        );
-
-
-        EmailVerificationService
-                .VerifiedEmailVerification verified =
-                emailVerificationService
-                        .verifyPasswordResetCode(
-                                identity.email(),
-                                request.code()
-                        );
-
+        requestLimits.accountLookup("password-reset-confirm", requestLimits.clientAddress(clientRequest));
+        var verified = passwordRecoveryService.confirmCode(request.loginId(), request.email(), request.code());
 
         /*
          * 기존 verificationToken이라는 내부 구조를

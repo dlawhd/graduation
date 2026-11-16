@@ -19,11 +19,11 @@ jobs:
     runs-on: self-hosted
     steps:
       # 검증된 실행의 코드와 같은 실행의 artifact만 사용한다.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: deployment-manifest-${{ github.event.workflow_run.head_sha }}
           path: deployment-manifest

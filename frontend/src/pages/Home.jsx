@@ -65,6 +65,10 @@ export default function Home({
 
   // 사용자에게 보여줄 에러 문구
   const [errorMessage, setErrorMessage] = useState("");
+  const loginError = searchParams.get("loginError");
+  const oauthError = loginError === "link-required"
+    ? "원래 쓰던 방법으로 로그인한 뒤 내 정보에서 새 로그인 수단을 연결해 주세요."
+    : loginError === "retry" ? "소셜 로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요." : "";
 
   /*
    * App.jsx의 로그인 확인이 끝난 뒤
@@ -257,7 +261,7 @@ export default function Home({
               checkingSession={checkingAuth}
               loginReturnTo={returnTo}
               redirectingProvider={redirectingProvider}
-              errorMessage={errorMessage}
+              errorMessage={errorMessage || oauthError}
 
               // 네이버 로그인 버튼을 누르면 네이버 OAuth를 시작한다.
               onNaverLogin={() => handleOAuthLogin("naver")}

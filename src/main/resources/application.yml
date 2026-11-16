@@ -197,6 +197,7 @@ app:
     bucket: ${APP_S3_BUCKET:}
     public-base-url: ${APP_S3_PUBLIC_BASE_URL:}
     presign-exp-seconds: ${APP_S3_PRESIGN_EXP_SECONDS:300}
+    design-read-exp-seconds: ${APP_S3_DESIGN_READ_EXP_SECONDS:60}
 
   file:
     # 사진 및 일반 이미지 파일의 최대 크기

@@ -553,14 +553,14 @@ export default function FindPasswordPage() {
 
         setLoginIdStatus("valid");
         setLoginIdMessage(
-          "확인된 아이디예요. 가입할 때 사용한 이메일을 입력해 주세요."
+          "가입할 때 사용한 이메일을 입력해 주세요."
         );
         return;
       }
 
       setLoginIdStatus("invalid");
       setLoginIdMessage(
-        "등록된 자체 로그인 아이디가 아니에요."
+        "아이디 입력 형식을 다시 확인해 주세요."
       );
     } catch (error) {
       setLoginIdStatus("error");
@@ -649,10 +649,7 @@ export default function FindPasswordPage() {
 
       setEmailSendStatus("sent");
       setEmailSendMessage(
-        `${
-          result?.email ??
-          normalizedEmail
-        }로 인증번호를 보냈어요. 메일함을 확인해 주세요.`
+        "입력한 정보가 가입 정보와 일치하면 인증번호가 도착해요. 메일함을 확인해 주세요."
       );
 
       setVerificationExpiresAt(

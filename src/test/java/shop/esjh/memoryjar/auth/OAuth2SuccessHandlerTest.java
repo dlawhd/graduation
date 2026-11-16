@@ -91,6 +91,40 @@ class OAuth2SuccessHandlerTest {
         );
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {17L, 18L})
+    void connectionCallbackChecksCurrentAccountWithoutIssuingLoginCookies(long currentId) throws Exception {
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        var identity = new SocialAccountLink.Identity(17L, 2L, "current-session");
+        String path = SocialAccountLink.start(request, identity, "naver");
+        String nonce = path.substring(path.indexOf('=') + 1);
+        String state = SocialAccountLink.bind(request, "naver", "provider-state", nonce);
+        request.addParameter("state", state);
+        request.setCookies(new jakarta.servlet.http.Cookie("accessToken", "browser-token"));
+
+        var claims = io.jsonwebtoken.Jwts.claims().subject(Long.toString(currentId))
+                .add("sessionVersion", 2L).add("loginSessionId", "current-session").build();
+        when(jwtTokenProvider.parseValidatedClaims("browser-token")).thenReturn(java.util.Optional.of(claims));
+        var authentication = mock(OAuth2AuthenticationToken.class);
+        var principal = mock(OAuth2User.class);
+        when(authentication.getAuthorizedClientRegistrationId()).thenReturn("naver");
+        when(authentication.getPrincipal()).thenReturn(principal);
+        when(principal.getAttributes()).thenReturn(Map.of("response",
+                Map.of("id", "naver-id", "email", "owner@example.com", "name", "Owner")));
+
+        oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication);
+
+        if (currentId == 17L) {
+            verify(userService).linkOAuthAccount(17L, 2L, "current-session", "NAVER", "naver-id", "owner@example.com");
+            assertThat(response.getRedirectedUrl()).endsWith("/account/connections?result=linked");
+        } else {
+            verifyNoInteractions(userService);
+            assertThat(response.getRedirectedUrl()).endsWith("/account/connections?result=failed");
+        }
+        verifyNoInteractions(refreshTokenService, authCookieService);
+    }
+
     /*
      * 기존 NAVER 로그인도 Google 추가 후
      * 그대로 정상 동작하는지 확인한다.

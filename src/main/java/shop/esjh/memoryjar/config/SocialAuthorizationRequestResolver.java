@@ -1,6 +1,7 @@
 package shop.esjh.memoryjar.config;
 
 import jakarta.servlet.http.HttpServletRequest;
+import shop.esjh.memoryjar.auth.SocialAccountLink;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
@@ -89,7 +90,7 @@ public class SocialAuthorizationRequestResolver
                 defaultResolver.resolve(request);
 
         // 로그인 Provider에 맞는 추가 설정을 붙인다.
-        return customize(originalRequest);
+        return customize(request, originalRequest);
     }
 
     /*
@@ -110,7 +111,7 @@ public class SocialAuthorizationRequestResolver
                 );
 
         // 로그인 Provider에 맞게 꾸민다.
-        return customize(originalRequest);
+        return customize(request, originalRequest);
     }
 
     /*
@@ -118,6 +119,7 @@ public class SocialAuthorizationRequestResolver
      * 추가 파라미터를 붙여준다.
      */
     private OAuth2AuthorizationRequest customize(
+            HttpServletRequest request,
             OAuth2AuthorizationRequest originalRequest
     ) {
 
@@ -216,9 +218,11 @@ public class SocialAuthorizationRequestResolver
          * scope, state 등의 중요한 값은 그대로 유지하고
          * additionalParameters만 변경해서 새 요청을 만든다.
          */
-        return OAuth2AuthorizationRequest
-                .from(originalRequest)
-                .additionalParameters(extraParams)
-                .build();
+        var builder = OAuth2AuthorizationRequest.from(originalRequest).additionalParameters(extraParams);
+        String nonce = request.getParameter("link");
+        if (nonce != null) {
+            builder.state(SocialAccountLink.bind(request, registrationId, originalRequest.getState(), nonce));
+        }
+        return builder.build();
     }
 }

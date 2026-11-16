@@ -1070,7 +1070,7 @@ Response — PasswordResetLoginIdCheckResponse
 
 ```
 /**
- * 입력한 LOCAL 로그인 아이디가 유효한지 반환한다.
+ * 입력한 LOCAL 로그인 아이디의 형식이 유효한지 반환한다.
  */publicrecordPasswordResetLoginIdCheckResponse(StringloginId,booleanvalid
 ) {}
 ```
