@@ -79,7 +79,7 @@ jobs:
 
       # Docker 이미지를 빌드할 수 있도록 Buildx를 준비한다.
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # GitHub Container Registry에 로그인한다.
       - name: Login to GHCR
