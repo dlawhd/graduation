@@ -3,7 +3,7 @@
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import { useRequestGate } from "../api/useRequestGate";
-import OwnNotesModal from "../features/jarDetail/components/OwnNotesModal";
+import { noteViewScope } from "../features/jarDetail/utils/noteViewScope.mjs";
 import {
   ONBOARDING_TUTORIAL_KEY,
 } from "../api/onboardingApi";
@@ -392,10 +392,10 @@ export default function JarDetailPage({ me, onSuccess }) {
 
   // 저금통 확대 보기 모달 상태
   const [jarZoomOpen, setJarZoomOpen] = useState(false);
-  const [ownNotesOpen,setOwnNotesOpen]=useState(false);
   const [jarZoomNotes, setJarZoomNotes] = useState([]);
   const [jarZoomPagination, setJarZoomPagination] = useState({ page: 0, totalPages: 0, totalElements: 0 });
-  const jarZoomQueryRef = useRef({ page: 0, q: "", tag: "" });
+  const [jarZoomScope, setJarZoomScope] = useState("ALL");
+  const jarZoomQueryRef = useRef({ page: 0, q: "", tag: "", scope: "ALL" });
   const jarZoomRequestRef = useRef(0);
   const [jarZoomLoading, setJarZoomLoading] = useState(false);
   const [jarZoomError, setJarZoomError] = useState("");
@@ -403,12 +403,12 @@ export default function JarDetailPage({ me, onSuccess }) {
   // 다른 저금통으로 이동한 뒤 이전 요청이 늦게 도착해 목록을 덮어쓰지 않게 한다.
   useEffect(() => {
     ++jarZoomRequestRef.current;
-    setOwnNotesOpen(false);
-    jarZoomQueryRef.current = { page: 0, q: "", tag: "" };
+    jarZoomQueryRef.current = { page: 0, q: "", tag: "", scope: "ALL" };
+    setJarZoomScope("ALL");
     setJarZoomNotes([]);
     setJarZoomPagination({ page: 0, totalPages: 0, totalElements: 0 });
     return () => { ++jarZoomRequestRef.current; };
-  }, [jarId]);
+  }, [jarId, me?.userId, me?.id]);
 
   // 저금통 채팅 모달 상태
   // false면 닫힘, true면 열림
@@ -1771,7 +1771,6 @@ useEffect(() => {
    * 오픈 축하 모달과 겹치는 것을 막는다.
    */
   const hasBlockingJarDetailModal =
-    ownNotesOpen ||
     jarZoomDetailOpen ||
     jarZoomOpen ||
     jarChatOpen ||
@@ -2562,13 +2561,20 @@ function getJarDropTargetRect() {
 // 확대 모달에서 보여줄 쪽지 목록 불러오기
 async function loadJarZoomNotes(options = {}) {
   const query = { ...jarZoomQueryRef.current, ...options };
-  jarZoomQueryRef.current = { page: query.page, q: query.q, tag: query.tag };
+  query.scope = noteViewScope(jar?.isOpen, query.scope);
+  // 범위를 바꾼 직후 이전 목록을 지워 내 쪽지 탭에 전체 목록이 잠깐 보이지 않게 한다.
+  if (query.scope !== jarZoomQueryRef.current.scope) {
+    setJarZoomNotes([]);
+    setJarZoomPagination({ page: 0, totalPages: 0, totalElements: 0 });
+  }
+  jarZoomQueryRef.current = { page: query.page, q: query.q, tag: query.tag, scope: query.scope };
+  setJarZoomScope(query.scope);
   const requestId = ++jarZoomRequestRef.current;
   setJarZoomLoading(true);
   setJarZoomError("");
 
   try {
-    const res = await apiClient.get(`/api/v1/jars/${jarId}/notes`, {
+    const res = await apiClient.get(`/api/v1/jars/${jarId}/notes${query.scope === "MINE" ? "/mine" : ""}`, {
       params: {
         page: query.page,
         size: 3,
@@ -2688,7 +2694,7 @@ async function handleOpenJarZoomNoteDetail(noteId, options = {}) {
   try {
     const [noteRes] = await Promise.all([
       apiClient.get(`/api/v1/jars/${jarId}/notes/${noteId}`),
-      loadJarZoomComments(noteId, { focusId: focusCommentId }),
+      jar?.isOpen ? loadJarZoomComments(noteId, { focusId: focusCommentId }) : Promise.resolve(),
     ]);
 
     if (!isCurrent()) return;
@@ -3155,22 +3161,17 @@ function handleCancelEditComment() {
 async function handleOpenJarZoom() {
   setJarZoomOpen(true);
 
-  // 오픈 전에는 쪽지 목록 자체를 불러오지 않는다.
-  // 이유:
-  // - 저금통은 열리기 전까지 비밀이라는 콘셉트가 중요하다.
-  // - 화면에서 숨기더라도 굳이 목록 API를 호출할 필요가 없다.
-  if (!jar?.isOpen) {
-    setJarZoomNotes([]);
-    setJarZoomError("");
-    setJarZoomLoading(false);
-    return;
-  }
-
-  // 열린 모달의 첫 목록 조회는 JarZoomModal에서 요청한다.
+  // 첫 조회는 모달에서 요청한다. 오픈 전에는 본인 전용 범위로 고정한다.
+  const scope = noteViewScope(jar?.isOpen, "ALL");
+  ++jarZoomRequestRef.current;
+  jarZoomQueryRef.current = { page: 0, q: "", tag: "", scope };
+  setJarZoomScope(scope); setJarZoomNotes([]); setJarZoomError("");
+  setJarZoomPagination({ page: 0, totalPages: 0, totalElements: 0 });
 }
 
 // 저금통 확대 모달 닫기
 function handleCloseJarZoom() {
+  ++jarZoomRequestRef.current;
   setJarZoomOpen(false);
 }
 
@@ -3977,7 +3978,7 @@ async function handleViewOpenedJarNotes() {
                   jar={jar}
                   jarRef={jarVisualRef}
                   frontViewRequest={noteCreateRequestId}
-                  notesButtonLabel={jar.isOpen ? "전체 쪽지" : "내가 넣은 쪽지"}
+                  notesButtonLabel="쪽지 확인"
                   onReloadDesignImage={reloadJarDesignImage}
 
                   /*
@@ -4018,11 +4019,10 @@ async function handleViewOpenedJarNotes() {
                   showNotesButton={false}
                 />
 
-                {/* 공개 뒤에도 본인 쪽지 검색을 유지한다. 전체 쪽지는 위의 기존 열람 버튼으로 연다. */}
-                <div className="mt-6 grid w-full max-w-xl grid-cols-2 gap-3">
-                  {jar.isOpen && <button ref={viewNotesTutorialButtonRef} type="button" onClick={() => void handleJarDetailTargetButtonClick(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES, handleOpenJarZoom)}
-                    className={`min-h-11 rounded-2xl border bg-white/90 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm ${isCurrentJarDetailTutorialTarget(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES) ? "ring-4 ring-white/90" : ""}`}>전체 쪽지</button>}
-                  <button style={!jar.isOpen ? { gridColumn: "1 / -1" } : undefined} ref={jar.isOpen ? undefined : viewNotesTutorialButtonRef} type="button" onClick={()=>void handleJarDetailTargetButtonClick(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES, ()=>setOwnNotesOpen(true))} className="min-h-11 rounded-full border border-emerald-200 bg-white/90 px-5 py-2 text-sm font-bold text-emerald-800 shadow-sm">내가 넣은 쪽지</button>
+                {/* 오픈 여부와 관계없이 같은 창에서 쪽지를 확인한다. 비공개 범위는 서버가 강제한다. */}
+                <div className="mt-6 grid w-full max-w-xl gap-3">
+                  <button ref={viewNotesTutorialButtonRef} type="button" onClick={() => void handleJarDetailTargetButtonClick(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES, handleOpenJarZoom)}
+                    className={`min-h-11 rounded-2xl border bg-white/90 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm ${isCurrentJarDetailTutorialTarget(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES) ? "ring-4 ring-white/90" : ""}`}>쪽지 확인</button>
                   {jar.isOpen && <button style={{ gridColumn: "1 / -1", justifySelf: "center" }} type="button" onClick={() => showJarOpenCelebration(null, { replay: true })}
                     className="min-h-11 rounded-full border border-[#cbd5bc] bg-[#fffdf5] px-5 py-2 text-sm font-bold text-[#45653b] shadow-sm hover:bg-[#f1f5e8]">추억 열기 다시 보기</button>}
                 </div>
@@ -4279,13 +4279,13 @@ async function handleViewOpenedJarNotes() {
           getJarDropTargetRect={getJarDropTargetRect}
         />
 
-        {ownNotesOpen&&<OwnNotesModal key={`${jarId}:${currentUserId}`} jarId={jarId} userId={currentUserId} isOpen={jar.isOpen} onClose={()=>setOwnNotesOpen(false)}/>}
-
         <JarZoomModal
           open={jarZoomOpen}
+          suspended={jarZoomDetailOpen}
           jar={jar}
           notes={jarZoomNotes}
           pagination={jarZoomPagination}
+          scope={noteViewScope(jar?.isOpen, jarZoomScope)}
           onQueryChange={loadJarZoomNotes}
           loading={jarZoomLoading}
           error={jarZoomError}

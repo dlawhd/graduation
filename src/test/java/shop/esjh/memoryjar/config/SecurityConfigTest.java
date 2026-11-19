@@ -72,6 +72,15 @@ class SecurityConfigTest {
     }
 
     @Test
+    void deletingDesignDraftRequiresAuthenticationAndCsrf() throws Exception {
+        String path = "/api/v1/design-drafts/10";
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(path).with(csrf()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(path).with(user("draft-owner")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void operatorAdditionalAuthenticationStillRequiresLogin() throws Exception {
         mockMvc.perform(get("/api/v1/admin/support/mfa")).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/v1/admin/support/mfa/verification").with(csrf())

@@ -37,6 +37,73 @@ class JarDesignDraftServiceTest {
     @Mock private JarDesignCutoutPathCodec cutoutPathCodec;
     @InjectMocks private JarDesignDraftService draftService;
 
+
+    @Test
+    void abandonRequiresOwnerEvenWhenAlreadyDeleted() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(2L)).thenReturn(false);
+        assertThatThrownBy(() -> draftService.abandon(2L, 10L)).isInstanceOf(ApiException.class)
+                .hasMessage(AiDraftErrorCode.DRAFT_NOT_OWNER.message());
+        verify(draft, never()).markAbandoned();
+        verifyNoInteractions(generationRepository);
+    }
+
+    @Test
+    void abandonMissingDraftReturnsNotFound() {
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> draftService.abandon(1L, 10L)).isInstanceOf(ApiException.class)
+                .hasMessage(AiDraftErrorCode.DRAFT_NOT_FOUND.message());
+    }
+
+    @Test
+    void abandonFinalizedDraftDoesNotChangeCompletedJar() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.getStatus()).thenReturn(shop.esjh.memoryjar.enums.ai.JarDraftStatus.FINALIZED);
+        assertThatThrownBy(() -> draftService.abandon(1L, 10L)).isInstanceOf(ApiException.class)
+                .hasMessage(AiDraftErrorCode.DRAFT_ALREADY_FINALIZED.message());
+        verify(draft, never()).markAbandoned();
+    }
+
+    @Test
+    void abandonActiveDraftAndRetryOnlyEndsItOnce() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        when(draftRepository.findByDraftIdForUpdate(10L)).thenReturn(Optional.of(draft));
+        when(draft.isOwner(1L)).thenReturn(true);
+        when(draft.getStatus()).thenReturn(shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE);
+        draftService.abandon(1L, 10L);
+        when(draft.getStatus()).thenReturn(shop.esjh.memoryjar.enums.ai.JarDraftStatus.ABANDONED);
+        draftService.abandon(1L, 10L);
+        verify(draft, times(1)).markAbandoned();
+        verify(draftRepository, times(2)).findByDraftIdForUpdate(10L);
+        verifyNoInteractions(generationRepository);
+    }
+
+    @Test
+    void listResumableUsesTwoItemPageAndReturnsSafeDesignMetadataWithoutCandidateQueries() {
+        JarDesignDraft draft = mock(JarDesignDraft.class);
+        var now = java.time.LocalDateTime.of(2026, 11, 19, 10, 0);
+        when(draft.getDraftId()).thenReturn(10L);
+        when(draft.getStatus()).thenReturn(shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE);
+        when(draft.getUpdatedAt()).thenReturn(now);
+        when(draft.getCreatedAt()).thenReturn(now.minusDays(1));
+        when(draft.getExpiresAt()).thenReturn(now.plusDays(7));
+        when(draft.getBodyStyle()).thenReturn(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT);
+        when(cutoutPathCodec.decodeRegions(null)).thenReturn(List.of());
+        when(draftRepository.findResumable(eq(1L), any(), any(), any())).thenReturn(
+                new org.springframework.data.domain.SliceImpl<>(List.of(draft), org.springframework.data.domain.PageRequest.of(0, 2), true));
+        var result = draftService.listResumable(1L, 0);
+        assertThat(result.hasNext()).isTrue();
+        assertThat(result.items().get(0).createdAt().getOffset()).isEqualTo(java.time.ZoneOffset.ofHours(9));
+        assertThat(result.items().get(0).design().bodyStyle()).isEqualTo(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT);
+        assertThat(result.items().get(0).design().generations()).isEmpty();
+        verify(draftRepository).findResumable(eq(1L), any(), any(), eq(org.springframework.data.domain.PageRequest.of(0, 2)));
+        verifyNoInteractions(generationRepository);
+        verify(draft, never()).getOriginalS3Key();
+    }
+
     @Test
     @DisplayName("FAILED 후보는 같은 Draft 소속이어도 선택할 수 없다")
     void selectAiGeneration_rejectsFailedCandidate() {

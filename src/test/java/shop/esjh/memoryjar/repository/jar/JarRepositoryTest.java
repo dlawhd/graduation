@@ -96,7 +96,7 @@ class JarRepositoryTest extends AbstractMariaDbRepositoryTest {
         entityManager.createNativeQuery("update jar_design_drafts set created_at = :created, expires_at = :expired where draft_id = :id")
                 .setParameter("created", now.minusDays(2)).setParameter("expired", now.minusSeconds(1)).setParameter("id", expired.getDraftId()).executeUpdate();
         var result = drafts.findResumable(owner.getId(),shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE,now,PageRequest.of(0,1));
-        assertThat(result.getContent()).extracting(shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository.ResumeView::getDraftId)
+        assertThat(result.getContent()).extracting(shop.esjh.memoryjar.entity.ai.JarDesignDraft::getDraftId)
                 .containsExactly(active.getDraftId());
         assertThat(result.hasNext()).isFalse();
         assertThat(drafts.findResumable(owner.getId(),shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE,now,PageRequest.of(1,1))).isEmpty();

@@ -44,11 +44,12 @@ public class JarDesignDraftService {
         if (page < 0 || page > 10000) throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_REQUEST, "페이지를 확인해 주세요.");
         var rows = draftRepository.findResumable(userId, shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE,
-                LocalDateTime.now(KST), org.springframework.data.domain.PageRequest.of(page, 6));
+                LocalDateTime.now(KST), org.springframework.data.domain.PageRequest.of(page, 2));
         return new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse(rows.stream().map(row ->
                 new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse.Item(row.getDraftId(), row.getBodyStyle(),
                         row.getSelectedDesignType(), row.getUpdatedAt().atZone(KST).toOffsetDateTime(),
-                        row.getExpiresAt().atZone(KST).toOffsetDateTime())).toList(), page, rows.hasNext());
+                        row.getExpiresAt().atZone(KST).toOffsetDateTime(), row.getCreatedAt().atZone(KST).toOffsetDateTime(),
+                        toSummary(row, List.of()))).toList(), page, rows.hasNext());
     }
 
     /** Draft 조회에는 S3 Key를 노출하지 않고 선택·Slot·후보 상태만 반환한다. */
@@ -62,6 +63,11 @@ public class JarDesignDraftService {
                 .map(generation -> new JarDesignDraftDetailResponse.GenerationItem(generation.getGenerationId(), generation.getAiStyle(), generation.getStatus(),
                         generation.getErrorCode(), generation.getCompletedAt()))
                 .toList();
+        return toSummary(draft, generations);
+    }
+
+    /** 목록에서도 실제 배치·본체·입구를 복원한다. 연관 후보와 파일은 별도 조회하지 않는다. */
+    private JarDesignDraftDetailResponse toSummary(JarDesignDraft draft, List<JarDesignDraftDetailResponse.GenerationItem> generations) {
         List<List<JarDesignCutoutPoint>> cutoutRegions = cutoutPathCodec.decodeRegions(draft.getCutoutPathJson());
         List<JarDesignCutoutPoint> legacyCutoutPoints = cutoutRegions.isEmpty() ? List.of() : cutoutRegions.get(0);
         return new JarDesignDraftDetailResponse(draft.getDraftId(), draft.getStatus(), draft.getSelectedDesignType(), draft.getSelectedGenerationId(),
@@ -69,6 +75,18 @@ public class JarDesignDraftService {
                 draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations,
                 draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()),
                 JarPhotoFrame.valueOf(draft.getOriginalContentFrame()), JarPhotoFrame.valueOf(draft.getAiInputPhotoFrame()), draft.getCustomBody());
+    }
+
+    /** 최종화와 같은 행 잠금으로 경쟁을 막고, 파일 정리는 기존 종료 초안 정리기에 맡긴다. */
+    @Transactional
+    public void abandon(Long userId, Long draftId) {
+        JarDesignDraft draft = draftRepository.findByDraftIdForUpdate(draftId)
+                .orElseThrow(() -> new ApiException(AiDraftErrorCode.DRAFT_NOT_FOUND));
+        if (!draft.isOwner(userId)) throw new ApiException(AiDraftErrorCode.DRAFT_NOT_OWNER);
+        if (draft.getStatus() == shop.esjh.memoryjar.enums.ai.JarDraftStatus.FINALIZED)
+            throw new ApiException(AiDraftErrorCode.DRAFT_ALREADY_FINALIZED);
+        // 같은 삭제를 재시도해도 성공한다. 완성된 저금통과 원본을 직접 삭제하지 않는다.
+        if (draft.getStatus() == shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE) draft.markAbandoned();
     }
 
     /**

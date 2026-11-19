@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useModalFocus } from "../hooks/useModalFocus";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactionBar from "./ReactionBar";
 import { getThemeIcon } from "../theme/jarDetailTheme";
@@ -10,7 +11,7 @@ import JarCustomDesignVisual from "./JarCustomDesignVisual";
  * 저금통을 크게 들여다보는 모달 컴포넌트야.
  *
  * 쉽게 말하면:
- * - 오픈 전에는 저금통만 크게 보여주고
+ * - 오픈 전에는 본인이 넣은 쪽지만 보여주고
  * - 오픈 후에는 저금통 안 쪽지들과 오른쪽 쪽지 목록을 보여주고
  * - 제목/내용/장소/태그로 쪽지를 검색할 수 있게 해준다.
  *
@@ -19,9 +20,11 @@ import JarCustomDesignVisual from "./JarCustomDesignVisual";
  */
 export default function JarZoomModal({
   open,
+  suspended = false,
   jar,
   notes,
   pagination,
+  scope = "ALL",
   onQueryChange,
   loading,
   error,
@@ -34,17 +37,17 @@ export default function JarZoomModal({
   onReloadDesignImage = null,
 }) {
 
+  const dialogRef = useRef(null);
+  useModalFocus(open, suspended, dialogRef, onClose);
   // notes가 혹시 배열이 아니어도 화면이 터지지 않게 안전하게 맞춘다.
   const safeNotes = Array.isArray(notes) ? notes : [];
 
   // 저금통이 실제로 열렸는지 확인하는 값이야.
-  // true면 오른쪽 쪽지 목록을 보여주고,
-  // false면 저금통만 보여줘서 비밀 느낌을 유지해.
+  // 오픈 전에는 전체 쪽지 탭·리액션·댓글을 표시하지 않는다.
   const isJarOpen = !!jar?.isOpen;
 
-  // 오픈 전에는 쪽지 목록을 화면 계산에 쓰지 않는다.
-  // 그래야 쪽지 개수나 검색 결과가 노출되지 않아.
-  const visibleNotes = isJarOpen ? safeNotes : [];
+  // 서버가 오픈 전에는 본인 쪽지만, 오픈 후에는 선택한 범위만 반환한다.
+  const visibleNotes = safeNotes;
 
   // 오른쪽 검색창 상태
   const [searchForm, setSearchForm] = useState({
@@ -107,7 +110,7 @@ export default function JarZoomModal({
 
     setNotePage(1);
     setAppliedSearch({ q: "", tag: "" });
-    if (isJarOpen) onQueryChange?.({ page: 0, q: "", tag: "" });
+    onQueryChange?.({ page: 0, q: "", tag: "", scope: isJarOpen ? "ALL" : "MINE" });
   }, [open, isJarOpen]);
 
   // 검색 결과 바뀌면 1페이지로 이동한다.
@@ -119,6 +122,11 @@ export default function JarZoomModal({
   useEffect(() => {
     if (pagination) setNotePage((pagination.page || 0) + 1);
   }, [pagination]);
+
+  function changeScope(nextScope) {
+    setSearchForm({ q: "", tag: "" }); setAppliedSearch({ q: "", tag: "" }); setNotePage(1);
+    onQueryChange?.({ page: 0, q: "", tag: "", scope: isJarOpen ? nextScope : "MINE" });
+  }
 
   function changePage(page) {
     onQueryChange?.({ page: page - 1, ...appliedSearch });
@@ -243,7 +251,7 @@ export default function JarZoomModal({
         `}
       </style>
 
-      <div className="jar-zoom-pop relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm sm:max-h-[calc(100dvh-3rem)]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="쪽지 확인" tabIndex={-1} inert={suspended ? true : undefined} className="jar-zoom-pop relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[34px] border border-white/70 bg-white/95 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-sm sm:max-h-[calc(100dvh-3rem)]">
         {/* 상단 제목/닫기 영역 */}
         <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6 lg:px-8 lg:pt-8">
           <div className="flex items-start justify-between gap-3">
@@ -253,15 +261,14 @@ export default function JarZoomModal({
               </p>
 
               <p className="mt-1 text-sm text-slate-500">
-                화면 가운데에서 저금통을 크게 보고 안에 쪽지가 얼마나
-                들어왔는지 확인할 수 있어요.
+                저금통을 크게 보고, 선택한 범위의 쪽지를 찾아볼 수 있어요.
               </p>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+              className="min-h-11 shrink-0 whitespace-nowrap rounded-full border border-slate-200 px-3 py-1 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
             >
               닫기
             </button>
@@ -271,19 +278,11 @@ export default function JarZoomModal({
         {/* 모달 본문 영역 */}
         <div className="jar-zoom-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-5 lg:px-8 lg:pb-8">
           <div
-            className={
-              isJarOpen
-                ? "grid min-h-0 gap-6 lg:h-full lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch"
-                : "grid min-h-0 items-start gap-6"
-            }
+            className="grid min-h-0 gap-6 lg:h-full lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch"
           >
             {/* 왼쪽: 확대 저금통 */}
             <section
-              className={`rounded-[30px] border p-6 shadow-sm ${
-                isJarOpen
-                  ? "flex self-stretch lg:h-full flex-col"
-                  : "self-start mx-auto w-full max-w-3xl"
-              } ${palette.panel}`}
+              className={`flex self-stretch flex-col rounded-[30px] border p-6 shadow-sm lg:h-full ${palette.panel}`}
             >
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span
@@ -295,11 +294,11 @@ export default function JarZoomModal({
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-bold ${palette.activeChip}`}
                 >
-                  {isJarOpen ? `쪽지 ${pagination?.totalElements ?? safeNotes.length}개` : "비밀 보관 중"}
+                  {scope === "MINE" ? `내 쪽지 ${pagination?.totalElements ?? safeNotes.length}개` : `쪽지 ${pagination?.totalElements ?? safeNotes.length}개`}
                 </span>
               </div>
 
-              <div className="relative mx-auto flex h-[520px] max-w-[430px] items-center justify-center">
+              <div className="relative mx-auto flex h-[520px] w-full max-w-[430px] items-center justify-center">
                 <div
                   className={`absolute inset-8 rounded-full blur-3xl ${palette.floating}`}
                 />
@@ -309,12 +308,12 @@ export default function JarZoomModal({
                     <JarCustomDesignVisual
                       design={jar.design}
                       alt={`${jar?.name || "저금통"} 확대 디자인`}
-                      className="h-[360px] w-[360px] max-w-full"
+                      className="h-[280px] w-[280px] max-w-full sm:h-[360px] sm:w-[360px]"
                       onReload={onReloadDesignImage}
                       allow3D
                     />
                     <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow">
-                      {isJarOpen ? `쪽지 ${pagination?.totalElements ?? safeNotes.length}개` : "오픈 전까지 비밀이에요!"}
+                      {scope === "MINE" ? "내가 넣은 쪽지만 보여요" : `쪽지 ${pagination?.totalElements ?? safeNotes.length}개`}
                     </span>
                   </div>
                 ) : (
@@ -371,9 +370,7 @@ export default function JarZoomModal({
                       </div>
 
                       <div className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-slate-700 shadow">
-                        {isJarOpen
-                          ? "아직 쪽지가 없어요"
-                          : "오픈 전까지 비밀이에요!"}
+                        {appliedSearch.q || appliedSearch.tag ? "검색 조건에 맞는 쪽지가 없어요" : scope === "MINE" ? "아직 내가 넣은 쪽지가 없어요" : "아직 쪽지가 없어요"}
                       </div>
                     </div>
                   )}
@@ -423,12 +420,18 @@ export default function JarZoomModal({
             </section>
 
             {/* 오른쪽: 쪽지 요약 목록 */}
-            {isJarOpen && (
+            {(
               <aside
                 className={`flex min-h-0 flex-col overflow-hidden rounded-[30px] border p-6 shadow-sm lg:h-full ${palette.panel}`}
               >
                 {/* 검색창 위쪽 영역 */}
                 <div className="shrink-0">
+                  <div role="group" aria-label="쪽지 보기 범위" className="mb-4 flex flex-wrap gap-2">
+                    {isJarOpen && <button type="button" aria-pressed={scope === "ALL"} onClick={() => changeScope("ALL")} className={`min-h-11 rounded-xl border px-4 text-sm font-bold ${scope === "ALL" ? palette.primaryButton : palette.outlineBtn}`}>전체 쪽지</button>}
+                    <button type="button" aria-pressed={scope === "MINE"} onClick={() => changeScope("MINE")} className={`min-h-11 rounded-xl border px-4 text-sm font-bold ${scope === "MINE" ? palette.primaryButton : palette.outlineBtn}`}>내가 넣은 쪽지</button>
+                  </div>
+                  {!isJarOpen && <p className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-900">내가 넣은 쪽지만 확인할 수 있어요. 다른 멤버의 쪽지와 작성 여부는 저금통이 열린 뒤에 공개돼요.</p>}
+
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}
@@ -529,7 +532,7 @@ export default function JarZoomModal({
                     <div
                       className={`rounded-2xl border border-dashed px-4 py-6 text-center text-sm ${palette.emptyBox}`}
                     >
-                      아직 들어간 쪽지가 없어요.
+                      {appliedSearch.q || appliedSearch.tag ? "검색 조건에 맞는 쪽지가 없어요." : scope === "MINE" ? "아직 내가 넣은 쪽지가 없어요." : "아직 들어간 쪽지가 없어요."}
                     </div>
                   )}
 
@@ -545,6 +548,13 @@ export default function JarZoomModal({
                           onClick={() =>
                             onOpenNoteDetail?.(note.noteId ?? note.id)
                           }
+                          tabIndex={0}
+                          aria-label={`${note.title || "제목 없는 추억"} 상세 보기`}
+                          onKeyDown={event => {
+                            if (event.target === event.currentTarget && ["Enter", " "].includes(event.key)) {
+                              event.preventDefault(); onOpenNoteDetail?.(note.noteId ?? note.id);
+                            }
+                          }}
                           className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${palette.softCard}`}
                         >
                           {/* 날짜 + 장소 */}
@@ -569,7 +579,7 @@ export default function JarZoomModal({
                             {note?.title || "오픈 전 쪽지"}
                           </p>
 
-                          <ReactionBar
+                          {isJarOpen && <ReactionBar
                             note={note}
                             palette={palette}
                             disabled={!jar?.isOpen}
@@ -579,15 +589,15 @@ export default function JarZoomModal({
                             onReact={(emoji) =>
                               onReactNote?.(note.noteId ?? note.id, emoji)
                             }
-                          />
+                          />}
 
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {isJarOpen && <div className="mt-3 flex flex-wrap items-center gap-2">
                             <span
                               className={`rounded-full px-3 py-1 text-[11px] font-bold ${palette.countChip}`}
                             >
                               💬 댓글 {note?.commentCount ?? 0}
                             </span>
-                          </div>
+                          </div>}
 
                           {Array.isArray(note.attachments) &&
                             note.attachments.length > 0 && (

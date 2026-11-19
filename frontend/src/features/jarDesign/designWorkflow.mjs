@@ -18,3 +18,12 @@ export function canEditDesignDetails(draft, confirmedSelectionKey) {
 export function hasSlotEdits(slot, savedSlot, initialSlot) {
   return !sameSlot(slot, savedSlot || initialSlot);
 }
+
+export const DESIGN_STEPS = ["틀 만들기 또는 선택", "그림 담기", "사진 배치와 AI 꾸미기", "투입구와 배경", "이름 붙이기"];
+
+/** 서버에 저장된 배치와 이 계정이 확정한 선택을 기준으로 실제 복구할 단계를 안내한다. */
+export function resumableDesignStep(draft, confirmedSelection, savedStep) {
+  if (!draft) return 3;
+  const needsComposition = Boolean(draft.bodyStyle && !draft.photoFrame);
+  return canEditDesignDetails(draft, confirmedSelection) && !needsComposition ? savedStep === 5 ? 5 : 4 : 3;
+}

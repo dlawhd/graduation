@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import "../jarCreation.css";
 
-const STEPS = ["틀 만들기 또는 선택", "그림 담기", "사진 배치와 AI 꾸미기", "투입구와 배경", "이름 붙이기"];
+import { DESIGN_STEPS as STEPS } from "../designWorkflow.mjs";
 
 /** 색뿐 아니라 체크·현재 표시·테두리로 완료/현재/예정 단계를 구분하는 제작 안내다. */
 export default function DesignProgress({ activeStep = 1 }) {

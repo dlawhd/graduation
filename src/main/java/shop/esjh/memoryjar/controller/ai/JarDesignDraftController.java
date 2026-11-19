@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -65,6 +66,13 @@ public class JarDesignDraftController {
     public ApiResponse<shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse> listDrafts(
             Authentication authentication, @RequestParam(defaultValue = "0") int page) {
         return ApiResponse.of(draftService.listResumable(extractCurrentUserId(authentication), page));
+    }
+
+    /** 인증된 소유자만 미완성 초안을 삭제할 수 있다. CSRF 검사는 공통 Security 설정을 따른다. */
+    @DeleteMapping("/{draftId}")
+    public ResponseEntity<Void> deleteDraft(Authentication authentication, @PathVariable Long draftId) {
+        draftService.abandon(extractCurrentUserId(authentication), draftId);
+        return ResponseEntity.noContent().build();
     }
 
     /** Draft와 후보 상태를 반환한다. 비공개 S3 Key·URL은 이 응답에 포함하지 않는다. */

@@ -1,3 +1,4 @@
+import { useModalFocus } from "../hooks/useModalFocus";
 import { PrivateImage } from "../../../components/PrivateMedia";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -75,6 +76,8 @@ export default function JarZoomNoteDetailModal({
 
   // 첨부 이미지 확대 보기 상태
   const [gallery, setGallery] = useState(null);
+  const noteDialogRef = useRef(null);
+  useModalFocus(open, Boolean(gallery), noteDialogRef, onClose);
   const selectedIndex = gallery?.index ?? null;
   const imageStatus = gallery?.status || "loading";
   const [zoom, setZoom] = useState(1);
@@ -428,7 +431,7 @@ export default function JarZoomNoteDetailModal({
         `}
       </style>
 
-      <div role="dialog" aria-label="쪽지 상세 보기" aria-modal="true" inert={currentImage ? true : undefined} aria-hidden={currentImage ? true : undefined} className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
+      <div ref={noteDialogRef} tabIndex={-1} role="dialog" aria-label="쪽지 상세 보기" aria-modal="true" inert={currentImage ? true : undefined} aria-hidden={currentImage ? true : undefined} className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] sm:max-h-[calc(100dvh-3rem)]">
         <div className="shrink-0 border-b border-slate-100/80 bg-white/95 px-6 pb-4 pt-6">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -497,11 +500,11 @@ export default function JarZoomNoteDetailModal({
                   </span>
                 )}
 
-                <span
+                {jar?.isOpen && <span
                   className={`rounded-full px-3 py-1 text-xs font-bold ${palette.countChip}`}
                 >
                   댓글 {note?.commentCount ?? getTotalCommentCount(comments)}개
-                </span>
+                </span>}
               </div>
 
               <div>
@@ -576,6 +579,7 @@ export default function JarZoomNoteDetailModal({
                 </div>
               </div>
 
+              {jar?.isOpen && <>
               <ReactionBar
                 note={note}
                 palette={palette}
@@ -613,6 +617,8 @@ export default function JarZoomNoteDetailModal({
                 onToggleReplies={onToggleReplies}
                 focusedCommentId={focusedCommentId}
               />
+
+              </>}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div

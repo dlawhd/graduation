@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { designSelectionKey, canEditDesignDetails, hasSlotEdits } from "./designWorkflow.mjs";
+import { designSelectionKey, canEditDesignDetails, hasSlotEdits, resumableDesignStep } from "./designWorkflow.mjs";
 import { normalizeSlot, sameSlot } from "./slotGeometry.mjs";
 
 const original = { status: "ACTIVE", selectedDesignType: "ORIGINAL", selectedGenerationId: null };
@@ -53,4 +53,16 @@ test("저장 이후에는 마지막 저장값을 기준으로 실제 변경을 �
   const saved = { ...initialSlot, centerX: .7 };
   assert.equal(hasSlotEdits(saved, saved, initialSlot), false);
   assert.equal(hasSlotEdits(initialSlot, saved, initialSlot), true);
+});
+
+
+test("초안 카드 단계는 실제 편집 화면과 같은 선택·배치 상태를 따른다", () => {
+  assert.equal(resumableDesignStep(null, null, 5), 3);
+  assert.equal(resumableDesignStep(original, null, 5), 3);
+  assert.equal(resumableDesignStep({ ...original, bodyStyle: "CAT" }, "ORIGINAL", 5), 3);
+  const placed = { ...original, bodyStyle: "CAT", photoFrame: { x: 0, y: 0, width: 1, height: 1 } };
+  assert.equal(resumableDesignStep(placed, "ORIGINAL", null), 4);
+  assert.equal(resumableDesignStep(placed, "ORIGINAL", 5), 5);
+  assert.equal(resumableDesignStep({ ...placed, selectedDesignType: "AI", selectedGenerationId: 13 }, "AI:12", 5), 3);
+  assert.equal(resumableDesignStep({ ...placed, slotCenterX: .5, slotCenterY: .3, slotSizeRatio: 0 }, null, 5), 5);
 });

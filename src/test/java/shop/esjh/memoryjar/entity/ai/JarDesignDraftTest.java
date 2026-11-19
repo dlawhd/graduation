@@ -14,6 +14,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class JarDesignDraftTest {
 
+    @Test void abandonedDraftIsTerminalAndCannotBeFinalizedOrExpiredAgain() {
+        var draft = JarDesignDraft.builder().originalS3Key("test/abandoned.png")
+                .expiresAt(LocalDateTime.now().plusDays(1)).build();
+        draft.selectOriginal();
+        draft.markAbandoned();
+        assertThat(draft.isTerminal()).isTrue();
+        assertThat(draft.isActiveAndNotExpired(LocalDateTime.now())).isFalse();
+        assertThatThrownBy(draft::markExpired).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(draft::markAbandoned).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> draft.markFinalized(null)).isInstanceOf(IllegalStateException.class);
+    }
+
     @Test void originalCropSurvivesAiSelectionAndAiReframingButImageOnlyClearsIt() {
         var draft=JarDesignDraft.builder().originalS3Key("original.png").bodyStyle(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT)
             .expiresAt(LocalDateTime.now().plusDays(1)).build();

@@ -1988,3 +1988,8 @@ JarDesignFinalizeResponse
 서버는 이를 소문자로 정규화한다. 기존 Java 내부 호출과 구 클라이언트는 이 값 없이도 동작한다.
 기존 `NoteCreateResponse` 및 `FileCompleteResponse`의 필드 구조는 바꾸지 않는다.
 같은 작성 요청 번호의 내용이 달라지면 409이며, 같은 내용이면 기존 쪽지 응답을 반환한다.
+
+
+## 2026-11-19 제작 초안 보관함 응답 보완
+
+`JarDesignDraftListResponse.Item`은 기존 필드에 `createdAt`과 `design`을 추가한다. 목록은 2개씩 반환한다. `design`은 `JarDesignDraftDetailResponse`와 같은 배치 구조이며 `generations`는 빈 배열이다. 파일 바이트·S3 키·서명 주소를 목록 DTO에 넣지 않는다. `createdAt`, `updatedAt`, `expiresAt`은 한국 시간 오프셋이 있는 시각이며 화면 표시에만 `(KST)` 접미사를 생략한다. DB 구조 변경은 없다.

@@ -11,8 +11,8 @@
 | 기능 | 이전 동작 | 변경한 동작 |
 | --- | --- | --- |
 | 보관함 검색·필터·즐겨찾기 | 페이지를 넘기며 저금통을 찾았다. 개인 즐겨찾기가 없었다. | 저금통 이름 검색, 전체/잠긴/열린 필터, 즐겨찾기만 보기를 추가했다. 내 보관함 전체에 조건을 적용한 뒤 페이지를 나눈다. 별 표시는 계정별 DB에 저장한다. |
-| 제작 이어 만들기 | 저장한 제작 초안을 보관함에서 다시 찾기 어려웠다. | 만들기 선택 화면에 본인의 유효한 서버 초안을 최근 수정순으로 표시한다. 저장한 사진 배치·후보·입구를 다시 열고, 같은 브라우저에서는 입력한 이름·설명·인원·날짜도 복구한다. 이 탭에서 직접 만들던 본체도 이어갈 수 있다. |
-| 상세 버튼·오픈 약속 | 쪽지 읽기와 다시 보기 버튼이 흩어져 있었다. | 열린 저금통의 전체 쪽지와 내가 넣은 쪽지를 나란히 배치했다. 다시 보기와 오픈 약속을 가까이 두고 캘린더 파일 내려받기를 추가했다. |
+| 제작 이어 만들기 | 저장한 제작 초안을 보관함에서 다시 찾기 어려웠다. | 만들기 선택 화면에 본인의 유효한 서버 초안을 최근 수정순으로 표시한다. 저장한 사진 배치·후보·입구를 다시 열고, 같은 브라우저에서는 입력한 이름·설명·인원·날짜도 복구한다. 서버에 저장된 초안에서만 이어 만들고, 새 제작은 빈 틀에서 시작한다. |
+| 상세 버튼·오픈 약속 | 쪽지 읽기와 다시 보기 버튼이 흩어져 있었다. | 상세의 `쪽지 확인` 버튼에서 같은 창의 전체·내 쪽지를 선택한다. 다시 보기와 오픈 약속을 가까이 두고 캘린더 파일 내려받기를 추가했다. |
 | 비공개 쪽지 초안 | 새로고침이나 상세 화면 이탈 후 작성 내용을 복구하기 어려웠다. | 계정·저금통별로 글·날짜·장소·태그·첨부 원본·첨부 설명을 브라우저에 저장한다. 이어서 쓰기·작성 내용 지우기·미완료 첨부 재시도를 제공한다. |
 | 쪽지 표시 순서 | 작성 시각 내림차순으로 조회했다. | 추억 날짜 오름차순으로 표시하고 날짜 없는 쪽지는 마지막에 둔다. 날짜가 같으면 작성 시각, 그 시각도 같으면 쪽지 번호 오름차순으로 고정한다. 전체·본인·검색 목록에 동일하게 적용한다. |
 
@@ -28,7 +28,7 @@
 | [UserStateRealtimeService.java](../src/main/java/shop/esjh/memoryjar/service/UserStateRealtimeService.java) | 즐겨찾기는 저장 확정 후 본인의 다른 탭에만 목록 재조회 신호를 보낸다. 다른 멤버에게 개인 설정을 전송하지 않는다. |
 | [DesignDraftShelf.jsx](../frontend/src/features/jarDesign/components/DesignDraftShelf.jsx), [CreationChoices.jsx](../frontend/src/features/jarDesign/components/CreationChoices.jsx), [designResume.mjs](../frontend/src/features/jarDesign/designResume.mjs) | 작업 목록과 이어 만들기를 제공하고 이름·날짜 등 미제출 입력을 계정·디자인 번호별로 보관한다. |
 | [AiCandidateGallery.jsx](../frontend/src/features/jarDesign/components/AiCandidateGallery.jsx), [JarDesignFinalizePanel.jsx](../frontend/src/features/jarDesign/components/JarDesignFinalizePanel.jsx) | 저장한 선택·입구와 편집 단계를 복구하고, 이름·최대 인원 등의 입력을 새로고침 후 유지한다. |
-| [JarDesignDraftService.java](../src/main/java/shop/esjh/memoryjar/service/ai/JarDesignDraftService.java), [JarDesignDraftRepository.java](../src/main/java/shop/esjh/memoryjar/repository/ai/JarDesignDraftRepository.java) | 본인 소유의 ACTIVE·미만료 초안을 6개씩 조회한다. 목록에는 사진 원본·S3 키·후보 전체를 싣지 않는다. |
+| [JarDesignDraftService.java](../src/main/java/shop/esjh/memoryjar/service/ai/JarDesignDraftService.java), [JarDesignDraftRepository.java](../src/main/java/shop/esjh/memoryjar/repository/ai/JarDesignDraftRepository.java) | 본인 소유의 ACTIVE·미만료 초안을 2개씩 조회한다. 목록에는 사진 원본·S3 키·후보 전체를 싣지 않는다. |
 | [JarDetailPage.jsx](../frontend/src/pages/JarDetailPage.jsx), [JarVisual.jsx](../frontend/src/features/jarDetail/components/JarVisual.jsx), [OpeningPromise.jsx](../frontend/src/features/jarDetail/components/OpeningPromise.jsx), [openPromise.mjs](../frontend/src/features/jarDetail/utils/openPromise.mjs) | 버튼 배치를 정리하고 한국 시간 기준으로 같은 순간을 가리키는 `.ics` 달력 파일을 만든다. |
 | [NoteSection.jsx](../frontend/src/pages/NoteSection.jsx), [usePrivateNoteDraft.js](../frontend/src/features/note/usePrivateNoteDraft.js), [noteDraftStore.mjs](../frontend/src/features/note/noteDraftStore.mjs) | 비공개 초안과 원본 첨부를 IndexedDB(브라우저 내부 저장소)에 보관한다. 같은 파일을 글자 입력 때마다 다시 저장하지 않고, 다중 탭 충돌을 검사한다. |
 | [NoteRepository.java](../src/main/java/shop/esjh/memoryjar/repository/note/NoteRepository.java) | 추억 날짜순 정렬을 DB 페이지 조회 전에 적용한다. 다른 페이지에 더 이른 추억이 밀리는 일을 막는다. |
@@ -108,13 +108,13 @@ npm.cmd run dev
 
 - [ ] 저장한 사진 배치·선택·입구 상태가 유지된다.
 - [ ] 같은 브라우저에서 이름·설명·인원·날짜가 복구된다. 최대 인원을 8명으로 바꾼 뒤 새로고침해도 8명이다.
-- [ ] 이 탭에 직접 만든 본체가 남아 있으면 `본체 이어 만들기`도 나타난다.
+- [ ] 별도 `본체 이어 만들기` 카드는 없고, 새 직접 만들기는 아무 틀도 선택하지 않은 상태로 시작한다.
 - [ ] 다른 계정의 작업은 목록에 보이지 않는다.
 - [ ] 유효한 초안이 없으면 서버 초안 목록이 나타나지 않는 것이 정상이다. 최종 생성·만료된 초안도 재개 목록에서 제외한다.
 
 ### C. 상세 버튼·오픈 약속
 
-- [ ] 열린 저금통에서 `전체 쪽지`와 `내가 넣은 쪽지`를 각각 열 수 있다.
+- [ ] 상세에는 `쪽지 확인` 버튼 하나가 있고 열린 저금통의 창 안에서 `전체 쪽지`와 `내가 넣은 쪽지`를 전환한다.
 - [ ] `추억 열기 다시 보기`가 기존 오픈 연출을 실행한다.
 - [ ] 잠긴 저금통에서는 `내가 넣은 쪽지`를 볼 수 있고, 전체 쪽지 읽기 버튼으로 타인 내용을 공개하지 않는다.
 - [ ] `우리의 오픈 약속`에 설정한 날짜·시간과 한국 시간(KST) 표시가 나온다.
@@ -203,3 +203,46 @@ npm.cmd run dev
 | 쪽지 초안이 안 보임 | 같은 계정·저금통·브라우저·사이트 주소인지, 저장 완료 후 새로고침했는지 |
 | 다른 탭 변경 안내 | 충돌 방지가 작동한 상태다. 저장한 초안을 다시 불러온다. |
 | 바꾼 화면이 안 보임 | 최신 프론트가 실행 중인지, 현재 주소가 로컬인지, 새로고침으로 최신 파일을 읽었는지 |
+
+
+## 추가 보완 테스트: 초안 카드와 쪽지 진입 통합
+
+1. 디자인 초안을 3개 이상 저장한다. 한 페이지에 최대 2개인지, 실제 본체·그림·저장 입구가 보이는지, 현재 단계가 편집 화면과 같은지 확인한다.
+2. 각 카드의 `생성 시간 :`, `보관 기한 :`을 확인한다. 한국 시간으로 표시하되 이 두 줄에는 `(KST)`가 없다. `이어서 만들기`에는 화살표가 없다.
+3. 마지막 페이지에서 `삭제하기` → `취소`는 그대로 유지한다. `삭제 확인`은 해당 초안만 없애고, 마지막 카드가 없어지면 이전 페이지로 돌아간다. 완성된 저금통은 유지된다.
+4. 직접 만들기에서 틀을 고르거나 그린 뒤 나갔다가 새 제작에 들어간다. 빈 캔버스·선택 없음·다음 단계 비활성 상태여야 한다. 저장된 초안의 `이어서 만들기`는 실제 배치와 편집 단계를 복구해야 한다.
+5. 초안이 있는 계정의 보관함에는 새 저금통 만들기 아래에 이어 만들기 안내가 나온다. 다른 계정에서는 이전 계정의 안내와 초안이 보이면 안 된다.
+6. 두 계정이 각각 쪽지를 넣은 잠긴 저금통에서 `쪽지 확인`을 연다. 본인 쪽지만 보이고 전체 탭은 없다. 검색 장수도 본인 것만 세고 댓글·리액션 영역은 없다. 다른 작성자의 상세 번호를 직접 요청해도 404다.
+7. 열린 저금통에서는 창 안의 전체/내 쪽지로 전환하고 검색·태그·페이지가 선택한 범위에 적용되는지 확인한다. 날짜 정렬·원본 사진 확대·좌우 탐색은 유지한다. Tab·Escape로 상세 → 목록 → 원래 버튼 복귀도 확인한다.
+8. `캘린더에 추가`는 `.ics` 파일을 다운로드한다. 캘린더 앱에서 가져오면 오픈 시각부터 30분 일정이 생긴다. 자동 등록·자동 동기화·자체 알림은 없고 알림은 캘린더 앱에서 설정한다. 오픈일 수정 시 새 파일로 기존 일정을 갱신해야 한다.
+
+로컬 UI 검증은 시험 데이터만 사용하며 운영 DB·S3·AI를 호출하지 않는다. 운영 반영 여부와 실제 기기 캘린더 앱 가져오기는 배포 후 별도 확인한다.
+
+
+### 이번 보완 검증 결과
+
+- 프론트 Node 회귀 테스트 337건 통과, Vite 빌드 성공. 기존 큰 번들 경고는 남아 있다.
+- 백엔드 관련 테스트 351건 통과(실제 Security 필터의 초안 삭제 인증·CSRF, 소유권/재시도/완성 초안 보호, MariaDB 초안 목록, 오픈 전 쪽지·댓글·이벤트 비공개 규칙 포함), bootJar 성공.
+- 실제 React 빌드 + 로컬 시험 API로 2개씩 페이지 이동, 마지막 초안 삭제 후 이전 페이지 보정, 본체·그림 미리보기, 새 제작 빈 화면, 명시적 초안 복구, 보관함 안내, 잠김/열림의 전체·내 쪽지 전환 및 Escape 복귀 확인.
+- 390px 프레임에서 모바일 카드·쪽지 창의 가로 넘침 없음 확인. 프레임 폭 390px 중 세로 스크롤바를 제외한 콘텐츠 폭은 375px이다.
+- 캘린더 버튼으로 실제 `.ics` 파일을 내려받아 확인했다. 시험 오픈 시각 2026-08-13 18:35 KST가 `DTSTART:20260813T093500Z`, 종료는 30분 뒤인 `DTEND:20260813T100500Z`로 저장됐다. 운영 배포와 실제 사용자의 캘린더 앱 가져오기는 이번 로컬 검증에 포함하지 않았다.
+
+
+### 이번 보완의 파일 위치
+
+| 부분 | 수정 파일 |
+| --- | --- |
+| 초안 카드·페이지·삭제·보관함 안내 | `frontend/src/features/jarDesign/components/DesignDraftShelf.jsx`, `frontend/src/features/jarDesign/components/DesignDraftResumePrompt.jsx`, `frontend/src/pages/JarsPage.jsx`, `frontend/src/api/jarDesignDraftApi.js` |
+| 빈 제작 화면·저장 단계 표시 | `frontend/src/pages/JarDesignNewPage.jsx`, `frontend/src/features/jarDesign/designWorkflow.mjs`, `frontend/src/features/jarDesign/components/DesignProgress.jsx` |
+| 쪽지 진입·전체/내 범위·키보드 이동 | `frontend/src/pages/JarDetailPage.jsx`, `frontend/src/features/jarDetail/components/JarZoomModal.jsx`, `frontend/src/features/jarDetail/components/JarZoomNoteDetailModal.jsx`, `frontend/src/features/jarDetail/utils/noteViewScope.mjs`, `frontend/src/features/jarDetail/hooks/useModalFocus.js` |
+| 초안 목록·삭제 API와 상태 | `src/main/java/shop/esjh/memoryjar/controller/ai/JarDesignDraftController.java`, `src/main/java/shop/esjh/memoryjar/service/ai/JarDesignDraftService.java`, `src/main/java/shop/esjh/memoryjar/repository/ai/JarDesignDraftRepository.java`, `src/main/java/shop/esjh/memoryjar/entity/ai/JarDesignDraft.java`, `src/main/java/shop/esjh/memoryjar/dto/ai/response/JarDesignDraftListResponse.java` |
+| 테스트 | `frontend/src/features/jarDesign/designWorkflow.test.mjs`, `frontend/src/features/jarDetail/utils/noteViewScope.test.mjs`, `src/test/java/shop/esjh/memoryjar/config/SecurityConfigTest.java`, `src/test/java/shop/esjh/memoryjar/controller/ai/JarDesignDraftControllerTest.java`, `src/test/java/shop/esjh/memoryjar/entity/ai/JarDesignDraftTest.java`, `src/test/java/shop/esjh/memoryjar/repository/jar/JarRepositoryTest.java`, `src/test/java/shop/esjh/memoryjar/service/ai/JarDesignDraftServiceTest.java` |
+| 시험 화면·계약 문서 | `tools/ui/selected-features-fixture.py`, `docs/API.md`, `docs/DTO.md`, 이 문서 |
+
+검증 캡처는 `build/draft-shelf-refinement/draft-shelf.jpg`, `build/draft-shelf-refinement/notes-scope.jpg`에 보관했다. 시험 API의 가상 데이터이며 운영 사용자 자료는 아니다. 스키마·의존성 변경은 없다.
+
+### 초안 보관함 크기 조정
+
+- 저금통 미리보기는 176px에서 56px로 줄이고 이름·작업 단계 옆에 배치했다. 생성 시간·보관 기한·이어서 만들기·삭제 버튼은 유지한다.
+- 페이지 이동은 `이전 1 다음` 형태로 표시하고 버튼 높이를 44px에서 32px로, 글씨를 14px에서 12px로 줄였다. 버튼 간격은 8px이다. 화면 낭독기에는 페이지 번호의 의미를 전달하고 키보드 초점 표시·중복 요청 방지는 유지한다.
+- 해당 UI 조정 후 Vite 빌드와 Git 공백 검사를 통과했다. 56px 미리보기는 실제 브라우저에서 표시 크기를 확인했다. 최신 페이지 버튼의 실제 모바일 기기 터치감은 배포 후 확인한다.

@@ -138,3 +138,9 @@ export function getJarDesignDraftError(error) {
     message: apiError?.message || error?.message || "디자인 요청을 처리하지 못했어요.",
   };
 }
+
+/** 소유자의 미완성 초안만 종료한다. 재시도에도 같은 결과를 반환한다. */
+export async function deleteJarDesignDraft(draftId) {
+  await ensureCsrf();
+  await apiClient.delete(`${DRAFT_BASE_URL}/${draftId}`);
+}

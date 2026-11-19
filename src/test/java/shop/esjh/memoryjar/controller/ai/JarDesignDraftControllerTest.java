@@ -40,6 +40,18 @@ class JarDesignDraftControllerTest {
  @MockitoBean JarAiGenerationPreviewService generationPreviewService;
  @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter; @MockitoBean JwtTokenProvider jwtTokenProvider;
  private TestingAuthenticationToken auth(){return new TestingAuthenticationToken(Map.of("userId",1L),null,"ROLE_USER");}
+ @Test void deleteDraftUsesAuthenticatedOwner() throws Exception {
+  mockMvc.perform(delete("/api/v1/design-drafts/10").principal(auth())).andExpect(status().isNoContent());
+  verify(draftService).abandon(1L,10L);
+ }
+ @Test void deleteDraftRequiresAuthentication() throws Exception {
+  mockMvc.perform(delete("/api/v1/design-drafts/10")).andExpect(status().isUnauthorized());
+  verifyNoInteractions(draftService);
+ }
+ @Test void deleteDraftRejectsAnotherOwner() throws Exception {
+  doThrow(new ApiException(AiDraftErrorCode.DRAFT_NOT_OWNER)).when(draftService).abandon(1L,10L);
+  mockMvc.perform(delete("/api/v1/design-drafts/10").principal(auth())).andExpect(status().isForbidden());
+ }
  @Test void resumeListUsesAuthenticatedOwnerAndDoesNotExposeStorageKeys() throws Exception {
   when(draftService.listResumable(1L,2)).thenReturn(new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse(
     java.util.List.of(new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse.Item(10L,JarBodyStyle.CAT,JarDraftDesignType.ORIGINAL,

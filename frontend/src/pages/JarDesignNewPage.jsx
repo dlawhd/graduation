@@ -8,7 +8,6 @@ import JarBodyPicker from "../features/jarDesign/components/JarBodyPicker";
 import JarDesignImage from "../features/jarDesign/components/JarDesignImage";
 import { getJarBody } from "../features/jarDesign/jarBodies.mjs";
 import JarBodyWorkshop from "../features/jarDesign/components/JarBodyWorkshop";
-import { readBodyDraft, writeBodyDraft } from "../features/jarDesign/customJarBody.mjs";
 import { prepareSourceImage, SOURCE_IMAGE_ACCEPT } from "../features/jarDesign/sourceImageFile.mjs";
 import {
   createJarDesignDraft,
@@ -25,7 +24,7 @@ export default function JarDesignNewPage({ userId }) {
   const [inputMode, setInputMode] = useState("DRAW");
   const [sourceImage, setSourceImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [customBody, setCustomBody] = useState(() => { try { return readBodyDraft(window.sessionStorage, userId); } catch { return null; } });
+  const [customBody, setCustomBody] = useState(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   // URL에서 단계를 읽어 새로고침과 브라우저 뒤로 가기도 같은 선택으로 복원한다. 파일은 메모리에만 둔다.
   const draftId = parseDraftId(searchParams.get("draft"));
@@ -41,16 +40,22 @@ export default function JarDesignNewPage({ userId }) {
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
   const [galleryStep, setGalleryStep] = useState(3);
   const [previewControlsTarget, setPreviewControlsTarget] = useState(null);
+  const previousDraftId = useRef(draftId);
+  useLayoutEffect(() => {
+    // 저장 초안에서 새 제작 주소로 돌아왔을 때에도 이전 편집 상태를 물려주지 않는다.
+    if (previousDraftId.current && !draftId) {
+      setCustomBody(null); setSourceImage(null); setCatalogOpen(false);
+      setInputMode("DRAW"); setSourceDirty(false); setLoadedPreviewUrl(""); setError("");
+      sourceSelection.current += 1;
+    }
+    previousDraftId.current = draftId;
+  }, [draftId]);
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
   useLayoutEffect(() => {
     // 같은 화면의 단계 이동도 이전 제작 요청을 끝낸 것으로 취급한다. 늦은 finally가 새 요청을 풀지 않는다.
     creatingDraft.current = false;
     setSaving(false);
   }, [requestGate]);
-  useEffect(() => {
-    try { writeBodyDraft(window.sessionStorage, userId, customBody); }
-    catch { /* 저장 공간이 막혀도 현재 탭의 편집과 업로드는 계속할 수 있다. */ }
-  }, [customBody, userId]);
   const stepKey = draftId ? `draft:${draftId}` : imageStep ? "image" : "body";
   // 같은 경로의 query만 바뀌어도 새 단계의 첫 제목부터 보여준다. 사진 교체·모양 탐색에는 이동하지 않는다.
   useLayoutEffect(() => {

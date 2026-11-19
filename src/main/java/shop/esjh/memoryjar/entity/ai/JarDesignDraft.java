@@ -243,6 +243,12 @@ public class JarDesignDraft {
                 || selectedDesignType == JarDraftDesignType.AI;
     }
 
+    /** 소유자가 삭제한 미완성 작업을 종료한다. 실제 파일 삭제는 정리 작업에서 재확인한다. */
+    public void markAbandoned() {
+        if (status != JarDraftStatus.ACTIVE) throw new IllegalStateException("활성 초안만 삭제할 수 있습니다.");
+        this.status = JarDraftStatus.ABANDONED;
+    }
+
     /** 만료 시각이 지난 ACTIVE Draft를 종료한다. PROCESSING 존재 여부 검사는 Service가 먼저 한다. */
     public void markExpired() {
         if (status != JarDraftStatus.ACTIVE) {

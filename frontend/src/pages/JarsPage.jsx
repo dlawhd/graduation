@@ -1,3 +1,4 @@
+import DesignDraftResumePrompt from "../features/jarDesign/components/DesignDraftResumePrompt";
 import {
   useCallback,
   useEffect,
@@ -1074,6 +1075,7 @@ export default function JarsPage({ me, checkingAuth = false }) {
               + 새 저금통 만들기
             </button>
           </div>
+          <DesignDraftResumePrompt userId={userId} />
         </section>
 
         <section aria-label="보관함 검색과 필터" className="mb-6 rounded-[24px] border border-emerald-100 bg-white/90 p-5 shadow-sm">
@@ -1087,7 +1089,6 @@ export default function JarsPage({ me, checkingAuth = false }) {
             <button type="button" aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(value => !value)} className={`min-h-11 rounded-xl border px-4 text-sm font-bold ${favoritesOnly ? "border-emerald-800 bg-emerald-800 text-white" : "border-slate-200 bg-white text-emerald-900"}`}>☆ 즐겨찾기</button>
             {(search || shelfState !== "ALL" || favoritesOnly) && <button type="button" onClick={() => { setSearchInput(""); setSearch(""); setShelfState("ALL"); setFavoritesOnly(false); }} className="min-h-11 px-3 text-sm text-slate-600 underline">초기화</button>}
           </div>
-          <Link to="/jars/new" className="mt-3 inline-block text-sm font-semibold text-emerald-800 underline">내 작업 이어 만들기 →</Link>
         </section>
 
         {/* 에러가 있을 때 보여주는 카드 */}

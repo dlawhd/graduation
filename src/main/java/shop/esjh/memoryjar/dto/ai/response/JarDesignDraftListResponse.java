@@ -8,5 +8,11 @@ import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 /** 본인이 이어 만들 수 있는 디자인의 최소 정보만 담는다. */
 public record JarDesignDraftListResponse(List<Item> items, int page, boolean hasNext) {
     public record Item(Long draftId, JarBodyStyle bodyStyle, JarDraftDesignType selectedDesignType,
-            OffsetDateTime updatedAt, OffsetDateTime expiresAt) {}
+            OffsetDateTime updatedAt, OffsetDateTime expiresAt, OffsetDateTime createdAt,
+            JarDesignDraftDetailResponse design) {
+        public Item(Long draftId, JarBodyStyle bodyStyle, JarDraftDesignType selectedDesignType,
+                OffsetDateTime updatedAt, OffsetDateTime expiresAt) {
+            this(draftId, bodyStyle, selectedDesignType, updatedAt, expiresAt, null, null);
+        }
+    }
 }
