@@ -4,6 +4,7 @@ import { designImageRendering } from "../imageRendering.mjs";
 import { getGenerationFailureGuidance } from "../generationFailure.mjs";
 import { useStompClient } from "../../../realtime/StompClientProvider";
 import { subscribeJarDesignGenerationSocket } from "../../../api/jarDesignGenerationSocketApi";
+import { readDesignResume, writeDesignResume } from "../designResume.mjs";
 import SlotEditor from "./SlotEditor";
 import CutoutEditor from "./CutoutEditor";
 import JarDesignFinalizePanel from "./JarDesignFinalizePanel";
@@ -36,7 +37,7 @@ const DISCONNECTED_FALLBACK_REFRESH_MS = 3_000;
  * 하나의 Draft에 쌓인 AI 후보를 조회·생성·선택하는 보관함이다.
  * 이미지 URL은 DB 응답에 저장하지 않고, 성공 후보를 렌더링할 때만 별도 Presigned URL을 요청한다.
  */
-export default function AiCandidateGallery({ draftId, onStepChange }) {
+export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
   const navigate = useNavigate();
   const { connected, subscribe } = useStompClient();
   const [draft, setDraft] = useState(null);
@@ -71,6 +72,7 @@ export default function AiCandidateGallery({ draftId, onStepChange }) {
   const actionInFlight = useRef(false);
   const editorRef = useRef(null);
   const scrollToEditorRef = useRef(false);
+  const resumePositioned = useRef(false);
   const [slotSaving, setSlotSaving] = useState(false);
   const [slotDirty, setSlotDirty] = useState(false);
   const [cutoutSaving, setCutoutSaving] = useState(false);
@@ -117,7 +119,7 @@ export default function AiCandidateGallery({ draftId, onStepChange }) {
 
   useEffect(() => {
     setDraft(null);
-    setConfirmedSelectionKey(null);
+    setConfirmedSelectionKey(readDesignResume(userId, draftId, "selection"));
     previewUrlsRef.current = {};
     originalPreviewUrlRef.current = "";
     bodyArtworkUrlRef.current="";
@@ -309,6 +311,7 @@ export default function AiCandidateGallery({ draftId, onStepChange }) {
     try {
       await selectJarDesign(draftId, "AI", generationId);
       setConfirmedSelectionKey(`AI:${generationId}`);
+      try { writeDesignResume(userId, draftId, "selection", `AI:${generationId}`); } catch { /* 서버 선택·현재 편집은 유지한다. */ }
       scrollToEditorRef.current = true;
       await loadDraft();
     } catch (requestError) {
@@ -329,6 +332,7 @@ export default function AiCandidateGallery({ draftId, onStepChange }) {
       // 사진 배치를 위해 자동 선택한 원본을 다시 PATCH하면 저장한 배치/입구를 불필요하게 초기화할 수 있다.
       if (draft?.selectedDesignType !== "ORIGINAL") await selectJarDesign(draftId, "ORIGINAL");
       setConfirmedSelectionKey("ORIGINAL");
+      try { writeDesignResume(userId, draftId, "selection", "ORIGINAL"); } catch { /* 서버 선택·현재 편집은 유지한다. */ }
       scrollToEditorRef.current = true;
       await loadDraft();
     } catch (requestError) {
@@ -362,7 +366,16 @@ export default function AiCandidateGallery({ draftId, onStepChange }) {
   const selectedPreview = draft?.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft?.selectedGenerationId];
   const needsComposition = Boolean(draft?.status === "ACTIVE" && customSelected && (editingComposition || (body && !draft.photoFrame)));
   // 이전 단계로 돌아오거나 저장된 Draft를 이어갈 때도 실제 편집 단계와 상단 표시를 맞춘다.
-  useEffect(() => { onStepChange?.(detailsReady && !needsComposition ? 4 : 3); }, [detailsReady, needsComposition, onStepChange]);
+  useEffect(() => {
+    const step = readDesignResume(userId, draftId, "step");
+    onStepChange?.(detailsReady && !needsComposition ? step === 5 ? 5 : 4 : 3);
+  }, [detailsReady, needsComposition, onStepChange, userId, draftId]);
+  useLayoutEffect(() => {
+    if (loading || resumePositioned.current) return;
+    resumePositioned.current = true;
+    const step = readDesignResume(userId, draftId, "step");
+    if (detailsReady && step === 5) document.querySelector('[data-design-step="5"]')?.scrollIntoView({ block:"start" });
+  }, [loading, detailsReady, userId, draftId]);
   // 사진 배치 단계가 열리거나 적용되어 AI 단계로 돌아오면 아래 슬롯 편집기가 아닌 첫 제목부터 읽는다.
   useLayoutEffect(() => {
     if (loading) return;
@@ -389,7 +402,11 @@ export default function AiCandidateGallery({ draftId, onStepChange }) {
   </div>;
 
   return (
-    <section inert={finalizing || undefined} onFocusCapture={(event) => onStepChange?.(Number(event.target.closest("[data-design-step]")?.dataset.designStep || 3))} className="mt-8 rounded-[28px] border border-violet-100 bg-white p-4 shadow-[0_12px_32px_rgba(76,29,149,0.08)] sm:p-8">
+    <section inert={finalizing || undefined} onFocusCapture={(event) => {
+      const step = Number(event.target.closest("[data-design-step]")?.dataset.designStep || 3);
+      onStepChange?.(step);
+      try { writeDesignResume(userId, draftId, "step", step); } catch { /* 현재 단계 편집은 계속한다. */ }
+    }} className="mt-8 rounded-[28px] border border-violet-100 bg-white p-4 shadow-[0_12px_32px_rgba(76,29,149,0.08)] sm:p-8">
       {inquiryGeneration && <SupportInquiryModal key={`${draftId}:${inquiryGeneration.generationId}`} draftId={draftId}
         generation={inquiryGeneration} existing={inquiries[inquiryGeneration.generationId]} originalUrl={originalPreviewUrl}
         onClose={() => setInquiryGeneration(null)}
@@ -556,6 +573,8 @@ export default function AiCandidateGallery({ draftId, onStepChange }) {
       {!loading && draft && (draft.status === "FINALIZED" || detailsReady || (draft.status === "ACTIVE" && draft.selectedDesignType === "DEFAULT")) && (
         <div data-design-step="5">
         <JarDesignFinalizePanel
+          key={`${userId}:${draft.draftId}`}
+          userId={userId}
           draft={draft}
           previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
           slotDirty={slotDirty}

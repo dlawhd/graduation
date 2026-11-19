@@ -1304,14 +1304,14 @@ function JarPreview({ template, form }) {
   );
 }
 
-export default function JarsNewPage() {
+export default function JarsNewPage({ userId }) {
   const location = useLocation();
   // 기본 생성기를 선택한 뒤에만 마운트해 선택 화면 위로 온보딩이 뜨지 않게 한다.
   const replay = location.state?.[ONBOARDING_REPLAY_STATE_KEY] === ONBOARDING_TUTORIAL_KEY.JAR_CREATE;
   if (new URLSearchParams(location.search).get("mode") === "default" || replay) {
     return <DefaultJarCreatePage />;
   }
-  return <CreationChoices />;
+  return <CreationChoices userId={userId} />;
 }
 
 /** 기존 테마·생성 폼과 온보딩을 그대로 담당하는 기본 저금통 화면이다. */

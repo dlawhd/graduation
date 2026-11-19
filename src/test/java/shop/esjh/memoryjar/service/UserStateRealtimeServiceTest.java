@@ -40,6 +40,16 @@ class UserStateRealtimeServiceTest {
         verifyNoMoreInteractions(messages);
     }
 
+    @Test void favoriteRefreshIsPrivateAndWaitsForCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        service.favoriteChanged(7L,1L);
+        verifyNoInteractions(messages, members);
+        TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.afterCommit());
+        verify(messages).convertAndSend("/topic/users/1/state", new UserStateRealtimeService.StateEvent("JAR_LIST_CHANGED",7L,null));
+        verifyNoMoreInteractions(messages);
+        verifyNoInteractions(members);
+    }
+
     @Test void rollbackDoesNotPublish() {
         TransactionSynchronizationManager.initSynchronization();
         service.jarCreated(7L, 1L);

@@ -33,6 +33,75 @@ class JarRepositoryTest extends AbstractMariaDbRepositoryTest {
     @Autowired
     private JarRepository jarRepository;
 
+    @Autowired private shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository drafts;
+    @Autowired private JarMemberRepository memberships;
+
+    @Test
+    void personalFiltersApplyBeforePagingAndExcludeOtherAccountsAndDeletedMemberships() {
+        var now = LocalDateTime.now();
+        var owner = saveUser("shelf-owner", "shelf-owner@example.invalid", "나");
+        var other = saveUser("shelf-other", "shelf-other@example.invalid", "다른 계정");
+        var first = saveJar(owner,"우리 봄",now.plusDays(3));
+        var second = saveJar(owner,"우리 여름",now.minusDays(1));
+        var stranger = saveJar(other,"우리 비밀",now.minusDays(1));
+        var deleted = saveJar(owner,"우리 탈퇴",now.plusDays(1));
+        var firstMember = saveJarMember(first,owner,JarRole.OWNER,now);
+        firstMember.changeFavorite(true);
+        saveJarMember(second,owner,JarRole.OWNER,now);
+        saveJarMember(stranger,other,JarRole.OWNER,now).changeFavorite(true);
+        saveJarMember(deleted,owner,JarRole.OWNER,now).leave();
+        flushAndClear();
+        var page = jarRepository.searchMyJars(owner.getId(),"%우리%","ALL",false,now,PageRequest.of(0,1));
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getTotalPages()).isEqualTo(2);
+        assertThat(jarRepository.searchMyJars(owner.getId(),"%우리%","LOCKED",true,now,PageRequest.of(0,9)).getContent())
+                .extracting(Jar::getJarId).containsExactly(first.getJarId());
+        assertThat(jarRepository.searchMyJars(owner.getId(),"","OPEN",false,now,PageRequest.of(0,9)).getContent())
+                .extracting(Jar::getJarId).containsExactly(second.getJarId());
+        assertThat(jarRepository.searchMyJars(owner.getId(),"%비밀%","ALL",false,now,PageRequest.of(0,9))).isEmpty();
+        var settings = memberships.findMyRolesByJarIdsAndUserId(java.util.List.of(first.getJarId(),second.getJarId(),stranger.getJarId()),owner.getId());
+        assertThat(settings).hasSize(2);
+        assertThat(settings.stream().filter(row -> row.getJarId().equals(first.getJarId())).findFirst().orElseThrow().getFavorite()).isTrue();
+        assertThat(settings.stream().filter(row -> row.getJarId().equals(second.getJarId())).findFirst().orElseThrow().getFavorite()).isFalse();
+    }
+
+    @Test
+    void openingRecordAlsoCountsAsOpenWhenScheduledTimeHasMoved() {
+        var now = LocalDateTime.now();
+        var owner = saveUser("shelf-event", "shelf-event@example.invalid", "나");
+        var jar = saveJar(owner,"이미 열림",now.plusDays(3));
+        saveJarMember(jar,owner,JarRole.OWNER,now);
+        saveJarOpenEvent(jar,now.minusDays(1),JarOpenReason.SCHEDULED);
+        flushAndClear();
+        assertThat(jarRepository.searchMyJars(owner.getId(),"","OPEN",false,now,PageRequest.of(0,9)).getContent())
+                .extracting(Jar::getJarId).containsExactly(jar.getJarId());
+        assertThat(jarRepository.searchMyJars(owner.getId(),"","LOCKED",false,now,PageRequest.of(0,9))).isEmpty();
+    }
+
+    @Test
+    void resumeListOnlyContainsOwnersActiveUnexpiredDraftsAndPaginates() {
+        var now = LocalDateTime.now();
+        var owner = saveUser("resume-owner","resume-owner@example.invalid","나");
+        var other = saveUser("resume-other","resume-other@example.invalid","다른 계정");
+        var active = shop.esjh.memoryjar.entity.ai.JarDesignDraft.builder().owner(owner).originalS3Key("test/active").expiresAt(now.plusDays(1)).build();
+        entityManager.persist(active);
+        entityManager.persist(shop.esjh.memoryjar.entity.ai.JarDesignDraft.builder().owner(other).originalS3Key("test/other").expiresAt(now.plusDays(1)).build());
+        var expired = shop.esjh.memoryjar.entity.ai.JarDesignDraft.builder().owner(owner).originalS3Key("test/expired").expiresAt(now.plusDays(1)).build();
+        entityManager.persist(expired);
+        var terminal = shop.esjh.memoryjar.entity.ai.JarDesignDraft.builder().owner(owner).originalS3Key("test/terminal").expiresAt(now.plusDays(1)).build();
+        org.springframework.test.util.ReflectionTestUtils.setField(terminal,"status",shop.esjh.memoryjar.enums.ai.JarDraftStatus.ABANDONED);
+        entityManager.persist(terminal);
+        flushAndClear();
+        // 생성 시점보다 과거로 만료일을 넣을 수 없다는 DB 제약을 지킨 채 시간이 흐른 상황을 만든다.
+        entityManager.createNativeQuery("update jar_design_drafts set created_at = :created, expires_at = :expired where draft_id = :id")
+                .setParameter("created", now.minusDays(2)).setParameter("expired", now.minusSeconds(1)).setParameter("id", expired.getDraftId()).executeUpdate();
+        var result = drafts.findResumable(owner.getId(),shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE,now,PageRequest.of(0,1));
+        assertThat(result.getContent()).extracting(shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository.ResumeView::getDraftId)
+                .containsExactly(active.getDraftId());
+        assertThat(result.hasNext()).isFalse();
+        assertThat(drafts.findResumable(owner.getId(),shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE,now,PageRequest.of(1,1))).isEmpty();
+    }
+
     @Test
     @DisplayName("findByJarId는 삭제되지 않은 저금통을 조회한다")
     void findByJarId_returnsActiveJar() {

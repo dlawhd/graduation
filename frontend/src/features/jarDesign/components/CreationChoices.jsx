@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import DesignDraftShelf from "./DesignDraftShelf";
 import JarDesignImage from "./JarDesignImage";
 import SpringIcon from "../../../components/icons/SpringIcon";
 import "../jarCreation.css";
@@ -9,7 +10,7 @@ const OPTIONS = [
 ];
 
 /** 두 생성 경로를 유지하면서 실제 저금통 렌더러로 제작 방식의 차이를 보여준다. */
-export default function CreationChoices() {
+export default function CreationChoices({ userId }) {
   return <main className="creation-choice-page"><div className="creation-choice-inner">
     <header className="creation-choice-heading">
       <Link to="/jars" className="creation-back">← 내 저금통으로</Link>
@@ -17,6 +18,7 @@ export default function CreationChoices() {
       <h1>어떤 저금통을<br className="sm:hidden" /> 만들어볼까요?</h1>
       <p>직접 꾸미는 즐거움도, 고르기만 하는 간편함도.<br className="sm:hidden" /> 시작하는 방법은 달라도 담기는 마음은 같아요.</p>
     </header>
+    <DesignDraftShelf key={userId} userId={userId} />
     <div className="creation-choice-grid">{OPTIONS.map((option) => <Link key={option.id} to={option.to} className={`creation-option creation-option-${option.id}`}>
       <div className="creation-option-top"><span>{option.eyebrow}</span><span className="creation-option-tag">{option.tag}</span></div>
       <div className="creation-option-art" aria-hidden="true">

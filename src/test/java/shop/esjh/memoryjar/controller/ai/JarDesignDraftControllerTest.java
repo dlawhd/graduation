@@ -40,6 +40,19 @@ class JarDesignDraftControllerTest {
  @MockitoBean JarAiGenerationPreviewService generationPreviewService;
  @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter; @MockitoBean JwtTokenProvider jwtTokenProvider;
  private TestingAuthenticationToken auth(){return new TestingAuthenticationToken(Map.of("userId",1L),null,"ROLE_USER");}
+ @Test void resumeListUsesAuthenticatedOwnerAndDoesNotExposeStorageKeys() throws Exception {
+  when(draftService.listResumable(1L,2)).thenReturn(new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse(
+    java.util.List.of(new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse.Item(10L,JarBodyStyle.CAT,JarDraftDesignType.ORIGINAL,
+      OffsetDateTime.parse("2026-11-19T10:00:00+09:00"),OffsetDateTime.parse("2026-11-20T10:00:00+09:00"))),2,false));
+  mockMvc.perform(get("/api/v1/design-drafts").param("page","2").principal(auth()))
+    .andExpect(status().isOk()).andExpect(jsonPath("$.data.items[0].draftId").value(10))
+    .andExpect(jsonPath("$.data.items[0].originalS3Key").doesNotExist()).andExpect(jsonPath("$.data.hasNext").value(false));
+  verify(draftService).listResumable(1L,2);
+ }
+ @Test void resumeListRequiresAuthentication() throws Exception {
+  mockMvc.perform(get("/api/v1/design-drafts")).andExpect(status().isUnauthorized());
+  verifyNoInteractions(draftService);
+ }
  @Test void composition_acceptsBodyAndFrame() throws Exception {
   mockMvc.perform(patch("/api/v1/design-drafts/10/composition").principal(auth()).contentType("application/json").content("""
       {"bodyStyle":"CAT","photoFrame":{"x":0.1,"y":0.2,"width":0.7,"height":0.5},"expectedDesignType":"ORIGINAL","expectedBodyStyle":"CAT"}

@@ -61,7 +61,10 @@ public class JarController {
     public ApiResponse<JarListResponse> listMyJars(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "ALL") String state,
+            @RequestParam(defaultValue = "false") boolean favoritesOnly
     ) {
 
         // 1. 로그인한 사용자 id 꺼내기
@@ -69,10 +72,18 @@ public class JarController {
 
         // 2. 서비스 호출해서 목록 조회
         JarListResponse response = LoginDiagnostics.measure(LoginDiagnostics.Stage.JAR_LIST_SERVICE,
-                () -> jarService.listMyJars(currentUserId, page, size));
+                () -> jarService.listMyJars(currentUserId, page, size, q, state, favoritesOnly));
 
         // 3. 공통 성공 응답으로 감싸서 반환
         return ApiResponse.of(response);
+    }
+
+    /** 다른 멤버에게 영향을 주지 않는 개인 즐겨찾기다. */
+    @PatchMapping("/{jarId}/favorite")
+    public ResponseEntity<Void> favorite(Authentication authentication, @PathVariable Long jarId,
+            @Valid @RequestBody JarFavoriteRequest request) {
+        jarService.changeFavorite(extractCurrentUserId(authentication), jarId, request.favorite());
+        return ResponseEntity.noContent().build();
     }
 
     // GET /api/v1/jars/{jarId}

@@ -559,6 +559,7 @@ user_id       BIGINT      FK → users.id
 role          VARCHAR(20) NOT NULL
 joined_at     DATETIME(6) NOT NULL
 left_at       DATETIME(6) NULL
+favorite      BOOLEAN NOT NULL DEFAULT FALSE -- V62: 사용자별 보관함 즐겨찾기
 
 [BASE]
 ```

@@ -47,7 +47,7 @@ public interface JarRepository extends JpaRepository<Jar, Long> {
                     join jm.jar j
                     where jm.user.id = :userId
                       and jm.deletedAt is null
-                    order by j.updatedAt desc
+                    order by j.updatedAt desc, j.jarId desc
                     """,
             countQuery = """
                     select count(j)
@@ -58,6 +58,22 @@ public interface JarRepository extends JpaRepository<Jar, Long> {
                     """
     )
     Page<Jar> findMyJarsByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    // 페이지를 자르기 전에 현재 멤버의 전체 보관함에 조건을 적용한다.
+    String SHELF_FILTER = """
+            from JarMember jm join jm.jar j
+            where jm.user.id = :userId and jm.deletedAt is null
+              and (:q = '' or lower(j.name) like :q escape '!')
+              and (:favoritesOnly = false or jm.favorite = true)
+              and (:state = 'ALL'
+                or (:state = 'OPEN' and (j.openAt <= :now or exists (select e from JarOpenEvent e where e.jar = j)))
+                or (:state = 'LOCKED' and j.openAt > :now and not exists (select e from JarOpenEvent e where e.jar = j)))
+            """;
+    @Query(value = "select j " + SHELF_FILTER + " order by j.updatedAt desc, j.jarId desc",
+           countQuery = "select count(j) " + SHELF_FILTER)
+    Page<Jar> searchMyJars(@Param("userId") Long userId, @Param("q") String q,
+            @Param("state") String state, @Param("favoritesOnly") boolean favoritesOnly,
+            @Param("now") LocalDateTime now, Pageable pageable);
 
     //joinByInvite()용 저금통 잠금 조회
     // 왜 잠그냐?

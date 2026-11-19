@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { readDesignResume, writeDesignResume } from "../designResume.mjs";
 import CreationExperience from "./CreationExperience";
 import ThemeMoodPicker, { ThemePreviewStage } from "./ThemeMoodPicker";
 import { presentCreation } from "../creationTiming.mjs";
@@ -47,6 +48,7 @@ const THEME_LABELS = {
  */
 export default function JarDesignFinalizePanel({
   draft,
+  userId,
   previewUrl,
   slotDirty,
   slotSaving,
@@ -57,7 +59,18 @@ export default function JarDesignFinalizePanel({
   onBusyChange,
 }) {
   const navigate = useNavigate();
-  const [form, setForm] = useState(INITIAL_JAR_FORM);
+  const [form, setForm] = useState(() => {
+    const saved = readDesignResume(userId, draft.draftId, "form");
+    // 보관함에서 재개한 서버 초안과 같은 계정·번호의 입력값만 복구한다.
+    if (!saved || typeof saved !== "object") return INITIAL_JAR_FORM;
+    return Object.fromEntries(Object.entries(INITIAL_JAR_FORM).map(([key, fallback]) =>
+      [key, key === "maxMembers" && Number.isInteger(Number(saved[key])) && Number(saved[key]) >= 2 && Number(saved[key]) <= 50 ? Number(saved[key]) : typeof saved[key] === typeof fallback ? saved[key] : fallback]));
+  });
+  const [resumeError, setResumeError] = useState("");
+  useEffect(() => {
+    try { writeDesignResume(userId, draft.draftId, "form", form); setResumeError(""); }
+    catch { setResumeError("이 브라우저에 이름·날짜를 저장하지 못했어요. 화면을 떠나기 전에 내용을 확인해 주세요."); }
+  }, [userId, draft.draftId, form]);
   const [finalizing, setFinalizing] = useState(false);
   const submitting = useRef(false), mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -152,6 +165,7 @@ export default function JarDesignFinalizePanel({
         description: form.description.trim(),
         maxMembers: Number(form.maxMembers),
       }));
+      try { writeDesignResume(userId, draft.draftId, "form", null); writeDesignResume(userId, draft.draftId, "selection", null); } catch { /* 완료된 초안은 서버 목록에서 제외된다. */ }
       if (mounted.current) navigate(`/jars/${result.jarId}`, { replace: true });
     } catch (requestError) {
       const failure = getJarDesignDraftError(requestError);
@@ -229,6 +243,7 @@ export default function JarDesignFinalizePanel({
         <form onSubmit={handleSubmit} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-bold text-slate-700 sm:col-span-2">저금통 이름
+              {resumeError && <p role="status" className="mb-2 text-sm text-amber-800">{resumeError}</p>}
               <input name="name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
                 maxLength="40" required disabled={formLocked} placeholder="예: 우리의 2026 추억 저금통"
                 className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />

@@ -146,6 +146,17 @@ public class JarService {
     // 내가 현재 참여 중인 저금통 목록을 가져옴
     // 저금통 목록 화면에 필요한 memberCount / myRole은 batch 조회로 가져와 N+1 쿼리를 줄인다.
     public JarListResponse listMyJars(Long currentUserId, int page, int size) {
+        return listMyJars(currentUserId, page, size, "", "ALL", false);
+    }
+
+    /** 전체 보관함을 서버에서 검색하므로 페이지 밖의 저금통도 찾을 수 있다. */
+    public JarListResponse listMyJars(Long currentUserId, int page, int size, String q, String state, boolean favoritesOnly) {
+        String search = q == null ? "" : q.strip();
+        if (search.length() > 100 || state == null || !Set.of("ALL", "OPEN", "LOCKED").contains(state)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "검색 조건을 확인해 주세요.");
+        }
+        String pattern = search.isEmpty() ? "" : "%" + search.toLowerCase(Locale.ROOT)
+                .replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
 
         // page, size는 너무 이상한 값이 들어오지 않게 간단히 보정
         int safePage = Math.max(page, 0);
@@ -154,7 +165,9 @@ public class JarService {
         Pageable pageable = PageRequest.of(safePage, safeSize);
 
         // 내가 active 멤버로 들어가 있는 저금통 목록 가져오기
-        Page<Jar> jarPage = jarRepository.findMyJarsByUserId(currentUserId, pageable);
+        Page<Jar> jarPage = pattern.isEmpty() && state.equals("ALL") && !favoritesOnly
+                ? jarRepository.findMyJarsByUserId(currentUserId, pageable)
+                : jarRepository.searchMyJars(currentUserId, pattern, state, favoritesOnly, LocalDateTime.now(KST), pageable);
 
         // 현재 페이지에 있는 저금통들만 꺼낸다.
         List<Jar> jars = jarPage.getContent();
@@ -187,8 +200,10 @@ public class JarService {
 
         // 저금통별 내 역할을 한 번에 조회한 뒤 Map으로 바꾼다.
         // 예: {1=OWNER, 2=MEMBER, 3=ADMIN}
-        Map<Long, JarRole> myRoleMap = jarMemberRepository.findMyRolesByJarIdsAndUserId(jarIds, currentUserId)
-                .stream()
+        var myMemberships = jarMemberRepository.findMyRolesByJarIdsAndUserId(jarIds, currentUserId);
+        Map<Long, Boolean> favorites = myMemberships.stream().collect(Collectors.toMap(
+                JarMemberRepository.MyJarRoleView::getJarId, JarMemberRepository.MyJarRoleView::getFavorite));
+        Map<Long, JarRole> myRoleMap = myMemberships.stream()
                 .collect(Collectors.toMap(
                         JarMemberRepository.MyJarRoleView::getJarId,
                         JarMemberRepository.MyJarRoleView::getRole
@@ -237,7 +252,7 @@ public class JarService {
                             openedJarIds.contains(jarId),
                             myRole,
                             toKstOffsetDateTime(jar.getUpdatedAt()),
-                            designMap.get(jarId)
+                            designMap.get(jarId), favorites.getOrDefault(jarId, false)
                     );
                 })
                 .toList();
@@ -991,6 +1006,15 @@ public class JarService {
         // 5. 저금통 soft delete
         jarRepository.delete(jar);
         userState.jarDeleted(jarId,memberIds);
+    }
+
+    /** 강퇴와 겹쳐도 활성 멤버 행 잠금 안에서 본인의 설정만 변경한다. */
+    @Transactional
+    public void changeFavorite(Long userId, Long jarId, boolean favorite) {
+        JarMember member = requireLockedMember(lockActiveMembers(jarId, userId), userId);
+        if (member.isFavorite() == favorite) return;
+        member.changeFavorite(favorite);
+        userState.favoriteChanged(jarId, userId);
     }
 
     // userId로 사용자 찾기

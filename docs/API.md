@@ -738,6 +738,14 @@ Response 구조:
 
 현재 참여 중인 저금통을 조회하며, `page`의 기본값은 0, `size`의 기본값은 20이야.
 
+2026-11-19 확장: `q`(이름, 최대 100자), `state=ALL|LOCKED|OPEN`, `favoritesOnly=false|true`를 받을 수 있어. **전체 보관함에 조건을 적용한 다음** 페이지를 나누며, 응답의 `favorite`은 본인 설정이야. `totalElements`는 현재 조건의 검색 결과 수야.
+
+- `PATCH /api/v1/jars/{jarId}/favorite` + `{ "favorite": true }`: 현재 활성 멤버 본인의 즐겨찾기를 저장하고 204를 반환해. 원하는 값을 지정하므로 재시도해도 뒤집히지 않아.
+- `GET /api/v1/design-drafts?page=0`: 본인의 ACTIVE·미만료 초안을 최근 수정순으로 6개씩 반환해. `items`에 `draftId`, `bodyStyle`, `selectedDesignType`, `updatedAt`, `expiresAt`이 있고 봉투에는 `page`, `hasNext`가 있어. 원본·후보·S3 키는 목록에 포함하지 않아.
+- 쪽지 전체·본인·검색 목록은 **추억 날짜 오름차순 → 같은 날짜의 작성 시각 오름차순 → 번호 오름차순**이야. 추억 날짜가 없는 쪽지는 뒤에 오며, 날짜 없는 쪽지끼리도 작성 시각·번호 순서가 같아. 페이지 조회 전 DB 정렬이고 기존 오픈 전 공개 규칙은 유지해.
+- 비공개 쪽지 초안은 서버 API 없이 같은 브라우저의 IndexedDB에 계정·저금통별로 보관해. 원본 파일과 동일 제출 번호를 함께 복구하고 성공·명시적 폐기 시 정리해. 브라우저 저장 데이터 삭제·기기 변경 시 복구할 수 없어.
+
+
 `design`은 Optional 값이야. 기존 Theme Jar는 `null`이고, ORIGINAL/AI Jar는 `designType`, 짧은 `imageUrl`, `imageExpiresAt`, `slotCenterX`, `slotCenterY`, `slotSizeRatio`를 반환해. 목록의 디자인은 batch 조회하므로 Jar마다 별도 DB 조회를 반복하지 않아.
 
 ### 저금통 상세

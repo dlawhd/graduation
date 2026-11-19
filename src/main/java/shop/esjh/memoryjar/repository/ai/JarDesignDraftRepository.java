@@ -17,6 +17,25 @@ import java.time.LocalDateTime;
  */
 public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, Long> {
 
+    /** 사진·후보를 로딩하지 않고 유효한 본인 초안만 제한된 크기로 조회한다. */
+    @Query("""
+            select d.draftId as draftId, d.bodyStyle as bodyStyle, d.selectedDesignType as selectedDesignType,
+                   d.updatedAt as updatedAt, d.expiresAt as expiresAt
+            from JarDesignDraft d where d.owner.id = :ownerId and d.status = :status and d.expiresAt > :now
+            order by d.updatedAt desc, d.draftId desc
+            """)
+    org.springframework.data.domain.Slice<ResumeView> findResumable(@Param("ownerId") Long ownerId,
+            @Param("status") JarDraftStatus status, @Param("now") LocalDateTime now,
+            org.springframework.data.domain.Pageable pageable);
+
+    interface ResumeView {
+        Long getDraftId();
+        shop.esjh.memoryjar.enums.ai.JarBodyStyle getBodyStyle();
+        shop.esjh.memoryjar.enums.ai.JarDraftDesignType getSelectedDesignType();
+        LocalDateTime getUpdatedAt();
+        LocalDateTime getExpiresAt();
+    }
+
     /** 보상 삭제는 soft delete 여부와 무관하게 실제 원본 참조가 남아 있으면 금지한다. */
     @Query(value = "SELECT COUNT(*) FROM jar_design_drafts WHERE owner_id = :userId AND original_s3_key = :key", nativeQuery = true)
     long countOriginalReferencesIncludingDeleted(@Param("userId") Long userId, @Param("key") String key);

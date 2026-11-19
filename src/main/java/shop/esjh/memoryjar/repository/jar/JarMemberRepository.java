@@ -126,6 +126,7 @@ public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
     interface MyJarRoleView {
         Long getJarId();
         shop.esjh.memoryjar.enums.jar.JarRole getRole();
+        boolean getFavorite();
     }
 
     /**
@@ -160,7 +161,7 @@ public interface JarMemberRepository extends JpaRepository<JarMember, Long> {
      */
     @Query("""
             select jm.jar.jarId as jarId,
-                   jm.role as role
+                   jm.role as role, jm.favorite as favorite
             from JarMember jm
             where jm.jar.jarId in :jarIds
               and jm.user.id = :userId

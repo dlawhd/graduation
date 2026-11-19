@@ -33,6 +33,38 @@ class NoteRepositoryTest extends AbstractMariaDbRepositoryTest {
     private NoteRepository noteRepository;
 
     @Test
+    void memoryDatesSortAscendingAcrossPagesWithUndatedLastForAllOwnAndSearch() {
+        var owner = saveUser("date-sort", "date-sort@example.invalid", "작성자");
+        var jar = saveJar(owner, "sort", LocalDateTime.now().minusDays(1));
+        var created = LocalDateTime.of(2026, 8, 1, 10, 0);
+        var undated = saveNote(jar, owner, "날짜 없음", created.minusDays(5));
+        var march = saveNote(jar, owner, "3월", created);
+        var february = saveNote(jar, owner, "2월", created.plusDays(1));
+        var februaryTie = saveNote(jar, owner, "2월 둘째", created.plusDays(2));
+        org.springframework.test.util.ReflectionTestUtils.setField(march, "noteDate", java.time.LocalDate.of(2026,3,1));
+        org.springframework.test.util.ReflectionTestUtils.setField(february, "noteDate", java.time.LocalDate.of(2026,2,1));
+        org.springframework.test.util.ReflectionTestUtils.setField(februaryTie, "noteDate", java.time.LocalDate.of(2026,2,1));
+        org.springframework.test.util.ReflectionTestUtils.setField(undated, "noteDate", null);
+        flushAndClear();
+        // 동일 추억 날짜와 작성 시각까지 같아도 번호 순서로 페이지 경계가 안정적이어야 한다.
+        entityManager.createNativeQuery("update notes set created_at = :created where note_id in (:ids)")
+                .setParameter("created", created).setParameter("ids", java.util.List.of(february.getNoteId(),februaryTie.getNoteId())).executeUpdate();
+        var expected = java.util.List.of(february.getNoteId(),februaryTie.getNoteId(),march.getNoteId(),undated.getNoteId());
+        var all = new java.util.ArrayList<Long>();
+        for (int page = 0; page < 2; page++) {
+            var pageable = PageRequest.of(page, 2);
+            var rows = noteRepository.findListRowsByJarId(jar.getJarId(), pageable);
+            assertThat(rows.getTotalElements()).isEqualTo(4);
+            all.addAll(rows.map(NoteListRow::noteId).getContent());
+            assertThat(noteRepository.searchOwnListRows(jar.getJarId(),owner.getId(),"","",pageable).map(NoteListRow::noteId).getContent())
+                    .isEqualTo(rows.map(NoteListRow::noteId).getContent());
+            assertThat(noteRepository.searchListRowsByJarId(jar.getJarId(),"","",pageable).map(NoteListRow::noteId).getContent())
+                    .isEqualTo(rows.map(NoteListRow::noteId).getContent());
+        }
+        assertThat(all).containsExactlyElementsOf(expected);
+    }
+
+    @Test
     void ownRowsAndCountsNeverIncludeOtherAuthorsJarsOrDeletedNotes() {
         var owner = saveUser("own-rows", "own-rows@example.invalid", "나");
         var other = saveUser("other-rows", "other-rows@example.invalid", "다른 멤버");
@@ -159,19 +191,21 @@ class NoteRepositoryTest extends AbstractMariaDbRepositoryTest {
     }
 
     @Test
-    @DisplayName("findByJarId는 createdAt 내림차순으로 쪽지 목록을 반환한다")
-    void findByJarId_returnsNotesInCreatedAtDescOrder() {
+    @DisplayName("추억 날짜가 없는 쪽지끼리는 작성 순서를 유지한다")
+    void findByJarId_keepsStableCreationOrderForUndatedNotes() {
         User owner = saveUser("owner-note-list", "owner-note-list@example.com", "owner");
         Jar jar = saveJar(owner, "note-list-jar", LocalDateTime.now().plusDays(1));
-        saveNote(jar, owner, "older-note", LocalDateTime.now().minusDays(1));
-        saveNote(jar, owner, "newer-note", LocalDateTime.now());
+        var older = saveNote(jar, owner, "older-note", LocalDateTime.now().minusDays(1));
+        var newer = saveNote(jar, owner, "newer-note", LocalDateTime.now());
+        org.springframework.test.util.ReflectionTestUtils.setField(older, "noteDate", null);
+        org.springframework.test.util.ReflectionTestUtils.setField(newer, "noteDate", null);
 
         flushAndClear();
 
         Page<Note> result = noteRepository.findByJarId(jar.getJarId(), PageRequest.of(0, 10));
 
         assertThat(result.getContent()).extracting(Note::getTitle)
-                .containsExactly("newer-note", "older-note");
+                .containsExactly("older-note", "newer-note");
     }
 
     @Test

@@ -79,6 +79,29 @@ class JarServiceTest {
     @Mock
     private JarDesignViewService jarDesignViewService;
 
+    @Test
+    void favoriteRequiresActiveLockedMembershipAndUsesIdempotentFinalValue() {
+        var member = JarMember.builder().role(JarRole.MEMBER).joinedAt(LocalDateTime.now()).build();
+        when(jarMemberRepository.findActiveMemberForUpdateByJarIdAndUserId(10L,1L)).thenReturn(Optional.of(member));
+        jarService.changeFavorite(1L,10L,true);
+        jarService.changeFavorite(1L,10L,true);
+        assertThat(member.isFavorite()).isTrue();
+        jarService.changeFavorite(1L,10L,false);
+        assertThat(member.isFavorite()).isFalse();
+        assertThatThrownBy(() -> jarService.changeFavorite(2L,10L,true)).isInstanceOf(ResponseStatusException.class)
+                .extracting(error -> ((ResponseStatusException) error).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void shelfSearchEscapesWildcardsAndRejectsInvalidStateAndLongSearch() {
+        when(jarRepository.searchMyJars(eq(1L),eq("%a!%!_!!%"),eq("LOCKED"),eq(true),any(),any()))
+                .thenReturn(Page.empty(PageRequest.of(0,9)));
+        assertThat(jarService.listMyJars(1L,0,9," A%_! ","LOCKED",true).items()).isEmpty();
+        verify(jarRepository,never()).findMyJarsByUserId(any(),any());
+        assertThatThrownBy(() -> jarService.listMyJars(1L,0,9,"","wrong",false)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> jarService.listMyJars(1L,0,9,"a".repeat(101),"ALL",false)).isInstanceOf(ResponseStatusException.class);
+    }
+
     @BeforeEach
     void setUp() {
         jarService = new JarService(
@@ -1500,5 +1523,7 @@ class JarServiceTest {
         public JarRole getRole() {
             return role;
         }
+
+        @Override public boolean getFavorite() { return false; }
     }
 }

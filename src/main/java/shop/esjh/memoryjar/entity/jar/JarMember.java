@@ -56,6 +56,12 @@ public class JarMember extends BaseEntity {
     @Column(name = "left_at")
     private LocalDateTime leftAt;
 
+    /** 즐겨찾기는 현재 멤버 개인의 보관함 설정이다. */
+    @Column(name = "favorite", nullable = false)
+    private boolean favorite;
+
+    public void changeFavorite(boolean favorite) { this.favorite = favorite; }
+
     @Builder
     private JarMember(
             Jar jar,

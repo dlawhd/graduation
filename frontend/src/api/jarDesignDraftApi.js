@@ -44,6 +44,11 @@ export async function createJarDesignDraft(imageFile, bodyStyle, customBody) {
   return unwrap(response);
 }
 
+/** 현재 로그인한 계정의 유효한 서버 초안 목록을 조회한다. */
+export async function listJarDesignDrafts(page = 0) {
+  return unwrap(await apiClient.get(DRAFT_BASE_URL, { params: { page } }));
+}
+
 /** 비공개 S3 Key 없이 Draft의 선택·후보 상태만 조회한다. */
 export async function getJarDesignDraft(draftId) {
   const response = await apiClient.get(`${DRAFT_BASE_URL}/${draftId}`);

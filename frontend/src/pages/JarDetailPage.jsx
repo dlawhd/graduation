@@ -22,6 +22,7 @@ import JarOpenCelebrationModal from "../features/jarDetail/components/JarOpenCel
 import JarZoomNoteDetailModal from "../features/jarDetail/components/JarZoomNoteDetailModal";
 import JarZoomModal from "../features/jarDetail/components/JarZoomModal";
 import MemoryDrawModal from "../features/jarDetail/components/MemoryDrawModal";
+import OpeningPromise from "../features/jarDetail/components/OpeningPromise";
 import { useJarDetail } from "../features/jarDetail/hooks/useJarDetail";
 import { useJarMembers } from "../features/jarDetail/hooks/useJarMembers";
 import { useJarInvites } from "../features/jarDetail/hooks/useJarInvites";
@@ -3976,7 +3977,7 @@ async function handleViewOpenedJarNotes() {
                   jar={jar}
                   jarRef={jarVisualRef}
                   frontViewRequest={noteCreateRequestId}
-                  notesButtonLabel={jar.isOpen ? "전체 쪽지" : "쪽지 확인"}
+                  notesButtonLabel={jar.isOpen ? "전체 쪽지" : "내가 넣은 쪽지"}
                   onReloadDesignImage={reloadJarDesignImage}
 
                   /*
@@ -4014,14 +4015,18 @@ async function handleViewOpenedJarNotes() {
                   }}
 
                   interactive
+                  showNotesButton={false}
                 />
 
                 {/* 공개 뒤에도 본인 쪽지 검색을 유지한다. 전체 쪽지는 위의 기존 열람 버튼으로 연다. */}
-                <div className="mt-12 flex flex-wrap justify-center gap-3">
-                  <button type="button" onClick={()=>setOwnNotesOpen(true)} className="min-h-11 rounded-full border border-emerald-200 bg-white/90 px-5 py-2 text-sm font-bold text-emerald-800 shadow-sm">내가 넣은 쪽지</button>
-                  {jar.isOpen && <button type="button" onClick={() => showJarOpenCelebration(null, { replay: true })}
+                <div className="mt-6 grid w-full max-w-xl grid-cols-2 gap-3">
+                  {jar.isOpen && <button ref={viewNotesTutorialButtonRef} type="button" onClick={() => void handleJarDetailTargetButtonClick(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES, handleOpenJarZoom)}
+                    className={`min-h-11 rounded-2xl border bg-white/90 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm ${isCurrentJarDetailTutorialTarget(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES) ? "ring-4 ring-white/90" : ""}`}>전체 쪽지</button>}
+                  <button style={!jar.isOpen ? { gridColumn: "1 / -1" } : undefined} ref={jar.isOpen ? undefined : viewNotesTutorialButtonRef} type="button" onClick={()=>void handleJarDetailTargetButtonClick(JAR_DETAIL_TUTORIAL_TARGET.VIEW_NOTES, ()=>setOwnNotesOpen(true))} className="min-h-11 rounded-full border border-emerald-200 bg-white/90 px-5 py-2 text-sm font-bold text-emerald-800 shadow-sm">내가 넣은 쪽지</button>
+                  {jar.isOpen && <button style={{ gridColumn: "1 / -1", justifySelf: "center" }} type="button" onClick={() => showJarOpenCelebration(null, { replay: true })}
                     className="min-h-11 rounded-full border border-[#cbd5bc] bg-[#fffdf5] px-5 py-2 text-sm font-bold text-[#45653b] shadow-sm hover:bg-[#f1f5e8]">추억 열기 다시 보기</button>}
                 </div>
+                <OpeningPromise jar={jar} />
                 {/* 저금통 아래 주요 버튼들 */}
                 <div className="mt-20 grid w-full max-w-xl gap-3 sm:grid-cols-3">
                   {/* 새 쪽지 작성 버튼 */}
@@ -4263,8 +4268,9 @@ async function handleViewOpenedJarNotes() {
         </div>
 
         <NoteSection
-          key={`note-section-${jarId}-${noteSectionRefreshKey}`}
+          key={`note-section-${currentUserId}-${jarId}-${noteSectionRefreshKey}`}
           jar={jar}
+          userId={currentUserId}
           palette={palette}
           formatDate={formatDate}
           showCreateButton={false}

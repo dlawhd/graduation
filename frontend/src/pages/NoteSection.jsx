@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRequestGate } from "../api/useRequestGate";
+import { usePrivateNoteDraft } from "../features/note/usePrivateNoteDraft";
 import noteApi from "../api/noteApi";
 import FeedbackToast from "../components/feedback/FeedbackToast";
 import NoteLocationField from "../features/note/components/NoteLocationField";
@@ -387,6 +388,7 @@ function PaperComposeModal({
   onBackToForm,
   onBackToPreview,
   onSubmit,
+  draft,
   // 사진/영상의 추억 설명을 변경하는 함수를 부모 NoteSection에서 전달받는다.
   handleChangeAttachmentCaption,
 }) {
@@ -525,6 +527,18 @@ function PaperComposeModal({
             {/* 1단계: 작성 */}
             {isFormStep && (
               <div className="space-y-4">
+                <section className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4" aria-label="비공개 쪽지 초안">
+                  <p className="text-sm font-bold text-emerald-950">{draft.available ? "작성 중인 쪽지가 있어요" : draft.status === "loading" ? "저장한 초안을 확인하는 중이에요" : "나만의 쪽지 초안"}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">이 계정·이 저금통의 초안만 이 브라우저에 저장해요. 다른 멤버에게는 작성 여부도 보이지 않아요.</p>
+                  <p role="status" className="mt-1 text-xs text-emerald-800">{draft.status === "saved" ? "작성 내용을 저장했어요." : draft.status === "restoring" ? "첨부파일과 작성 내용을 복구하는 중이에요." : ""}</p>
+                  {draft.error && <p role="alert" className="mt-2 text-sm text-rose-700">{draft.error} <button type="button" disabled={loading || uploading} onClick={() => draft.reload()} className="underline">저장한 초안 다시 불러오기</button></p>}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {draft.available && <button type="button" disabled={loading || uploading || draft.status === "restoring"} onClick={() => draft.resume()} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-bold text-emerald-800 disabled:opacity-50">이어서 쓰기</button>}
+                    {draft.pendingCount > 0 && !draft.available && <button type="button" disabled={loading || uploading || draft.status === "restoring"} onClick={() => draft.recoverPending()} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-bold text-emerald-800">미완료 첨부 다시 시도 ({draft.pendingCount})</button>}
+                    <button type="button" disabled={loading || uploading || draft.status === "loading" || draft.status === "restoring"} onClick={() => { if (window.confirm("이 저금통에서 작성 중인 쪽지와 초안 첨부를 지울까요? 이미 넣은 쪽지는 유지돼요.")) draft.discard({ title:"", content:"", noteDate:"", location:"", tagsText:"", attachments:[] }); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:opacity-50">작성 내용 지우기</button>
+                  </div>
+                </section>
+                <fieldset disabled={draft.blocked} className="m-0 min-w-0 space-y-4 border-0 p-0">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold text-slate-500">
                     제목 <span className="sr-only">(필수)</span>
@@ -685,6 +699,7 @@ function PaperComposeModal({
                 </label>
 
                 </details>
+                </fieldset>
               </div>
             )}
 
@@ -793,7 +808,7 @@ function PaperComposeModal({
             {isFormStep && <p className="note-composer-warning"><span aria-hidden="true">!</span>넣은 쪽지는 수정·삭제할 수 없어요.</p>}
             <div className="note-composer-actions flex justify-end gap-2">
               <button type="button" disabled={disableClose} onClick={isFormStep ? onClose : isPreviewStep ? onBackToForm : onBackToPreview} className={`min-h-11 rounded-xl border px-4 py-3 text-sm font-bold disabled:opacity-50 ${palette.outlineBtn}`}>{isFormStep ? "취소" : isPreviewStep ? "다시 수정하기" : "다시 보기"}</button>
-              <button type="button" disabled={uploading || loading || isClosing} onClick={isFormStep ? onShowPreview : isPreviewStep ? onShowConfirm : onSubmit} className="min-h-11 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "파일 업로드 중..." : loading ? "넣는 중..." : isFormStep ? "미리보기 보기" : isPreviewStep ? "제출 확인으로" : "저금통에 넣기"}</button>
+              <button type="button" disabled={uploading || loading || isClosing || draft.blocked} onClick={isFormStep ? onShowPreview : isPreviewStep ? onShowConfirm : onSubmit} className="min-h-11 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "파일 업로드 중..." : loading ? "넣는 중..." : isFormStep ? "미리보기 보기" : isPreviewStep ? "제출 확인으로" : "저금통에 넣기"}</button>
             </div>
           </footer>
         </div>
@@ -1040,6 +1055,7 @@ function NoteDetailModal({
 
 export default function NoteSection({
   jar,
+  userId,
   palette,
   formatDate,
   showCreateButton = true,
@@ -1121,6 +1137,9 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
     tagsText: "",
     attachments: [],
   });
+
+  const draft = usePrivateNoteDraft({ userId, jarId: jar?.jarId, form: writeForm, setForm: setWriteForm, attempt: createAttempt,
+    getAttemptKey: value => JSON.stringify({ jarId: jar.jarId, payload: buildCreatePayload(value) }) });
 
   // 첨부 업로드 중인지 저장한다.
   const [uploading, setUploading] =
@@ -1433,6 +1452,7 @@ async function closeComposer() {
 }
 
 function handleOpenPreview() {
+  if (draft.blocked) return;
   const isValid = validateWriteForm(writeForm);
 
   if (!isValid) {
@@ -1445,6 +1465,7 @@ function handleOpenPreview() {
 }
 
 function handleOpenConfirm() {
+  if (draft.blocked) return;
   setComposerStep("confirm");
 }
 
@@ -1457,7 +1478,7 @@ function handleBackToPreview() {
 }
 
 async function handleCreateNote() {
-  if (createInFlight.current || createLoading || uploading) return;
+  if (createInFlight.current || createLoading || uploading || draft.blocked) return;
   const isValid = validateWriteForm(writeForm);
 
   if (!isValid) {
@@ -1466,6 +1487,7 @@ async function handleCreateNote() {
   }
 
 
+  const isCurrent = requests.begin("create");
   const payload = buildCreatePayload(writeForm);
   const attemptKey = JSON.stringify({ jarId: jar.jarId, payload });
   // 응답 유실 후 같은 제출은 같은 번호로 복구한다. 실제 내용을 바꾸면 새 작성으로 구분한다.
@@ -1477,12 +1499,15 @@ async function handleCreateNote() {
   setComposerPhase("submitting");
 
   try {
+    await draft.persist(writeForm, { required: true });
+    if (!isCurrent()) return;
     // 서버 저장 먼저 시작
     const createPromise = noteApi.createNote(jar.jarId, payload);
 
     // 종이가 한 번 접히는 느낌을 잠깐 보여줌
     // 저장 실패도 즉시 처리하도록 애니메이션과 저장 결과를 함께 기다린다.
     const [createdNote] = await Promise.all([createPromise, wait(420)]);
+    if (!isCurrent()) return;
     const createdNoteId = getNoteId(createdNote);
 
     // 모달은 먼저 닫아줘
@@ -1497,6 +1522,8 @@ async function handleCreateNote() {
     // 작은 접힌 쪽지를 저금통 쪽으로 날려 보냄
     const flightDuration = startFlyingNoteToJar();
 
+    // 성공한 요청의 초안만 정리한다. 저장 오류가 나더라도 같은 요청 번호로 복구할 수 있다.
+    await draft.discard({ title:"", content:"", noteDate:"", location:"", tagsText:"", attachments:[] });
     // 입력 폼도 초기화
     resetWriteForm();
 
@@ -1784,6 +1811,13 @@ async function handleCreateNote() {
       * 성공한 파일끼리는 사용자가 선택한 순서가 유지된다.
       */
      const uploadedAttachments = [];
+     const isUploadCurrent = requests.begin("upload");
+     const stagedFiles = new Map(uploadCandidates.map(file => [file, {
+       clientId: createAttachmentClientId(), sourceFile: file, fileName: file.name,
+       contentType: file.type, size: file.size, lastModified: file.lastModified, caption: "", pending: true,
+     }]));
+     // 업로드 중 새로고침되어도 선택한 원본을 되찾도록 서버 전송 전에 기기에 보관한다.
+     await draft.stage([...stagedFiles.values()]);
 
      try {
        /*
@@ -1795,6 +1829,7 @@ async function handleCreateNote() {
         * 첫 번째 → 두 번째 → 세 번째 순서로 처리한다.
         */
        for (const file of uploadCandidates) {
+         if (!isUploadCurrent()) break;
          setUploadProgress(
            (prev) => ({
              ...prev,
@@ -1856,6 +1891,7 @@ async function handleCreateNote() {
             * 2. Spring 서버를 거치지 않고
             * 브라우저에서 S3로 직접 파일을 올린다.
             */
+           if (!isUploadCurrent()) break;
            await fileApi.uploadFileToS3(
              presignData.uploadUrl,
              file,
@@ -1869,6 +1905,7 @@ async function handleCreateNote() {
             *
             * 라고 알려준다.
             */
+           if (!isUploadCurrent()) break;
            await fileApi.completeNoteFile({
              s3Key:
                presignData.s3Key,
@@ -1878,6 +1915,7 @@ async function handleCreateNote() {
             * 4. 화면과 최종 쪽지 저장에 사용할
             * 첨부 객체를 만든다.
             */
+           if (!isUploadCurrent()) break;
            const attachmentPayload =
              fileApi.toNoteAttachmentPayload(
                presignData,
@@ -1890,10 +1928,11 @@ async function handleCreateNote() {
             */
            uploadedAttachments.push({
              ...attachmentPayload,
+             sourceFile: file, uploadedAt: Date.now(), pending: false,
 
              // React에서 같은 파일명도 구별하기 위한 임시 ID
              clientId:
-               createAttachmentClientId(),
+               stagedFiles.get(file).clientId,
 
              // 사용자가 선택한 원본 파일명
              fileName:
@@ -1915,6 +1954,7 @@ async function handleCreateNote() {
              // 사진/영상별 추억 설명은 처음에는 빈 값
              caption: "",
            });
+           await draft.complete(uploadedAttachments[uploadedAttachments.length - 1]);
          } catch (error) {
            /*
             * ------------------------------------------------
@@ -1960,6 +2000,10 @@ async function handleCreateNote() {
          }
        }
      } finally {
+       if (!isUploadCurrent()) {
+         uploadedAttachments.forEach(item => { if (item.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(item.previewUrl); });
+         return;
+       }
        /*
         * ------------------------------------------------
         * 모든 파일 처리가 끝난 뒤
@@ -2436,6 +2480,7 @@ async function handleCreateNote() {
 
       <PaperComposeModal
         open={paperVisible}
+        draft={draft}
         phase={composerPhase}
         step={composerStep}
         form={writeForm}

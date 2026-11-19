@@ -1495,7 +1495,7 @@ useEffect(() => {
           } />
           <Route path="/jars/new" element={
             <Suspense fallback={<StatusNotice type="loading" title="만들기 화면을 준비하고 있어요." />}>
-              <JarsNewPage />
+              <JarsNewPage key={me?.userId ?? me?.id} userId={me?.userId ?? me?.id} />
             </Suspense>
           } />
           <Route path="/help" element={<Suspense fallback={<p className="p-6">도움말을 준비하고 있어요.</p>}><SupportHelpPage/></Suspense>} />

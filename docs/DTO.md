@@ -208,6 +208,9 @@ AI Draft의 Prompt·Prompt Version·S3 Key는 클라이언트 DTO로 받지 않�
 
 ### Response — JarListItem
 
+2026-11-19부터 기존 필드에 `boolean favorite`을 추가해. 개인 즐겨찾기이고 다른 멤버의 설정과 공유하지 않아. 검색·상태·즐겨찾기 조건과 디자인 초안 목록 계약은 [API 명세](API.md)의 보관함 확장을 참고해.
+
+
 ```
 /*** 저금통 목록 화면에서 저금통 하나를 표현한다.
  */publicrecordJarListItem(LongjarId,// 저금통 IDStringname,// 이름JarThemetheme,// 테마Stringdescription,// 설명intmemberCount,// 현재 참여 인원intmaxMembers,// 최대 인원OffsetDateTimeopenAt,// 오픈 예정 시간JarOpenModeopenMode,// 오픈 방식JarLockLevellockLevel,// 잠금 수준booleanisOpen,// 실제로 열렸는지 여부JarRolemyRole,// 내 역할OffsetDateTimeupdatedAt,// 마지막 수정 시간JarDesignResponsedesign// 없으면 기존 Theme Jar

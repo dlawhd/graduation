@@ -58,6 +58,29 @@ class JarControllerTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @Test
+    void favoriteValidatesFinalValueAndUsesAuthenticatedUser() throws Exception {
+        var auth = new TestingAuthenticationToken(Map.of("userId",1L),null,"ROLE_USER");
+        mockMvc.perform(patch("/api/v1/jars/10/favorite").principal(auth).contentType("application/json").content("{\"favorite\":true}"))
+                .andExpect(status().isNoContent());
+        org.mockito.Mockito.verify(jarService).changeFavorite(1L,10L,true);
+        org.mockito.Mockito.clearInvocations(jarService);
+        mockMvc.perform(patch("/api/v1/jars/10/favorite").principal(auth).contentType("application/json").content("{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(patch("/api/v1/jars/10/favorite").contentType("application/json").content("{\"favorite\":true}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(jarService);
+    }
+
+    @Test
+    void shelfForwardsSearchStateAndFavoritesBeforePagination() throws Exception {
+        var auth = new TestingAuthenticationToken(Map.of("userId",1L),null,"ROLE_USER");
+        given(jarService.listMyJars(1L,2,9,"봄","LOCKED",true)).willReturn(new JarListResponse(List.of(),2,9,0,0));
+        mockMvc.perform(get("/api/v1/jars").principal(auth).param("page","2").param("size","9").param("q","봄").param("state","LOCKED").param("favoritesOnly","true"))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(jarService).listMyJars(1L,2,9,"봄","LOCKED",true);
+    }
+
+    @Test
     void createJar는_201을_반환한다() throws Exception {
         // given
         JarCreateRequest request = new JarCreateRequest(
@@ -112,7 +135,7 @@ class JarControllerTest {
                 0
         );
 
-        given(jarService.listMyJars(1L, 0, 20)).willReturn(response);
+        given(jarService.listMyJars(1L, 0, 20, "", "ALL", false)).willReturn(response);
 
         TestingAuthenticationToken auth = new TestingAuthenticationToken(
                 Map.of("userId", 1L, "email", "user@test.com", "name", "은서"),

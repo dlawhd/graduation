@@ -12,7 +12,7 @@ import java.util.Optional;
 public interface NoteRepository extends JpaRepository<Note, Long> {
     Optional<Note> findByJar_JarIdAndAuthor_IdAndClientRequestId(Long jarId, Long authorId, String requestId);
     /** 작성자 조건을 목록과 전체 개수 조회에 모두 적용해 다른 사람의 작성 여부도 노출하지 않는다. */
-    @Query(value=LIST_ROW_SELECT+SEARCH_FILTER+" and n.author.id = :authorId order by n.createdAt desc, n.noteId desc",
+    @Query(value=LIST_ROW_SELECT+SEARCH_FILTER+" and n.author.id = :authorId order by case when n.noteDate is null then 1 else 0 end, n.noteDate asc, n.createdAt asc, n.noteId asc",
             countQuery="select count(n) from Note n "+SEARCH_FILTER+" and n.author.id = :authorId")
     Page<NoteListRow> searchOwnListRows(@Param("jarId") Long jarId,@Param("authorId") Long authorId,
             @Param("q") String q,@Param("tag") String tag,Pageable pageable);
@@ -31,13 +31,13 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
               and (:tag = '' or function('json_search', lower(cast(n.tags as string)), 'one', :tag, '!') is not null)
             """;
 
-    /** 기존 목록의 정렬·전체 개수·soft delete 규칙은 그대로 사용한다. */
-    @Query(value = LIST_ROW_SELECT + "where n.jar.jarId = :jarId order by n.createdAt desc, n.noteId desc",
+    /** 추억 날짜순 정렬을 적용하고 기존 전체 개수·soft delete 규칙은 유지한다. */
+    @Query(value = LIST_ROW_SELECT + "where n.jar.jarId = :jarId order by case when n.noteDate is null then 1 else 0 end, n.noteDate asc, n.createdAt asc, n.noteId asc",
             countQuery = "select count(n) from Note n where n.jar.jarId = :jarId")
     Page<NoteListRow> findListRowsByJarId(@Param("jarId") Long jarId, Pageable pageable);
 
     /** 검색은 미리보기 앞부분이 아니라 전체 본문에서 수행한다. 목록·개수 조회가 같은 조건을 공유한다. */
-    @Query(value = LIST_ROW_SELECT + SEARCH_FILTER + "order by n.createdAt desc, n.noteId desc",
+    @Query(value = LIST_ROW_SELECT + SEARCH_FILTER + "order by case when n.noteDate is null then 1 else 0 end, n.noteDate asc, n.createdAt asc, n.noteId asc",
             countQuery = "select count(n) from Note n " + SEARCH_FILTER)
     Page<NoteListRow> searchListRowsByJarId(@Param("jarId") Long jarId, @Param("q") String q,
                                           @Param("tag") String tag, Pageable pageable);
@@ -51,7 +51,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     Optional<Note> findByNoteId(Long noteId);
 
     // 컬렉션 fetch join 없이 작성자만 함께 읽어 페이지 크기와 전체 개수를 정확하게 유지한다.
-    @Query(value = "select n from Note n join fetch n.author " + SEARCH_FILTER + "order by n.createdAt desc, n.noteId desc",
+    @Query(value = "select n from Note n join fetch n.author " + SEARCH_FILTER + "order by case when n.noteDate is null then 1 else 0 end, n.noteDate asc, n.createdAt asc, n.noteId asc",
             countQuery = "select count(n) from Note n " + SEARCH_FILTER)
     Page<Note> searchByJarId(@Param("jarId") Long jarId, @Param("q") String q,
             @Param("tag") String tag, Pageable pageable);
@@ -75,7 +75,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
                 from Note n
                 join fetch n.author
                 where n.jar.jarId = :jarId
-                order by n.createdAt desc, n.noteId desc
+                order by case when n.noteDate is null then 1 else 0 end, n.noteDate asc, n.createdAt asc, n.noteId asc
                 """,
             countQuery = """
                 select count(n)

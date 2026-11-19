@@ -212,7 +212,7 @@ export default function JarDesignNewPage({ userId }) {
         )}
 
         {error && !(imageStep && inputMode === "UPLOAD") && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
-        {draftId && <AiCandidateGallery key={draftId} draftId={draftId} onStepChange={setGalleryStep} />}
+        {draftId && <AiCandidateGallery key={`${userId}:${draftId}`} userId={userId} draftId={draftId} onStepChange={setGalleryStep} />}
       </main>
     </div>
   );

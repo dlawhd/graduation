@@ -60,6 +60,13 @@ public class JarDesignDraftController {
         this.generationPreviewService = generationPreviewService;
     }
 
+    /** 본인의 유효한 작업 목록만 반환한다. */
+    @GetMapping
+    public ApiResponse<shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse> listDrafts(
+            Authentication authentication, @RequestParam(defaultValue = "0") int page) {
+        return ApiResponse.of(draftService.listResumable(extractCurrentUserId(authentication), page));
+    }
+
     /** Draft와 후보 상태를 반환한다. 비공개 S3 Key·URL은 이 응답에 포함하지 않는다. */
     @GetMapping("/{draftId}")
     public ApiResponse<JarDesignDraftDetailResponse> getDraft(Authentication authentication, @PathVariable Long draftId) {

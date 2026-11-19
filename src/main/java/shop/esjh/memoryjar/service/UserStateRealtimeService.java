@@ -36,6 +36,11 @@ public class UserStateRealtimeService {
         send(List.of(ownerId), new StateEvent("JAR_LIST_CHANGED", jarId, null));
     }
 
+    /** 개인 즐겨찾기는 본인의 다른 탭만 갱신하고 다른 멤버에게 전송하지 않는다. */
+    public void favoriteChanged(Long jarId, Long userId) {
+        send(List.of(userId), new StateEvent("JAR_LIST_CHANGED", jarId, null));
+    }
+
     /** 삭제 전에 확보한 멤버 번호를 사용한다. 삭제된 Jar의 구독 권한을 다시 열어 주지 않는다. */
     public void jarDeleted(Long jarId, Collection<Long> previousMembers) {
         send(previousMembers, new StateEvent("JAR_ACCESS_REVOKED", jarId, null));

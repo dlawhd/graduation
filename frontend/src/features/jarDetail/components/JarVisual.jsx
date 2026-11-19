@@ -24,6 +24,7 @@ export default function JarVisual({
   jarRef,
   onClick,
   interactive = false,
+  showNotesButton = true,
   notesButtonLabel = "쪽지 확인",
   frontViewRequest = 0,
 
@@ -272,7 +273,7 @@ export default function JarVisual({
       </div>
 
       {/* 기존 확대 모달 열기 버튼 */}
-      {interactive && (
+      {interactive && showNotesButton && (
         <button
           /*
            * 저금통 상세 온보딩의 "쪽지 확인" 단계에서

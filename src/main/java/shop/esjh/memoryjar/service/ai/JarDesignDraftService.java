@@ -39,6 +39,18 @@ public class JarDesignDraftService {
     private final AiDraftProperties properties;
     private final JarDesignCutoutPathCodec cutoutPathCodec;
 
+    /** 다른 계정과 완료·만료된 초안은 DB 조건에서 제외한다. */
+    public shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse listResumable(Long userId, int page) {
+        if (page < 0 || page > 10000) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "페이지를 확인해 주세요.");
+        var rows = draftRepository.findResumable(userId, shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE,
+                LocalDateTime.now(KST), org.springframework.data.domain.PageRequest.of(page, 6));
+        return new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse(rows.stream().map(row ->
+                new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse.Item(row.getDraftId(), row.getBodyStyle(),
+                        row.getSelectedDesignType(), row.getUpdatedAt().atZone(KST).toOffsetDateTime(),
+                        row.getExpiresAt().atZone(KST).toOffsetDateTime())).toList(), page, rows.hasNext());
+    }
+
     /** Draft 조회에는 S3 Key를 노출하지 않고 선택·Slot·후보 상태만 반환한다. */
     public JarDesignDraftDetailResponse getDraftSummary(Long userId, Long draftId) {
         JarDesignDraft draft = draftRepository.findById(draftId)

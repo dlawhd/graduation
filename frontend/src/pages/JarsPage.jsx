@@ -9,6 +9,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { setJarFavorite } from "../api/jarShelfApi";
 import apiClient from "../api/apiClient";
 import { useRequestGate } from "../api/useRequestGate";
 import { useUserStateRefresh } from "../realtime/useUserStateRefresh";
@@ -559,6 +560,14 @@ export default function JarsPage({ me, checkingAuth = false }) {
 
   // 서버에서 받아온 저금통 목록
   const [items, setItems] = useState([]);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [shelfState, setShelfState] = useState("ALL");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState({});
+  const favoritePending = useRef(new Set());
+  const currentFilters = useRef("");
+  currentFilters.current = JSON.stringify([search, shelfState, favoritesOnly]);
 
   // 로딩 중인지 표시
   const [loading, setLoading] = useState(true);
@@ -596,7 +605,7 @@ export default function JarsPage({ me, checkingAuth = false }) {
       const res = await apiClient.get("/api/v1/jars", {
         params: {
           page: targetPage,
-          size: PAGE_SIZE,
+          size: PAGE_SIZE, q: search, state: shelfState, favoritesOnly,
         },
       });
 
@@ -642,11 +651,28 @@ export default function JarsPage({ me, checkingAuth = false }) {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [checkingAuth, userId, requests]);
+  }, [checkingAuth, userId, requests, search, shelfState, favoritesOnly]);
   useUserStateRefresh({userId,scope:"jars-list",enabled:!checkingAuth,
     accepts:event=>["JAR_CHANGED","JAR_LIST_CHANGED","JAR_ACCESS_REVOKED"].includes(event.type),
     onEvent:event=>{if(event.type==="JAR_ACCESS_REVOKED")setItems(previous=>previous.filter(item=>Number(item.jarId)!==Number(event.jarId)));},
     refresh:()=>loadJars(page,{silent:true})});
+
+  async function changeFavorite(jar) {
+    if (favoritePending.current.has(jar.jarId)) return;
+    const current = requests.begin(`favorite:${jar.jarId}`);
+    const filters = currentFilters.current;
+    favoritePending.current.add(jar.jarId);
+    setFavoriteBusy(previous => ({ ...previous, [jar.jarId]: true }));
+    try {
+      await setJarFavorite(jar.jarId, !jar.favorite);
+      if (current() && filters === currentFilters.current) await loadJars(page, { silent: true });
+    } catch {
+      if (current()) setError("즐겨찾기를 저장하지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      favoritePending.current.delete(jar.jarId);
+      if (current()) setFavoriteBusy(previous => ({ ...previous, [jar.jarId]: false }));
+    }
+  }
 
     /*
      * 새 저금통 만들기 버튼을 눌렀을 때 실행되는 함수
@@ -1050,6 +1076,20 @@ export default function JarsPage({ me, checkingAuth = false }) {
           </div>
         </section>
 
+        <section aria-label="보관함 검색과 필터" className="mb-6 rounded-[24px] border border-emerald-100 bg-white/90 p-5 shadow-sm">
+          <form onSubmit={event => { event.preventDefault(); if (searchInput.trim() === search) void loadJars(0); else setSearch(searchInput.trim()); }}>
+            <label htmlFor="jar-shelf-search" className="mb-2 block text-sm font-bold text-emerald-950">내 저금통 전체에서 검색</label>
+            <div className="flex gap-2"><input id="jar-shelf-search" type="search" maxLength={100} value={searchInput} onChange={event => setSearchInput(event.target.value)} placeholder="저금통 이름 검색" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3" />
+              <button type="submit" className="min-h-11 rounded-xl bg-emerald-800 px-4 font-bold text-white hover:bg-emerald-900">검색</button></div>
+          </form>
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="보관함 필터">
+            {[["ALL", "전체"], ["LOCKED", "잠긴"], ["OPEN", "열린"]].map(([value, label]) => <button key={value} type="button" aria-pressed={shelfState === value} onClick={() => setShelfState(value)} className={`min-h-11 rounded-xl border px-4 text-sm font-bold ${shelfState === value ? "border-emerald-800 bg-emerald-800 text-white" : "border-slate-200 bg-white text-emerald-900"}`}>{label}</button>)}
+            <button type="button" aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(value => !value)} className={`min-h-11 rounded-xl border px-4 text-sm font-bold ${favoritesOnly ? "border-emerald-800 bg-emerald-800 text-white" : "border-slate-200 bg-white text-emerald-900"}`}>☆ 즐겨찾기</button>
+            {(search || shelfState !== "ALL" || favoritesOnly) && <button type="button" onClick={() => { setSearchInput(""); setSearch(""); setShelfState("ALL"); setFavoritesOnly(false); }} className="min-h-11 px-3 text-sm text-slate-600 underline">초기화</button>}
+          </div>
+          <Link to="/jars/new" className="mt-3 inline-block text-sm font-semibold text-emerald-800 underline">내 작업 이어 만들기 →</Link>
+        </section>
+
         {/* 에러가 있을 때 보여주는 카드 */}
         {error && (
           <div className="mb-6"><StatusNotice type="error" onRetry={() => loadJars(page)} busy={loading}>{error}</StatusNotice></div>
@@ -1072,12 +1112,11 @@ export default function JarsPage({ me, checkingAuth = false }) {
             </div>
 
             <p className="mt-6 text-xl font-black text-slate-800">
-              아직 참여 중인 저금통이 없어요.
+              {search || shelfState !== "ALL" || favoritesOnly ? "조건에 맞는 저금통이 없어요." : "아직 참여 중인 저금통이 없어요."}
             </p>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              첫 번째 저금통을 만들어서
-              <br className="md:hidden" /> 추억을 하나씩 모아봐요.
+              {search || shelfState !== "ALL" || favoritesOnly ? "검색어나 필터를 바꿔서 다시 찾아보세요." : <>첫 번째 저금통을 만들어서<br className="md:hidden" /> 추억을 하나씩 모아봐요.</>}
             </p>
           </div>
         )}
@@ -1090,8 +1129,8 @@ export default function JarsPage({ me, checkingAuth = false }) {
               const ddayText = getDdayText(jar.openAt, jar.isOpen);
 
               return (
+                <div key={jar.jarId} className="relative min-w-0">
                 <Link
-                  key={jar.jarId}
                   to={`/jars/${jar.jarId}`}
                   className={`group jar-shelf-card ${palette.card}`}
                   aria-label={`${jar.name} 상세 보기`}
@@ -1172,6 +1211,9 @@ export default function JarsPage({ me, checkingAuth = false }) {
                     </div>
                   </div>
                 </Link>
+                <button type="button" disabled={favoriteBusy[jar.jarId]} aria-pressed={Boolean(jar.favorite)} aria-label={`${jar.name} 즐겨찾기 ${jar.favorite ? "해제" : "추가"}`}
+                  onClick={() => changeFavorite(jar)} className="absolute left-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-emerald-100 bg-white/95 text-2xl text-emerald-800 shadow-sm transition hover:bg-emerald-50 disabled:opacity-50">{jar.favorite ? "★" : "☆"}</button>
+                </div>
               );
             })}
           </div>
