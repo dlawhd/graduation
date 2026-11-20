@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { listEarlyDesignDrafts } from "../earlyDesignDraftStore.mjs";
 import { listJarDesignDrafts } from "../../../api/jarDesignDraftApi";
 
 /** 보관함에서는 초안의 존재만 확인한다. 실패해도 저금통 목록 이용을 막지 않는다. */
@@ -8,9 +9,10 @@ export default function DesignDraftResumePrompt({ userId }) {
   useEffect(() => {
     let current = true;
     setOwner(null);
-    if (userId) listJarDesignDrafts(0).then(result => {
-      if (current && result.items?.length) setOwner(userId);
-    }).catch(() => {});
+    // 한 저장소가 일시적으로 실패해도 다른 쪽의 유효한 초안 안내는 유지한다.
+    if (userId) Promise.allSettled([listJarDesignDrafts(0), listEarlyDesignDrafts(userId)]).then(results => {
+      if (current && results.some(result => result.status === "fulfilled" && (Array.isArray(result.value) ? result.value.length : result.value.items?.length))) setOwner(userId);
+    });
     return () => { current = false; };
   }, [userId]);
   if (!userId || owner !== userId) return null;

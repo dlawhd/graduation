@@ -24,7 +24,9 @@ const controlClass = "inline-flex min-h-10 items-center justify-center gap-1.5 r
  * 도형은 드래그 중 미리보기하고 완료된 작업만 최대 25단계로 보관한다.
  * BODY 모드는 닫힌 테두리 안쪽을 사진 공간으로 읽고 완료된 작업만 기존 좌표 계약으로 변환한다.
  */
-export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, purpose = "IMAGE", bodyValue, onBodyChange, onWorkingChange, workshopLayout = false, toolboxHeader }) {
+export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, purpose = "IMAGE", bodyValue, onBodyChange, onWorkingChange, workshopLayout = false, toolboxHeader, initialCanvas = null, onSnapshot }) {
+  const snapshotCallback = useRef(onSnapshot);
+  snapshotCallback.current = onSnapshot;
   const isBody = purpose === "BODY";
   const studioLayout = workshopLayout;
   const availableTools = isBody ? TOOLS.slice(0, 4) : TOOLS;
@@ -45,11 +47,29 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
   const [zoom, setZoom] = useState(1), [grid, setGrid] = useState(false), [selection, setSelection] = useState(null);
   const [hasDrawing, setHasDrawing] = useState(false), [drawing, setDrawing] = useState(false);
   const [exporting, setExporting] = useState(false), [error, setError] = useState("");
-  const [restoring, setRestoring] = useState(false);
+  const [restoring, setRestoring] = useState(Boolean(initialCanvas));
   const locked = disabled || drawing || exporting || restoring;
 
   useEffect(() => {
     const context = canvasRef.current.getContext("2d", { willReadFrequently: true });
+    if (initialCanvas) {
+      // 미완성 틀도 좌표로 다시 해석하지 않고 원래 픽셀부터 복구한다. 초기 빈 그림은 저장하지 않는다.
+      let cancelled = false;
+      restoringBody.current = true;
+      const image = new Image();
+      image.onload = () => {
+        if (cancelled) return;
+        context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE); context.drawImage(image, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        const snapshot = context.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        historyRef.current = [snapshot]; indexRef.current = 0;
+        setHistoryState({ index: 0, count: 1 });
+        setHasDrawing(isBody ? snapshot.data.some((n, i) => i % 4 === 3 && n >= 48) : hasDrawingPixels(snapshot.data));
+        restoringBody.current = false; setRestoring(false);
+      };
+      image.onerror = () => { if (!cancelled) setError("저장한 그림판을 복구하지 못했어요. 새로고침 후 다시 확인해 주세요."); };
+      image.src = initialCanvas;
+      return () => { cancelled = true; };
+    }
     if (isBody) renderBody(context, bodyValue);
     else { context.fillStyle = "#ffffff"; context.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE); }
     historyRef.current = [context.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE)];
@@ -101,6 +121,9 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
   function syncHistory(publish = true) {
     const snapshot = historyRef.current[indexRef.current];
     setHistoryState({ index: indexRef.current, count: historyRef.current.length });
+    const drawn = isBody ? snapshot.data.some((n, i) => i % 4 === 3 && n >= 48) : hasDrawingPixels(snapshot.data);
+    // 포인터 이동마다 변환하지 않는다. 완료한 획·실행 취소·지우기에서 현재 한 장만 저장한다.
+    const savedCanvas = snapshotCallback.current && drawn ? canvasRef.current.toDataURL("image/png") : null;
     if (isBody) {
       setHasDrawing(snapshot.data.some((n, i) => i % 4 === 3 && n >= 48));
       // 외곽선 계산은 완료한 획/실행 취소에서만 한다. 움직이는 동안에는 픽셀 미리보기만 갱신한다.
@@ -113,7 +136,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
           if(contours.length) {
             result.value.photoContours=contours;
             // 획이 끝난 뒤에만 PNG를 만든다. 사진 원본과 별도로 보관해 색/굵기/질감을 다음 단계에 전달한다.
-            result.value.artworkUrl=canvasRef.current.toDataURL("image/png");
+            result.value.artworkUrl=savedCanvas || canvasRef.current.toDataURL("image/png");
           } else {
             // 픽셀 경계를 안전하게 표현할 수 없으면 다른 구멍으로 바꾸지 않는다. 그림/실행 취소 이력은 유지한다.
             result.error="사진을 담을 안쪽 공간을 계산하지 못했어요. 너무 좁은 부분을 넓히거나 내부 선을 줄여주세요.";
@@ -122,10 +145,12 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
         }
         setError(result.error);publishBody(result.value);
       }
+      snapshotCallback.current?.(savedCanvas);
       return;
     }
-    setHasDrawing(hasDrawingPixels(snapshot.data));
+    setHasDrawing(drawn);
     onDirtyChange?.(true);
+    snapshotCallback.current?.(savedCanvas);
   }
 
   /** 실행 취소 뒤 새로 그리면 이전 분기의 이력을 버리고 이미지 메모리도 제한한다. */

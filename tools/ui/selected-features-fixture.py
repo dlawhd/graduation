@@ -16,7 +16,7 @@ origin=f'http://127.0.0.1:{args.port}'
 user={'userId':900001,'name':'로컬 검증 계정','email':'fixture@example.invalid','provider':'LOCAL'}
 rows=[dict(jarId=i,name=('우리의 봄 저금통' if i==900001 else '저금통 '+str(i)),description='로컬 검증용 추억을 모아요.',theme='LAVENDER',memberCount=2,maxMembers=5,openAt=('2031-08-15T17:45:00+09:00' if i%2==0 else '2026-08-13T18:35:00+09:00'),openMode='ALL_AT_ONCE',lockLevel='HIDDEN',isOpen=i%2==1,myRole='OWNER',updatedAt='2026-11-19T10:00:00+09:00',favorite=False,design=None,ownerId=900001,createdAt='2026-01-01T00:00:00+09:00') for i in range(900001,900013)]
 notes={};uploads={};lost=set()
-drafts=[dict(draftId=i,bodyStyle='CAT',selectedDesignType='ORIGINAL',createdAt='2026-11-19T09:00:00+09:00',updatedAt='2026-11-19T10:00:00+09:00',expiresAt='2030-11-20T10:00:00+09:00',design=dict(draftId=i,status='ACTIVE',bodyStyle='CAT',selectedDesignType='ORIGINAL',selectedGenerationId=None,photoFrame=dict(x=0,y=0,width=1,height=1,fit='COVER'),slotCenterX=.5,slotCenterY=.17,slotSizeRatio=.18,slotStyle='CAPSULE',generations=[],cutoutRegions=[])) for i in range(900001,900006)]
+drafts=[dict(draftId=i,bodyStyle='CAT',selectedDesignType='ORIGINAL',createdAt='2026-11-19T09:00:00+09:00',updatedAt='2026-11-19T10:00:00+09:00',expiresAt='2030-11-20T10:00:00+09:00',design=dict(draftId=i,status='ACTIVE',bodyStyle='CAT',selectedDesignType='ORIGINAL',selectedGenerationId=None,photoFrame=dict(x=0,y=0,width=1,height=1,fit='COVER'),slotCenterX=.5,slotCenterY=.17,slotSizeRatio=.18,slotStyle='CAPSULE',generations=[],cutoutRegions=[])) for i in range(900005,900000,-1)]
 sample_notes=[dict(noteId=910001,title='2월의 내 추억',content='나만 작성한 추억이에요.',previewContent='나만 작성한 추억이에요.',authorId=900001,authorName='로컬 검증 계정',noteDate='2026-02-01',tags=['봄'],attachments=[],createdAt='2026-11-19T10:00:00+09:00'),dict(noteId=910002,title='3월의 함께한 추억',content='열린 뒤 함께 보는 추억이에요.',previewContent='열린 뒤 함께 보는 추억이에요.',authorId=900002,authorName='함께하는 멤버',noteDate='2026-03-01',tags=[],attachments=[],createdAt='2026-11-19T10:00:00+09:00')]
 png=(root/'frontend/public/images/ai-styles/cute-2d.webp').read_bytes()
 class Handler(SimpleHTTPRequestHandler):
@@ -26,6 +26,12 @@ class Handler(SimpleHTTPRequestHandler):
   b=json.dumps(data,ensure_ascii=False).encode();self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(b)));self.end_headers();self.wfile.write(b)
  def do_GET(self):
   u=urlsplit(self.path);p=u.path;q=parse_qs(u.query);page=int(q.get('page',['0'])[0]);size=int(q.get('size',['9'])[0])
+  if p in ['/test-source/earlyDesignDraftStore.mjs','/test-source/earlyDesignWriter.mjs']:
+   b=(root/'frontend/src/features/jarDesign'/p.rsplit('/',1)[1]).read_bytes();self.send_response(200);self.send_header('Content-Type','text/javascript');self.end_headers();self.wfile.write(b);return
+  if p=='/test-source/early-design-storage.browser.mjs':
+   b=(root/'tools/ui/early-design-storage.browser.mjs').read_bytes();self.send_response(200);self.send_header('Content-Type','text/javascript');self.end_headers();self.wfile.write(b);return
+  if p=='/early-design-tests':
+   b='<meta charset="utf-8"><title>초기 제작 저장 검증</title><h1>1·2단계 초안 IndexedDB 검증</h1><p>전용 시험 계정의 가상 자료만 사용합니다.</p><button id="run">검증 시작</button><pre id="results">대기</pre><script type="module" src="/test-source/early-design-storage.browser.mjs"></script>'.encode();self.send_response(200);self.send_header('Content-Type','text/html;charset=utf-8');self.end_headers();self.wfile.write(b);return
   if p=='/fixture-status':return self.out({'notes':len(notes),'uploads':len(uploads),'requestIds':list(notes)})
   if p=='/test-source/noteDraftStore.mjs':
    b=(root/'frontend/src/features/note/noteDraftStore.mjs').read_bytes();self.send_response(200);self.send_header('Content-Type','text/javascript');self.end_headers();self.wfile.write(b);return
@@ -71,7 +77,15 @@ class Handler(SimpleHTTPRequestHandler):
  def do_PUT(self):
   self.rfile.read(int(self.headers.get('Content-Length',0)));self.out({'data':None})
  def do_POST(self):
-  p=urlsplit(self.path).path;data=json.loads(self.rfile.read(int(self.headers.get('Content-Length',0))) or '{}')
+  p=urlsplit(self.path).path
+  body=self.rfile.read(int(self.headers.get('Content-Length',0)))
+  if p=='/api/v1/design-drafts':
+   draft_id=max(d['draftId'] for d in drafts)+1
+   row=json.loads(json.dumps(drafts[0]));row['draftId']=draft_id;row['design']['draftId']=draft_id
+   from datetime import datetime,timezone
+   row['updatedAt']=datetime.now(timezone.utc).isoformat();row['createdAt']=row['updatedAt'];drafts.insert(0,row)
+   return self.out({'data':{'draftId':draft_id}},201)
+  data=json.loads(body or '{}')
   if p=='/api/v1/files/presign':
    key='notes/900001/'+str(len(uploads)+1);uploads[key]=data;return self.out({'data':{'s3Key':key,'uploadUrl':origin+'/local-upload','publicUrl':origin+'/fixture.png'}})
   if p=='/api/v1/files/complete':return self.out({'data':{'s3Key':data['s3Key'],'status':'COMPLETED'}})

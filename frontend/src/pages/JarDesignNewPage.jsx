@@ -8,6 +8,8 @@ import JarBodyPicker from "../features/jarDesign/components/JarBodyPicker";
 import JarDesignImage from "../features/jarDesign/components/JarDesignImage";
 import { getJarBody } from "../features/jarDesign/jarBodies.mjs";
 import JarBodyWorkshop from "../features/jarDesign/components/JarBodyWorkshop";
+import { earlyDesignId } from "../features/jarDesign/earlyDesignDraftStore.mjs";
+import { useEarlyDesignDraft } from "../features/jarDesign/useEarlyDesignDraft";
 import { prepareSourceImage, SOURCE_IMAGE_ACCEPT } from "../features/jarDesign/sourceImageFile.mjs";
 import {
   createJarDesignDraft,
@@ -17,7 +19,26 @@ import {
 
 /** Canvas 또는 외부 원본으로 Draft를 만들고 AI 후보 보관함으로 이어지는 별도 사전 디자인 화면이다. */
 export default function JarDesignNewPage({ userId }) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const nextId = useRef(null);
+  const serverId = parseDraftId(params.get("draft"));
+  const localId = earlyDesignId(params.get("work"));
+  useLayoutEffect(() => {
+    if (serverId || params.has("work")) return;
+    // 새 제작 링크마다 새 작업을 발급한다. 저장 초안은 명시적인 work 주소로만 복구한다.
+    if (nextId.current?.key !== location.key) nextId.current = { key: location.key, id: crypto.randomUUID() };
+    const id = nextId.current.id;
+    setParams(current => { const next = new URLSearchParams(current); next.set("work", id); return next; },
+      { replace: true, state: { ...location.state, earlyDesignNewId: id } });
+  }, [serverId, localId, location.key]);
+  if (!serverId && !localId) return <main className="p-6"><p role="status">{params.has("work") ? "작업 주소가 올바르지 않아요." : "새 작업을 준비하고 있어요."}</p><Link to="/jars/new">만들기 선택으로 돌아가기</Link></main>;
+  return <JarDesignEditor key={`${userId}:${serverId ? `server:${serverId}` : localId}`} userId={userId} workId={serverId ? null : localId} allowMissing={location.state?.earlyDesignNewId === localId} />;
+}
+
+/** 저장 작업의 로딩이 끝난 뒤 그림판을 열어, 빈 캔버스가 복구한 그림을 덮어쓰지 않게 한다. */
+function JarDesignEditor({ userId, workId, allowMissing }) {
+  const [searchParams, setRawSearchParams] = useSearchParams();
   const location = useLocation();
   // 같은 주소로 사진 선택 상태만 저장하는 replace는 유효한 제작 요청을 취소하지 않는다.
   const requestGate = useRequestGate(location.pathname + location.search);
@@ -40,16 +61,31 @@ export default function JarDesignNewPage({ userId }) {
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
   const [galleryStep, setGalleryStep] = useState(3);
   const [previewControlsTarget, setPreviewControlsTarget] = useState(null);
-  const previousDraftId = useRef(draftId);
-  useLayoutEffect(() => {
-    // 저장 초안에서 새 제작 주소로 돌아왔을 때에도 이전 편집 상태를 물려주지 않는다.
-    if (previousDraftId.current && !draftId) {
-      setCustomBody(null); setSourceImage(null); setCatalogOpen(false);
-      setInputMode("DRAW"); setSourceDirty(false); setLoadedPreviewUrl(""); setError("");
-      sourceSelection.current += 1;
-    }
-    previousDraftId.current = draftId;
-  }, [draftId]);
+  const [initialBodyCanvas, setInitialBodyCanvas] = useState(null);
+  const [initialImageCanvas, setInitialImageCanvas] = useState(null);
+  const createdServerDraft = useRef(null);
+  const early = useEarlyDesignDraft({ userId, id: workId, allowMissing,
+    initial: { bodyStyle: body?.id, imageOnly, step: imageStep ? 2 : 1 },
+    onPromoted: id => setRawSearchParams({ draft: String(id) }, { replace: true }),
+    onRestore: value => {
+      setCustomBody(value.customBody); setSourceImage(value.sourceImage); setInputMode(value.inputMode);
+      setSourceDirty(value.sourceDirty); setCatalogOpen(value.catalogOpen);
+      setInitialBodyCanvas(value.bodyCanvas); setInitialImageCanvas(value.imageCanvas);
+      const next = { work: workId };
+      if (value.bodyStyle) next.body = value.bodyStyle;
+      if (value.imageOnly) next.mode = "image-only";
+      if (value.step === 2) next.step = "image";
+      setRawSearchParams(next, { replace: true, state: location.state });
+    },
+  });
+  function setSearchParams(value, options = {}) {
+    const next = new URLSearchParams(value);
+    if (!next.has("draft") && workId) next.set("work", workId);
+    setRawSearchParams(next, { ...options, state: location.state });
+  }
+  useEffect(() => {
+    if (!draftId && early.ready) early.patch({ bodyStyle: body?.id || null, imageOnly, step: imageStep ? 2 : 1, inputMode, catalogOpen });
+  }, [draftId, early.ready, body?.id, imageOnly, imageStep, inputMode, catalogOpen]);
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
   useLayoutEffect(() => {
     // 같은 화면의 단계 이동도 이전 제작 요청을 끝낸 것으로 취급한다. 늦은 finally가 새 요청을 풀지 않는다.
@@ -87,6 +123,7 @@ export default function JarDesignNewPage({ userId }) {
     setReadingSource(false);
     setLoadedPreviewUrl("");
     setSourceImage(imageFile);
+    early.patch({ sourceImage: imageFile, sourceDirty: false });
     setSearchParams(body ? { body: body.id, step: "image" } : { mode: "image-only", step: "image" } , { replace: true });
     setError("");
     setSourceDirty(false);
@@ -120,7 +157,10 @@ export default function JarDesignNewPage({ userId }) {
     setSaving(true);
     setError("");
     try {
-      const draft = await createJarDesignDraft(sourceImage, body?.id, body?.id === "CUSTOM" ? customBody : undefined);
+      const draft = createdServerDraft.current || await createJarDesignDraft(sourceImage, body?.id, body?.id === "CUSTOM" ? customBody : undefined);
+      createdServerDraft.current = draft;
+      // 이미 생성된 서버 작업을 다시 만들지 않는다. 전환 실패 시 다음 시도도 같은 번호를 사용한다.
+      await early.finish(draft.draftId);
       if (!isCurrent()) return;
       // 본체를 쓸 때 먼저 원본으로 배치 화면을 연다. 배치는 비파괴 메타데이터이며 이후 AI 후보도 선택 가능하다.
       if (body) {
@@ -137,6 +177,11 @@ export default function JarDesignNewPage({ userId }) {
       }
     }
   }
+
+  if (!draftId && !early.ready) return <main className="mx-auto max-w-3xl p-6">
+    <p role={early.error ? "alert" : "status"}>{early.error || "저장한 작업을 불러오는 중이에요."}</p>
+    <Link to="/jars/new" className="mt-4 inline-flex min-h-11 items-center font-bold text-emerald-800 underline">만들기 선택으로 돌아가기</Link>
+  </main>;
 
   // 입력 탭을 양쪽 입력 화면에서 공유한다. 그림판은 숨기기만 해 탭 전환에도 작성 중인 획을 보존한다.
   const sourceTabs = <div className="studio-basic-section image-source-options"><h2 className="mb-3 text-sm font-black text-slate-800">사진 또는 그림 추가</h2><div className="grid grid-cols-2 gap-2" role="tablist" aria-label="디자인 원본 입력 방식">
@@ -156,8 +201,12 @@ export default function JarDesignNewPage({ userId }) {
           <DesignProgress activeStep={draftId ? galleryStep : imageStep ? 2 : 1} />
         </section>
 
+        {!draftId && <div className="mt-4 rounded-xl border border-emerald-100 bg-white px-4 py-3 text-xs text-emerald-900">
+          <p role="status">{early.status === "saving" ? "작업을 저장하고 있어요…" : early.status === "saved" ? "이 브라우저에 작업을 저장했어요. 이어서 만들기로 다시 열 수 있어요." : "틀과 그림은 이 브라우저에 계정별로 자동 저장돼요."}</p>
+          {early.error && <p role="alert" className="mt-2 text-rose-700">{early.error} <button type="button" onClick={early.retry} className="min-h-8 underline">다시 저장</button></p>}
+        </div>}
         {/* 선택 목록이나 그림 담기로 이동해도 틀 그림판을 유지해 미완성 획과 실행 취소 이력을 보존한다. */}
-        {!draftId && <div hidden={imageStep || catalogOpen}><JarBodyWorkshop value={customBody} onChange={setCustomBody} previewUrl={previewUrl} disabled={saving || imageStep || catalogOpen}
+        {!draftId && <div hidden={imageStep || catalogOpen}><JarBodyWorkshop value={customBody} onChange={value => { setCustomBody(value); early.patch({ customBody: value }); }} initialCanvas={initialBodyCanvas} onSnapshot={value => early.patch({ bodyCanvas: value })} previewUrl={previewUrl} disabled={saving || imageStep || catalogOpen}
           onOpenCatalog={() => setCatalogOpen(true)} onImageOnly={() => setSearchParams({ mode:"image-only", step:"image" })}
           onContinue={() => { if (getJarBody("CUSTOM",customBody)) setSearchParams({body:"CUSTOM",step:"image"}); }}/></div>}
         {!draftId && !imageStep && catalogOpen && <><button type="button" onClick={() => setCatalogOpen(false)} className="mt-5 min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-emerald-800">← 내 틀 만들기로 돌아가기</button><JarBodyPicker value={body?.id} previewUrl={previewUrl}
@@ -173,7 +222,7 @@ export default function JarDesignNewPage({ userId }) {
               <button type="button" disabled={saving} onClick={() => setSearchParams(body ? { body: body.id } : {})} className="min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-emerald-800 disabled:opacity-50">모양 다시 고르기</button>
             </div>
             <div className="studio-workspace">
-              <div hidden={inputMode !== "DRAW"} className="studio-editor min-w-0"><JarDesignCanvas workshopLayout toolboxHeader={sourceTabs} disabled={saving || !imageStep || inputMode !== "DRAW"} onConfirm={setDesignSource} onDirtyChange={setSourceDirty} /></div>
+              <div hidden={inputMode !== "DRAW"} className="studio-editor min-w-0"><JarDesignCanvas workshopLayout toolboxHeader={sourceTabs} disabled={saving || !imageStep || inputMode !== "DRAW"} onConfirm={setDesignSource} initialCanvas={initialImageCanvas} onSnapshot={value => early.patch({ imageCanvas: value })} onDirtyChange={value => { setSourceDirty(value); early.patch({ sourceDirty: value }); }} /></div>
               {inputMode === "UPLOAD" && (
                 <div className="image-upload-studio min-w-0">
                   {sourceTabs}
