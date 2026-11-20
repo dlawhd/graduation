@@ -1498,7 +1498,7 @@ useEffect(() => {
               <JarsNewPage key={me?.userId ?? me?.id} userId={me?.userId ?? me?.id} />
             </Suspense>
           } />
-          <Route path="/help" element={<Suspense fallback={<p className="p-6">도움말을 준비하고 있어요.</p>}><SupportHelpPage/></Suspense>} />
+          <Route path="/help" element={<Suspense fallback={<p className="p-6">도움말을 준비하고 있어요.</p>}><SupportHelpPage me={me}/></Suspense>} />
           <Route path="/support/new" element={<Suspense fallback={<p className="p-6">문의 화면을 준비하고 있어요.</p>}><SupportNewPage key={supportUserId} me={me} checkingAuth={checkingAuth}/></Suspense>} />
           <Route path="/support/login-help" element={<Suspense fallback={<p className="p-6">로그인 도움을 준비하고 있어요.</p>}><SupportLoginHelpPage/></Suspense>} />
           <Route path="/jars/design/new" element={checkingAuth

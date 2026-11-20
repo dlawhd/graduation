@@ -1,3 +1,4 @@
+import { BODY_MARGIN, BODY_COORD_MAX, bodyRasterBounds } from "./bodyDrawingBounds.mjs";
 /** 틀 안의 실제 사진 공간을 픽셀 마스크로 구하고 제한된 좌표로 바꾼다. 좁은 부분은 사진 창이 아닌 테두리로 남긴다. */
 export function insideContour(p,polygon) {
   let result=false;
@@ -15,7 +16,7 @@ const intersects=(a,b,c,d)=>Math.max(a.x,b.x)>=Math.min(c.x,d.x)&&Math.max(c.x,d
 export function contoursFit(outer,contours) {
   if(!Array.isArray(contours)||!contours.length||contours.length>8||contours.some(p=>!Array.isArray(p)||p.length<3||p.length>96)
     ||contours.reduce((n,p)=>n+p.length,0)>384) return false;
-  if(contours.some(p=>p.some(q=>!q||![q.x,q.y].every(n=>Number.isFinite(n)&&n>=.05&&n<=.95)))) return false;
+  if(contours.some(p=>p.some(q=>!q||![q.x,q.y].every(n=>Number.isFinite(n)&&n>=BODY_MARGIN&&n<=BODY_COORD_MAX)))) return false;
   for(let k=0;k<contours.length;k++) {
     const poly=contours[k];let area=0;
     for(let i=0;i<poly.length;i++) {
@@ -56,9 +57,10 @@ export function simplifyContour(points,tolerance) {
 /** 픽셀 행과 거리 마스크로 경계를 안쪽으로 옮긴다. 사진 비율에 맞춰 사각형으로 바꾸지 않는다. */
 export function insetBodyContours(points,ink=null) {
   if(!Array.isArray(points)||points.length<3||points.length>96
-    ||points.some(p=>!p||![p.x,p.y].every(n=>Number.isFinite(n)&&n>=.05&&n<=.95))) return [];
+    ||points.some(p=>!p||![p.x,p.y].every(n=>Number.isFinite(n)&&n>=BODY_MARGIN&&n<=BODY_COORD_MAX))) return [];
   const size=480,count=size*size,mask=new Uint8Array(count);
-  for(let y=24;y<456;y++) {
+  const { left, top, right, bottom } = bodyRasterBounds(size);
+  for(let y=top;y<bottom;y++) {
     const hits=[],scan=(y+.5)/size;
     for(let i=0;i<points.length;i++) {const a=points[i],b=points[(i+1)%points.length];if((a.y>scan)!==(b.y>scan))hits.push((a.x+(b.x-a.x)*(scan-a.y)/(b.y-a.y))*size);}
     hits.sort((a,b)=>a-b);
@@ -77,7 +79,7 @@ export function insetBodyContours(points,ink=null) {
   for(const inset of painted?[4,6,8]:[12,16,20]) {
     const edges=new Map(),stride=size+1;let ambiguous=false;
     const edge=(x,y,nx,ny)=>{const from=y*stride+x;if(edges.has(from))ambiguous=true;edges.set(from,ny*stride+nx);};
-    for(let y=24;y<456;y++) for(let x=24;x<456;x++) {
+    for(let y=top;y<bottom;y++) for(let x=left;x<right;x++) {
       const p=y*size+x;if(distances[p]<inset)continue;
       if(distances[p-size]<inset)edge(x,y,x+1,y);if(distances[p+1]<inset)edge(x+1,y,x+1,y+1);
       if(distances[p+size]<inset)edge(x+1,y+1,x,y+1);if(distances[p-1]<inset)edge(x,y+1,x,y);

@@ -268,9 +268,19 @@ class SupportExpansionIntegrationTest extends AbstractMariaDbRepositoryTest {
         when(s3.putObject(any(PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class))).thenThrow(S3Exception.builder().statusCode(503).build());
         status(503,()->uploads.upload(owner,id,requestId,image(),true));
         assertThat(attachments.findByInquiryIdAndClientRequestId(id,requestId).orElseThrow().getStatus()).isEqualTo("FAILED");
+        status(422,()->attachmentState.reserve(owner,id,requestId));
         var target=attachmentState.reserve(owner,id,UUID.randomUUID().toString());attachmentState.finish(owner,target,100);
         assertThat(attachmentState.failedOrCommitted(owner,target).status()).isEqualTo("READY");
         verify(s3,never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+    @Test void lostAttachmentResponseReusesReadyResultWithoutAnotherStorageWrite() throws Exception {
+        var owner=user();var id=create(owner).inquiryId();var requestId=UUID.randomUUID().toString();
+        var first=uploads.upload(owner,id,requestId,image(),true);
+        var retry=uploads.upload(owner,id,requestId,image(),true);
+        assertThat(retry.attachmentId()).isEqualTo(first.attachmentId());
+        verify(s3,times(1)).putObject(any(PutObjectRequest.class),any(software.amazon.awssdk.core.sync.RequestBody.class));
+        var pending=attachmentState.reserve(owner,id,UUID.randomUUID().toString());
+        status(409,()->attachmentState.reserve(owner,id,attachments.findById(pending.id()).orElseThrow().getClientRequestId()));
     }
     @Test void onlyTwoImagesUseCpuOrExternalUploadAtOnceAndExtraRequestReceives429() throws Exception {
         var owner=user();var id=create(owner).inquiryId();var entered=new CountDownLatch(2);var release=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);

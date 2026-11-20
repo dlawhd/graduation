@@ -22,8 +22,8 @@ public record CustomJarBodyValue(@NotNull @Size(min=3, max=96) List<@NotNull @Va
     }
     /** 과거 단색 틀은 기존 두 필드만으로 계속 읽는다. */
     public CustomJarBodyValue(List<Point> points, String color) { this(points,color,null); }
-    public record Point(@NotNull @DecimalMin("0.05") @DecimalMax("0.95") Double x,
-                        @NotNull @DecimalMin("0.05") @DecimalMax("0.95") Double y) { }
+    public record Point(@NotNull @DecimalMin("0.01") @DecimalMax("0.99") Double x,
+                        @NotNull @DecimalMin("0.01") @DecimalMax("0.99") Double y) { }
 
     /** 작은 선/점, 겹치는 외곽선, 무한 좌표는 사진을 담을 수 없으므로 서버에서도 거절한다. */
     @AssertTrue(message="틀을 넓게 그리고 선이 서로 교차하지 않게 해주세요.")
@@ -89,7 +89,7 @@ public record CustomJarBodyValue(@NotNull @Size(min=3, max=96) List<@NotNull @Va
 
     private static boolean valid(Point p) {
         return p!=null && p.x!=null && p.y!=null && Double.isFinite(p.x) && Double.isFinite(p.y)
-                && p.x>=.05 && p.x<=.95 && p.y>=.05 && p.y<=.95;
+                && p.x>=.01 && p.x<=.99 && p.y>=.01 && p.y<=.99;
     }
     private static double cross(Point a, Point b, Point c) { return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x); }
     private static boolean intersects(Point a, Point b, Point c, Point d) {

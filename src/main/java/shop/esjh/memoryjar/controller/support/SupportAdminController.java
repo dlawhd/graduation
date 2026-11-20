@@ -21,13 +21,13 @@ public class SupportAdminController {
     private final SupportConversationService conversations;
     private final SupportAttachmentService attachments;
     private final SupportAttachmentPersistenceService attachmentPersistence;
-    private final OperatorMfaService mfa;
+    private final SupportAuthorization authorization;
 
-    /** 이 컨트롤러의 모든 읽기·변경·사진 요청은 본문 처리 전에 추가 인증부터 확인한다. */
+    /** 모든 읽기·변경·사진 요청에서 로그인과 운영자 허용 목록을 본문 처리 전에 검사한다. */
     @ModelAttribute
-    void requireAdditionalAuthentication(Authentication auth, jakarta.servlet.http.HttpServletResponse response) {
+    void requireOperator(Authentication auth, jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store");
-        mfa.requireVerified(auth);
+        authorization.requireOperator(currentUserId(auth));
     }
     @GetMapping("/{id}/view")
     public ApiResponse<SupportDetailResponse> view(Authentication auth,@PathVariable Long id) {

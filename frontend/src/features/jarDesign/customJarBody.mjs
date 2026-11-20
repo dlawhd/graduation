@@ -1,3 +1,4 @@
+import { BODY_MARGIN, BODY_COORD_MAX } from "./bodyDrawingBounds.mjs";
 /** 직접 만든 틀은 좌표와 색상만 사용한다. SVG/HTML/URL 문자열은 받지 않는다. */
 import { contoursFit, insetBodyContours } from "./bodyContours.mjs";
 const round = n => Math.round(n * 100000) / 100000;
@@ -12,7 +13,7 @@ export function outlineError(value) {
   const points = value?.points;
   if (!Array.isArray(points) || points.length < 3) return "외곽선을 넓게 그리거나 점을 3개 이상 찍어주세요.";
   if (points.length > MAX_BODY_POINTS || !/^#[0-9a-f]{6}$/i.test(value?.color || "")) return "틀의 좌표와 색상을 확인해 주세요.";
-  if (points.some(p => !p || ![p.x,p.y].every(n => Number.isFinite(n) && n >= .05 && n <= .95))) return "선은 작업 영역 안에 그려주세요.";
+  if (points.some(p => !p || ![p.x,p.y].every(n => Number.isFinite(n) && n >= BODY_MARGIN && n <= BODY_COORD_MAX))) return "선은 작업 영역 안에 그려주세요.";
   const cross = (a,b,c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   const onLine = (a,b,p,c) => Math.abs(c)<1e-10 && p.x>=Math.min(a.x,b.x) && p.x<=Math.max(a.x,b.x) && p.y>=Math.min(a.y,b.y) && p.y<=Math.max(a.y,b.y);
   let area=0;

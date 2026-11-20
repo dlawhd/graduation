@@ -1,6 +1,8 @@
 # 각 API의 Request/Response DTO
 
-> 2026-11-10: 운영자 MFA 상태는 `configured/enrolled/bootstrapAvailable/verifiedUntil`, 등록 응답은 `secret/issuer/account/expiresAt`, 인증 결과는 `verifiedUntil/recoveryCodes`를 사용한다. 날짜는 UTC `Z` 표기이고 비밀 응답은 no-store다. 기존 문의 DTO는 유지한다. [API 계약과 키 보관](OPERATOR_SECURITY_2026-11-10.md)을 확인한다.
+> 2026-11-21: 도움말·사용자 문의 화면의 요청/응답 필드는 유지한다. 첨부의 FAILED 재요청은 422, 진행 중은 409, READY 재요청은 기존 성공 결과를 반환한다. [화면·재시도 검증](SUPPORT_CENTER_2026-11-21.md)을 확인한다.
+
+> 2026-11-20: 운영자 추가 인증 기능을 제거했으므로 이전 MFA 상태·등록·인증 응답은 더 이상 제공하지 않는다. 기존 문의 목록·대화·첨부 DTO는 유지한다. [변경 범위와 검증](OPERATOR_INBOX_2026-11-20.md)을 확인한다.
 
 > 2026-11-08: V59 요청 제한, V60 업로드 한도·미사용 정리, 비공개 댓글·첨부 읽기 경로를 추가했다. 기존 DTO 필드는 유지하며 첨부 url은 권한 확인 API 경로다. [구현·설정·검증과 운영 미적용 사항](SECURITY_HARDENING_2026-11-08.md)을 확인한다.
 
@@ -1993,3 +1995,10 @@ JarDesignFinalizeResponse
 ## 2026-11-19 제작 초안 보관함 응답 보완
 
 `JarDesignDraftListResponse.Item`은 기존 필드에 `createdAt`과 `design`을 추가한다. 목록은 2개씩 반환한다. `design`은 `JarDesignDraftDetailResponse`와 같은 배치 구조이며 `generations`는 빈 배열이다. 파일 바이트·S3 키·서명 주소를 목록 DTO에 넣지 않는다. `createdAt`, `updatedAt`, `expiresAt`은 한국 시간 오프셋이 있는 시각이며 화면 표시에만 `(KST)` 접미사를 생략한다. DB 구조 변경은 없다.
+
+
+## 2026-11-20 직접 만든 틀의 여백 변경
+
+`CustomJarBodyValue.Point`의 x/y 허용 범위를 `0.05~0.95`에서 `0.01~0.99`로 넓혔다. 그림판 포인터·픽셀 정리·외곽선 및 사진 창 계산·서버 Bean Validation과 서비스 검증이 같은 1% 범위를 사용한다. 480px 그림판에서는 안쪽 정수 경계인 5~475px(실제 픽셀 인덱스 5~474)을 사용한다. 이전 5% 범위의 틀은 그대로 허용한다. 최소 면적·꼭짓점 수·교차 검사와 사용자가 켜는 격자 간격은 유지한다. DB 구조 및 기존 마이그레이션은 바꾸지 않았다. V51/V52 설계 문서의 0.05~0.95는 당시 범위이며 현재 구현은 이 절을 따른다. 점선 안내는 제거한 상태를 유지한다.
+
+프론트와 백엔드를 함께 반영해야 한다. 이전 백엔드에서는 1~5% 구간의 새 좌표를 거절할 수 있다.

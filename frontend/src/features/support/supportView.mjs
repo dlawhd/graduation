@@ -3,6 +3,10 @@ export const SUPPORT_STATUS = {
   COPYING: "사진 보관 중", COPY_FAILED: "접수 미완료", OPEN: "접수", IN_PROGRESS: "확인 중", ANSWERED: "답변 완료",
   WAITING_USER: "추가 정보 대기", RESOLVED: "해결 완료",
 };
+/** 저장 결과를 모르는 연결 오류·5xx에서는 번호를 보존한다. 서버가 실패를 확정한 422만 새 번호로 보낸다. */
+export function requiresNewSupportAttachmentRequest(error) {
+  return error?.response?.status === 422;
+}
 /** 상태 색만으로 구분하지 않도록 아이콘도 함께 제공하며, 알 수 없는 상태는 중립색으로 표시한다. */
 export function supportStatusPresentation(status) {
   return {

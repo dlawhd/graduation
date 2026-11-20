@@ -39,7 +39,9 @@ public class SupportAttachmentPersistenceService {
             if (!Objects.equals(a.getAuthorId(),actor.userId()) || !Objects.equals(a.getGuestSessionId(),actor.guestSessionId()))
                 throw problem(HttpStatus.CONFLICT,"다른 요청의 첨부 번호입니다.");
             if ("READY".equals(a.getStatus()) && a.getDeletedAt()==null && a.getExpiresAt().isAfter(SupportInquiryPersistenceService.now())) return target(a,true);
-            throw problem(HttpStatus.CONFLICT,"이미 처리 중이거나 실패한 첨부입니다. 새 첨부 요청으로 다시 시도해 주세요.");
+            // 응답 유실과 확정 실패를 구분한다. READY 재전송은 위에서 복구하고 FAILED만 새 요청을 허용한다.
+            if ("FAILED".equals(a.getStatus())) throw problem(HttpStatus.UNPROCESSABLE_ENTITY,"보관에 실패한 첨부입니다. 다시 시도하면 새 첨부 요청으로 보냅니다.");
+            throw problem(HttpStatus.CONFLICT,"이미 처리 중이거나 사용할 수 없는 첨부 요청입니다. 잠시 후 다시 확인해 주세요.");
         }
         if (attachments.activeCount(inquiryId,SupportInquiryPersistenceService.now())>=3)
             throw problem(HttpStatus.CONFLICT,"한 문의에는 화면 자료를 3개까지 첨부할 수 있습니다.");

@@ -17,7 +17,7 @@ test("malformed coordinates, scripts, tiny lines and too many points are rejecte
   for(const value of [null,{points:[]},{...basicBodyOutline(),color:"url(javascript:bad)"},{...basicBodyOutline(),points:Array(MAX_BODY_POINTS+1).fill({x:.5,y:.5})},
     {points:[{x:.1,y:.1},{x:.2,y:.1},{x:.2,y:.2}],color:"#abcdef"},
     {...basicBodyOutline(),points:[{x:NaN,y:.3},{x:.9,y:.3},{x:.5,y:.8}]},
-    {...basicBodyOutline(),points:[{x:.01,y:.3},{x:.9,y:.3},{x:.5,y:.8}]}]){assert.ok(outlineError(value));assert.equal(customJarBody(value),null);}
+    {...basicBodyOutline(),points:[{x:.009,y:.3},{x:.9,y:.3},{x:.5,y:.8}]}]){assert.ok(outlineError(value));assert.equal(customJarBody(value),null);}
 });
 test("self-intersecting or duplicate outlines cannot be applied",()=>{
   for(const points of [[{x:.1,y:.1},{x:.9,y:.9},{x:.1,y:.9},{x:.9,y:.1}], [{x:.1,y:.1},{x:.9,y:.1},{x:.9,y:.1},{x:.1,y:.9}]]) assert.ok(outlineError({points,color:"#abcdef"}));

@@ -1,3 +1,4 @@
+import { bodyRasterBounds } from "../bodyDrawingBounds.mjs";
 import { useEffect, useRef, useState } from "react";
 import { BRUSHES, BODY_BRUSHES, BRUSH_DESCRIPTIONS, SHAPES, constrainShape, drawBrushStroke, drawingPoint, drawShape, floodFill, hasDrawingPixels, sampledColor } from "../drawingTools.mjs";
 import { CHARACTER_SHAPES } from "../characterShapes.mjs";
@@ -12,6 +13,7 @@ import { customJarBody } from "../customJarBody.mjs";
 import { insetBodyContours } from "../bodyContours.mjs";
 
 const CANVAS_SIZE = 480;
+const BODY_BOUNDS = bodyRasterBounds(CANVAS_SIZE);
 const HISTORY_LIMIT = 25;
 const ALL_SHAPES = [...SHAPES, ...CHARACTER_SHAPES];
 const TOOLS = [["pen", "펜"], ["eraser", "지우개"], ["shapes", "도형"], ["fill", "채우기"], ["eyedropper", "스포이드"], ["text", "텍스트"], ["select", "선택"]];
@@ -165,11 +167,12 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
     indexRef.current = historyRef.current.length - 1; syncHistory(publish);
   }
 
-  /** SVG 좌표 계약과 같은 5% 여백을 유지한다. putImageData는 clip을 무시하므로 마지막에 정리한다. */
+  /** SVG 좌표 계약과 같은 1% 여백을 유지한다. putImageData는 clip을 무시하므로 마지막에 정리한다. */
   function clearBodyMargins() {
     const ctx = canvasRef.current.getContext("2d");
-    ctx.clearRect(0, 0, 480, 24); ctx.clearRect(0, 456, 480, 24);
-    ctx.clearRect(0, 24, 24, 432); ctx.clearRect(456, 24, 24, 432);
+    const { left, top, right, bottom } = BODY_BOUNDS;
+    ctx.clearRect(0, 0, CANVAS_SIZE, top); ctx.clearRect(0, bottom, CANVAS_SIZE, CANVAS_SIZE - bottom);
+    ctx.clearRect(0, top, left, bottom - top); ctx.clearRect(right, top, CANVAS_SIZE - right, bottom - top);
   }
 
   /** 도구 색 선택은 다음 획에만 적용한다. 기존 픽셀/대표 틀 색/실행 취소 이력은 변경하지 않는다. */
@@ -189,7 +192,7 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
   /** 포인터 좌표를 CSS 크기와 무관한 실제 480×480 좌표로 바꾼다. */
   function getCanvasPoint(event) {
     const p = drawingPoint(event.clientX, event.clientY, canvasRef.current.getBoundingClientRect(), CANVAS_SIZE);
-    return isBody ? { x: Math.max(24, Math.min(455, p.x)), y: Math.max(24, Math.min(455, p.y)) } : p;
+    return isBody ? { x: Math.max(BODY_BOUNDS.left, Math.min(BODY_BOUNDS.right - 1, p.x)), y: Math.max(BODY_BOUNDS.top, Math.min(BODY_BOUNDS.bottom - 1, p.y)) } : p;
   }
 
   function chooseTool(value) {
@@ -410,7 +413,6 @@ export default function JarDesignCanvas({ disabled, onConfirm, onDirtyChange, pu
         <div className="relative mx-auto shadow-md" style={{ width: (zoom * 100) + "%", maxWidth: zoom === 1 ? 560 : undefined, aspectRatio: "1" }}>
           <canvas ref={canvasRef} width={480} height={480} tabIndex={0} onPointerDown={startDrawing} onPointerMove={draw} onPointerUp={(event) => stopDrawing(event)} onPointerCancel={(event) => stopDrawing(event, true)} onLostPointerCapture={(event) => stopDrawing(event, true)}
             className="block h-full w-full touch-none bg-white focus-visible:outline-2 focus-visible:outline-violet-400" style={{ cursor: disabled ? "not-allowed" : tool === "select" ? "move" : "crosshair" }} aria-label={isBody ? "저금통 틀 캔버스" : "저금통 디자인 캔버스"} aria-describedby={helpId} />
-          {isBody && <div aria-hidden="true" className="pointer-events-none absolute inset-[5%] border border-dashed border-violet-300" />}
           {grid && <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ backgroundImage: "linear-gradient(#7c3aed18 1px,transparent 1px),linear-gradient(90deg,#7c3aed18 1px,transparent 1px)", backgroundSize: "5% 5%" }} />}
           {selection && <div aria-hidden="true" className="pointer-events-none absolute border-2 border-dashed border-violet-600 bg-violet-200/10" style={{ left: (selection.x / 4.8) + "%", top: (selection.y / 4.8) + "%", width: (selection.w / 4.8) + "%", height: (selection.h / 4.8) + "%" }} />}
         </div>

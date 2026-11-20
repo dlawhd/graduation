@@ -1,3 +1,4 @@
+import { bodyRasterBounds } from "./bodyDrawingBounds.mjs";
 import { MAX_BODY_POINTS, outlineError } from "./customJarBody.mjs";
 import { floodFill } from "./drawingTools.mjs";
 
@@ -24,8 +25,7 @@ export function paintedBodyOutline(image, fallbackColor = "#d7e9df", { encloseIn
       || width > 480 || height > 480 || data?.length !== width * height * 4)
     return fail("틀 그림을 읽지 못했어요. 다시 그려주세요.");
   const mask = new Uint8Array(width * height);
-  const left = Math.ceil(width * .05), top = Math.ceil(height * .05);
-  const right = Math.floor(width * .95), bottom = Math.floor(height * .95);
+  const { left, top, right, bottom } = bodyRasterBounds(width, height);
   let first = -1, count = 0, colorPixel = -1, colorAlpha = 0;
   for (let y = top; y < bottom; y++) for (let x = left; x < right; x++) {
     const index = y * width + x;

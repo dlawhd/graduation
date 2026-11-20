@@ -1,14 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createGeneralSupportInquiry, uploadSupportScreenshot, supportError } from "../../api/supportApi";
 import { useRequestGate } from "../../api/useRequestGate";
 import { SUPPORT_CATEGORIES } from "./supportContext.mjs";
 import SupportScreenshots from "./SupportScreenshots";
 import { SupportLetterIcon } from "./SupportLetterLayout";
+import { requiresNewSupportAttachmentRequest } from "./supportView.mjs";
 
 /** 문의 내용은 한 번만 접수하고, 첨부만 실패했을 때는 기존 접수에 첨부를 다시 시도한다. */
-export default function SupportComposer({guest=false,context={},userId,onCreated}) {
-  const location=useLocation();const gate=useRequestGate(`${guest?"guest":userId}:${location.key}`);
+export default function SupportComposer({guest=false,context={},userId,onCreated,scopeKey,onBusyChange}) {
+  const location=useLocation();const gate=useRequestGate(`${guest?"guest":userId}:${scopeKey??location.key}`);
   const [category,setCategory]=useState(guest?"LOGIN_ACCOUNT":context.jarId?"THREE_D":"OTHER");
   const [title,setTitle]=useState("");const [description,setDescription]=useState("");const [includeContext,setIncludeContext]=useState(true);
   const [files,setFiles]=useState([]);const [shared,setShared]=useState(false);const [ticket,setTicket]=useState(null);
@@ -16,6 +17,16 @@ export default function SupportComposer({guest=false,context={},userId,onCreated
   const filePending=useRef(false);const [fileReading,setFileReading]=useState(false);
   const [occurredAt]=useState(()=>new Date().toISOString());
   const attempted=useRef({fingerprint:null,id:null});
+  const busyCallback=useRef(onBusyChange);busyCallback.current=onBusyChange;
+  useLayoutEffect(()=>{busyCallback.current?.(busy||fileReading);},[busy,fileReading]);
+  useEffect(()=>()=>busyCallback.current?.(false),[]);
+  // 글과 선택 파일은 브라우저 저장소에 남기지 않는다. 작성 중 새로고침·창 종료는 확인을 요청한다.
+  const dirty=Boolean((!ticket&&(title.trim()||description.trim()||files.length))||files.some(file=>!file.uploaded));
+  useEffect(()=>{
+    if(!dirty&&!busy)return;
+    const warn=event=>{event.preventDefault();event.returnValue="";};window.addEventListener("beforeunload",warn);
+    return()=>window.removeEventListener("beforeunload",warn);
+  },[dirty,busy]);
   async function submit(event) {
     event.preventDefault();if(pending.current||filePending.current||!title.trim()||!description.trim()||(files.some(f=>!f.uploaded)&&!shared))return;
     pending.current=true;setBusy(true);setError("");const current=gate.begin("submit");
@@ -35,8 +46,8 @@ export default function SupportComposer({guest=false,context={},userId,onCreated
           setFiles(previous=>previous.map(file=>file.id===item.id?{...file,uploaded:true}:file));
         }catch(uploadError) {
           if(!current())return;
-          // 명확하게 실패한 재시도는 새 식별자를 쓴다. 처리 중 409에서는 같은 요청의 결과를 기다린다.
-          if(uploadError?.response?.status!==409)setFiles(previous=>previous.map(file=>file.id===item.id?{...file,requestId:crypto.randomUUID()}:file));
+          // 5xx·연결 끊김은 저장 성공 여부를 모르므로 같은 번호로 복구한다. 확정 실패만 새 번호로 바꾼다.
+          if(requiresNewSupportAttachmentRequest(uploadError))setFiles(previous=>previous.map(file=>file.id===item.id?{...file,requestId:crypto.randomUUID()}:file));
           throw new Error(`문의 #${saved.inquiryId}는 접수됐지만 일부 첨부가 완료되지 않았어요. ${supportError(uploadError)}`);
         }
       }

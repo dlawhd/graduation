@@ -85,9 +85,9 @@ test("빈 화면과 아주 작은 획은 이전 유효한 틀 대신 빈 좌표�
   assert.match(result.error, /넓게/); assert.deepEqual(result.value.points, []);
 });
 
-test("전체 채우기는 저장 가능한 5% 작업 여백을 지킨다", () => {
+test("전체 채우기는 저장 가능한 1% 작업 여백을 지킨다", () => {
   const result = paintedBodyOutline(painting(() => true)); assertValid(result);
-  assert.deepEqual(result.value.points, [{ x: .05, y: .05 }, { x: .95, y: .05 }, { x: .95, y: .95 }, { x: .05, y: .95 }]);
+  assert.deepEqual(result.value.points, [{ x: .01042, y: .01042 }, { x: .98958, y: .01042 }, { x: .98958, y: .98958 }, { x: .01042, y: .98958 }]);
 });
 
 test("희미한 가장자리 픽셀은 조각으로 오인하지 않는다", () => {

@@ -81,17 +81,15 @@ class SecurityConfigTest {
     }
 
     @Test
-    void operatorAdditionalAuthenticationStillRequiresLogin() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/support/mfa")).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/v1/admin/support/mfa/verification").with(csrf())
-                .contentType("application/json").content("{\"code\":\"123456\",\"recovery\":false}"))
+    void operatorInquiryStillRequiresLogin() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/support/inquiries")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/admin/support/inquiries/1/resolve").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void operatorAdditionalAuthenticationDoesNotBypassCsrf() throws Exception {
-        mockMvc.perform(post("/api/v1/admin/support/mfa/verification").with(user("csrf-fixture"))
-                .contentType("application/json").content("{\"code\":\"123456\",\"recovery\":false}"))
+    void operatorInquiryDoesNotBypassCsrf() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/support/inquiries/1/resolve").with(user("csrf-fixture")))
                 .andExpect(status().isForbidden());
     }
 

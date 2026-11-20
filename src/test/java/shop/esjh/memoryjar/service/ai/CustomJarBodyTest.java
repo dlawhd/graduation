@@ -13,6 +13,23 @@ import static org.mockito.Mockito.*;
 
 /** 직접 만든 틀의 입력 제한, 안전한 JSON 저장, 후보 변경 시 보존과 외부 호출 전 거절을 검증한다. */
 class CustomJarBodyTest {
+    @Test void onePercentMarginMatchesBeanValidationAndServiceValidation() {
+        var value = new CustomJarBodyValue(List.of(new Point(.01,.01), new Point(.99,.01),
+                new Point(.99,.99), new Point(.01,.99)), "#abcdef");
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            assertThat(factory.getValidator().validate(value)).isEmpty();
+            for (double outside : new double[]{.009, .991}) {
+                var invalid = new CustomJarBodyValue(List.of(new Point(outside,.01), new Point(.99,.01),
+                        new Point(.99,.99), new Point(.01,.99)), "#abcdef");
+                assertThat(factory.getValidator().validate(invalid)).isNotEmpty();
+                assertThatThrownBy(() -> CustomJarBodyValue.validateFor(JarBodyStyle.CUSTOM, invalid))
+                        .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+            }
+        }
+        CustomJarBodyValue.validateFor(JarBodyStyle.CUSTOM, value);
+        assertThat(new CustomJarBodyConverter().convertToEntityAttribute(
+                new CustomJarBodyConverter().convertToDatabaseColumn(value))).isEqualTo(value);
+    }
     @Test void photoContoursAreDeepCopiedValidatedAndStoredWithoutUrls() {
         var inner=new java.util.ArrayList<>(List.of(new Point(.25,.25),new Point(.75,.25),new Point(.75,.75),new Point(.25,.75)));
         var contours=new java.util.ArrayList<List<Point>>();contours.add(inner);

@@ -30,7 +30,7 @@ export function preparedBodyOutline(body, path) {
   }), photoContours:[preparedPhotoContour(body.window)]};
 }
 
-/** 검증된 카탈로그 도면은 사용자 그림판의 5% 여백 제한으로 자르지 않는다(예: 고래 꼬리).
+/** 검증된 카탈로그 도면은 사용자 그림판의 1% 여백 제한으로 자르지 않는다(예: 고래 꼬리).
  * 실제 사진 창이 외곽 안에 들어가는지는 기존 기하 검사로 다시 확인한다. */
 export function preparedBodyProfile(value, body) {
   const photoContours=value.photoContours.map(contour=>contour.map(p=>({x:p.x*480,y:p.y*480})));
