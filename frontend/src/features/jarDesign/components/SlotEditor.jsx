@@ -33,12 +33,13 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
   const requestInFlight = useRef(false);
   const pointerId = useRef(null);
   const url = retryUrl || previewUrl || "";
-  const imageReady = Boolean(url && loadedUrl === url && failedUrl !== url);
+  const bodyOnly = draft.selectedDesignType === "BODY_ONLY";
+  const designReady = bodyOnly ? Boolean(body) : Boolean(url && loadedUrl === url && failedUrl !== url);
   // 저장 필요 여부와 사용자가 실제로 수정했는지는 다르다. 기본 입구도 한 번 저장해야 확정된다.
   const needsSave = !sameSlot(slot, savedSlot);
   const dirty = hasSlotEdits(slot, savedSlot, initialSlot);
   const cutoutMaskStyle = toCutoutMaskStyle(cutoutRegions);
-  const locked = disabled || saving || blocked || !imageReady;
+  const locked = disabled || saving || blocked || !designReady;
 
   useEffect(() => {
     onDirtyChange(dirty);
@@ -128,7 +129,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
             onPointerUp={(event) => { if (pointerId.current === event.pointerId) pointerId.current = null; }}
             onPointerCancel={() => { pointerId.current = null; }}
             onLostPointerCapture={() => { pointerId.current = null; }}>
-            {url && <JarDesignImage key={`${url}-${retrying}`} bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={url} alt="투입구를 배치할 선택 디자인"
+            {(bodyOnly || url) && <JarDesignImage key={`${url}-${retrying}`} bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={url} fillEmptyBody={bodyOnly} alt="투입구를 배치할 선택 디자인"
               className="h-full w-full select-none object-contain"
               imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)}
               onImageLoad={(event) => {
@@ -136,13 +137,13 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
                 if (event.currentTarget.naturalWidth === event.currentTarget.naturalHeight) setLoadedUrl(url);
                 else setFailedUrl(url);
               }} onImageError={() => setFailedUrl(url)} />}
-            {imageReady && <JarSlotOverlay slot={slot} />}
-            {!imageReady && <div className="absolute inset-0 flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-500">
+            {designReady && <JarSlotOverlay slot={slot} />}
+            {!designReady && <div className="absolute inset-0 flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-500">
               {failedUrl === url && url ? "이미지를 불러오지 못했어요. 아래에서 다시 불러와 주세요." : "이미지를 불러오는 중이에요."}
             </div>}
           </div>
-          <button type="button" onClick={() => void retryPreview()} disabled={saving || retrying || disabled}
-            className="mt-3 min-h-11 text-sm font-bold text-violet-700 disabled:opacity-50">{retrying ? "불러오는 중..." : "이미지 다시 불러오기"}</button>
+          {!bodyOnly && <button type="button" onClick={() => void retryPreview()} disabled={saving || retrying || disabled}
+            className="mt-3 min-h-11 text-sm font-bold text-violet-700 disabled:opacity-50">{retrying ? "불러오는 중..." : "이미지 다시 불러오기"}</button>}
         </div>
         <div className="min-w-0 space-y-5">
           <fieldset disabled={locked} className="space-y-5 disabled:opacity-50">
@@ -193,7 +194,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
           <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : needsSave ? "모양·위치·크기를 정한 뒤 저장해 주세요." : "투입구 모양과 위치가 저장됐어요."}</p>
           <button type="button" onClick={() => void saveSlot()} disabled={locked || !needsSave}
             className="min-h-12 w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "저장 중..." : "투입구 저장"}</button>
-          <p className="text-xs leading-5 text-slate-500">투입구는 그림 위에 따로 표시돼요. 디자인을 바꾸면 투입구 위치도 다시 정해 주세요.</p>
+          <p className="text-xs leading-5 text-slate-500">{bodyOnly ? "투입구를 저금통 위에서 원하는 위치로 옮길 수 있어요." : "투입구는 그림 위에 따로 표시돼요. 디자인을 바꾸면 투입구 위치도 다시 정해 주세요."}</p>
         </div>
       </div>
     </section>

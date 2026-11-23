@@ -74,7 +74,8 @@ public class JarDesignDraftService {
                 draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), legacyCutoutPoints, cutoutRegions,
                 draft.getExpiresAt(), draft.getFinalizedJar() == null ? null : draft.getFinalizedJar().getJarId(), generations,
                 draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()),
-                JarPhotoFrame.valueOf(draft.getOriginalContentFrame()), JarPhotoFrame.valueOf(draft.getAiInputPhotoFrame()), draft.getCustomBody());
+                JarPhotoFrame.valueOf(draft.getOriginalContentFrame()), JarPhotoFrame.valueOf(draft.getAiInputPhotoFrame()), draft.getCustomBody(),
+                draft.getBodyArtworkS3Key() != null);
     }
 
     /** 최종화와 같은 행 잠금으로 경쟁을 막고, 파일 정리는 기존 종료 초안 정리기에 맡긴다. */
@@ -115,6 +116,7 @@ public class JarDesignDraftService {
     @Transactional
     public void selectOriginal(Long userId, Long draftId) {
         JarDesignDraft draft = findOwnedActiveDraftForUpdate(userId, draftId);
+        requireImageDraft(draft);
         draft.selectOriginal();
         extendExpiration(draft);
     }
@@ -125,12 +127,13 @@ public class JarDesignDraftService {
     @Transactional
     public void selectDefault(Long userId, Long draftId) {
         JarDesignDraft draft = findOwnedActiveDraftForUpdate(userId, draftId);
+        requireImageDraft(draft);
         draft.selectDefault();
         extendExpiration(draft);
     }
 
     /**
-     * 현재 ORIGINAL 또는 AI 선택에만 Slot을 저장한다.
+     * 현재 ORIGINAL, AI 또는 BODY_ONLY 선택에만 Slot을 저장한다.
      * 미선택/DEFAULT 상태에서 Slot을 남기는 것은 V32 CHECK 제약과 충돌하므로 서비스에서도 먼저 막는다.
      */
     @Transactional
@@ -159,7 +162,7 @@ public class JarDesignDraftService {
                 || !Objects.equals(expectedGenerationId, draft.getSelectedGenerationId()))) {
             throw new ApiException(AiDraftErrorCode.DRAFT_SLOT_TARGET_CHANGED);
         }
-        if (!draft.hasCustomDesignSelection()) {
+        if (!draft.hasCustomDesignSelection() && draft.getSelectedDesignType() != JarDraftDesignType.BODY_ONLY) {
             throw new ApiException(AiDraftErrorCode.DRAFT_CUSTOM_SELECTION_REQUIRED);
         }
         // 구 클라이언트가 모양을 생략해도 실제 저장된 자유형 높이로 검증해야 한다.
@@ -224,6 +227,12 @@ public class JarDesignDraftService {
 
     private void extendExpiration(JarDesignDraft draft) {
         draft.extendExpiration(LocalDateTime.now(KST).plusDays(properties.getExpiresAfterDays()));
+    }
+
+    private void requireImageDraft(JarDesignDraft draft) {
+        if (draft.getSelectedDesignType() == JarDraftDesignType.BODY_ONLY) {
+            throw new ApiException(AiDraftErrorCode.DRAFT_IMAGE_ACTION_UNAVAILABLE);
+        }
     }
 
     /** OWNER/만료 검사와 행 잠금 뒤 편집 시작 시의 후보·본체·배치를 비교해 오래된 탭의 덮어쓰기를 막는다. */

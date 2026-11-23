@@ -110,7 +110,7 @@ public class AiDraftCleanupPersistenceService {
     public boolean markOriginalS3Deleted(Long draftId, String originalS3Key, LocalDateTime now) {
         JarDesignDraft draft = draftRepository.findByDraftIdForUpdate(draftId).orElse(null);
         if (draft == null || !draft.isTerminal() || draft.getOriginalS3DeletedAt() != null
-                || !originalS3Key.equals(draft.getOriginalS3Key())) {
+                || !java.util.Objects.equals(originalS3Key, draft.getOriginalS3Key())) {
             return false;
         }
         draft.markOriginalS3Deleted(now);

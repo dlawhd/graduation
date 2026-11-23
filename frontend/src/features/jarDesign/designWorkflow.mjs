@@ -9,6 +9,7 @@ export function designSelectionKey(draft) {
 
 /** 후보를 직접 선택한 뒤에만 디테일을 열되, 이미 입구를 저장한 Draft는 이어서 편집한다. */
 export function canEditDesignDetails(draft, confirmedSelectionKey) {
+  if (draft?.selectedDesignType === "BODY_ONLY") return draft.status === "ACTIVE";
   const key = designSelectionKey(draft);
   return Boolean(draft?.status === "ACTIVE" && key
     && (key === confirmedSelectionKey || storedSlot(draft)));
@@ -20,10 +21,12 @@ export function hasSlotEdits(slot, savedSlot, initialSlot) {
 }
 
 export const DESIGN_STEPS = ["틀 만들기 또는 선택", "그림 담기", "사진 배치와 AI 꾸미기", "투입구와 배경", "이름 붙이기"];
+export const BODY_ONLY_DESIGN_STEPS = ["틀 만들기 또는 선택", "투입구 설정", "이름 붙이기"];
 
 /** 서버에 저장된 배치와 이 계정이 확정한 선택을 기준으로 실제 복구할 단계를 안내한다. */
 export function resumableDesignStep(draft, confirmedSelection, savedStep) {
   if (!draft) return 3;
+  if (draft.selectedDesignType === "BODY_ONLY") return savedStep === 5 ? 5 : 4;
   const needsComposition = Boolean(draft.bodyStyle && !draft.photoFrame);
   return canEditDesignDetails(draft, confirmedSelection) && !needsComposition ? savedStep === 5 ? 5 : 4 : 3;
 }

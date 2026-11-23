@@ -173,7 +173,7 @@ export default function CustomJarBody3D({ customBody, imageUrl, photoFrame, imag
       photoMaterial=new MeshStandardMaterial({color:0xffffff,roughness:.55,metalness:0,alphaTest:imageOnly ? .02 : 0});
       if(preparedBody) {
         measure("preparedVolume",()=>thickenPreparedBody(geometry));
-        measure("materialGroups",()=>preparedMaterialGroups(geometry));
+        measure("materialGroups",()=>preparedMaterialGroups(geometry,preparedBody.bodyOnly));
         backMaterial=new MeshStandardMaterial({color:preparedBody.colors.base,roughness:.48});
       }
       bodyMesh=new Mesh(geometry,imageOnly?[photoMaterial,faceMaterial]:preparedBody?[faceMaterial,photoMaterial,backMaterial]:[faceMaterial,photoMaterial]);

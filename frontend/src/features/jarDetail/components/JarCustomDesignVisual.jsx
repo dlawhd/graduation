@@ -23,12 +23,13 @@ export default function JarCustomDesignVisual({
   const [reloadError, setReloadError] = useState("");
   const [reloadAttempt, setReloadAttempt] = useState(0);
   const slot = useMemo(() => storedSlot(design ?? {}), [design]);
+  const bodyOnly = design?.designType === "BODY_ONLY";
   const customBody=useMemo(()=>design?.customBody?{...design.customBody,artworkUrl:design.bodyArtworkUrl||undefined}:null,[design?.customBody,design?.bodyArtworkUrl]);
 
   useEffect(() => {
     setImageFailed(false);
     setReloadError("");
-  }, [design?.imageUrl]);
+  }, [design?.imageUrl, design?.bodyArtworkUrl]);
 
   /**
    * 만료된 Presigned URL은 Jar 상세를 조용히 다시 조회해 새 URL로 교체한다.
@@ -59,7 +60,7 @@ export default function JarCustomDesignVisual({
     }
   }
 
-  if (!design?.imageUrl || imageFailed) {
+  if ((!design?.imageUrl && !bodyOnly) || imageFailed) {
     return (
       <div className={`flex aspect-square flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white/75 px-4 text-center text-xs font-bold leading-5 text-slate-500 ${className}`}>
         <p>
@@ -92,6 +93,7 @@ export default function JarCustomDesignVisual({
       <JarDesignImage
         key={`${design.imageUrl}-${reloadAttempt}`}
         imageUrl={design.imageUrl}
+        fillEmptyBody={bodyOnly}
         imageTextureUrl={design.imageTextureUrl}
         bodyArtworkTextureUrl={design.bodyArtworkTextureUrl}
         bodyStyle={design.bodyStyle}

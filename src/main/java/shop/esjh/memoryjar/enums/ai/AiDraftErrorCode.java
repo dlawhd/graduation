@@ -13,6 +13,8 @@ public enum AiDraftErrorCode implements ErrorCode {
     DRAFT_ALREADY_FINALIZED(HttpStatus.CONFLICT, "이미 최종화된 디자인 초안입니다."),
     DRAFT_PROCESSING_FINALIZE_BLOCKED(HttpStatus.CONFLICT, "AI 생성이 진행 중인 디자인 초안은 최종화할 수 없습니다."),
     DRAFT_SELECTION_REQUIRED(HttpStatus.CONFLICT, "최종 디자인을 먼저 선택해야 합니다."),
+    DRAFT_BODY_REQUIRED(HttpStatus.BAD_REQUEST, "먼저 저금통 모양을 선택해 주세요."),
+    DRAFT_IMAGE_ACTION_UNAVAILABLE(HttpStatus.CONFLICT, "저금통 모양만 사용하는 디자인에는 사진이나 AI 편집을 적용할 수 없어요."),
     DRAFT_CUSTOM_SELECTION_REQUIRED(HttpStatus.CONFLICT, "ORIGINAL 또는 AI 디자인을 먼저 선택해야 Slot을 저장할 수 있습니다."),
     DRAFT_SLOT_REQUIRED(HttpStatus.CONFLICT, "커스텀 디자인의 Slot 위치와 크기를 먼저 저장해야 합니다."),
     DRAFT_SLOT_OUT_OF_BOUNDS(HttpStatus.BAD_REQUEST, "투입구 전체가 이미지 안에 들어오도록 위치와 크기를 조절해 주세요."),

@@ -5,9 +5,10 @@ import { photoFrameStyle } from "../photoFraming.mjs";
 import { JAR_BODY_MOTIONS, observeJarMotion } from "../jarBodyMotion.mjs";
 import "../jarBodyMotion.css";
 import { AnimalBodyDecorations, AnimalBodyEmblem } from "./AnimalBodyArtwork";
+import JarBodyMarkings from "./JarBodyMarkings";
 
 /** 480 좌표의 저금통·사진 창·장식을 겹쳐 모든 화면에서 같은 완성 모습을 만든다. */
-export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageRendering = "auto", className = "", alt = "선택한 저금통", onImageLoad, onImageError, showDefaultSlot = false, imageStyle }) {
+export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, bodyOnly = false, imageRendering = "auto", className = "", alt = "선택한 저금통", onImageLoad, onImageError, showDefaultSlot = false, imageStyle }) {
   const id = useId().replace(/:/g, "");
   const motionRef = useRef(null);
   const body = getJarBody(bodyStyle);
@@ -40,16 +41,19 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
       <path d={body.path} fill={paint("body")} stroke={c.shade} strokeWidth="3" strokeLinejoin="round"/>
       <g clipPath={paint("body-clip")}>
         <path d={body.path} fill={paint("glow")}/>
+        {bodyOnly && <JarBodyMarkings body={body} />}
         <path d={body.path} fill={paint("grain")}/>
         <path className="jar-motion jar-glaze" d="M125 54Q81 247 126 444L151 444Q111 251 154 53Z" fill={paint("shine")} opacity=".38"/>
         <path d="M365 66Q404 269 352 425" fill="none" stroke={c.shade} strokeWidth="20" opacity=".15"/>
         <path d={body.path} transform="translate(240 245) scale(.965) translate(-240 -245)" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth="2"/>
       </g>
       </g>
-      <rect x={w.x-9} y={w.y-5} width={w.width+18} height={w.height+18} rx={w.radius+9} fill={c.shade} opacity=".25"/>
-      <rect x={w.x-7} y={w.y-7} width={w.width+14} height={w.height+14} rx={w.radius+7} fill={paint("rim")} stroke={c.accent} strokeOpacity=".85" strokeWidth="2"/>
-      <rect x={w.x} y={w.y} width={w.width} height={w.height} rx={w.radius} fill="#fffdf8"/>
-      {!imageUrl && <svg x={w.x+8} y={w.y+8} width={w.width-16} height={w.height-16} viewBox="0 0 160 160" aria-hidden="true"><WindowEmblem body={body}/></svg>}
+      {!bodyOnly && <g data-jar-photo-window>
+        <rect x={w.x-9} y={w.y-5} width={w.width+18} height={w.height+18} rx={w.radius+9} fill={c.shade} opacity=".25"/>
+        <rect x={w.x-7} y={w.y-7} width={w.width+14} height={w.height+14} rx={w.radius+7} fill={paint("rim")} stroke={c.accent} strokeOpacity=".85" strokeWidth="2"/>
+        <rect x={w.x} y={w.y} width={w.width} height={w.height} rx={w.radius} fill="#fffdf8"/>
+        {!imageUrl && <svg x={w.x+8} y={w.y+8} width={w.width-16} height={w.height-16} viewBox="0 0 160 160" aria-hidden="true"><WindowEmblem body={body}/></svg>}
+      </g>}
     </svg>
     {imageUrl && <div className="absolute overflow-hidden" style={{ left:`${w.x/4.8}%`,top:`${w.y/4.8}%`,width:`${w.width/4.8}%`,height:`${w.height/4.8}%`,borderRadius:`${w.radius/w.width*100}% / ${w.radius/w.height*100}%`,background:"#fffdf8" }}>
       {/* HTML img를 사용해 만료 URL 재시도와 자연 크기 검증 콜백을 기존 흐름 그대로 유지한다. */}
@@ -60,9 +64,9 @@ export default function JarBodyArtwork({ bodyStyle, imageUrl, photoFrame, imageR
         style={frameStyle ? { ...frameStyle, imageRendering } : { ...imageStyle, imageRendering, width: `${Math.min(w.width,w.height)/w.width*100}%`, height: `${Math.min(w.width,w.height)/w.height*100}%` }} onLoad={onImageLoad} onError={onImageError}/>
     </div>}
     <svg aria-hidden="true" viewBox="0 0 480 480" className="pointer-events-none absolute inset-0 h-full w-full">
-      <rect x={w.x} y={w.y} width={w.width} height={w.height} rx={w.radius} fill="none" stroke={c.shade} strokeOpacity=".4" strokeWidth="2"/>
+      {!bodyOnly && <rect x={w.x} y={w.y} width={w.width} height={w.height} rx={w.radius} fill="none" stroke={c.shade} strokeOpacity=".4" strokeWidth="2"/>}
       {/* 어떤 장식을 추가해도 사용자의 그림 창은 가리지 않는다. 입구는 이 마스크 밖의 별도 오버레이다. */}
-      <g mask={paint("photo-safe")} data-jar-photo-safe><g data-body-decoration="front"><Decorations body={body} paint={paint} layer="front"/></g><Atmosphere body={body}/></g>
+      <g mask={bodyOnly ? undefined : paint("photo-safe")} data-jar-photo-safe><g data-body-decoration="front"><Decorations body={body} paint={paint} layer="front"/></g><Atmosphere body={body}/></g>
     </svg>
     {showDefaultSlot && <JarSlotOverlay slot={body.slot}/>}
   </div>;

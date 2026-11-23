@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { deleteJarDesignDraft, getJarDesignOriginalPreview, getJarDesignGenerationPreview, listJarDesignDrafts } from "../../../api/jarDesignDraftApi";
 import { useRequestGate } from "../../../api/useRequestGate";
 import { readDesignResume, writeDesignResume } from "../designResume.mjs";
-import { DESIGN_STEPS, resumableDesignStep } from "../designWorkflow.mjs";
+import { BODY_ONLY_DESIGN_STEPS, DESIGN_STEPS, resumableDesignStep } from "../designWorkflow.mjs";
 import { storedSlot } from "../slotGeometry.mjs";
 import { toCutoutMaskStyle } from "../cutoutGeometry.mjs";
 import { getJarBody } from "../jarBodies.mjs";
@@ -24,6 +24,8 @@ function DraftCard({ row, userId, busy, onDelete }) {
   const [retry, setRetry] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const draft = row.kind === "LOCAL" ? preview?.draft : row.design;
+  const bodyOnly = row.design?.selectedDesignType === "BODY_ONLY";
+  const needsPreview = !bodyOnly || row.design?.bodyArtworkAvailable;
   useEffect(() => {
     let current = true;
     setPreview(null); setImageError(false);
@@ -32,20 +34,24 @@ function DraftCard({ row, userId, busy, onDelete }) {
       if (!record?.state || record.cleared || record.expiresAt <= Date.now()) throw new Error("저장한 작업을 다시 불러와 주세요.");
       if (!current) return null;
       const state = record.state;
-      const fileUrl = state.sourceImage ? URL.createObjectURL(state.sourceImage) : "";
+      const catalogBodyOnly = state.catalogOpen && state.catalogMode === "body-only";
+      const fileUrl = !catalogBodyOnly && state.sourceImage ? URL.createObjectURL(state.sourceImage) : "";
       if (fileUrl) urls.push(fileUrl);
       const style = state.bodyStyle || (state.customBody ? "CUSTOM" : null);
       return { local: true, draft: { ...state, bodyStyle: style },
         rawUrl: !getJarBody(style, state.customBody) ? state.bodyCanvas : null,
-        previewUrl: state.inputMode === "UPLOAD" ? fileUrl : state.imageCanvas || fileUrl };
+        previewUrl: catalogBodyOnly ? "" : state.inputMode === "UPLOAD" ? fileUrl : state.imageCanvas || fileUrl };
     }) : row.design?.selectedDesignType === "AI" && row.design.selectedGenerationId
       ? getJarDesignGenerationPreview(row.draftId, row.design.selectedGenerationId)
-      : getJarDesignOriginalPreview(row.draftId);
+      : needsPreview ? getJarDesignOriginalPreview(row.draftId) : Promise.resolve(null);
     request.then(result => { if (current) setPreview(result); })
       .catch(() => { if (current) setImageError(true); });
     return () => { current = false; urls.forEach(url => URL.revokeObjectURL(url)); };
-  }, [row.kind, row.id, row.draftId, row.updatedAt, row.design?.selectedDesignType, row.design?.selectedGenerationId, userId, retry]);
+  }, [row.kind, row.id, row.draftId, row.updatedAt, row.design?.selectedDesignType, row.design?.selectedGenerationId, needsPreview, userId, retry]);
   const step = row.kind === "LOCAL" ? row.step : resumableDesignStep(draft, readDesignResume(userId, row.draftId, "selection"), readDesignResume(userId, row.draftId, "step"));
+  const catalogBodyOnly = preview?.local && draft?.catalogOpen && draft?.catalogMode === "body-only";
+  const steps = bodyOnly || catalogBodyOnly ? BODY_ONLY_DESIGN_STEPS : DESIGN_STEPS;
+  const displayStep = bodyOnly ? (step === 5 ? 3 : 2) : step;
   const form = row.kind === "LOCAL" ? null : readDesignResume(userId, row.draftId, "form");
   const body = getJarBody(draft?.bodyStyle, draft?.customBody);
   const customBody = draft?.customBody && { ...draft.customBody, artworkUrl: preview?.local ? draft.customBody.artworkUrl : preview?.bodyArtworkUrl };
@@ -55,15 +61,15 @@ function DraftCard({ row, userId, busy, onDelete }) {
     <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-50/60">
       {imageError ? <button type="button" aria-label="미리보기 다시 불러오기" className="min-h-11 px-1 text-xs text-emerald-800 underline" onClick={() => setRetry(value => value + 1)}>재시도</button>
         : preview?.local && (preview.rawUrl || (!body && preview.previewUrl)) ? <img src={preview.rawUrl || preview.previewUrl} alt="저장한 그림판 미리보기" className="h-14 w-14 object-contain" onError={() => setImageError(true)} />
-        : preview?.previewUrl || (preview?.local && body) ? <JarDesignImage bodyStyle={draft?.bodyStyle || row.bodyStyle} customBody={customBody} imageUrl={preview.previewUrl} photoFrame={frame}
+        : preview?.previewUrl || ((preview?.local || bodyOnly) && body) ? <JarDesignImage bodyStyle={draft?.bodyStyle || row.bodyStyle} customBody={customBody} imageUrl={preview?.previewUrl} photoFrame={frame} fillEmptyBody={bodyOnly || catalogBodyOnly}
           slot={draft ? storedSlot(draft) : null} imageStyle={toCutoutMaskStyle(draft?.cutoutRegions || draft?.cutoutPoints)}
           alt={`디자인 초안 #${row.draftId} 미리보기`} className="h-14 w-14" onImageError={() => setImageError(true)} />
           : preview?.local ? <span className="px-1 text-center text-[10px] text-slate-500">그림 준비 중</span> : <p role="status" className="text-sm text-slate-500"><span aria-hidden="true">…</span><span className="sr-only">미리보기를 불러오는 중이에요.</span></p>}
     </div>
     <div className="min-w-0 flex-1">
     <p className="break-words text-sm font-bold text-slate-800">{typeof form?.name === "string" && form.name.trim() ? form.name : (row.kind === "LOCAL" ? "만들고 있는 저금통" : `디자인 초안 #${row.draftId}`)}</p>
-    <p className="mt-1 text-xs font-bold text-emerald-800">{step}/5 · {DESIGN_STEPS[step - 1]}</p>
-    <ol aria-label="제작 진행 상황" className="mt-2 flex gap-1">{DESIGN_STEPS.map((label, index) => <li key={label} title={label} aria-current={index + 1 === step ? "step" : undefined} className={`h-1.5 flex-1 rounded-full ${index < step ? "bg-emerald-700" : "bg-slate-100"}`}><span className="sr-only">{index + 1}. {label}{index + 1 === step ? " (현재 단계)" : ""}</span></li>)}</ol>
+    <p className="mt-1 text-xs font-bold text-emerald-800">{displayStep}/{steps.length} · {steps[displayStep - 1]}</p>
+    <ol aria-label="제작 진행 상황" className="mt-2 flex gap-1">{steps.map((label, index) => <li key={label} title={label} aria-current={index + 1 === displayStep ? "step" : undefined} className={`h-1.5 flex-1 rounded-full ${index < displayStep ? "bg-emerald-700" : "bg-slate-100"}`}><span className="sr-only">{index + 1}. {label}{index + 1 === displayStep ? " (현재 단계)" : ""}</span></li>)}</ol>
     </div>
     </div>
     {row.kind === "LOCAL" && <p className="mt-2 text-[11px] font-semibold text-slate-500">이 브라우저에 저장한 작업</p>}

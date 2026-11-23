@@ -115,6 +115,7 @@ public class JarDesignDraftController {
         switch (request.designType()) {
             case ORIGINAL -> draftService.selectOriginal(userId, draftId);
             case DEFAULT -> draftService.selectDefault(userId, draftId);
+            case BODY_ONLY -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "모양만 쓰려면 새 제작에서 선택해 주세요.");
             case AI -> {
                 if (request.generationId() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI 후보 ID가 필요합니다.");
                 draftService.selectAiGeneration(userId, draftId, request.generationId());
@@ -164,14 +165,21 @@ public class JarDesignDraftController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<JarDesignDraftCreateResponse>> createDraft(
             Authentication authentication,
-            @RequestParam("image") MultipartFile image,
+            @RequestParam(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "bodyStyle", required = false) JarBodyStyle bodyStyle,
             @org.springframework.web.bind.annotation.RequestPart(value = "customBody", required = false)
             @Valid shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,
-            @RequestParam(value="bodyArtwork",required=false) MultipartFile bodyArtwork
+            @RequestParam(value="bodyArtwork",required=false) MultipartFile bodyArtwork,
+            @RequestParam(value = "bodyOnly", defaultValue = "false") boolean bodyOnly
     ) {
         Long currentUserId = extractCurrentUserId(authentication);
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
+        if (bodyOnly) {
+            if (image != null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "모양만 사용할 때는 사진을 보낼 수 없습니다.");
+            var response = uploadService.createBodyOnlyDraft(currentUserId, bodyStyle, customBody, bodyArtwork);
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(response));
+        }
+        if (image == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "원본 이미지 파일이 필요합니다.");
         JarDesignDraftCreateResponse response = bodyArtwork!=null
                 ? uploadService.uploadOriginalAndCreateDraft(currentUserId,image,bodyStyle,customBody,bodyArtwork)
                 : customBody == null

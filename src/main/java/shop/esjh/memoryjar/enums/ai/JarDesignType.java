@@ -5,5 +5,6 @@ package shop.esjh.memoryjar.enums.ai;
  */
 public enum JarDesignType {
     ORIGINAL,
-    AI
+    AI,
+    BODY_ONLY
 }

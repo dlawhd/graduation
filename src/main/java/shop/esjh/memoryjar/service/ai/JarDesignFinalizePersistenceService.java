@@ -89,7 +89,7 @@ public class JarDesignFinalizePersistenceService {
         return new FinalizeResult(jar.getJarId(), JarDraftDesignType.DEFAULT);
     }
 
-    /** 영구 S3 복사 뒤 선택이 바뀌지 않았을 때만 Jar·JarDesign·Draft를 함께 확정한다. */
+    /** 선택이 바뀌지 않았을 때만 Jar·JarDesign·Draft를 함께 확정한다. 본체 단독은 영구 파일을 만들지 않는다. */
     @Transactional
     public FinalizeResult finalizeCustom(Long userId, Long draftId, JarCreateRequest request,
                                          FinalizeTarget expected, String finalS3Key) {
@@ -107,7 +107,7 @@ public class JarDesignFinalizePersistenceService {
         JarDesign design = JarDesign.builder()
                 .jar(jar)
                 .designType(toJarDesignType(actual.designType()))
-                .finalS3Key(finalS3Key)
+                .finalS3Key(actual.designType() == JarDraftDesignType.BODY_ONLY ? null : finalS3Key)
                 .selectedGeneration(selectedGeneration)
                 .slotCenterX(actual.slotCenterX())
                 .slotCenterY(actual.slotCenterY())
@@ -153,6 +153,11 @@ public class JarDesignFinalizePersistenceService {
             return new FinalizeTarget(JarDraftDesignType.DEFAULT, null, null, null, null, null, null);
         }
         requireSlot(draft);
+        if (selectedType == JarDraftDesignType.BODY_ONLY) {
+            return new FinalizeTarget(selectedType, null, null, draft.getSlotCenterX(), draft.getSlotCenterY(),
+                    draft.getSlotSizeRatio(), null, draft.getSlotStyle(), draft.getBodyStyle(), null, draft.getCustomBody(),
+                    draft.getBodyArtworkS3Key());
+        }
         if (selectedType == JarDraftDesignType.ORIGINAL) {
             return new FinalizeTarget(JarDraftDesignType.ORIGINAL, draft.getOriginalS3Key(), null,
                     draft.getSlotCenterX(), draft.getSlotCenterY(), draft.getSlotSizeRatio(), draft.getCutoutPathJson(), draft.getSlotStyle(), draft.getBodyStyle(), JarPhotoFrame.valueOf(draft.getPhotoFrame()), draft.getBodyStyle() == JarBodyStyle.CUSTOM ? draft.getCustomBody() : null,
@@ -191,6 +196,7 @@ public class JarDesignFinalizePersistenceService {
         return switch (draftDesignType) {
             case ORIGINAL -> JarDesignType.ORIGINAL;
             case AI -> JarDesignType.AI;
+            case BODY_ONLY -> JarDesignType.BODY_ONLY;
             case DEFAULT -> throw new IllegalStateException("DEFAULT에는 JarDesign을 만들 수 없습니다.");
         };
     }

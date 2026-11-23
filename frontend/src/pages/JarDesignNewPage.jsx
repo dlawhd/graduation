@@ -12,6 +12,7 @@ import { earlyDesignId } from "../features/jarDesign/earlyDesignDraftStore.mjs";
 import { useEarlyDesignDraft } from "../features/jarDesign/useEarlyDesignDraft";
 import { prepareSourceImage, SOURCE_IMAGE_ACCEPT } from "../features/jarDesign/sourceImageFile.mjs";
 import {
+  createBodyOnlyDesignDraft,
   createJarDesignDraft,
   getJarDesignDraftError,
   selectJarDesign,
@@ -46,9 +47,12 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
   const [sourceImage, setSourceImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [customBody, setCustomBody] = useState(null);
-  const [catalogOpen, setCatalogOpen] = useState(false);
   // URL에서 단계를 읽어 새로고침과 브라우저 뒤로 가기도 같은 선택으로 복원한다. 파일은 메모리에만 둔다.
   const draftId = parseDraftId(searchParams.get("draft"));
+  const catalogOpen = searchParams.get("catalog") === "1";
+  const requestedCatalogMode = searchParams.get("catalogMode");
+  const catalogMode = catalogOpen && ["photo", "body-only"].includes(requestedCatalogMode) ? requestedCatalogMode : null;
+  const catalogBodyOnly = catalogMode === "body-only";
   const body = getJarBody(searchParams.get("body"), customBody);
   const imageOnly = searchParams.get("mode") === "image-only";
   const imageStep = Boolean((body || imageOnly) && searchParams.get("step") === "image");
@@ -60,19 +64,26 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
   const [readingSource, setReadingSource] = useState(false);
   const [loadedPreviewUrl, setLoadedPreviewUrl] = useState("");
   const [galleryStep, setGalleryStep] = useState(3);
+  const [bodyOnlyDraft, setBodyOnlyDraft] = useState(false);
   const [previewControlsTarget, setPreviewControlsTarget] = useState(null);
   const [initialBodyCanvas, setInitialBodyCanvas] = useState(null);
   const [initialImageCanvas, setInitialImageCanvas] = useState(null);
   const createdServerDraft = useRef(null);
   const early = useEarlyDesignDraft({ userId, id: workId, allowMissing,
-    initial: { bodyStyle: body?.id, imageOnly, step: imageStep ? 2 : 1 },
+    initial: { bodyStyle: body?.id, catalogOpen, catalogMode, imageOnly, step: imageStep ? 2 : 1 },
     onPromoted: id => setRawSearchParams({ draft: String(id) }, { replace: true }),
     onRestore: value => {
       setCustomBody(value.customBody); setSourceImage(value.sourceImage); setInputMode(value.inputMode);
-      setSourceDirty(value.sourceDirty); setCatalogOpen(value.catalogOpen);
+      setSourceDirty(value.sourceDirty);
       setInitialBodyCanvas(value.bodyCanvas); setInitialImageCanvas(value.imageCanvas);
       const next = { work: workId };
       if (value.bodyStyle) next.body = value.bodyStyle;
+      if (value.catalogOpen) {
+        next.catalog = "1";
+        // 방식 선택이 없던 이전 초안은 사진을 담는 기존 경로의 저장 작업이다.
+        if (value.catalogMode) next.catalogMode = value.catalogMode;
+        else if (value.bodyStyle || value.step === 2) next.catalogMode = "photo";
+      }
       if (value.imageOnly) next.mode = "image-only";
       if (value.step === 2) next.step = "image";
       setRawSearchParams(next, { replace: true, state: location.state });
@@ -80,18 +91,25 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
   });
   function setSearchParams(value, options = {}) {
     const next = new URLSearchParams(value);
-    if (!next.has("draft") && workId) next.set("work", workId);
+    if (!next.has("draft") && workId) {
+      next.set("work", workId);
+      // 준비된 모양의 사진 단계에서도 원래 모양 목록으로 돌아갈 수 있게 한다.
+      if (catalogOpen) next.set("catalog", "1");
+      if (catalogMode && !next.has("catalogMode")) next.set("catalogMode", catalogMode);
+    }
     setRawSearchParams(next, { ...options, state: location.state });
   }
+
   useEffect(() => {
-    if (!draftId && early.ready) early.patch({ bodyStyle: body?.id || null, imageOnly, step: imageStep ? 2 : 1, inputMode, catalogOpen });
-  }, [draftId, early.ready, body?.id, imageOnly, imageStep, inputMode, catalogOpen]);
+    if (!draftId && early.ready) early.patch({ bodyStyle: body?.id || null, imageOnly, step: imageStep ? 2 : 1, inputMode, catalogOpen, catalogMode });
+  }, [draftId, early.ready, body?.id, imageOnly, imageStep, inputMode, catalogOpen, catalogMode]);
   const previewReady = Boolean(previewUrl && loadedPreviewUrl === previewUrl);
   useLayoutEffect(() => {
     // 같은 화면의 단계 이동도 이전 제작 요청을 끝낸 것으로 취급한다. 늦은 finally가 새 요청을 풀지 않는다.
     creatingDraft.current = false;
     setSaving(false);
-  }, [requestGate]);
+    if (!imageStep) setReadingSource(false);
+  }, [requestGate, imageStep]);
   const stepKey = draftId ? `draft:${draftId}` : imageStep ? "image" : "body";
   // 같은 경로의 query만 바뀌어도 새 단계의 첫 제목부터 보여준다. 사진 교체·모양 탐색에는 이동하지 않는다.
   useLayoutEffect(() => {
@@ -150,20 +168,29 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
   }
 
   /** Draft가 성공적으로 저장된 뒤에만 URL에 ID를 남겨 새로고침 후에도 후보 보관함을 복원한다. */
-  async function handleCreateDraft() {
-    if ((!body && !imageOnly) || !sourceImage || !previewReady || readingSource || saving || creatingDraft.current || (inputMode === "DRAW" && sourceDirty)) return;
+  async function handleCreateDraft(bodyOnly = false) {
+    if (readingSource || saving || creatingDraft.current) return;
+    if (bodyOnly ? !body : ((!body && !imageOnly) || !sourceImage || !previewReady || (inputMode === "DRAW" && sourceDirty))) return;
     creatingDraft.current = true;
     const isCurrent = beginPageRequest("create");
     setSaving(true);
     setError("");
     try {
-      const draft = createdServerDraft.current || await createJarDesignDraft(sourceImage, body?.id, body?.id === "CUSTOM" ? customBody : undefined);
-      createdServerDraft.current = draft;
+      const artwork = body?.id === "CUSTOM" ? customBody : undefined;
+      const source = bodyOnly ? null : sourceImage;
+      const previous = createdServerDraft.current;
+      // 업로드 방식이나 선택한 틀이 바뀌었다면 이전 요청의 서버 초안을 재사용하지 않는다.
+      const draft = previous && previous.bodyStyle === body?.id && previous.artwork === artwork && previous.source === source
+        ? previous.draft
+        : await (bodyOnly
+          ? createBodyOnlyDesignDraft(body.id, artwork)
+          : createJarDesignDraft(source, body?.id, artwork));
+      createdServerDraft.current = { draft, bodyStyle: body?.id, artwork, source };
       // 이미 생성된 서버 작업을 다시 만들지 않는다. 전환 실패 시 다음 시도도 같은 번호를 사용한다.
       await early.finish(draft.draftId);
       if (!isCurrent()) return;
       // 본체를 쓸 때 먼저 원본으로 배치 화면을 연다. 배치는 비파괴 메타데이터이며 이후 AI 후보도 선택 가능하다.
-      if (body) {
+      if (body && !bodyOnly) {
         try { await selectJarDesign(draft.draftId, "ORIGINAL"); }
         catch (selectionError) { if (isCurrent()) setError(getJarDesignDraftError(selectionError).message); }
       }
@@ -189,30 +216,74 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
     <button type="button" disabled={saving} role="tab" aria-selected={inputMode === "UPLOAD"} onClick={() => setInputMode("UPLOAD")} className={`min-h-12 rounded-xl px-2 text-xs font-bold ${inputMode === "UPLOAD" ? "bg-emerald-700 text-white" : "border border-slate-200 bg-white text-slate-600"}`}>이미지 불러오기</button>
   </div><p className="mt-3 text-xs leading-5 text-slate-500">직접 그리거나 사진을 골라주세요. 위치와 크기는 다음 단계에서 맞춰요.</p></div>;
   const studioPage = !draftId && !catalogOpen;
+  const catalogSelection = !draftId && !imageStep && catalogOpen;
+  const stepIntro = draftId
+    ? bodyOnlyDraft
+      ? ["이 모양 그대로 마무리해요", "저금통에 어울리는 투입구를 정하고 이름과 열리는 날짜를 골라요."]
+      : ["우리의 그림에 분위기를 더해요", "원본을 그대로 쓰거나, 마음에 드는 AI 스타일을 골라보세요."]
+    : imageStep
+      ? imageOnly
+        ? ["어떤 사진이나 그림을 사용할까요?", "사진 한 장을 고르거나 직접 그린 그림을 저금통의 모습으로 사용해요."]
+        : ["이 저금통에 어떤 추억을 담을까요?", "직접 그리거나 사진을 골라 저금통을 채워요."]
+      : ["우리만의 저금통 틀 만들기", "기본 틀을 고르거나, 닫힌 테두리를 직접 그려보세요."];
   return (
     <div style={{ overflowAnchor: "none" }} className="min-h-[calc(100vh-80px)] bg-[#f3f8f5] px-4 py-7 sm:px-6">
-      <main className={studioPage ? "mx-auto max-w-[1440px]" : "mx-auto max-w-6xl"}>
+      <main className={studioPage ? "mx-auto max-w-[1440px]" : catalogSelection && !catalogMode ? "mx-auto max-w-5xl" : "mx-auto max-w-6xl"}>
         <Link to="/jars/new" className="text-sm font-bold text-violet-700 hover:text-violet-900">← 만들기 방식 다시 선택</Link>
-        <section className={studioPage ? "studio-intro mt-4 py-3" : "mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8"}>
+        {!catalogSelection && <section className={studioPage ? "studio-intro mt-4 py-3" : "mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8"}>
           <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black tracking-wide text-emerald-800">MEMORY JAR · 작은 저금통 공방</span>
-          <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{draftId ? "우리의 그림에 분위기를 더해요" : imageStep ? "이 저금통에 어떤 추억을 담을까요?" : "우리만의 저금통 틀 만들기"}</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{draftId ? "원본을 그대로 쓰거나, 마음에 드는 AI 스타일을 골라보세요." : imageStep ? "직접 그리거나 사진을 골라 저금통을 채워요." : "기본 틀을 고르거나, 닫힌 테두리를 직접 그려보세요."}</p>
-          <details className="mt-2 max-w-3xl text-sm leading-6 text-slate-600"><summary className="min-h-11 cursor-pointer py-3 font-bold">만들기 도움말</summary><p>나만의 틀 안에 그림이나 사진을 담아요. 기본 틀을 쓰거나 준비된 저금통으로 바꿔도 좋아요. AI 변환은 선택 사항이고, 원본으로도 완성할 수 있어요.</p></details>
-          <DesignProgress activeStep={draftId ? galleryStep : imageStep ? 2 : 1} />
-        </section>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{stepIntro[0]}</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">{stepIntro[1]}</p>
+          <details className="mt-2 max-w-3xl text-sm leading-6 text-slate-600"><summary className="min-h-11 cursor-pointer py-3 font-bold">만들기 도움말</summary><p>다른 방식으로 시작하려면 위에 있는 ‘만들기 방식 다시 선택’을 눌러주세요. AI 변환은 선택 사항이고, 원본으로도 완성할 수 있어요.</p></details>
+          <DesignProgress activeStep={draftId ? galleryStep : imageStep ? 2 : 1} bodyOnly={bodyOnlyDraft} />
+        </section>}
 
-        {!draftId && <div className="mt-4 rounded-xl border border-emerald-100 bg-white px-4 py-3 text-xs text-emerald-900">
-          <p role="status">{early.status === "saving" ? "작업을 저장하고 있어요…" : early.status === "saved" ? "이 브라우저에 작업을 저장했어요. 이어서 만들기로 다시 열 수 있어요." : "틀과 그림은 이 브라우저에 계정별로 자동 저장돼요."}</p>
+        {!draftId && (!catalogSelection || early.error) && <div className="mt-4 rounded-xl border border-emerald-100 bg-white px-4 py-3 text-xs text-emerald-900">
+          {!catalogSelection && <p role="status">{early.status === "saving" ? "작업을 저장하고 있어요…" : early.status === "saved" ? "이 브라우저에 작업을 저장했어요. 이어서 만들기로 다시 열 수 있어요." : "틀과 그림은 이 브라우저에 계정별로 자동 저장돼요."}</p>}
           {early.error && <p role="alert" className="mt-2 text-rose-700">{early.error} <button type="button" onClick={early.retry} className="min-h-8 underline">다시 저장</button></p>}
         </div>}
         {/* 선택 목록이나 그림 담기로 이동해도 틀 그림판을 유지해 미완성 획과 실행 취소 이력을 보존한다. */}
         {!draftId && <div hidden={imageStep || catalogOpen}><JarBodyWorkshop value={customBody} onChange={value => { setCustomBody(value); early.patch({ customBody: value }); }} initialCanvas={initialBodyCanvas} onSnapshot={value => early.patch({ bodyCanvas: value })} previewUrl={previewUrl} disabled={saving || imageStep || catalogOpen}
-          onOpenCatalog={() => setCatalogOpen(true)} onImageOnly={() => setSearchParams({ mode:"image-only", step:"image" })}
           onContinue={() => { if (getJarBody("CUSTOM",customBody)) setSearchParams({body:"CUSTOM",step:"image"}); }}/></div>}
-        {!draftId && !imageStep && catalogOpen && <><button type="button" onClick={() => setCatalogOpen(false)} className="mt-5 min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-emerald-800">← 내 틀 만들기로 돌아가기</button><JarBodyPicker value={body?.id} previewUrl={previewUrl}
-          onChange={(id) => { if (getJarBody(id)) setSearchParams({ body: id }, { replace: true }); }}
-          onImageOnly={() => setSearchParams({ mode:"image-only", step:"image" })}
-          onContinue={() => { if (body) setSearchParams({ body: body.id, step: "image" }); }} disabled={saving} /></>}
+        {catalogSelection && <>
+          <div role="group" aria-label="사진 또는 그림 사용 방식" className="mt-6 grid gap-4 sm:grid-cols-2 sm:gap-5">
+            {[
+              { id: "photo", label: "사진·그림 함께 담기", detail: "사진 창이 있는 모양을 고르고 내 사진이나 그림을 담아요." },
+              { id: "body-only", label: "저금통 모양만 사용하기", detail: "사진 창 없이 몸통의 색과 무늬가 이어지는 모양을 골라요." },
+            ].map(({ id, label, detail }) => (
+              <div key={id} data-selected={catalogMode === id || undefined} className={`relative rounded-[24px] border border-emerald-100 bg-white shadow-sm transition-colors hover:border-emerald-500 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-700 data-selected:border-emerald-700 data-selected:bg-emerald-50 ${catalogMode ? "flex items-center gap-3 p-2.5 sm:gap-4" : "grid gap-4 p-3 sm:p-4"}`}>
+                <div aria-hidden="true" className={`pointer-events-none grid shrink-0 place-items-center rounded-[16px] ${id === "photo" ? "bg-[#f7eee6]" : "bg-[#edf4e8]"} ${catalogMode ? "size-16 sm:size-20" : "h-44 sm:h-56"}`}>
+                  <div className={catalogMode ? "size-14 sm:size-16" : "size-40 sm:size-52"}>
+                    <JarDesignImage bodyStyle="BEAR" alt="" showDefaultSlot
+                      imageUrl={id === "photo" ? "/images/ai-styles/cute-2d.webp" : undefined}
+                      fillEmptyBody={id === "body-only"} />
+                  </div>
+                </div>
+                <button type="button" aria-labelledby={`catalog-mode-${id}`} aria-describedby={`catalog-detail-${id}`}
+                  aria-pressed={catalogMode === id} disabled={saving} onClick={() => {
+                  if (catalogMode === id) return;
+                  setError("");
+                  setSearchParams({ catalogMode: id, ...(body && { body: body.id }) });
+                }} className="absolute inset-0 z-10 w-full cursor-pointer rounded-[24px] focus:outline-none disabled:cursor-default" />
+                <div className={`flex min-w-0 flex-1 items-center justify-between gap-2 ${catalogMode ? "pr-2" : "px-2 pb-2"}`}>
+                  <span>
+                    <span id={`catalog-mode-${id}`} className={`block font-black text-emerald-900 ${catalogMode ? "text-base" : "text-xl sm:text-2xl"}`}>{label}</span>
+                    <span id={`catalog-detail-${id}`} className="mt-1 block text-sm leading-6 text-slate-600">{detail}</span>
+                  </span>
+                  <span aria-hidden="true" className="shrink-0 text-lg font-bold text-emerald-800">{catalogMode === id ? "✓" : "→"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {catalogMode && <JarBodyPicker value={body?.id} previewUrl={previewUrl} bodyOnly={catalogBodyOnly} saving={saving} error={error}
+            onChange={(id) => { if (getJarBody(id)) { setError(""); setSearchParams({ body: id }, { replace: true }); } }}
+            onImageOnly={catalogBodyOnly ? undefined : () => setSearchParams({ mode: "image-only", step: "image" })}
+            onContinue={() => {
+              if (!body) return;
+              if (catalogBodyOnly) void handleCreateDraft(true);
+              else setSearchParams({ body: body.id, step: "image" });
+            }} disabled={saving} />}
+        </>}
 
         {/* 모양을 다시 고르는 동안에도 그림판을 숨겨 유지하여 작성 중인 그림을 잃지 않는다. */}
         {!draftId && (
@@ -221,6 +292,15 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
               <div><p className="text-xs font-bold text-emerald-700">선택한 제작 방식</p><p className="mt-1 font-black text-slate-800">{body?.name || "이미지만 사용하기"}</p></div>
               <button type="button" disabled={saving} onClick={() => setSearchParams(body ? { body: body.id } : {})} className="min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-emerald-800 disabled:opacity-50">모양 다시 고르기</button>
             </div>
+            {body && imageStep && !catalogOpen && (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-white px-4 py-3">
+                <p className="text-sm text-slate-600">사진 없이 만들면 사진 창 자리까지 저금통의 색과 무늬가 이어져요.</p>
+                <button type="button" disabled={saving || readingSource} onClick={() => void handleCreateDraft(true)}
+                  className="min-h-11 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-800 disabled:opacity-50">
+                  저금통 모양만 사용할래요 →
+                </button>
+              </div>
+            )}
             <div className="studio-workspace">
               <div hidden={inputMode !== "DRAW"} className="studio-editor min-w-0"><JarDesignCanvas workshopLayout toolboxHeader={sourceTabs} disabled={saving || !imageStep || inputMode !== "DRAW"} onConfirm={setDesignSource} initialCanvas={initialImageCanvas} onSnapshot={value => early.patch({ imageCanvas: value })} onDirtyChange={value => { setSourceDirty(value); early.patch({ sourceDirty: value }); }} /></div>
               {inputMode === "UPLOAD" && (
@@ -265,8 +345,9 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
           </section>
         )}
 
-        {error && !(imageStep && inputMode === "UPLOAD") && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
-        {draftId && <AiCandidateGallery key={`${userId}:${draftId}`} userId={userId} draftId={draftId} onStepChange={setGalleryStep} />}
+        {error && !(imageStep && inputMode === "UPLOAD") && !(catalogOpen && !imageStep && catalogMode) && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">{error}</p>}
+        {draftId && <AiCandidateGallery key={`${userId}:${draftId}`} userId={userId} draftId={draftId}
+          onStepChange={setGalleryStep} onBodyOnlyChange={setBodyOnlyDraft} />}
       </main>
     </div>
   );

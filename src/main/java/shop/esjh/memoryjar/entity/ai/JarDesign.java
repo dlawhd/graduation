@@ -51,7 +51,7 @@ public class JarDesign {
     @Column(name = "design_type", nullable = false, length = 20)
     private JarDesignType designType;
 
-    @Column(name = "final_s3_key", nullable = false, length = 512)
+    @Column(name = "final_s3_key", length = 512)
     private String finalS3Key;
 
     /** 임시 Draft 정리와 무관하게 보존하는 영구 테두리 PNG다. */

@@ -37,7 +37,7 @@ const DISCONNECTED_FALLBACK_REFRESH_MS = 3_000;
  * 하나의 Draft에 쌓인 AI 후보를 조회·생성·선택하는 보관함이다.
  * 이미지 URL은 DB 응답에 저장하지 않고, 성공 후보를 렌더링할 때만 별도 Presigned URL을 요청한다.
  */
-export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
+export default function AiCandidateGallery({ draftId, userId, onStepChange, onBodyOnlyChange }) {
   const navigate = useNavigate();
   const { connected, subscribe } = useStompClient();
   const [draft, setDraft] = useState(null);
@@ -87,6 +87,9 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
     .filter((generation) => generation.status === "SUCCEEDED")
     .map((generation) => generation.generationId));
   const draftStatus = draft?.status;
+  const bodyOnly = draft?.selectedDesignType === "BODY_ONLY";
+  const bodyArtworkAvailable = draft?.bodyArtworkAvailable;
+  const bodyArtworkMissing = bodyOnly && bodyArtworkAvailable && !draft?.customBody?.artworkUrl;
   const body = getJarBody(draft?.bodyStyle, draft?.customBody);
   useEffect(() => {
     if (!loading && scrollToEditorRef.current && draft?.selectedDesignType) {
@@ -182,7 +185,7 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
 
   useEffect(() => {
     let cancelled = false;
-    if (Number(draft?.draftId) !== Number(draftId) || draftStatus !== "ACTIVE") {
+    if (Number(draft?.draftId) !== Number(draftId) || draftStatus !== "ACTIVE" || (bodyOnly && !bodyArtworkAvailable)) {
       originalPreviewUrlRef.current = "";
       previewUrlsRef.current = {};
       setOriginalPreviewUrl("");
@@ -195,7 +198,7 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
     const missingCandidateIds = succeededCandidateIds
       .filter((generationId) => !previewUrlsRef.current[generationId]);
     const previewRequests = [
-      ...(originalPreviewUrlRef.current ? [] : [
+      ...(originalPreviewUrlRef.current || (bodyOnly && bodyArtworkUrlRef.current) ? [] : [
         getJarDesignOriginalPreview(draftId)
           .then((preview) => ["original", preview.previewUrl,preview.bodyArtworkUrl])
           .catch(() => ["original", null]),
@@ -215,9 +218,9 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
     Promise.all(previewRequests).then((entries) => {
       if (!cancelled) {
         const originalEntry = entries.find(([key]) => key === "original");
-        if (originalEntry?.[1]) {
-          originalPreviewUrlRef.current = originalEntry[1];
-          setOriginalPreviewUrl(originalEntry[1]);
+        if (originalEntry?.[1] || originalEntry?.[2]) {
+          originalPreviewUrlRef.current = originalEntry[1] || "";
+          setOriginalPreviewUrl(originalPreviewUrlRef.current);
           bodyArtworkUrlRef.current=originalEntry[2]||"";
           if(originalEntry[2]) setDraft(current=>current?.customBody?{...current,customBody:{...current.customBody,artworkUrl:originalEntry[2]}}:current);
         }
@@ -234,7 +237,7 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
     return () => {
       cancelled = true;
     };
-  }, [draft?.draftId, draftStatus, previewCandidateIds, previewRefreshVersion, draftId]);
+  }, [draft?.draftId, draftStatus, bodyOnly, bodyArtworkAvailable, previewCandidateIds, previewRefreshVersion, draftId]);
 
   /** 만료되거나 일시 실패한 원본 URL 하나만 다시 발급한다. */
   const refreshOriginalPreview = useCallback(async () => {
@@ -365,6 +368,9 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
   const detailsReady = canEditDesignDetails(draft, confirmedSelectionKey);
   const selectedPreview = draft?.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft?.selectedGenerationId];
   const needsComposition = Boolean(draft?.status === "ACTIVE" && customSelected && (editingComposition || (body && !draft.photoFrame)));
+  useEffect(() => {
+    onBodyOnlyChange?.(bodyOnly);
+  }, [bodyOnly, onBodyOnlyChange]);
   // 이전 단계로 돌아오거나 저장된 Draft를 이어갈 때도 실제 편집 단계와 상단 표시를 맞춘다.
   useEffect(() => {
     const step = readDesignResume(userId, draftId, "step");
@@ -407,6 +413,17 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
       onStepChange?.(step);
       try { writeDesignResume(userId, draftId, "step", step); } catch { /* 현재 단계 편집은 계속한다. */ }
     }} className="mt-8 rounded-[28px] border border-violet-100 bg-white p-4 shadow-[0_12px_32px_rgba(76,29,149,0.08)] sm:p-8">
+      {bodyOnly && draftStatus === "ACTIVE" && (
+        <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p>고른 저금통의 색과 무늬를 살렸어요. 투입구를 정한 뒤 이름과 열리는 날짜를 골라요.</p>
+          {bodyArtworkMissing && (
+            <button type="button" onClick={() => void refreshOriginalPreview()} className="mt-2 min-h-11 font-bold underline">
+              저장한 테두리 그림 다시 불러오기
+            </button>
+          )}
+        </div>
+      )}
+      {!bodyOnly && <>
       {inquiryGeneration && <SupportInquiryModal key={`${draftId}:${inquiryGeneration.generationId}`} draftId={draftId}
         generation={inquiryGeneration} existing={inquiries[inquiryGeneration.generationId]} originalUrl={originalPreviewUrl}
         onClose={() => setInquiryGeneration(null)}
@@ -529,6 +546,7 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 p-4"><p className="text-xs leading-5 text-slate-500">직접 그린 디자인 대신, 기본 테마 저금통을 써도 좋아요.</p><button type="button" onClick={() => void handleSelectDefault()} disabled={loading || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.selectedDesignType === "DEFAULT"} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 disabled:opacity-50">{draft?.selectedDesignType === "DEFAULT" ? "기본 저금통 선택됨 ✓" : "기본 저금통으로 계속하기 →"}</button></div>
       {comparisonId !== null && (() => { const candidate = draft?.generations?.find((g) => g.generationId === comparisonId); return candidate && <CandidateComparison slot={draft ? storedSlot(draft) : null} bodyStyle={draft?.bodyStyle} customBody={draft?.customBody} photoFit={draft?.photoFrame?.fit} originalContentFrame={draft?.originalContentFrame} originalPhotoFrame={draft?.aiInputPhotoFrame} originalUrl={originalPreviewUrl} candidateUrl={previewUrls[comparisonId]} title={styleLabel(candidate.style)} style={candidate.style} disabled={selectingGenerationId !== null || slotSaving || cutoutSaving || hasProcessingGeneration}
         onClose={() => setComparisonId(null)} onSelect={() => { setComparisonId(null); void handleSelect(comparisonId); }} />; })()}
+      </>}
       <div ref={editorRef} className="scroll-mt-24" />
       {!loading && draft?.status === "ACTIVE" && customSelected && !detailsReady && <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
         원본 또는 마음에 드는 AI 후보를 선택하면 다음으로 입구와 배경을 설정해요.
@@ -548,7 +566,7 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange }) {
           draft={draft}
           previewUrl={draft.selectedDesignType === "ORIGINAL" ? originalPreviewUrl : previewUrls[draft.selectedGenerationId]}
           cutoutRegions={draft.cutoutRegions?.length ? draft.cutoutRegions : draft.cutoutPoints}
-          disabled={Boolean(generatingStyle) || selectingGenerationId !== null || cutoutSaving || cutoutDirty}
+          disabled={bodyArtworkMissing || Boolean(generatingStyle) || selectingGenerationId !== null || cutoutSaving || cutoutDirty}
           onBusyChange={setSlotSaving}
           onDirtyChange={setSlotDirty}
           onSaved={(slot) => setDraft((current) => ({ ...current,

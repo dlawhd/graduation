@@ -24,6 +24,23 @@ export async function createJarDesignDraft(imageFile, bodyStyle, customBody) {
     uploadFile,
     uploadFile.name || "jar-design-original.png"
   );
+  appendDraftBody(formData, bodyStyle, customBody);
+
+  await ensureCsrf();
+  const response = await apiClient.post(DRAFT_BASE_URL, formData, { timeout: 90_000 });
+  return unwrap(response);
+}
+
+/** 사진 대신 선택한 본체와 직접 꾸민 테두리만 서버 초안으로 저장한다. */
+export async function createBodyOnlyDesignDraft(bodyStyle, customBody) {
+  const formData = new FormData();
+  formData.append("bodyOnly", "true");
+  appendDraftBody(formData, bodyStyle, customBody);
+  await ensureCsrf();
+  return unwrap(await apiClient.post(DRAFT_BASE_URL, formData, { timeout: 90_000 }));
+}
+
+function appendDraftBody(formData, bodyStyle, customBody) {
   // 본체는 이미지에 합성하지 않는다. 원본은 AI 입력으로 유지하고 서버에는 선택 코드만 함께 저장한다.
   if (bodyStyle) formData.append("bodyStyle", bodyStyle);
   if (bodyStyle === "CUSTOM" && customBody) {
@@ -39,9 +56,6 @@ export async function createJarDesignDraft(imageFile, bodyStyle, customBody) {
     }
   }
 
-  await ensureCsrf();
-  const response = await apiClient.post(DRAFT_BASE_URL, formData, { timeout: 90_000 });
-  return unwrap(response);
 }
 
 /** 현재 로그인한 계정의 유효한 서버 초안 목록을 조회한다. */

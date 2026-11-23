@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import apiClient, { fetchCsrf } from "../api/apiClient";
 import CreationExperience from "../features/jarDesign/components/CreationExperience";
 import CreationChoices from "../features/jarDesign/components/CreationChoices";
+import DefaultJarArtwork, { SPRING_PREVIEW_PRESET } from "../features/jarDesign/components/DefaultJarArtwork";
 import { presentCreation } from "../features/jarDesign/creationTiming.mjs";
 import { isFutureJarOpenTime } from "../features/jarDetail/utils/jarOpenTime.mjs";
 import SandIcon from "../components/icons/SandIcon";
@@ -231,42 +232,7 @@ const JAR_TEMPLATES = [
 // 저금통 theme 값만 보고 오른쪽 미리보기 카드, 저금통 뚜껑, 몸통 색을 정해주는 함수야.
 function getVisualPreset(theme) {
   // 봄 테마: 벚꽃, 분홍
-  if (theme === "SPRING") {
-    return {
-      previewCardStyle: {
-        background:
-          "linear-gradient(135deg, #fff1f4 0%, #fff7fb 45%, #fff6eb 100%)",
-      },
-      badgeStyle: {
-        backgroundColor: "#ffeff5",
-        color: "#e63c74",
-      },
-      themeBadgeStyle: {
-        backgroundColor: "#fff3e8",
-        color: "#ff8a3d",
-      },
-      glowStyle: {
-        background:
-          "radial-gradient(circle, rgba(255,108,163,0.35) 0%, rgba(255,108,163,0.06) 65%, rgba(255,108,163,0) 100%)",
-      },
-      lidStyle: {
-        background: "linear-gradient(90deg, #ff6391 0%, #ffb25e 100%)",
-      },
-      jarBodyStyle: {
-        background:
-          "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,248,251,0.92) 55%, rgba(255,241,228,0.96) 100%)",
-        border: "4px solid rgba(255,255,255,0.8)",
-        boxShadow: "0 24px 45px rgba(255, 118, 160, 0.20)",
-      },
-      labelPillStyle: {
-        backgroundColor: "rgba(255,255,255,0.92)",
-        color: "#5b5560",
-      },
-      centerEmoji: <SpringIcon size={64} />,
-      decor: [],
-      accentLine: "#ff7ea8",
-    };
-  }
+  if (theme === "SPRING") return SPRING_PREVIEW_PRESET;
 
   // 여름 테마: 햇살, 잎, 초록
   if (theme === "SUMMER") {
@@ -1151,82 +1117,31 @@ function JarIllustration({ template, form }) {
         animate={{ y: [0, -10, 0] }}
         transition={{ duration: 3.1, repeat: Infinity, ease: "easeInOut" }}
       >
-        <div className="relative h-[300px] w-[240px]">
-          {/* 뚜껑 */}
-          <div
-            className="absolute left-1/2 top-[0px] z-20 h-[48px] w-[180px] -translate-x-1/2 rounded-full shadow-xl"
-            style={preset.lidStyle}
-          />
-          <div
-            className="absolute left-1/2 top-[17px] z-30 h-[7px] w-[58px] -translate-x-1/2 rounded-full"
-            style={{ backgroundColor: "rgba(80, 70, 70, 0.72)" }}
-          />
-
-          {/* 몸통 */}
-          <div
-            className="absolute left-1/2 top-[36px] z-10 h-[240px] w-[195px] -translate-x-1/2 overflow-hidden"
-            style={{
-              ...preset.jarBodyStyle,
-              borderRadius: "42% 42% 28% 28%",
-            }}
-          >
-            {/* 유리 반짝임 */}
-            <div
-              className="absolute left-[20px] top-[24px] z-30 h-[130px] w-[14px] rounded-full"
+        <DefaultJarArtwork preset={preset}>
+          {/* 자동으로 흩날리는 장식 */}
+          {particles.map((particle) => (
+            <span
+              key={particle.id}
+              className="preview-jar-particle absolute z-20 flex select-none items-center justify-center"
               style={{
-                background: "rgba(255,255,255,0.72)",
-                filter: "blur(2px)",
+                left: `${particle.left}%`,
+                top: `${particle.top}%`,
+                fontSize: `${particle.size}px`,
+                "--fall-x": `${particle.fallX}px`,
+                "--fall-y": `${particle.fallY}px`,
+                "--fall-rotate": `${particle.rotate}deg`,
+                "--fall-duration": `${particle.duration}s`,
+                "--fall-delay": `${particle.delay}s`,
               }}
-            />
-            <div
-              className="absolute right-[18px] top-[36px] z-30 h-[80px] w-[8px] rounded-full"
-              style={{
-                background: "rgba(255,255,255,0.45)",
-                filter: "blur(2px)",
-              }}
-            />
-
-            {/* 자동으로 흩날리는 장식 */}
-            {particles.map((particle) => (
-              <span
-                key={particle.id}
-                className="preview-jar-particle absolute z-20 flex select-none items-center justify-center"
-                style={{
-                  left: `${particle.left}%`,
-                  top: `${particle.top}%`,
-                  fontSize: `${particle.size}px`,
-                  "--fall-x": `${particle.fallX}px`,
-                  "--fall-y": `${particle.fallY}px`,
-                  "--fall-rotate": `${particle.rotate}deg`,
-                  "--fall-duration": `${particle.duration}s`,
-                  "--fall-delay": `${particle.delay}s`,
-                }}
-              >
-                {typeof particle.icon === "string"
-                  ? particle.icon
-                  : particle.icon.type === "emoji"
-                    ? particle.icon.value
-                    : particle.icon.render(particle.size)}
-              </span>
-            ))}
-
-            {/* 안쪽 내용 */}
-            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3">
-              <div className="flex h-[70px] w-[70px] items-center justify-center text-[52px]">
-                {preset.centerEmoji}
-              </div>
-            </div>
-          </div>
-
-          {/* 그림자 */}
-          <div
-            className="absolute bottom-[0px] left-1/2 h-[20px] w-[130px] -translate-x-1/2 rounded-full"
-            style={{
-              backgroundColor: "rgba(100, 116, 139, 0.20)",
-              filter: "blur(8px)",
-            }}
-          />
-        </div>
+            >
+              {typeof particle.icon === "string"
+                ? particle.icon
+                : particle.icon.type === "emoji"
+                  ? particle.icon.value
+                  : particle.icon.render(particle.size)}
+            </span>
+          ))}
+        </DefaultJarArtwork>
       </motion.div>
     </div>
   );

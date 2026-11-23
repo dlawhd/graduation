@@ -9,6 +9,7 @@ import shop.esjh.memoryjar.config.properties.AiDraftProperties;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.ai.JarDesignDraft;
 import shop.esjh.memoryjar.enums.ai.JarBodyStyle;
+import shop.esjh.memoryjar.enums.ai.JarDraftDesignType;
 import shop.esjh.memoryjar.repository.UserRepository;
 import shop.esjh.memoryjar.repository.ai.JarAiGenerationRepository;
 import shop.esjh.memoryjar.repository.ai.JarDesignDraftRepository;
@@ -40,6 +41,23 @@ class JarBodyPersistenceTest {
         assertThat(result.bodyStyle()).isEqualTo(body);
         verify(drafts).save(draft);
         verify(generations).findByDraft_DraftIdOrderByGenerationIdDesc(10L);
+    }
+
+    @Test
+    void retainsCustomBorderWithoutStoringAnOriginalImage() {
+        UserRepository users = mock(UserRepository.class);
+        JarDesignDraftRepository drafts = mock(JarDesignDraftRepository.class);
+        when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(User.builder().id(1L).build()));
+        when(drafts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var outline = CustomJarBodyTest.outline();
+
+        var draft = new JarDesignDraftPersistenceService(users, drafts, new AiDraftProperties())
+                .createBodyOnlyDraft(1L, JarBodyStyle.CUSTOM, outline, "border.png");
+
+        assertThat(draft.getSelectedDesignType()).isEqualTo(JarDraftDesignType.BODY_ONLY);
+        assertThat(draft.getOriginalS3Key()).isNull();
+        assertThat(draft.getBodyArtworkS3Key()).isEqualTo("border.png");
+        assertThat(draft.getCustomBody()).isEqualTo(outline);
     }
 
     @Test

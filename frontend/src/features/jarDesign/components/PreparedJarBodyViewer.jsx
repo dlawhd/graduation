@@ -4,7 +4,7 @@ import JarBodyArtwork from "./JarBodyArtwork";
 import { preparedBodyOutline } from "../preparedBody3D.mjs";
 
 /** 기존 SVG를 로컬 텍스처로 재사용한다. 사진은 별도로 입혀 원본 URL/저장 배치를 유지한다. */
-export default function PreparedJarBodyViewer({body, children, ...props}) {
+export default function PreparedJarBodyViewer({body, bodyOnly, children, ...props}) {
   const sourceRef=useRef(null), [prepared,setPrepared]=useState(null);
   useEffect(()=>{
     try {
@@ -23,12 +23,12 @@ export default function PreparedJarBodyViewer({body, children, ...props}) {
       decorations.setAttribute("xmlns","http://www.w3.org/2000/svg");
       for(const element of svg.querySelectorAll("defs,[data-body-decoration]"))decorations.append(element.cloneNode(true));
       const decorationSvg=new XMLSerializer().serializeToString(decorations);
-      setPrepared({id:body.id,customBody:{...outline,artworkUrl,decorationSvg}});
+      setPrepared({body:{...body,bodyOnly},customBody:{...outline,artworkUrl,decorationSvg}});
     } catch {setPrepared(null);}
-  },[body]);
+  },[body,bodyOnly]);
   return <>
-    <div ref={sourceRef} hidden aria-hidden="true"><JarBodyArtwork bodyStyle={body.id}/></div>
+    <div ref={sourceRef} hidden aria-hidden="true"><JarBodyArtwork bodyStyle={body.id} bodyOnly={bodyOnly}/></div>
     {/* 사진 교체는 원래 2D로 복귀한다. 새 사진으로 불필요한 GPU를 만들었다 즉시 폐기하지 않도록 뷰어도 초기화한다. */}
-    {prepared?.id===body.id ? <CustomJarBodyViewer key={`${body.id}:${props.imageUrl||""}`} controlsOutside {...props} customBody={prepared.customBody} preparedBody={body}>{children}</CustomJarBodyViewer> : children}
+    {prepared?.body.id===body.id && prepared.body.bodyOnly===bodyOnly ? <CustomJarBodyViewer key={`${body.id}:${props.imageUrl||""}`} controlsOutside {...props} customBody={prepared.customBody} preparedBody={prepared.body}>{children}</CustomJarBodyViewer> : children}
   </>;
 }

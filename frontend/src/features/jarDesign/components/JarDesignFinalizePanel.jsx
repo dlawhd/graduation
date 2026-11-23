@@ -84,6 +84,7 @@ export default function JarDesignFinalizePanel({
   const [failedImageKey, setFailedImageKey] = useState("");
   const [retryingPreview, setRetryingPreview] = useState(false);
   const isCustom = draft.selectedDesignType === "ORIGINAL" || draft.selectedDesignType === "AI";
+  const bodyOnly = draft.selectedDesignType === "BODY_ONLY";
   const slot = storedSlot(draft);
   const cutoutMaskStyle = toCutoutMaskStyle(draft.cutoutRegions?.length ? draft.cutoutRegions : draft.cutoutPoints);
   const hasProcessing = (draft.generations || []).some((generation) => generation.status === "PROCESSING");
@@ -105,8 +106,10 @@ export default function JarDesignFinalizePanel({
     loadedImageKey,
     failedImageKey,
   });
-  const previewReady = !isCustom || (Boolean(imageUrl) && previewState === "ready");
-  const blockedReason = getBlockedReason({ isCustom, slot, slotDirty, slotSaving, cutoutDirty, cutoutSaving, hasProcessing, previewReady });
+  const previewReady = bodyOnly
+    ? !draft.bodyArtworkAvailable || Boolean(draft.customBody?.artworkUrl)
+    : !isCustom || (Boolean(imageUrl) && previewState === "ready");
+  const blockedReason = getBlockedReason({ isCustom: isCustom || bodyOnly, slot, slotDirty, slotSaving, cutoutDirty, cutoutSaving, hasProcessing, previewReady });
   const formLocked = Boolean(disabled || finalizing);
   const submitLocked = Boolean(disabled || finalizing || blockedReason);
 
@@ -193,7 +196,7 @@ export default function JarDesignFinalizePanel({
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="최종 미리보기와 저금통 만들기">
       {finalizing && <CreationExperience theme={form.theme} name={form.name}>
-        {isCustom && imageUrl ? <div className="relative h-full w-full"><JarDesignImage bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={imageUrl} alt="만드는 중인 저금통" imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)} slot={slot}/></div> : null}
+        {(bodyOnly || (isCustom && imageUrl)) && <div className="relative h-full w-full"><JarDesignImage bodyStyle={draft.bodyStyle} customBody={draft.customBody} photoFrame={draft.photoFrame} imageUrl={imageUrl} fillEmptyBody={bodyOnly} alt="만드는 중인 저금통" imageStyle={cutoutMaskStyle} imageRendering={draftImageRendering(draft)} slot={slot}/></div>}
       </CreationExperience>}
       <div>
         <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700">마지막 단계</div>
@@ -224,7 +227,11 @@ export default function JarDesignFinalizePanel({
                 {previewState === "loading" ? "최종 이미지를 불러오는 중이에요." : "최종 이미지를 불러오지 못했어요."}
               </div>
             )}
-            {!isCustom && (
+            {bodyOnly && (
+              <JarDesignImage bodyStyle={draft.bodyStyle} customBody={draft.customBody} fillEmptyBody alt="모양만 사용한 저금통 최종 미리보기"
+                allow3D slot={slot} viewDisabled={formLocked} />
+            )}
+            {!isCustom && !bodyOnly && (
               <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-violet-100 via-white to-pink-100 p-8 text-center">
                 {getThemeIcon(form.theme, 112)}
                 <p className="mt-4 text-lg font-black text-slate-800">기본 {THEME_LABELS[form.theme]} 저금통</p>
@@ -236,7 +243,7 @@ export default function JarDesignFinalizePanel({
           {isCustom && <button type="button" onClick={() => void retryPreview()} disabled={retryingPreview || formLocked}
             className="mt-3 min-h-11 text-sm font-bold text-violet-700 disabled:opacity-50">{retryingPreview ? "이미지 불러오는 중..." : "이미지 다시 불러오기"}</button>}
           <p className="mt-3 text-xs leading-5 text-slate-500">
-            {draft.selectedDesignType === "AI" ? "선택한 AI 후보와 저장한 투입구 위치" : draft.selectedDesignType === "ORIGINAL" ? "정규화한 원본과 저장한 투입구 위치" : "기존 기본 Jar 생성 방식"}
+            {bodyOnly ? "선택한 저금통 모양과 저장한 투입구 위치" : draft.selectedDesignType === "AI" ? "선택한 AI 후보와 저장한 투입구 위치" : draft.selectedDesignType === "ORIGINAL" ? "정규화한 원본과 저장한 투입구 위치" : "기존 기본 Jar 생성 방식"}
           </p>
         </div>
 

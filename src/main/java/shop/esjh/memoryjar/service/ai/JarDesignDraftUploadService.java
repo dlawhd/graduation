@@ -84,6 +84,43 @@ public class JarDesignDraftUploadService {
         }
     }
 
+    /** 사진은 생략하되, 직접 그린 틀에 픽셀 장식이 있으면 기존과 같은 방식으로 보존한다. */
+    public JarDesignDraftCreateResponse createBodyOnlyDraft(Long userId, JarBodyStyle bodyStyle,
+                                                           shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,
+                                                           MultipartFile bodyArtwork) {
+        if (bodyArtwork == null) {
+            var draft = persistenceService.createBodyOnlyDraft(userId, bodyStyle, customBody, null);
+            return new JarDesignDraftCreateResponse(draft.getDraftId(), draft.getExpiresAt());
+        }
+        shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
+        if (bodyStyle != JarBodyStyle.CUSTOM || customBody == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "테두리 그림은 직접 만든 틀에서만 사용할 수 있습니다.");
+        }
+        if (!userRepository.existsById(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
+        }
+        try (var permit = imageWork.acquire()) {
+            byte[] artwork = JarBodyArtworkImageValidator.normalize(bodyArtwork);
+            moderationService.verifyAllowed(imageValidator.normalizeWithContentFrame(artwork).pngBytes());
+            String artworkKey = createImmutableOriginalS3Key() + ".body.png";
+            putPrivateOriginal(artworkKey, artwork);
+            try {
+                var draft = persistenceService.createBodyOnlyDraft(userId, bodyStyle, customBody, artworkKey);
+                return new JarDesignDraftCreateResponse(draft.getDraftId(), draft.getExpiresAt());
+            } catch (RuntimeException exception) {
+                // DB 결과를 확인할 수 없다면 이미 저장된 틀을 잃지 않도록 파일을 보존한다.
+                try {
+                    if (persistenceService.mayDeleteBodyArtwork(userId, artworkKey)) {
+                        deleteOriginalAfterPersistenceFailure(artworkKey);
+                    }
+                } catch (RuntimeException verificationUnavailable) {
+                    exception.addSuppressed(verificationUnavailable);
+                }
+                throw exception;
+            }
+        }
+    }
+
     private JarDesignDraftCreateResponse processOriginal(Long userId, MultipartFile image, JarBodyStyle bodyStyle,
             shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody, MultipartFile bodyArtwork) {
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);

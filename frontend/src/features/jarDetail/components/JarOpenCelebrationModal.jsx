@@ -63,7 +63,10 @@ function OpeningExperience({ jar, palette, event, onClose, onViewNotes, onReload
   const reduced = systemReduced;
   const [artAttempt, setArtAttempt] = useState(0), [reloading, setReloading] = useState(false);
   const artVersion = JSON.stringify([jar.design?.imageUrl, jar.design?.bodyArtworkUrl, artAttempt]);
-  const initialArtStatus = jar.design ? jar.design.imageUrl ? "loading" : "error" : "ready";
+  const bodyOnly = jar.design?.designType === "BODY_ONLY";
+  const initialArtStatus = bodyOnly
+    ? jar.design.bodyArtworkUrl ? "loading" : "ready"
+    : jar.design ? jar.design.imageUrl ? "loading" : "error" : "ready";
   const [art, setArt] = useState({ version: artVersion, status: initialArtStatus });
   const artStatus = art.version === artVersion ? art.status : initialArtStatus;
   const currentArt = useRef(artVersion), loadedPieces = useRef({ version: artVersion, ids: new Set() });

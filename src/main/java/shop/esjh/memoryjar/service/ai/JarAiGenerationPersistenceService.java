@@ -54,6 +54,9 @@ public class JarAiGenerationPersistenceService {
     public GenerationStartTarget start(Long userId, Long draftId, JarAiStyle style,
                                        AiPromptCatalog.AiPromptDefinition promptDefinition, Long seed) {
         JarDesignDraft draft = draftService.findOwnedActiveDraftForUpdate(userId, draftId);
+        if (draft.getSelectedDesignType() == JarDraftDesignType.BODY_ONLY) {
+            throw new ApiException(AiDraftErrorCode.DRAFT_IMAGE_ACTION_UNAVAILABLE);
+        }
         if (generationRepository.existsByDraft_DraftIdAndStatus(draft.getDraftId(), JarAiGenerationStatus.PROCESSING)) {
             throw new ApiException(AiDraftErrorCode.AI_GENERATION_ALREADY_PROCESSING);
         }

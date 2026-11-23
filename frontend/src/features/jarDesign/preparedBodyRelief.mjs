@@ -1,13 +1,14 @@
 import { Mesh, MeshStandardMaterial, SphereGeometry, Vector3, Raycaster } from "three";
 
 /** 앞면에는 원래 얼굴을, 뒷면과 옆면에는 본체 색을 사용해 뒤에도 얼굴이 생기는 것을 막는다. */
-export function preparedMaterialGroups(geometry) {
+export function preparedMaterialGroups(geometry, bodyOnly = false) {
   const indices=geometry.index.array, positions=geometry.attributes.position;
   const buckets=[[],[],[]];
   for(const group of geometry.groups) for(let i=group.start;i<group.start+group.count;i+=3) {
     const triangle=[indices[i],indices[i+1],indices[i+2]];
     const front=triangle.every(v=>positions.getZ(v)>0);
-    const material=group.materialIndex===1?1:front?0:2;
+    // 사진 창이 없는 디자인은 이 영역도 주변과 같은 재질로 연결한다.
+    const material=group.materialIndex===1&&!bodyOnly?1:front?0:2;
     buckets[material].push(...triangle);
   }
   geometry.setIndex(buckets.flat());geometry.clearGroups();

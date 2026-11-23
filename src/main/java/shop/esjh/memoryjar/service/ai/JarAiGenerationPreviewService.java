@@ -53,6 +53,11 @@ public class JarAiGenerationPreviewService {
     @Transactional(readOnly = true)
     public JarAiGenerationPreviewResponse createOriginalPreviewUrl(Long userId, Long draftId) {
         JarDesignDraft draft = findOwnedActiveDraft(userId, draftId);
+        if (draft.getOriginalS3Key() == null && draft.getSelectedDesignType() == shop.esjh.memoryjar.enums.ai.JarDraftDesignType.BODY_ONLY) {
+            if (draft.getBodyArtworkS3Key() == null) return new JarAiGenerationPreviewResponse(null, null);
+            var artwork = presignPreviewUrl(draft.getBodyArtworkS3Key());
+            return new JarAiGenerationPreviewResponse(null, artwork.expiresAt(), artwork.previewUrl());
+        }
         var original=presignPreviewUrl(draft.getOriginalS3Key());
         return new JarAiGenerationPreviewResponse(original.previewUrl(),original.expiresAt(),
                 draft.getBodyArtworkS3Key()==null?null:presignPreviewUrl(draft.getBodyArtworkS3Key()).previewUrl());

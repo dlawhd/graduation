@@ -4,7 +4,7 @@ import JarBodyStage from "./JarBodyStage";
 import "../jarBodyPicker.css";
 
 /** 서버 요청 없이 본체를 검색·비교하고, 선택한 고정 ID만 다음 단계로 전달한다. */
-export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly, disabled = false, previewUrl = "" }) {
+export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly, disabled = false, previewUrl = "", bodyOnly = false, saving = false, error = "" }) {
   const [collection, setCollection] = useState("전체");
   const [query, setQuery] = useState("");
   const [viewControlsTarget, setViewControlsTarget] = useState(null);
@@ -12,6 +12,9 @@ export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly
   const selected = getJarBody(value);
   const previewBody = selected || JAR_BODIES[0];
   const bodies = filterJarBodies(collection, query);
+  const displayedImage = bodyOnly ? "" : previewUrl;
+  const action = saving ? "저장 중…" : bodyOnly ? "이 모양으로 계속하기 →" : "이 저금통에 그림 담기 →";
+  const hint = bodyOnly ? "선택한 모양 그대로 투입구를 정해요." : "다음 단계에서 내 사진이나 그림을 담고 원하면 AI로 꾸밀 수 있어요.";
   return <section aria-label="저금통 모양 선택" className="mt-7 grid grid-cols-1 items-start gap-6 pb-20 lg:grid-cols-[minmax(0,1fr)_340px] lg:pb-0">
     <div className="min-w-0">
       {onImageOnly && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4"><p className="text-sm text-stone-600">모양 없이 내 사진이나 그림 자체를 저금통으로 써도 좋아요.</p><button type="button" disabled={disabled} onClick={onImageOnly} className="min-h-11 rounded-xl bg-stone-100 px-4 text-sm font-bold text-stone-700">저금통 없이 이미지만 사용하기 →</button></div>}
@@ -28,7 +31,7 @@ export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly
         {bodies.map((body) => <button key={body.id} type="button" disabled={disabled} aria-pressed={value === body.id} aria-label={`${body.name} · ${body.description}`} onClick={() => onChange(body.id)} className={`group relative min-w-0 overflow-hidden rounded-[22px] border bg-[#fffdf9] text-left transition-[border-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-50 ${value === body.id ? "border-emerald-600 shadow-[0_6px_20px_rgba(30,80,60,.12)] ring-2 ring-emerald-600/20" : "border-stone-200/80 hover:border-emerald-400 hover:shadow-md"}`}>
           <span className="absolute left-3 top-3 z-10 text-[9px] font-bold tracking-[.18em] text-stone-600">OBJECT {String(JAR_BODIES.indexOf(body) + 1).padStart(2, "0")}</span>
           {value === body.id && <span className="absolute right-2 top-2 z-10 rounded-full bg-emerald-800 px-2 py-1 text-[10px] font-bold text-white">선택 ✓</span>}
-          <JarBodyStage body={body} imageUrl={previewUrl}/>
+          <JarBodyStage body={body} imageUrl={displayedImage} bodyOnly={bodyOnly}/>
           <div className="border-t border-stone-200/50 px-3 py-4 sm:px-4"><h3 className="text-sm font-black text-slate-800">{body.name}</h3><p className="mt-1 min-h-10 text-[11px] leading-5 text-stone-500">{body.description}</p><div aria-hidden="true" className="mt-2 flex items-center gap-1.5">{[body.colors.base,body.colors.shade,body.colors.accent].map((color) => <span key={color} className="h-2 w-2 rounded-full ring-1 ring-black/5" style={{ background:color }}/>)}</div></div>
         </button>)}
       </div>
@@ -36,11 +39,12 @@ export default function JarBodyPicker({ value, onChange, onContinue, onImageOnly
     </div>
     <aside aria-label="선택한 저금통 미리보기" className="jar-body-choice-preview rounded-[28px] border border-white bg-[#fffdf8] p-4 shadow-[0_12px_40px_rgba(68,60,44,0.07)] lg:sticky lg:top-24">
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[10px] font-bold tracking-[.2em] text-emerald-800">YOUR LITTLE JAR</p><div ref={setViewControlsTarget} data-preview-header-controls className="ml-auto min-h-11"/></div>
-      <JarBodyStage body={previewBody} imageUrl={previewUrl} alt={previewBody.name} allow3D disabled={disabled} viewControlsTarget={viewControlsTarget} className="jar-body-choice-stage mx-auto mt-3 rounded-t-[100px] rounded-b-[22px] border border-stone-200/70"/>
-      <div className="mt-3" aria-live="polite"><p className="text-xs text-stone-500">{selected?.collection || `${JAR_BODIES.length}가지 모양, 하나뿐인 추억`}</p><h3 className="mt-1 text-xl font-black text-slate-800">{selected?.name || "마음에 드는 모양을 골라요"}</h3><p className="mt-2 text-xs leading-5 text-stone-600">{selected?.description || "모양을 누르면 크게 볼 수 있어요. 다음 단계에서 나만의 사진이나 그림을 담아주세요."}</p></div>
-      <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">일러스트는 예시예요. 다음 단계에서 내 사진 또는 그림을 담고 AI로 꾸밀 수 있어요!</p>
-      <button type="button" onClick={onContinue} disabled={disabled || !selected} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-800 px-4 py-3 text-sm font-black text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40">이 저금통에 그림 담기 →</button>
+      <JarBodyStage body={previewBody} imageUrl={displayedImage} bodyOnly={bodyOnly} alt={previewBody.name} allow3D disabled={disabled} viewControlsTarget={viewControlsTarget} className="jar-body-choice-stage mx-auto mt-3 rounded-t-[100px] rounded-b-[22px] border border-stone-200/70"/>
+      <div className="mt-3" aria-live="polite"><p className="text-xs text-stone-500">{selected?.collection || `${JAR_BODIES.length}가지 모양, 하나뿐인 추억`}</p><h3 className="mt-1 text-xl font-black text-slate-800">{selected?.name || "마음에 드는 모양을 골라요"}</h3><p className="mt-2 text-xs leading-5 text-stone-600">{selected?.description || "모양을 누르면 크게 볼 수 있어요."}</p></div>
+      <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">{hint}</p>
+      <button type="button" onClick={onContinue} disabled={disabled || !selected} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-800 px-4 py-3 text-sm font-black text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40">{action}</button>
+      {error && <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>}
     </aside>
-    {selected && <div className="fixed bottom-4 left-4 right-4 z-20 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-white/95 p-3 shadow-lg backdrop-blur lg:hidden"><span className="min-w-0 flex-1 truncate pl-1 text-sm font-black text-emerald-900" title={selected.name}>{selected.name}</span><button type="button" disabled={disabled} onClick={onContinue} className="min-h-11 shrink-0 rounded-xl bg-emerald-800 px-4 text-sm font-bold text-white">그림 담기 →</button></div>}
+    {selected && <div className="fixed bottom-4 left-4 right-4 z-20 rounded-2xl border border-emerald-100 bg-white/95 p-3 shadow-lg backdrop-blur lg:hidden"><div className="flex items-center justify-between gap-3"><span className="min-w-0 flex-1 truncate pl-1 text-sm font-black text-emerald-900" title={selected.name}>{selected.name}</span><button type="button" disabled={disabled} onClick={onContinue} className="min-h-11 shrink-0 rounded-xl bg-emerald-800 px-4 text-sm font-bold text-white">{bodyOnly || saving ? action : "그림 담기 →"}</button></div>{error && <p className="mt-2 text-xs text-rose-700" aria-hidden="true">{error}</p>}</div>}
   </section>;
 }

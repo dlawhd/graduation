@@ -52,7 +52,7 @@ public class JarDesignDraft {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
-    @Column(name = "original_s3_key", nullable = false, length = 512)
+    @Column(name = "original_s3_key", length = 512)
     private String originalS3Key;
 
     /** 원본/AI 입력과 분리한 테두리 PNG다. 종료 시 원본과 함께 삭제가 완료되어야 정리 완료로 기록한다. */
@@ -147,6 +147,14 @@ public class JarDesignDraft {
         this.bodyStyle = bodyStyle;
         this.expiresAt = expiresAt;
         this.status = JarDraftStatus.ACTIVE;
+    }
+
+    /** 새 초안에서 선택한 본체 자체를 디자인으로 사용한다. */
+    public void selectBodyOnly() {
+        if (bodyStyle == null || originalS3Key != null || selectedDesignType != null) {
+            throw new IllegalStateException("본체만 사용하는 새 초안에만 적용할 수 있습니다.");
+        }
+        selectedDesignType = JarDraftDesignType.BODY_ONLY;
     }
 
     /**

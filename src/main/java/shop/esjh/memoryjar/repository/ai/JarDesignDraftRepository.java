@@ -64,6 +64,7 @@ public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, 
             WHERE draft.status IN :terminalStatuses
               AND draft.updatedAt <= :terminalCutoff
               AND draft.originalS3DeletedAt IS NULL
+              AND (draft.originalS3Key IS NOT NULL OR draft.bodyArtworkS3Key IS NOT NULL)
             ORDER BY draft.draftId ASC
             """)
     List<DraftS3Reference> findUndeletedOriginalReferencesForTerminalDrafts(
@@ -86,4 +87,6 @@ public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, 
         String getOriginalS3Key();
         String getBodyArtworkS3Key();
     }
+
+    boolean existsByOwner_IdAndBodyArtworkS3Key(Long userId, String bodyArtworkS3Key);
 }

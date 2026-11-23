@@ -46,6 +46,14 @@ public class JarDesignDraftPersistenceService {
         return draftRepository.countOriginalReferencesIncludingDeleted(userId, originalS3Key) == 0;
     }
 
+    /** 본체 색과 장식을 저장한 PNG도 저장 결과가 확정된 뒤 참조가 없을 때만 삭제한다. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public boolean mayDeleteBodyArtwork(Long userId, String bodyArtworkS3Key) {
+        return userRepository.findByIdForUpdate(userId).isPresent()
+                && !draftRepository.existsByOwner_IdAndBodyArtworkS3Key(userId, bodyArtworkS3Key);
+    }
+
     /**
      * 업로드 요청자가 현재도 존재할 때만 ACTIVE Draft를 생성하고 7일 만료 시각을 기록한다.
      */
@@ -71,6 +79,23 @@ public class JarDesignDraftPersistenceService {
     @Transactional
     public JarDesignDraft createDraft(Long userId,String originalS3Key,JarBodyStyle bodyStyle,JarPhotoFrameValue contentFrame,
                                      shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,String bodyArtworkS3Key) {
+        return persistDraft(userId, originalS3Key, bodyStyle, contentFrame, customBody, bodyArtworkS3Key, false);
+    }
+
+    /** 본체만 선택한 초안은 이미지 업로드 없이 한 트랜잭션에서 저장한다. */
+    @Transactional
+    public JarDesignDraft createBodyOnlyDraft(Long userId, JarBodyStyle bodyStyle,
+                                             shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,
+                                             String bodyArtworkS3Key) {
+        if (bodyStyle == null) {
+            throw new shop.esjh.memoryjar.config.exception.ApiException(shop.esjh.memoryjar.enums.ai.AiDraftErrorCode.DRAFT_BODY_REQUIRED);
+        }
+        return persistDraft(userId, null, bodyStyle, null, customBody, bodyArtworkS3Key, true);
+    }
+
+    private JarDesignDraft persistDraft(Long userId, String originalS3Key, JarBodyStyle bodyStyle,
+                                        JarPhotoFrameValue contentFrame, shop.esjh.memoryjar.dto.ai.CustomJarBodyValue customBody,
+                                        String bodyArtworkS3Key, boolean bodyOnly) {
         shop.esjh.memoryjar.dto.ai.CustomJarBodyValue.validateFor(bodyStyle, customBody);
         // 이 잠금은 DB 기록 구간에서만 유지한다. S3 호출은 이 서비스 밖에서 끝난다.
         User owner = userRepository.findByIdForUpdate(userId)
@@ -87,6 +112,7 @@ public class JarDesignDraftPersistenceService {
         if (contentFrame != null) draft.setOriginalContentFrame(new JarPhotoFrame(contentFrame));
         draft.setCustomBody(customBody);
         draft.setBodyArtworkS3Key(bodyArtworkS3Key);
+        if (bodyOnly) draft.selectBodyOnly();
         return draftRepository.save(draft);
     }
 }

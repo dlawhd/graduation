@@ -58,9 +58,14 @@ public class JarDesignFinalizeService {
         if (target.designType() == JarDraftDesignType.DEFAULT) {
             return persistenceService.finalizeDefault(userId, draftId, request, target);
         }
+        if (target.designType() == JarDraftDesignType.BODY_ONLY && target.bodyArtworkS3Key() == null) {
+            return persistenceService.finalizeCustom(userId, draftId, request, target, null);
+        }
 
         String finalS3Key = finalS3KeyFactory.createKey(userId, draftId);
-        writeToPermanentS3(target.sourceS3Key(), finalS3Key, cutoutPathCodec.decodeRegions(target.cutoutPathJson()));
+        if (target.sourceS3Key() != null) {
+            writeToPermanentS3(target.sourceS3Key(), finalS3Key, cutoutPathCodec.decodeRegions(target.cutoutPathJson()));
+        }
         try {
             if(target.bodyArtworkS3Key()!=null) writeToPermanentS3(target.bodyArtworkS3Key(),finalS3Key+".body.png",List.of());
             return persistenceService.finalizeCustom(userId, draftId, request, target, finalS3Key);
@@ -68,8 +73,9 @@ public class JarDesignFinalizeService {
             // DB 확정 실패 시 이 요청만 만든 UUID 복사본을 지운다. 기존 임시 원본·후보는 건드리지 않는다.
             // 예외만으로 롤백을 단정하지 않는다. DB 확인까지 실패하면 운영 대조를 위해 사본을 보존한다.
             try {
-                if (persistenceService.mayDeleteFinalCopy(userId, draftId, finalS3Key)) {
-                    deleteCopiedFinalQuietly(finalS3Key);
+                String storedKey = target.sourceS3Key() == null ? finalS3Key + ".body.png" : finalS3Key;
+                if (persistenceService.mayDeleteFinalCopy(userId, draftId, storedKey)) {
+                    if (target.sourceS3Key() != null) deleteCopiedFinalQuietly(finalS3Key);
                     if(target.bodyArtworkS3Key()!=null) deleteCopiedFinalQuietly(finalS3Key+".body.png");
                 }
             } catch (RuntimeException verificationUnavailable) {

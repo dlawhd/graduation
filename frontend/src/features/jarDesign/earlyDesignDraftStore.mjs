@@ -25,6 +25,7 @@ export function earlyDesignSnapshot(value = {}) {
     bodyCanvas: png(value.bodyCanvas), imageCanvas: png(value.imageCanvas), sourceImage: file || null,
     sourceDirty: Boolean(value.sourceDirty), inputMode: value.inputMode === "UPLOAD" ? "UPLOAD" : "DRAW",
     imageOnly: Boolean(value.imageOnly), catalogOpen: Boolean(value.catalogOpen), step: value.step === 2 ? 2 : 1,
+    catalogMode: ["photo", "body-only"].includes(value.catalogMode) ? value.catalogMode : null,
   };
 }
 

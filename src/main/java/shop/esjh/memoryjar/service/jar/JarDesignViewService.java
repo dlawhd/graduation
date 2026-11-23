@@ -67,9 +67,10 @@ public class JarDesignViewService {
         OffsetDateTime imageExpiresAt = null;
         String bodyArtworkUrl = null;
 
-        if (expiresInSeconds > 0 && hasText(s3Properties.getBucket()) && hasText(design.getFinalS3Key())) {
+        if (expiresInSeconds > 0 && hasText(s3Properties.getBucket())
+                && (hasText(design.getFinalS3Key()) || hasText(design.getBodyArtworkS3Key()))) {
             try {
-                imageUrl = signImage(design.getFinalS3Key(), expiresInSeconds);
+                if (hasText(design.getFinalS3Key())) imageUrl = signImage(design.getFinalS3Key(), expiresInSeconds);
                 imageExpiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(expiresInSeconds);
                 if (hasText(design.getBodyArtworkS3Key())) {
                     bodyArtworkUrl = signImage(design.getBodyArtworkS3Key(), expiresInSeconds);
@@ -94,7 +95,7 @@ public class JarDesignViewService {
                 design.getSelectedGeneration() == null ? null : design.getSelectedGeneration().getAiStyle(),
                 design.getSlotStyle(),
                 design.getBodyStyle(), JarPhotoFrame.valueOf(design.getPhotoFrame()), design.getCustomBody(),bodyArtworkUrl,
-                "/api/v1/jars/"+design.getJar().getJarId()+"/design/texture?part=IMAGE",
+                design.getFinalS3Key()==null?null:"/api/v1/jars/"+design.getJar().getJarId()+"/design/texture?part=IMAGE",
                 design.getBodyArtworkS3Key()==null?null:"/api/v1/jars/"+design.getJar().getJarId()+"/design/texture?part=BODY"
         );
     }

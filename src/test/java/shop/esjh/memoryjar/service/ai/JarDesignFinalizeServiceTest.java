@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -98,6 +99,39 @@ class JarDesignFinalizeServiceTest {
 
         service().finalizeDraft(1L, 10L, request());
 
+        verifyNoInteractions(s3Client, keyFactory);
+    }
+
+    @Test
+    void finalizeBodyOnlyCopiesNoPhotoAndPreservesOptionalArtwork() {
+        var target = new JarDesignFinalizePersistenceService.FinalizeTarget(
+                JarDraftDesignType.BODY_ONLY, null, null, null, null, null, null, null,
+                shop.esjh.memoryjar.enums.ai.JarBodyStyle.CUSTOM, null, CustomJarBodyTest.outline(), "border.png");
+        when(persistenceService.prepare(1L, 10L)).thenReturn(target);
+        when(keyFactory.createKey(1L, 10L)).thenReturn("final.png");
+        var expected = new JarDesignFinalizePersistenceService.FinalizeResult(100L, JarDraftDesignType.BODY_ONLY);
+        when(persistenceService.finalizeCustom(eq(1L), eq(10L), any(), eq(target), eq("final.png"))).thenReturn(expected);
+
+        assertThat(service().finalizeDraft(1L, 10L, request())).isEqualTo(expected);
+        var copy = ArgumentCaptor.forClass(CopyObjectRequest.class);
+        verify(s3Client).copyObject(copy.capture());
+        assertThat(copy.getValue().copySource()).isEqualTo("test-bucket/border.png");
+        assertThat(copy.getValue().key()).isEqualTo("final.png.body.png");
+        verify(s3Client).headObject(argThat((HeadObjectRequest head) -> head.key().equals("border.png")));
+        verifyNoMoreInteractions(s3Client);
+        verifyNoInteractions(cutoutPathCodec);
+    }
+
+    @Test
+    void finalizePreparedBodyOnlyDoesNotCallS3() {
+        var target = new JarDesignFinalizePersistenceService.FinalizeTarget(
+                JarDraftDesignType.BODY_ONLY, null, null, null, null, null, null, null,
+                shop.esjh.memoryjar.enums.ai.JarBodyStyle.FROG);
+        when(persistenceService.prepare(1L, 10L)).thenReturn(target);
+        var expected = new JarDesignFinalizePersistenceService.FinalizeResult(100L, JarDraftDesignType.BODY_ONLY);
+        when(persistenceService.finalizeCustom(eq(1L), eq(10L), any(), eq(target), isNull())).thenReturn(expected);
+
+        assertThat(service().finalizeDraft(1L, 10L, request())).isEqualTo(expected);
         verifyNoInteractions(s3Client, keyFactory);
     }
 

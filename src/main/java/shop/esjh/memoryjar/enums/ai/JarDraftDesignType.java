@@ -6,5 +6,6 @@ package shop.esjh.memoryjar.enums.ai;
 public enum JarDraftDesignType {
     ORIGINAL,
     AI,
+    BODY_ONLY,
     DEFAULT
 }
