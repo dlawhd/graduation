@@ -9,6 +9,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import MemoryJarLogoIcon from "../icons/MemoryJarLogoIcon";
+import { useOAuthRedirectState } from "./useOAuthRedirectState";
 
 /*
  * SessionExpiredPage 역할
@@ -194,7 +195,7 @@ export default function SessionExpiredPage({
   const [
     redirectingProvider,
     setRedirectingProvider,
-  ] = useState(null);
+  ] = useOAuthRedirectState();
 
 
   // 환경변수나 Provider 값에 문제가 있을 때 사용자에게 보여줄 문구

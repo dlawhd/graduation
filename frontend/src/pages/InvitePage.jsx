@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { rememberLoginReturn } from "../api/loginReturn.mjs";
 import apiClient, { fetchCsrf } from "../api/apiClient";
+import { useOAuthRedirectState } from "../components/auth/useOAuthRedirectState";
 import MemoryJarLogoIcon from "../components/icons/MemoryJarLogoIcon";
 import InviteLetterIcon from "../components/icons/InviteLetterIcon";
 
@@ -251,7 +252,7 @@ export default function InvitePage({ me, checkingAuth }) {
   // 사용자가 로그인 버튼을 여러 번 누르는 것을 막고,
   // 어떤 로그인 화면으로 이동 중인지 정확하게 보여주기 위해 사용해.
   // --------------------------------------------------------
-  const [redirectingProvider, setRedirectingProvider] = useState(null);
+  const [redirectingProvider, setRedirectingProvider] = useOAuthRedirectState();
 
   // 자동 입장 처리를 한 번만 실행하기 위한 표시
   const autoJoinStartedRef = useRef(false);

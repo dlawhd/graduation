@@ -9,6 +9,7 @@ import {
   Link,
 } from "react-router-dom";
 
+import { useOAuthRedirectState } from "../components/auth/useOAuthRedirectState";
 import MemoryJarLogoIcon
   from "../components/icons/MemoryJarLogoIcon";
 
@@ -382,8 +383,7 @@ export default function FindLoginIdPage() {
   const [
     redirectingProvider,
     setRedirectingProvider,
-  ] =
-    useState(null);
+  ] = useOAuthRedirectState();
 
 
   /*

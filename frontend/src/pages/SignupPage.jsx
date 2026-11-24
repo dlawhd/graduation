@@ -5,6 +5,7 @@ import {
   useState,
 } from "react";
 import { Link } from "react-router-dom";
+import { useOAuthRedirectState } from "../components/auth/useOAuthRedirectState";
 import MemoryJarLogoIcon from "../components/icons/MemoryJarLogoIcon";
 import {
   validateNickname,
@@ -452,7 +453,7 @@ export default function SignupPage() {
   const [
     redirectingProvider,
     setRedirectingProvider,
-  ] = useState(null);
+  ] = useOAuthRedirectState();
 
   /*
    * 최종 회원가입 요청 상태

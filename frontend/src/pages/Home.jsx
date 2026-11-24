@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loginReturnTarget, rememberLoginReturn } from "../api/loginReturn.mjs";
+import { useOAuthRedirectState } from "../components/auth/useOAuthRedirectState";
 import {
   SecureMemoryIcon,
   SharedMemoryIcon,
@@ -61,7 +62,7 @@ export default function Home({
   // "카카오로 이동 중..."
   // 문구를 정확하게 보여줄 수 있다.
   // --------------------------------------------------------
-  const [redirectingProvider, setRedirectingProvider] = useState(null);
+  const [redirectingProvider, setRedirectingProvider] = useOAuthRedirectState();
 
   // 사용자에게 보여줄 에러 문구
   const [errorMessage, setErrorMessage] = useState("");
