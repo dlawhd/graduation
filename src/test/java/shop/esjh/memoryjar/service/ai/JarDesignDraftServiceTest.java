@@ -93,9 +93,10 @@ class JarDesignDraftServiceTest {
         when(draft.getBodyStyle()).thenReturn(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT);
         when(cutoutPathCodec.decodeRegions(null)).thenReturn(List.of());
         when(draftRepository.findResumable(eq(1L), any(), any(), any())).thenReturn(
-                new org.springframework.data.domain.SliceImpl<>(List.of(draft), org.springframework.data.domain.PageRequest.of(0, 2), true));
+                new org.springframework.data.domain.PageImpl<>(List.of(draft), org.springframework.data.domain.PageRequest.of(0, 2), 5));
         var result = draftService.listResumable(1L, 0);
         assertThat(result.hasNext()).isTrue();
+        assertThat(result.totalElements()).isEqualTo(5);
         assertThat(result.items().get(0).createdAt().getOffset()).isEqualTo(java.time.ZoneOffset.ofHours(9));
         assertThat(result.items().get(0).design().bodyStyle()).isEqualTo(shop.esjh.memoryjar.enums.ai.JarBodyStyle.CAT);
         assertThat(result.items().get(0).design().generations()).isEmpty();

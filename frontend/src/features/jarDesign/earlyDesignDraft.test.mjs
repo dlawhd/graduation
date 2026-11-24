@@ -105,6 +105,31 @@ test("서버 장애에도 브라우저 작업을 열 수 있고, 저장소 장�
   assert.equal((await pager.load()).items.length, 1);
   assert.ok((await pager.load()).warning);
 });
+test("서버와 브라우저 초안을 합산하고 삭제한 마지막 페이지를 다시 맞춘다", async () => {
+  let rows = [server(5, 500), server(4, 400), server(3, 300), server(2, 200), server(1, 100)];
+  const local = { kind: "LOCAL", id, updatedAt: 350 };
+  const requests = [];
+  const pager = createDesignDraftPager({
+    readLocal: async () => [local],
+    listServer: async page => {
+      requests.push(page);
+      return { items: rows.slice(page * 2, page * 2 + 2), hasNext: rows.length > (page + 1) * 2, totalElements: rows.length };
+    },
+  });
+  const first = await pager.load();
+  assert.equal(first.totalPages, 3);
+  assert.deepEqual(requests, [0]);
+  const last = await pager.load(2);
+  assert.deepEqual(last.items, rows.slice(-2));
+  assert.equal(last.hasNext, false);
+
+  rows = rows.slice(0, 3);
+  pager.reset();
+  const afterDelete = await pager.load(2);
+  assert.equal(afterDelete.page, 1);
+  assert.equal(afterDelete.totalPages, 2);
+  assert.deepEqual(afterDelete.items, [local, rows[2]]);
+});
 test("목록 초기화 전에 시작한 요청은 새 페이지 캐시를 덮어쓰지 않는다", async () => {
   let release;
   const response = new Promise(resolve => { release = resolve; });

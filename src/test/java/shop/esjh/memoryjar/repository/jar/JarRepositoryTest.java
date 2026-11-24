@@ -99,6 +99,7 @@ class JarRepositoryTest extends AbstractMariaDbRepositoryTest {
         assertThat(result.getContent()).extracting(shop.esjh.memoryjar.entity.ai.JarDesignDraft::getDraftId)
                 .containsExactly(active.getDraftId());
         assertThat(result.hasNext()).isFalse();
+        assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(drafts.findResumable(owner.getId(),shop.esjh.memoryjar.enums.ai.JarDraftStatus.ACTIVE,now,PageRequest.of(1,1))).isEmpty();
     }
 

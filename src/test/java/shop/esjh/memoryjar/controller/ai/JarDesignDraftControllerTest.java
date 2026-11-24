@@ -55,10 +55,11 @@ class JarDesignDraftControllerTest {
  @Test void resumeListUsesAuthenticatedOwnerAndDoesNotExposeStorageKeys() throws Exception {
   when(draftService.listResumable(1L,2)).thenReturn(new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse(
     java.util.List.of(new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse.Item(10L,JarBodyStyle.CAT,JarDraftDesignType.ORIGINAL,
-      OffsetDateTime.parse("2026-11-19T10:00:00+09:00"),OffsetDateTime.parse("2026-11-20T10:00:00+09:00"))),2,false));
+      OffsetDateTime.parse("2026-11-19T10:00:00+09:00"),OffsetDateTime.parse("2026-11-20T10:00:00+09:00"))),2,false,5L));
   mockMvc.perform(get("/api/v1/design-drafts").param("page","2").principal(auth()))
     .andExpect(status().isOk()).andExpect(jsonPath("$.data.items[0].draftId").value(10))
-    .andExpect(jsonPath("$.data.items[0].originalS3Key").doesNotExist()).andExpect(jsonPath("$.data.hasNext").value(false));
+    .andExpect(jsonPath("$.data.items[0].originalS3Key").doesNotExist()).andExpect(jsonPath("$.data.hasNext").value(false))
+    .andExpect(jsonPath("$.data.totalElements").value(5));
   verify(draftService).listResumable(1L,2);
  }
  @Test void resumeListRequiresAuthentication() throws Exception {

@@ -49,7 +49,7 @@ public class JarDesignDraftService {
                 new shop.esjh.memoryjar.dto.ai.response.JarDesignDraftListResponse.Item(row.getDraftId(), row.getBodyStyle(),
                         row.getSelectedDesignType(), row.getUpdatedAt().atZone(KST).toOffsetDateTime(),
                         row.getExpiresAt().atZone(KST).toOffsetDateTime(), row.getCreatedAt().atZone(KST).toOffsetDateTime(),
-                        toSummary(row, List.of()))).toList(), page, rows.hasNext());
+                        toSummary(row, List.of()))).toList(), page, rows.hasNext(), rows.getTotalElements());
     }
 
     /** Draft 조회에는 S3 Key를 노출하지 않고 선택·Slot·후보 상태만 반환한다. */

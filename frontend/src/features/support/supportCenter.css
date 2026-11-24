@@ -1,4 +1,4 @@
-/* 사용자 도움말·문의 전용 스타일이다. 운영 문의함은 별도 레이아웃을 유지한다. */
+/* 사용자 도움말 및 문의 전용 스타일이다. 운영 문의함은 별도 레이아웃을 유지한다. */
 .support-center { color:#203b30; background:#faf7f0; min-height:calc(100dvh - 80px); }
 .sc-main { background:radial-gradient(ellipse at 94% 5%,#eeefdf80,transparent 35%),#faf7f0; padding:25px 24px 32px; }
 .sc-inner { max-width:1140px; margin:auto; }

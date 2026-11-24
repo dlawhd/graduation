@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import "./supportLetter.css";
 
-/** 도움말·문의 영역의 배경과 제목을 공통으로 표시한다. 접수와 권한 처리는 각 화면에 남겨둔다. */
+/** 도움말 및 문의 영역의 배경과 제목을 공통으로 표시한다. 접수와 권한 처리는 각 화면에 남겨둔다. */
 export default function SupportLetterLayout({backTo,backLabel,title="어떤 어려움이 있었나요?",description="남겨주신 내용을 차근차근 확인할게요.",illustration=true,children}) {
   return <main className="support-letter-page"><div className="support-letter-inner">
     <Link to={backTo} className="support-letter-back">← {backLabel}</Link>

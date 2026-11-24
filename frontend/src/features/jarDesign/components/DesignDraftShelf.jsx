@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { deleteJarDesignDraft, getJarDesignOriginalPreview, getJarDesignGenerationPreview, listJarDesignDrafts } from "../../../api/jarDesignDraftApi";
 import { useRequestGate } from "../../../api/useRequestGate";
@@ -95,7 +95,7 @@ export default function DesignDraftShelf({ userId }) {
   const [warning, setWarning] = useState("");
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(0);
-  const [hasNext, setHasNext] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
@@ -105,17 +105,15 @@ export default function DesignDraftShelf({ userId }) {
     const current = gate.begin("drafts");
     setLoading(true); setError("");
     try {
-      let result = await pager.load(target);
-      // 다른 탭에서 작업을 정리한 경우에도 비어 있는 마지막 페이지에 머물지 않는다.
-      while (current() && !result.items.length && target > 0) result = await pager.load(--target);
+      const result = await pager.load(target);
       if (!current()) return;
-      setRows(result.items); setPage(result.page); setHasNext(result.hasNext); setWarning(result.warning || "");
+      setRows(result.items); setPage(result.page); setTotalPages(result.totalPages); setWarning(result.warning || "");
     } catch {
       if (current()) setError("이어 만들 작업을 불러오지 못했어요.");
     } finally { if (current()) setLoading(false); }
   }, [gate, userId, pager]);
   useEffect(() => {
-    setRows([]); setPage(0); setHasNext(false); setDeleting(null); deletingRef.current = false;
+    setRows([]); setPage(0); setTotalPages(0); setDeleting(null); deletingRef.current = false;
     void load();
   }, [load]);
   async function remove(row) {
@@ -137,6 +135,12 @@ export default function DesignDraftShelf({ userId }) {
     finally { if (current()) { deletingRef.current = false; setDeleting(null); } }
   }
   if (!userId || (!loading && !error && !rows.length && page === 0)) return null;
+  // 모바일에서도 한 줄에 담기도록, 페이지가 많을 때는 처음·끝과 현재 페이지 주변만 표시한다.
+  const firstNearby = Math.max(0, Math.min(page - 1, totalPages - 3));
+  const pageNumbers = totalPages <= 5
+    ? Array.from({ length: totalPages }, (_, index) => index)
+    : [...new Set([0, firstNearby, firstNearby + 1, firstNearby + 2, totalPages - 1])];
+  const navigationDisabled = loading || deleting != null;
   return <section id="design-drafts" aria-label="내 작업 이어 만들기" className="mb-7 rounded-[24px] border border-emerald-100 bg-white/90 p-5 shadow-sm">
     <h2 className="text-lg font-extrabold text-emerald-950">내 작업 이어 만들기</h2>
     <p className="mt-1 text-sm text-slate-500">만들던 저금통과 저장한 단계부터 이어서 완성해 보세요.</p>
@@ -144,10 +148,15 @@ export default function DesignDraftShelf({ userId }) {
     {error && <p role="alert" className="mt-3 text-sm text-rose-700">{error} <button type="button" disabled={deleting != null} className="underline" onClick={() => { pager.reset(); void load(page); }}>다시 불러오기</button></p>}
     {warning && <p role="status" className="mt-3 text-sm text-amber-800">{warning} <button type="button" disabled={loading || deleting != null} onClick={() => { pager.reset(); void load(page); }} className="underline">다시 불러오기</button></p>}
     {!loading && <ul className="mt-4 grid gap-3 sm:grid-cols-2">{rows.map(row => <DraftCard key={`${userId}:${row.draftId}`} row={row} userId={userId} busy={deleting != null} onDelete={remove} />)}</ul>}
-    {(page > 0 || hasNext) && <nav aria-label="디자인 초안 페이지" className="mt-3 flex items-center justify-center gap-2">
-      <button type="button" disabled={loading || deleting != null || page === 0} onClick={() => load(page - 1)} className={pageButtonClass}>이전</button>
-      <span aria-live="polite" aria-label={`${page + 1} 페이지`} className="min-w-4 text-center text-xs font-semibold tabular-nums text-slate-600">{page + 1}</span>
-      <button type="button" disabled={loading || deleting != null || !hasNext} onClick={() => load(page + 1)} className={pageButtonClass}>다음</button>
+    {totalPages > 1 && <nav aria-label="디자인 초안 페이지" className="mt-3 flex flex-wrap items-center justify-center gap-2">
+      <button type="button" disabled={navigationDisabled || page === 0} onClick={() => load(page - 1)} className={pageButtonClass}>이전</button>
+      {pageNumbers.map((number, index) => <Fragment key={number}>
+        {index > 0 && number - pageNumbers[index - 1] > 1 && <span aria-hidden="true" className="text-xs text-slate-500">…</span>}
+        <button type="button" aria-label={`${number + 1} 페이지`} aria-current={page === number ? "page" : undefined}
+          disabled={navigationDisabled} onClick={() => { if (page !== number) void load(number); }}
+          className={`${pageButtonClass} min-w-8 tabular-nums ${page === number ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-slate-200 text-slate-600"}`}>{number + 1}</button>
+      </Fragment>)}
+      <button type="button" disabled={navigationDisabled || page + 1 >= totalPages} onClick={() => load(page + 1)} className={pageButtonClass}>다음</button>
     </nav>}
   </section>;
 }

@@ -1,4 +1,4 @@
-/* 도움말·문의 본문만 같은 색상과 간격을 사용한다. 서비스 공통 헤더는 기존 흰색을 유지한다. */
+/* 도움말 및 문의 본문만 같은 색상과 간격을 사용한다. 서비스 공통 헤더는 기존 흰색을 유지한다. */
 .support-letter-page { min-height:calc(100dvh - 80px); padding:28px 24px 56px; background:radial-gradient(ellipse at 90% 8%,#f1efdf88,transparent 40%),#faf7f0; color:#172c27; }
 .support-letter-inner { max-width:1000px; margin:0 auto; }
 .support-letter-content { display:flex; flex-direction:column; gap:24px; }

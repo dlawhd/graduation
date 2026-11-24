@@ -1,6 +1,8 @@
 package shop.esjh.memoryjar.repository.ai;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -23,9 +25,9 @@ public interface JarDesignDraftRepository extends JpaRepository<JarDesignDraft, 
             from JarDesignDraft d where d.owner.id = :ownerId and d.status = :status and d.expiresAt > :now
             order by d.updatedAt desc, d.draftId desc
             """)
-    org.springframework.data.domain.Slice<JarDesignDraft> findResumable(@Param("ownerId") Long ownerId,
+    Page<JarDesignDraft> findResumable(@Param("ownerId") Long ownerId,
             @Param("status") JarDraftStatus status, @Param("now") LocalDateTime now,
-            org.springframework.data.domain.Pageable pageable);
+            Pageable pageable);
 
     /** 보상 삭제는 soft delete 여부와 무관하게 실제 원본 참조가 남아 있으면 금지한다. */
     @Query(value = "SELECT COUNT(*) FROM jar_design_drafts WHERE owner_id = :userId AND original_s3_key = :key", nativeQuery = true)

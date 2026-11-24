@@ -1,4 +1,4 @@
-/** 실제 App에서 도움말·문의의 공통 헤더·배경·좁은 화면·키보드 첨부와 동의 상태를 확인한다. 모든 API는 로컬 응답으로 대체한다. */
+/** 실제 App에서 도움말 및 문의의 공통 헤더·배경·좁은 화면·키보드 첨부와 동의 상태를 확인한다. 모든 API는 로컬 응답으로 대체한다. */
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
@@ -66,7 +66,7 @@ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIH
 
    // 문의용 CSS가 로딩된 상태에서도 도움말과 목록의 헤더·배경은 작성 화면과 같아야 한다.
    await page.getByRole('link',{name:'← 도움말',exact:true}).click();
-   await page.getByRole('heading',{name:'도움말·문의',exact:true}).waitFor();
+   await page.locator('.sc-breadcrumb').getByText('도움말 및 문의',{exact:true}).waitFor({state:'attached'});
    assert.deepEqual(await headerTheme(),originalHeader);
    assert.equal(await page.locator('.support-letter-page').evaluate(el=>getComputedStyle(el).backgroundColor),background);
    assert.equal(await page.locator('.support-letter-art').count(),0);
@@ -80,7 +80,7 @@ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIH
    assert.deepEqual(await headerTheme(),originalHeader);
    assert.equal(await page.locator('.support-letter-page').evaluate(el=>getComputedStyle(el).backgroundColor),background);
    await page.getByRole('link',{name:'도움말',exact:true}).last().click();
-   await page.getByRole('heading',{name:'도움말·문의',exact:true}).waitFor();
+   await page.locator('.sc-breadcrumb').getByText('도움말 및 문의',{exact:true}).waitFor({state:'attached'});
    await page.getByRole('link',{name:'로그인 문제 도움',exact:true}).click();
    await page.getByLabel('문의 제목',{exact:true}).waitFor();
    assert.deepEqual(await headerTheme(),originalHeader);
