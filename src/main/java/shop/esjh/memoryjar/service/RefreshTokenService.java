@@ -2,11 +2,14 @@ package shop.esjh.memoryjar.service;
 
 import shop.esjh.memoryjar.auth.TokenCrypto;
 import shop.esjh.memoryjar.config.properties.JwtProperties;
+import shop.esjh.memoryjar.config.properties.SupportProperties;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.entity.RefreshToken;
 import shop.esjh.memoryjar.repository.RefreshTokenRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -20,6 +23,7 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
+    private final SupportProperties supportProperties;
     private final shop.esjh.memoryjar.repository.UserRepository userRepository;
 
     /*
@@ -34,16 +38,31 @@ public class RefreshTokenService {
 
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
                                JwtProperties jwtProperties,
-                               shop.esjh.memoryjar.repository.UserRepository userRepository) {
+                               shop.esjh.memoryjar.repository.UserRepository userRepository,
+                               SupportProperties supportProperties) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtProperties = jwtProperties;
         this.userRepository = userRepository;
+        this.supportProperties = supportProperties;
     }
 
     // ✅ 로그인 성공 시 refresh 토큰 발급 + DB 저장
     @Transactional
     public String issue(User user) {
+        if (supportProperties.getOperatorUserIds().contains(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "운영자 계정은 구글 로그인과 패스키 확인이 필요해요.");
+        }
+        return issueFor(user, false);
+    }
 
+    /** 운영자 패스키 검증에 성공한 서비스만 이 경로에서 새 로그인 세션을 만든다. */
+    @Transactional
+    String issueAfterOperatorPasskey(User user) {
+        if (!supportProperties.getOperatorUserIds().contains(user.getId())) throw invalidRefreshTokenException();
+        return issueFor(user, true);
+    }
+
+    private String issueFor(User user, boolean operatorVerified) {
         User currentUser = userRepository.findByIdForUpdate(user.getId())
                 .orElseThrow(this::invalidRefreshTokenException);
         // 로그인 검사 직후 비밀번호가 바뀐 요청으로 새 세션을 만들지 않는다.
@@ -65,6 +84,7 @@ public class RefreshTokenService {
                 .user(currentUser)
                 .tokenHash(hash)
                 .sessionId(hash)
+                .operatorPasskeyVerified(operatorVerified)
                 .expiresAt(now.plusSeconds(jwtProperties.getRefreshExpSeconds())) // 만료 시간(지금으로부터 14일 뒤)
                 .build();
 
@@ -113,7 +133,8 @@ public class RefreshTokenService {
          * 요청 B는 기다리는 동안 요청 A가 토큰을 폐기했을 수 있으므로
          * 반드시 잠금 이후에 검사해야 해.
          */
-        if (!oldToken.isActive(now)) {
+        if (!oldToken.isActive(now) || (supportProperties.getOperatorUserIds().contains(ownerId)
+                && !oldToken.isOperatorPasskeyVerified())) {
             throw invalidRefreshTokenException();
         }
 
@@ -133,6 +154,7 @@ public class RefreshTokenService {
                 .user(user)
                 .tokenHash(newHash)
                 .sessionId(oldToken.getSessionId())
+                .operatorPasskeyVerified(oldToken.isOperatorPasskeyVerified())
                 .expiresAt(
                         now.plusSeconds(
                                 jwtProperties.getRefreshExpSeconds()
@@ -154,7 +176,7 @@ public class RefreshTokenService {
                 user.getBirthyear(),
                 newRaw,
                 userRepository.findSessionVersionByIdForUpdate(ownerId).orElseThrow(this::invalidRefreshTokenException),
-                oldToken.getSessionId()
+                oldToken.getSessionId(), oldToken.isOperatorPasskeyVerified()
         );
     }
 
@@ -270,7 +292,8 @@ public class RefreshTokenService {
             String birthyear,
             String newRefreshRaw,
             long sessionVersion,
-            String sessionId
+            String sessionId,
+            boolean operatorPasskeyVerified
     ) {
     }
 }

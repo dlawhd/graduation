@@ -12,21 +12,26 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import shop.esjh.memoryjar.monitoring.LoginDiagnostics;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final SessionValidityService sessionValidityService;
+    private final Set<Long> operatorUserIds;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, SessionValidityService sessionValidityService) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, SessionValidityService sessionValidityService,
+                                   @Value("${app.support.operator-user-ids:}") Set<Long> operatorUserIds) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.sessionValidityService = sessionValidityService;
+        this.operatorUserIds = operatorUserIds;
     }
 
     @Override
@@ -54,12 +59,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // ✅ subject = userId (String)
             String userId = claims.getSubject();
+            long numericUserId = Long.parseLong(userId);
+            if (operatorUserIds.contains(numericUserId)
+                    && !Boolean.TRUE.equals(claims.get("operatorPasskeyVerified"))) {
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
             Number versionClaim = claims.get("sessionVersion", Number.class);
             long sessionVersion = versionClaim == null ? 0L : versionClaim.longValue();
             String loginSessionId = claims.get("loginSessionId", String.class);
             boolean current = loginSessionId == null
-                    ? sessionValidityService.isCurrent(Long.parseLong(userId), sessionVersion)
-                    : sessionValidityService.isCurrent(Long.parseLong(userId), sessionVersion, loginSessionId);
+                    ? sessionValidityService.isCurrent(numericUserId, sessionVersion)
+                    : sessionValidityService.isCurrent(numericUserId, sessionVersion, loginSessionId);
             if (!current) {
                 SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);

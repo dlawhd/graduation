@@ -72,6 +72,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     // AccessToken / RefreshToken을 쿠키에 저장하는 서비스
     private final AuthCookieService authCookieService;
+    private final shop.esjh.memoryjar.service.OperatorPasskeyService operatorPasskeys;
 
     /*
      * 로그인 성공 후 이동할 프론트 주소
@@ -93,12 +94,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             JwtTokenProvider jwtTokenProvider,
             UserService userService,
             RefreshTokenService refreshTokenService,
-            AuthCookieService authCookieService
+            AuthCookieService authCookieService,
+            shop.esjh.memoryjar.service.OperatorPasskeyService operatorPasskeys
     ) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userService = userService;
         this.refreshTokenService = refreshTokenService;
         this.authCookieService = authCookieService;
+        this.operatorPasskeys = operatorPasskeys;
     }
 
     /*
@@ -171,6 +174,22 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             return;
         } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
             response.sendRedirect(frontendUrl + "/?loginError=retry");
+            return;
+        }
+
+        if (operatorPasskeys.isRequired(user.getId())) {
+            // OAuth 콜백의 인증 상태만으로 API를 쓰거나 이전 쿠키로 새 로그인 확인을 건너뛸 수 없게 한다.
+            var session = request.getSession(false);
+            if (session != null) session.invalidate();
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            authCookieService.clearAccessCookie(response);
+            authCookieService.clearRefreshCookie(response);
+            if (!"google".equals(registrationId)) {
+                response.sendRedirect(frontendUrl + "/?loginError=operator-google");
+                return;
+            }
+            operatorPasskeys.begin(request, user);
+            response.sendRedirect(frontendUrl + "/login/operator-passkey");
             return;
         }
 

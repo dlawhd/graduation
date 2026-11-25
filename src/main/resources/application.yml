@@ -147,6 +147,9 @@ app:
   support:
     # 실제 운영자 계정 번호는 배포 환경에서만 지정한다. 비어 있으면 전원 거부한다.
     operator-user-ids: ${SUPPORT_OPERATOR_USER_IDS:}
+  operator-passkey:
+    setup-user-id: ${APP_OPERATOR_PASSKEY_SETUP_USER_ID:0}
+    setup-sha256: ${APP_OPERATOR_PASSKEY_SETUP_SHA256:}
   frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
 
   # --------------------------------------------------

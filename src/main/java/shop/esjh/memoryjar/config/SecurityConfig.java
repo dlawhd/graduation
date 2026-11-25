@@ -95,6 +95,10 @@ public class SecurityConfig {
 
                         // ✅ /api/csrf 는 로그인 없이 허용, 로그인 전/후 상관없이 먼저 받아야 할 수 있으니 열어둠.
                         .requestMatchers("/api/v1/csrf").permitAll()
+                        // 아직 로그인 쿠키가 없는 운영자는 구글 콜백의 대기 세션으로만 접근한다.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/operator-passkey/status").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/operator-passkey/options",
+                                "/api/v1/auth/operator-passkey/finish").permitAll()
                         // 로그인 도움의 개인 요청은 컨트롤러/서비스가 별도 문의 쿠키로 검사한다. CSRF는 유지한다.
                         .requestMatchers("/api/v1/public/support/**").permitAll()
 

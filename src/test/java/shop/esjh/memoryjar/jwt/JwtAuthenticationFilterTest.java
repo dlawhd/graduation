@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 
-@WebMvcTest(controllers = JwtAuthenticationFilterTest.TestController.class)
+@WebMvcTest(controllers = JwtAuthenticationFilterTest.TestController.class, properties = "app.support.operator-user-ids=77")
 @Import({
         JwtAuthenticationFilter.class,
         JwtAuthenticationFilterTest.TestController.class,
@@ -50,6 +50,16 @@ class JwtAuthenticationFilterTest {
 
     @MockitoBean
     private SessionValidityService sessionValidityService;
+
+    @Test
+    void operationAccountWithOlderTokenMustSignInWithPasskey() throws Exception {
+        Claims claims = Mockito.mock(Claims.class);
+        when(jwtTokenProvider.parseValidatedClaims("old-operator")).thenReturn(Optional.of(claims));
+        when(claims.getSubject()).thenReturn("77");
+        mockMvc.perform(get("/secure").cookie(new Cookie("accessToken", "old-operator")))
+                .andExpect(status().isUnauthorized());
+        verify(sessionValidityService, never()).isCurrent(77L, 0L);
+    }
 
     @Test
     void revokedAccessTokenReturns401EvenWithValidSignature() throws Exception {

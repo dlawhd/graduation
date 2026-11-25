@@ -199,6 +199,10 @@ class SessionAndChatConcurrencyIntegrationTest extends AbstractMariaDbRepository
     @TestConfiguration
     // 아래 설정은 실제 외부 서비스 대신 테스트용 토큰 만료 값만 제공한다.
     static class Settings {
+        @Bean shop.esjh.memoryjar.config.properties.SupportProperties supportProperties() {
+            return new shop.esjh.memoryjar.config.properties.SupportProperties();
+        }
+
         @Bean JwtProperties jwtProperties() {
             var value = new JwtProperties();
             value.setRefreshExpSeconds(3600);

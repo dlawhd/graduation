@@ -2,6 +2,7 @@ package shop.esjh.memoryjar.service;
 
 import shop.esjh.memoryjar.auth.TokenCrypto;
 import shop.esjh.memoryjar.config.properties.JwtProperties;
+import shop.esjh.memoryjar.config.properties.SupportProperties;
 import shop.esjh.memoryjar.entity.RefreshToken;
 import shop.esjh.memoryjar.entity.User;
 import shop.esjh.memoryjar.repository.RefreshTokenRepository;
@@ -34,6 +35,7 @@ class RefreshTokenServiceTest {
     private shop.esjh.memoryjar.repository.UserRepository userRepository;
 
     private RefreshTokenService refreshTokenService;
+    private final SupportProperties support = new SupportProperties();
 
     @BeforeEach
     void setUp() {
@@ -45,7 +47,7 @@ class RefreshTokenServiceTest {
         refreshTokenService = new RefreshTokenService(
                 refreshTokenRepository,
                 jwtProperties,
-                userRepository
+                userRepository, support
         );
         // 잠금 순서는 모든 토큰 시험에서 동일하다. 실패 케이스에서도 쓰이지 않는 설정은 허용한다.
         lenient().when(userRepository.findByIdForUpdate(anyLong())).thenAnswer(call -> {
@@ -55,6 +57,35 @@ class RefreshTokenServiceTest {
         });
         lenient().when(userRepository.findSessionVersionByIdForUpdate(anyLong())).thenReturn(Optional.of(0L));
         lenient().when(refreshTokenRepository.findOwnerIdByTokenHash(anyString())).thenReturn(Optional.of(createUser().getId()));
+    }
+
+    @Test
+    void operatorNeedsPasskeyForFreshAndLegacySessions() {
+        User user = createUser();
+        support.getOperatorUserIds().add(user.getId());
+        assertThatThrownBy(() -> refreshTokenService.issue(user))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        String raw = "legacy-operator-refresh";
+        String hash = TokenCrypto.sha256Hex(raw);
+        var old = RefreshToken.builder().user(user).tokenHash(hash).expiresAt(LocalDateTime.now().plusDays(1)).build();
+        when(refreshTokenRepository.findByTokenHashForUpdate(hash)).thenReturn(Optional.of(old));
+        assertThatThrownBy(() -> refreshTokenService.rotate(raw)).isInstanceOf(IllegalArgumentException.class);
+        verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
+    void operatorPasskeyVerificationSurvivesTokenRotation() {
+        User user = createUser();
+        support.getOperatorUserIds().add(user.getId());
+        String raw = refreshTokenService.issueAfterOperatorPasskey(user);
+        var issued = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(issued.capture());
+        assertThat(issued.getValue().isOperatorPasskeyVerified()).isTrue();
+        when(refreshTokenRepository.findByTokenHashForUpdate(TokenCrypto.sha256Hex(raw)))
+                .thenReturn(Optional.of(issued.getValue()));
+        assertThat(refreshTokenService.rotate(raw).operatorPasskeyVerified()).isTrue();
+        verify(refreshTokenRepository, times(2)).save(issued.capture());
+        assertThat(issued.getValue().isOperatorPasskeyVerified()).isTrue();
     }
 
     @Test

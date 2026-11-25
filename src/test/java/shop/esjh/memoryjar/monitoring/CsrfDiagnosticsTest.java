@@ -25,7 +25,7 @@ class CsrfDiagnosticsTest {
     private final LoginDiagnostics diagnostics = new LoginDiagnostics(true);
     private final JwtTokenProvider tokens = mock(JwtTokenProvider.class);
     private final UserRepository users = mock(UserRepository.class);
-    private final JwtAuthenticationFilter jwt = new JwtAuthenticationFilter(tokens, new SessionValidityService(users));
+    private final JwtAuthenticationFilter jwt = new JwtAuthenticationFilter(tokens, new SessionValidityService(users), java.util.Set.of());
     private final LoginDiagnosticsFilter filter = new LoginDiagnosticsFilter(diagnostics);
     private final CsrfController controller = new CsrfController();
 

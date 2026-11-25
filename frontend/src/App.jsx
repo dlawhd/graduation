@@ -15,6 +15,7 @@ import Home from "./pages/Home";
 import StatusNotice from "./components/feedback/StatusNotice";
 import FeedbackToast from "./components/feedback/FeedbackToast";
 import LoginSuccess from "./pages/LoginSuccess";
+import OperatorPasskeyPage from "./pages/OperatorPasskeyPage";
 import InvitePage from "./pages/InvitePage";
 import { useRequestGate } from "./api/useRequestGate";
 import { createCoalescedRefresh } from "./api/coalescedRefresh.mjs";
@@ -305,6 +306,7 @@ useEffect(() => {
           "/signup",
           "/find-id",
           "/find-password",
+          "/login/operator-passkey",
           "/help",
           "/support/login-help",
         ]);
@@ -1500,6 +1502,7 @@ useEffect(() => {
             </Suspense>
           } />
           <Route path="/login/success" element={<LoginSuccess />} />
+          <Route path="/login/operator-passkey" element={<OperatorPasskeyPage />} />
           <Route path="/jars" element={
             <Suspense fallback={<StatusNotice type="loading" title="내 저금통을 준비하고 있어요." />}>
               <JarsPage key={supportUserId} me={me} checkingAuth={checkingAuth} />

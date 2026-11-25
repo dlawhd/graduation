@@ -62,8 +62,36 @@ class OAuth2SuccessHandlerTest {
 
     @Mock
     private AuthCookieService authCookieService;
+    @Mock
+    private shop.esjh.memoryjar.service.OperatorPasskeyService operatorPasskeys;
 
     private OAuth2SuccessHandler oAuth2SuccessHandler;
+
+    @Test
+    void operatorGoogleCallbackStartsPasskeyWithoutIssuingLoginCookies() throws Exception {
+        var request = new MockHttpServletRequest();
+        var savedSession = request.getSession();
+        var response = new MockHttpServletResponse();
+        var user = User.builder().id(77L).build();
+        var authentication = mock(OAuth2AuthenticationToken.class);
+        var principal = mock(OAuth2User.class);
+        when(authentication.getAuthorizedClientRegistrationId()).thenReturn("google");
+        when(authentication.getPrincipal()).thenReturn(principal);
+        when(principal.getAttributes()).thenReturn(Map.of("sub", "google-id", "email", "operator@example.com",
+                "email_verified", true, "name", "Operator"));
+        when(userService.findOrCreateOAuthUser("GOOGLE", "google-id", "operator@example.com", "Operator", null)).thenReturn(user);
+        when(operatorPasskeys.isRequired(77L)).thenReturn(true);
+
+        oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getRedirectedUrl()).endsWith("/login/operator-passkey");
+        assertThat(((org.springframework.mock.web.MockHttpSession) savedSession).isInvalid()).isTrue();
+        verify(operatorPasskeys).begin(request, user);
+        verify(authCookieService).clearAccessCookie(response);
+        verify(authCookieService).clearRefreshCookie(response);
+        verifyNoMoreInteractions(authCookieService);
+        verifyNoInteractions(refreshTokenService, jwtTokenProvider);
+    }
 
     /*
      * 각 테스트를 실행하기 전에
@@ -76,7 +104,7 @@ class OAuth2SuccessHandlerTest {
                 jwtTokenProvider,
                 userService,
                 refreshTokenService,
-                authCookieService
+                authCookieService, operatorPasskeys
         );
 
         /*

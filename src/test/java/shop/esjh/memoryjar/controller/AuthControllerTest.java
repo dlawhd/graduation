@@ -617,7 +617,8 @@ class AuthControllerTest {
                         "2000",
                         "new-refresh",
                         0L,
-                        "test-login-session"
+                        "test-login-session",
+                        false
                 ));
 
         given(jwtTokenProvider.createAccessToken(eq("1"), anyMap()))

@@ -693,6 +693,7 @@ public class AuthController {
         claims.put("name", rotation.name());
         claims.put("sessionVersion", rotation.sessionVersion());
         claims.put("loginSessionId", rotation.sessionId());
+        if (rotation.operatorPasskeyVerified()) claims.put("operatorPasskeyVerified", true);
 
         // birthyear는 선택값이므로 값이 있을 때만 JWT claims에 넣는다.
         // String.valueOf(null)을 쓰면 "null" 문자열이 들어갈 수 있어서 사용하지 않는다.

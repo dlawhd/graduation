@@ -52,6 +52,7 @@ dependencies {
 
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+	implementation("com.yubico:webauthn-server-core:2.10.1")
 
 	// ✅ Memory Jar 자체 로그인 비밀번호를 Argon2id로 안전하게 Hash하기 위해 사용
 	//
@@ -93,6 +94,8 @@ dependencies {
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.security:spring-security-test")
+	// WebAuthn 시험에서 인증기 응답과 공개 키를 실제 CBOR 형식으로 생성한다.
+	testImplementation("com.upokecenter:cbor:4.5.6")
 
 	// 통합테스트용
 	testImplementation("org.testcontainers:junit-jupiter")
