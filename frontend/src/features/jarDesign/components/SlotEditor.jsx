@@ -111,7 +111,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
 
   return (
     <section className="mt-8 border-t border-violet-100 pt-8" aria-label="동전 투입구 편집">
-      <span className="text-xs font-black tracking-widest text-violet-500">{body ? "04" : "02"} · 작은 디테일</span>
+      <span className="text-xs font-black tracking-widest text-violet-500">{body ? "04" : "02"} 투입구 꾸미기</span>
       <h3 className="mt-2 text-xl font-black text-slate-800">추억이 들어갈 작은 입구</h3>
       <p id="slot-editor-help" className="mt-2 text-sm leading-6 text-slate-500">그림을 누르거나 드래그해 위치를 정해 주세요. 방향키로도 움직일 수 있어요.</p>
       <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
@@ -170,7 +170,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
                 <button type="button" aria-label="이전 입구 페이지" disabled={shown.page === 1} onClick={() => setPage(shown.page - 1)} className="min-h-11 min-w-11 rounded-xl bg-slate-100 disabled:opacity-30">←</button>
                 {Array.from({length: shown.pages}, (_,i) => i+1).filter(n => n === 1 || n === shown.pages || Math.abs(n-shown.page) <= 1).map((n,i,visible) => <span key={n} className="flex items-center gap-1">{i > 0 && n-visible[i-1] > 1 && <span aria-hidden="true" className="px-1">…</span>}<button type="button" aria-label={`${n}페이지`} aria-current={n === shown.page ? "page" : undefined} onClick={() => setPage(n)} className={`min-h-11 min-w-11 rounded-xl text-sm font-bold ${n === shown.page ? "bg-violet-600 text-white" : "bg-slate-100"}`}>{n}</button></span>)}
                 <button type="button" aria-label="다음 입구 페이지" disabled={shown.page === shown.pages} onClick={() => setPage(shown.page + 1)} className="min-h-11 min-w-11 rounded-xl bg-slate-100 disabled:opacity-30">→</button>
-                <span role="status" className="w-full text-center text-xs text-slate-500">{shown.page} / {shown.pages} 페이지 · {shown.total}개</span>
+                <span role="status" className="w-full text-center text-xs text-slate-500">{shown.page}/{shown.pages} 페이지 (총 {shown.total}개)</span>
               </nav>
               <p className="mt-3 text-xs leading-5 text-slate-500">종류를 둘러봐도 선택은 유지돼요. 모양을 바꿀 때 화면 밖으로 나가는 경우만 위치를 안쪽으로 맞춰요.</p>
             </div>
@@ -191,7 +191,7 @@ export default function SlotEditor({ draft, previewUrl, cutoutRegions, disabled,
               className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">{body ? "저금통 추천 위치로" : "가운데로 초기화"}</button>
           </fieldset>
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-          <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : needsSave ? "모양·위치·크기를 정한 뒤 저장해 주세요." : "투입구 모양과 위치가 저장됐어요."}</p>
+          <p role="status" className="text-sm text-slate-600">{saving ? "투입구 저장 중..." : needsSave ? "투입구의 모양, 위치, 크기를 정한 뒤 저장해 주세요." : "투입구 모양과 위치가 저장됐어요."}</p>
           <button type="button" onClick={() => void saveSlot()} disabled={locked || !needsSave}
             className="min-h-12 w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "저장 중..." : "투입구 저장"}</button>
           <p className="text-xs leading-5 text-slate-500">{bodyOnly ? "투입구를 저금통 위에서 원하는 위치로 옮길 수 있어요." : "투입구는 그림 위에 따로 표시돼요. 디자인을 바꾸면 투입구 위치도 다시 정해 주세요."}</p>

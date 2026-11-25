@@ -43,7 +43,8 @@ test('틀 그림판의 보조 안내는 제거하고 도구 설명과 사진 그
   assert.ok(!canvas.includes('그린 테두리의 색과 굵기를 그대로 담아요.'));
   assert.match(canvas, /<details[^>]*>[\s\S]*선택한 도구 사용법[\s\S]*id=\{helpId\}[^>]*>\{help\}<\/p>/);
   assert.ok(canvas.includes('{!isBody && <p'));
-  assert.ok(canvas.includes('480 × 480 PNG · 최대 25단계 되돌리기 · Ctrl+Z / Ctrl+Shift+Z'));
+  assert.ok(canvas.includes('480 × 480px PNG로 저장할 수 있어요.'));
+  assert.ok(canvas.includes('Ctrl+Z로 최대 25단계까지 되돌리고 Ctrl+Shift+Z로 다시 실행할 수 있어요.'));
 });
 
 test('완성 커스텀 저금통의 확대 상한과 쪽지 버튼 위치는 기존 기본 테마와 분리한다',()=>{
@@ -72,9 +73,10 @@ test('선택 미리보기를 확대하면서 아주 낮은 화면에서도 버�
   assert.match(picker,/이 저금통에 그림 담기/);
 });
 
-test('단계별 짧은 안내와 펼칠 수 있는 도움말에서 AI 선택 사항을 설명한다',()=>{
+test('제작 화면은 단계 설명과 저장 오류 복구를 표시한다',()=>{
   const page=readFileSync(new URL('../../pages/JarDesignNewPage.jsx',import.meta.url),'utf8');
-  assert.match(page, /<details[^>]*><summary[^>]*>만들기 도움말<\/summary><p>[^<]*AI 변환은 선택 사항/);
+  assert.doesNotMatch(page, /만들기 도움말|이 브라우저에 작업을 저장했어요/);
+  assert.match(page, /onClick=\{early\.retry\}[^>]*>다시 저장/);
   assert.ok(page.includes('직접 그리거나 사진을 골라 저금통을 채워요.'));
 });
 

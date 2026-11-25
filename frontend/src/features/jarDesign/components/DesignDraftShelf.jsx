@@ -68,7 +68,9 @@ function DraftCard({ row, userId, busy, onDelete }) {
     </div>
     <div className="min-w-0 flex-1">
     <p className="break-words text-sm font-bold text-slate-800">{typeof form?.name === "string" && form.name.trim() ? form.name : (row.kind === "LOCAL" ? "만들고 있는 저금통" : `디자인 초안 #${row.draftId}`)}</p>
-    <p className="mt-1 text-xs font-bold text-emerald-800">{displayStep}/{steps.length} · {steps[displayStep - 1]}</p>
+    <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-xs font-bold text-emerald-800">
+      {steps[displayStep - 1]} <small className="whitespace-nowrap text-[11px] font-semibold">{displayStep}/{steps.length}단계</small>
+    </p>
     <ol aria-label="제작 진행 상황" className="mt-2 flex gap-1">{steps.map((label, index) => <li key={label} title={label} aria-current={index + 1 === displayStep ? "step" : undefined} className={`h-1.5 flex-1 rounded-full ${index < displayStep ? "bg-emerald-700" : "bg-slate-100"}`}><span className="sr-only">{index + 1}. {label}{index + 1 === displayStep ? " (현재 단계)" : ""}</span></li>)}</ol>
     </div>
     </div>

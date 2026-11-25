@@ -116,7 +116,7 @@ public class UploadedMediaValidator {
             delete(output);
         }
     }
-    private ResponseStatusException invalid() { return problem(HttpStatus.BAD_REQUEST,"실제 사진·영상 형식이나 크기를 확인해 줘."); }
+    private ResponseStatusException invalid() { return problem(HttpStatus.BAD_REQUEST,"첨부한 사진이나 영상의 파일 형식과 크기를 확인해 주세요."); }
     private ResponseStatusException problem(HttpStatus status,String message) { return new ResponseStatusException(status,message); }
     private void delete(Path file) { if(file!=null) try { Files.deleteIfExists(file); } catch(IOException ignored) { file.toFile().deleteOnExit(); } }
 }

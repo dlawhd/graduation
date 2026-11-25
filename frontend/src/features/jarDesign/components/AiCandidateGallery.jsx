@@ -524,10 +524,10 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange, onBo
                   </div>
                   {failure && <div className="mt-3 rounded-xl bg-rose-50 p-3" role="status">
                     <p className="text-xs font-semibold leading-5 text-rose-700">{failure.message}</p>
-                    <p className="mt-2 break-words text-[11px] leading-4 text-slate-500">확인 코드: {failure.diagnosticCode} · 후보 #{generation.generationId}</p>
+                    <p className="mt-2 break-words text-[11px] leading-4 text-slate-500">후보 #{generation.generationId}의 확인 코드<br />{failure.diagnosticCode}</p>
                   </div>}
                   {isFailed && <button type="button" onClick={() => setInquiryGeneration(generation)} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-800">{inquiryButtonLabel(inquiries[generation.generationId])}</button>}
-                  {isSucceeded && previewUrl && originalPreviewUrl && <button type="button" onClick={() => setComparisonId(generation.generationId)} className="mt-3 w-full rounded-xl border border-violet-200 px-3 py-2.5 text-sm font-bold text-violet-700">확대 · 원본과 비교</button>}
+                  {isSucceeded && previewUrl && originalPreviewUrl && <button type="button" onClick={() => setComparisonId(generation.generationId)} className="mt-3 w-full rounded-xl border border-violet-200 px-3 py-2.5 text-sm font-bold text-violet-700">확대해서 원본과 비교</button>}
                   {failure?.canRetry ? <button type="button" onClick={() => void handleGenerate(generation.style)}
                     disabled={loading || hasProcessingGeneration || selectingGenerationId !== null || slotSaving || cutoutSaving || Boolean(generatingStyle) || draft?.status !== "ACTIVE"}
                     className="mt-4 min-h-11 w-full rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-45">
@@ -555,9 +555,9 @@ export default function AiCandidateGallery({ draftId, userId, onStepChange, onBo
           className="mt-3 block min-h-11 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">선택한 후보로 입구 설정하기 →</button>}
       </div>}
       {!loading && draft?.status === "ACTIVE" && customSelected && <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-        <p className="text-sm text-emerald-900">{body ? `${body.name} · 사진 배치를 적용했어요. 투입구를 정하기 전에 다시 조절해도 좋아요.` : "이미지만 사용하는 중이에요. 아래에서 기존 배경 지우기·외곽선 자르기를 이용하세요."}</p>
+        <p className="text-sm text-emerald-900">{body ? `${body.name}에 사진을 배치했어요. 투입구를 정하기 전에 사진 배치를 다시 조절할 수 있어요.` : "이미지만 사용하고 있어요. 아래에서 배경을 지우거나 외곽선을 잘라낼 수 있어요."}</p>
         <button type="button" disabled={slotSaving || cutoutSaving || compositionSaving || Boolean(generatingStyle) || selectingGenerationId !== null || hasProcessingGeneration}
-          onClick={() => { if (confirmDiscardEdits()) setEditingComposition(true); }} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-900 disabled:opacity-50">{body ? "사진 배치 · 모양 다시 조절" : "저금통 모양을 사용하기"}</button>
+          onClick={() => { if (confirmDiscardEdits()) setEditingComposition(true); }} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-900 disabled:opacity-50">{body ? "사진 배치와 저금통 모양 조절" : "저금통 모양을 사용하기"}</button>
       </div>}
       {!loading && detailsReady && (
         <div data-design-step="4">

@@ -17,7 +17,7 @@ export default function OpeningPromise({ jar }) {
   return <section className="mt-7 w-full max-w-xl rounded-[24px] border border-emerald-100 bg-white/85 p-5 text-left shadow-sm" aria-label="우리의 오픈 약속">
     <h2 className="text-lg font-extrabold text-emerald-950">우리의 오픈 약속</h2>
     <p className="mt-2 text-sm text-slate-600">모두가 같은 시간에 함께 열어요.</p>
-    <p className="mt-2 text-sm font-semibold text-slate-700">{time.replace("T", " ")} · 한국 시간(KST)</p>
+    <p className="mt-2 text-sm font-semibold text-slate-700">{time.replace("T", " ")} (한국 시간)</p>
     <button type="button" onClick={download} className="mt-3 min-h-11 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-800 hover:bg-emerald-50">캘린더에 추가</button>
   </section>;
 }

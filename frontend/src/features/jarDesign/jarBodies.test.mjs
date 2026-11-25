@@ -60,7 +60,8 @@ test("all objects have distinct complete finishes and valid gallery colors", () 
 test("모든 저금통 카드는 캐릭터 소개글을 표시하고 소재 상세 영역은 노출하지 않는다",()=>{
   for(const body of JAR_BODIES)assert.ok(body.description?.trim().length>0,body.id);
   const picker=readFileSync(new URL("./components/JarBodyPicker.jsx",import.meta.url),"utf8");
-  assert.ok(picker.includes('aria-label={`${body.name} · ${body.description}`}'));
+  assert.ok(picker.includes('aria-labelledby={`${searchId}-${body.id}-name`}'));
+  assert.ok(picker.includes('aria-describedby={`${searchId}-${body.id}-description`}'));
   assert.ok(picker.includes('text-stone-500">{body.description}</p>'));
   assert.ok(!picker.includes("body.detail"));
   assert.ok(!picker.includes("FINISH & DETAILS"));

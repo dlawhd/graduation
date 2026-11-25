@@ -149,7 +149,7 @@ export default function OwnNotesModal({ jarId, userId, isOpen = false, onClose }
             <NoteAttachmentCarousel attachments={note.attachments||[]} onImageClick={openImage}/>
           </article>}
         </>:<>
-          <form onSubmit={e=>{e.preventDefault();setPage(0);setQuery(search.trim());}} className="flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">내 쪽지 검색</span><input aria-label="내 쪽지 검색" value={search} maxLength={200} onChange={e=>setSearch(e.target.value)} placeholder="제목·내용·장소로 검색" className="min-h-12 w-full rounded-xl border bg-white px-3 text-base"/></label><button type="submit" className="min-h-12 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white">검색</button></form>
+          <form onSubmit={e=>{e.preventDefault();setPage(0);setQuery(search.trim());}} className="flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">내 쪽지 검색</span><input aria-label="내 쪽지 검색" value={search} maxLength={200} onChange={e=>setSearch(e.target.value)} placeholder="제목, 내용 또는 장소로 검색" className="min-h-12 w-full rounded-xl border bg-white px-3 text-base"/></label><button type="submit" className="min-h-12 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white">검색</button></form>
           {loading&&<p role="status">내 쪽지를 불러오고 있어요.</p>}
           {!loading&&result&&<><p className="text-sm text-slate-500">내 쪽지 {result.totalElements}개</p>
             {!result.items?.length&&<p className="rounded-xl bg-slate-50 p-4 text-sm">{query?"검색 결과가 없어요.":"아직 내가 넣은 쪽지가 없어요."}</p>}

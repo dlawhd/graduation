@@ -69,7 +69,7 @@ export default function JarDesignFinalizePanel({
   const [resumeError, setResumeError] = useState("");
   useEffect(() => {
     try { writeDesignResume(userId, draft.draftId, "form", form); setResumeError(""); }
-    catch { setResumeError("이 브라우저에 이름·날짜를 저장하지 못했어요. 화면을 떠나기 전에 내용을 확인해 주세요."); }
+    catch { setResumeError("이 브라우저에 이름과 날짜를 저장하지 못했어요. 화면을 떠나기 전에 내용을 확인해 주세요."); }
   }, [userId, draft.draftId, form]);
   const [finalizing, setFinalizing] = useState(false);
   const submitting = useRef(false), mounted = useRef(true);
@@ -265,7 +265,7 @@ export default function JarDesignFinalizePanel({
               <input type="number" min="2" max="50" value={form.maxMembers} onChange={(event) => setForm((current) => ({ ...current, maxMembers: event.target.value }))}
                 required disabled={formLocked} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />
             </label>
-            <label className="block text-sm font-bold text-slate-700 sm:col-span-2">오픈 날짜와 시간 (한국 시간 · KST)
+            <label className="block text-sm font-bold text-slate-700 sm:col-span-2">오픈 날짜와 시간 (한국 시간)
               <input type="datetime-local" value={form.openAt} onChange={(event) => setForm((current) => ({ ...current, openAt: event.target.value }))}
                 required disabled={formLocked} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800 outline-none focus:border-violet-400 disabled:bg-slate-50" />
               <span className="mt-2 flex flex-wrap gap-2">{[[7, "일주일 뒤"], [30, "30일 뒤"], [100, "100일 뒤"]].map(([days, label]) => <button key={days} type="button" disabled={formLocked} onClick={() => setForm((current) => ({ ...current, openAt: jarOpenTimeAfterDays(days) }))} className="rounded-full bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700">{label}</button>)}</span>

@@ -12,7 +12,7 @@ import { supportInquiryId } from "../features/support/supportCenter.mjs";
 import StatusNotice from "../components/feedback/StatusNotice";
 
 /** 계정 로그인 없이 문의 전용 쿠키로 접수와 답변을 확인한다. 다른 브라우저/다른 세션의 문의는 조회하지 않는다. */
-export default function SupportLoginHelpPage() {
+export default function SupportLoginHelpPage({ me, checkingAuth }) {
   const location = useLocation(), [params, setParams] = useSearchParams();
   const rawId = params.get("inquiry"), inquiryId = supportInquiryId(rawId);
   const tab = rawId || params.get("tab") === "history" ? "history" : "new";
@@ -43,7 +43,7 @@ export default function SupportLoginHelpPage() {
     setParams({ tab: "history", inquiry: String(ticket.inquiryId) });
   }
 
-  return <SupportCenterLayout active="login" title={rawId ? "로그인 문의와 답변" : "로그인이 어려우신가요?"} description={rawId ? "이 브라우저에서 접수한 문의를 확인해 주세요." : "로그인하지 않아도 문의를 남기고, 이 브라우저에서 답변을 확인할 수 있어요."} backTo="/" backLabel="홈으로">
+  return <SupportCenterLayout active="login" title={rawId ? "로그인 문의와 답변" : "로그인이 어려우신가요?"} description={rawId ? "이 브라우저에서 접수한 문의를 확인해 주세요." : "로그인하지 않아도 문의를 남기고, 이 브라우저에서 답변을 확인할 수 있어요."} showLoginHelp={!checkingAuth && !me}>
     <div className="sc-guest-tabs" role="group" aria-label="로그인 도움 메뉴"><button type="button" disabled={composerBusy} aria-pressed={tab === "new"} onClick={() => showTab("new")}>문의 남기기</button><button type="button" disabled={composerBusy} aria-pressed={tab === "history"} onClick={() => showTab("history")}>이 브라우저의 문의</button></div>
     <div className="sc-compose-grid sc-guest-grid">
       {/* 탭 전환만으로 작성 폼을 언마운트하지 않는다. 글·파일·멱등성 번호는 이 페이지 메모리에만 남는다. */}

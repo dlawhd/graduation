@@ -240,7 +240,7 @@ export default function CutoutEditor({ draft, previewUrl, disabled, onSaved, onB
             {mode === "POINT"
               ? <p><b>점으로 선택:</b> {draft.bodyStyle ? "남길 그림" : "본체"} 테두리를 따라 차례로 클릭한 뒤 현재 영역 사용을 누르세요.</p>
               : <p><b>자유롭게 그리기:</b> {draft.bodyStyle ? "남길 그림" : "본체"} 바깥을 한 바퀴 드래그하고 손을 떼면 영역이 자동으로 닫혀요.</p>}
-            <p className="mt-1">분리된 귀·장식·글자는 같은 방식으로 영역을 더 추가할 수 있어요.</p>
+            <p className="mt-1">귀, 장식, 글자가 떨어져 있다면 같은 방법으로 영역을 추가할 수 있어요.</p>
           </div>
 
           <p role="status" className="text-sm text-slate-600">

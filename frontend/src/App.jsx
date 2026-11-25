@@ -923,6 +923,12 @@ useEffect(() => {
 
   const activeNavClass =
     "bg-emerald-800 text-white shadow-sm";
+  const { pathname } = location;
+  const isJarsSection = pathname === "/jars" || pathname.startsWith("/jars/");
+  const isHelpSection = pathname === "/help" || pathname.startsWith("/support/");
+  // 열린 헤더 패널을 우선 표시하고 닫히면 현재 페이지를 다시 표시한다.
+  const activeHeaderItem = notificationOpen ? "notifications" : profileOpen ? "profile"
+    : isHelpSection ? "help" : isJarsSection ? "jars" : null;
 
   /*
    * 모바일 메뉴를 닫는 공통 함수
@@ -984,7 +990,10 @@ useEffect(() => {
               - 로그인 전에는 메뉴를 보여주지 않아 로고만 남긴다.
               - 로그인 후에는 Jars, 알림, 내정보, 로그아웃만 보여준다. */}
           <div className="flex items-center gap-2">
-            <SupportHelpLink className={`${me?"hidden md:inline-flex":"inline-flex"} min-h-11 shrink-0 items-center rounded-xl border border-emerald-200 bg-white/80 px-3 text-xs font-bold text-emerald-800 sm:text-sm`}/>
+            <SupportHelpLink
+              aria-current={activeHeaderItem === "help" ? "page" : undefined}
+              className={`${me ? "hidden sm:inline-flex" : "inline-flex"} min-h-11 shrink-0 items-center rounded-xl px-3 text-xs font-bold transition sm:text-sm ${activeHeaderItem === "help" ? activeNavClass : "bg-white/85 text-black ring-1 ring-slate-200 hover:bg-slate-50"}`}
+            />
             {/* 로그인된 경우만 저금통 메뉴와 사용자 기능을 보여준다. */}
             {!checkingAuth && me && (
               <div className="flex items-center gap-2">
@@ -992,17 +1001,19 @@ useEffect(() => {
                 {/* PC에서는 기존 Jars 버튼을 그대로 보여준다. */}
                 <Link
                   to="/jars"
+                  aria-current={activeHeaderItem === "jars" ? "page" : undefined}
                   className={[
                     navButtonClass,
 
                     // 모바일에서는 햄버거 메뉴 안으로 이동했으므로 숨긴다.
-                    "hidden sm:inline-flex",
+                    "hidden gap-1.5 sm:inline-flex",
 
-                    location.pathname.startsWith("/jars")
+                    activeHeaderItem === "jars"
                       ? activeNavClass
                       : inactiveNavClass,
                   ].join(" ")}
                 >
+                  <MemoryJarLogoIcon className="h-4 w-4" monochrome />
                   내 저금통
                 </Link>
 
@@ -1013,7 +1024,7 @@ useEffect(() => {
                                 onClick={handleToggleNotification}
                                 className={[
                                   navButtonClass,
-                                  notificationOpen ? activeNavClass : inactiveNavClass,
+                                  activeHeaderItem === "notifications" ? activeNavClass : inactiveNavClass,
                                   "relative inline-flex items-center justify-center",
                                 ].join(" ")}
                                 aria-label="알림 열기"
@@ -1024,14 +1035,13 @@ useEffect(() => {
                                 <svg
                                   viewBox="0 0 24 24"
                                   className="h-5 w-5"
-                                  fill="none"
+                                  fill={notificationOpen ? "currentColor" : "none"}
                                   stroke="currentColor"
                                   strokeWidth="1.8"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                 >
-                                  <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-                                  <path d="M9 17a3 3 0 0 0 6 0" />
+                                  <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5a3 3 0 0 0 6 0Z" />
                                 </svg>
 
                                 {/* unread badge */}
@@ -1157,11 +1167,11 @@ useEffect(() => {
                                 aria-controls="header-profile"
                                 className={[
                                   navButtonClass,
-                                  profileOpen ? activeNavClass : inactiveNavClass,
+                                  activeHeaderItem === "profile" ? activeNavClass : inactiveNavClass,
                                   "inline-flex items-center gap-2",
                                 ].join(" ")}
                               >
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/25 text-[11px] font-black">
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[11px] font-black text-black ring-1 ring-slate-200">
                                   {(me?.name || "U").slice(0, 1)}
                                 </span>
                                 <span>내정보</span>
@@ -1173,12 +1183,12 @@ useEffect(() => {
                                   {/* 상단 사용자 영역 */}
                                   <div className="profile-menu-account border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-cyan-50 px-5 py-5">
                                     <div className="flex items-center gap-3">
-                                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-300 to-cyan-300 text-sm font-black text-slate-900">
+                                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-black ring-1 ring-slate-200">
                                         {(me?.name || "U").slice(0, 1)}
                                       </div>
 
                                       <div className="min-w-0">
-                                        <p className="truncate text-base font-black text-slate-900">
+                                        <p className="truncate text-base font-black text-black">
                                           {me?.name || "이름 없음"}
                                         </p>
                                         <p className="truncate text-sm text-slate-500">
@@ -1366,6 +1376,8 @@ useEffect(() => {
         <MobileHeaderMenu
           // 햄버거 메뉴 열림 여부
           isOpen={mobileMenuOpen}
+          isJarsSection={isJarsSection}
+          isHelpSection={isHelpSection}
 
           // 현재 로그인 사용자 정보
           me={me}
@@ -1498,9 +1510,9 @@ useEffect(() => {
               <JarsNewPage key={me?.userId ?? me?.id} userId={me?.userId ?? me?.id} />
             </Suspense>
           } />
-          <Route path="/help" element={<Suspense fallback={<p className="p-6">도움말을 준비하고 있어요.</p>}><SupportHelpPage me={me}/></Suspense>} />
+          <Route path="/help" element={<Suspense fallback={<p className="p-6">도움말을 준비하고 있어요.</p>}><SupportHelpPage me={me} checkingAuth={checkingAuth}/></Suspense>} />
           <Route path="/support/new" element={<Suspense fallback={<p className="p-6">문의 화면을 준비하고 있어요.</p>}><SupportNewPage key={supportUserId} me={me} checkingAuth={checkingAuth}/></Suspense>} />
-          <Route path="/support/login-help" element={<Suspense fallback={<p className="p-6">로그인 도움을 준비하고 있어요.</p>}><SupportLoginHelpPage/></Suspense>} />
+          <Route path="/support/login-help" element={<Suspense fallback={<p className="p-6">로그인 도움을 준비하고 있어요.</p>}><SupportLoginHelpPage me={me} checkingAuth={checkingAuth}/></Suspense>} />
           <Route path="/jars/design/new" element={checkingAuth
             ? <StatusNotice type="loading" title="로그인 상태를 확인하고 있어요." />
             : <Suspense fallback={<StatusNotice type="loading" title="디자인 공방을 준비하고 있어요." />}>

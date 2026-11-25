@@ -145,7 +145,7 @@ export function getJarDesignDraftError(error) {
   const apiError = error?.response?.data?.error;
   if (!apiError && error?.response?.status === 413) return { code: "DRAFT_UPLOAD_TOO_LARGE", message: "서버의 업로드 용량 제한에 걸렸어요. 더 작은 사진을 선택해 주세요." };
   if (!apiError && ["ERR_NETWORK", "ECONNABORTED", "ETIMEDOUT"].includes(error?.code)) return {
-    code: "DRAFT_NETWORK_UNAVAILABLE", message: "서버와 연결하지 못했어요. 사진은 그대로 남아 있어요. Wi-Fi 또는 모바일 데이터를 확인한 뒤 다시 눌러 주세요. 계속 실패하면 서버 업로드 제한·CORS 확인이 필요해요.",
+    code: "DRAFT_NETWORK_UNAVAILABLE", message: "서버와 연결하지 못했어요. 선택한 사진은 남아 있어요. Wi-Fi나 모바일 데이터 연결을 확인한 뒤 다시 시도해 주세요. 문제가 계속되면 서버의 업로드 제한이나 CORS 설정을 확인해야 할 수 있어요.",
   };
   return {
     code: apiError?.code || "DRAFT_REQUEST_FAILED",

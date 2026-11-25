@@ -24,6 +24,7 @@ import JarZoomModal from "../features/jarDetail/components/JarZoomModal";
 import MemoryDrawModal from "../features/jarDetail/components/MemoryDrawModal";
 import OpeningPromise from "../features/jarDetail/components/OpeningPromise";
 import { useJarDetail } from "../features/jarDetail/hooks/useJarDetail";
+import JarDetailUnavailable from "../features/jarDetail/components/JarDetailUnavailable";
 import { useJarMembers } from "../features/jarDetail/hooks/useJarMembers";
 import { useJarInvites } from "../features/jarDetail/hooks/useJarInvites";
 import { useJarDailyDraw } from "../features/jarDetail/hooks/useJarDailyDraw";
@@ -491,6 +492,7 @@ const {
   setJar,
   loading,
   error,
+  errorStatus,
   sessionExpired,
   loadJarDetail,
 } = useJarDetail(jarId);
@@ -3535,35 +3537,7 @@ async function handleViewOpenedJarNotes() {
 
   // 에러 화면
   if (error || !jar) {
-    return (
-      <div className="min-h-[calc(100vh-80px)] bg-gradient-to-b from-rose-50 via-white to-orange-50 px-6 py-10">
-        <div className="mx-auto max-w-3xl rounded-[32px] border border-rose-100 bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-          <div className="mb-4 text-5xl">🥲</div>
-          <h1 className="mb-3 text-2xl font-extrabold text-slate-800">
-            저금통 정보를 불러오지 못했어요
-          </h1>
-          <p className="mb-8 text-sm leading-7 text-slate-500">
-            {error || "요청한 저금통이 없거나 접근할 수 없어요."}
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/jars"
-              className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-            >
-              목록으로 돌아가기
-            </Link>
-
-            <button
-              onClick={() => window.location.reload()}
-              className="rounded-2xl bg-gradient-to-r from-rose-400 to-orange-400 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:scale-[1.02]"
-            >
-              다시 시도하기
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <JarDetailUnavailable status={errorStatus} onRetry={() => loadJarDetail()} />;
   }
 
   return (
@@ -5103,7 +5077,7 @@ async function handleViewOpenedJarNotes() {
 
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold text-slate-500">
-                    오픈일 (한국 시간 · KST)
+                    오픈일 (한국 시간)
                   </span>
                   <input
                     type="datetime-local"

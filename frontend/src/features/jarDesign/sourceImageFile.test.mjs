@@ -15,7 +15,7 @@ test("모바일 MIME 누락·별칭에도 실제 JPEG/PNG/WebP 바이트와 파�
 });
 test("가짜 확장자·MIME, HEIC, 빈 파일, 초과 용량은 명확하게 안내한다", async () => {
   await assert.rejects(prepareSourceImage(new File(["invalid"],"fake.png",{type:"image/png"})),/PNG, JPEG/);
-  await assert.rejects(prepareSourceImage(new File(["\0\0\0\0ftypheic"],"mobile.HEIC")),/JPEG 또는 PNG/);
+  await assert.rejects(prepareSourceImage(new File(["\0\0\0\0ftypheic"],"mobile.HEIC")),/JPEG나 PNG/);
   await assert.rejects(prepareSourceImage(new File([],"empty.jpg")),/내용이 없는/);
   let read=false;
   await assert.rejects(prepareSourceImage({size:MAX_SOURCE_IMAGE_BYTES+1,slice(){read=true;}}),/10MB/);

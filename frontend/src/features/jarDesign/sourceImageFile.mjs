@@ -16,7 +16,7 @@ export async function prepareSourceImage(file) {
   else if (ascii(0,4)==="RIFF" && ascii(8,12)==="WEBP") type="image/webp";
   if (!type) {
     if ((ascii(4,8)==="ftyp" && /heic|heix|hevc|hevx|mif1|msf1|avif|avis/.test(ascii(8,32))) || /\.(heic|heif|avif)$/i.test(file.name || ""))
-      throw new Error("HEIC·HEIF·AVIF 사진은 아직 지원하지 않아요. JPEG 또는 PNG로 변환한 사진을 선택해 주세요.");
+      throw new Error("HEIC, HEIF, AVIF 형식은 아직 지원하지 않아요. JPEG나 PNG로 변환한 사진을 선택해 주세요.");
     throw new Error("PNG, JPEG, WebP 이미지 파일만 선택할 수 있어요.");
   }
   // bytes는 그대로 보존하고 누락/부정확한 multipart Content-Type만 보정한다.

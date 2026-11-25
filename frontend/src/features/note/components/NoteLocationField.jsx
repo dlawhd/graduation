@@ -252,7 +252,7 @@ export default function NoteLocationField({ value, onChange, disabled }) {
       }}>
       <header className="note-map-header">
         <div><h2 id={`${id}-map-title`}>추억이 있는 곳을 골라요</h2>
-          <p id={`${id}-map-description`}>상호명·주소를 검색하거나 지도 위를 눌러 선택하세요.</p></div>
+          <p id={`${id}-map-description`}>상호명이나 주소를 검색해 보세요. 지도에서 위치를 바로 선택할 수도 있어요.</p></div>
         <button type="button" className="note-map-close" aria-label="장소 선택 닫기" onClick={close}>✕</button>
       </header>
       <div className="note-map-body">
@@ -265,12 +265,12 @@ export default function NoteLocationField({ value, onChange, disabled }) {
             <button type="button" onClick={search} disabled={disabled || status !== "ready" || searching || !keyword.trim()}>{searching ? "검색 중…" : "검색"}</button>
           </div>
           {status === "ready" && message && <p className="note-map-message" role="status">{message}</p>}
-          {results.length > 0 && <p className="note-map-hint">지도 위 이름·주소 표시를 눌러서도 선택할 수 있어요.</p>}
+          {results.length > 0 && <p className="note-map-hint">지도에 표시된 이름이나 주소를 눌러 선택할 수도 있어요.</p>}
           <ul className="note-map-results" aria-label="장소 검색 결과">{results.map((place, index) => <li key={`${place.latitude}:${place.longitude}:${index}`}>
             <button type="button" disabled={disabled} aria-pressed={selected?.name === place.name && selected?.address === place.address} onClick={() => choose(place)}>
               <strong>{place.name}</strong><span>{place.secondaryAddress || place.address}</span>
             </button></li>)}</ul>
-          {!results.length && !message && status === "ready" && <p className="note-map-hint">가게·공원 이름이나 도로명·지번 주소로 검색해 보세요. 지도에서 직접 위치를 골라도 돼요.</p>}
+          {!results.length && !message && status === "ready" && <p className="note-map-hint">가게나 공원 이름으로 검색해 보세요. 도로명 주소나 지번 주소를 입력하거나 지도에서 직접 위치를 골라도 돼요.</p>}
         </div>
         <div ref={viewportRef} className="note-map-viewport">
           <div ref={container} className="note-map-canvas" hidden={status !== "ready"} aria-label="장소 선택 지도" />

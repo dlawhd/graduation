@@ -2406,7 +2406,7 @@ function DefaultJarCreatePage() {
                       📅
                     </span>
 
-                    오픈 날짜와 시간 (한국 시간 · KST)
+                    오픈 날짜와 시간 (한국 시간)
                   </label>
 
                   <input

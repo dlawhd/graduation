@@ -7,10 +7,10 @@ import { SupportLetterIcon } from "../features/support/SupportLetterLayout";
 import { filterSupportFaq, supportCenterPaths } from "../features/support/supportCenter.mjs";
 import StatusNotice from "../components/feedback/StatusNotice";
 
-const topics = [["", "전체"], ["PHOTO_UPLOAD", "사진"], ["AI_GENERATION", "AI 꾸미기"], ["THREE_D", "3D"], ["NOTES_CHAT", "쪽지·채팅"], ["INVITE_ACCESS", "초대"], ["LOGIN_ACCOUNT", "로그인"], ["USAGE", "사용 방법"], ["OTHER", "기타"]];
+const topics = [["", "전체"], ["PHOTO_UPLOAD", "사진"], ["AI_GENERATION", "AI 꾸미기"], ["THREE_D", "3D"], ["NOTES_CHAT", "쪽지와 채팅"], ["INVITE_ACCESS", "초대"], ["LOGIN_ACCOUNT", "로그인"], ["USAGE", "사용 방법"], ["OTHER", "기타"]];
 
 /** 로그인 없이 기본 도움말을 검색하고, 해결되지 않은 문제는 일반/로그인 도움 문의로 연결한다. */
-export default function SupportHelpPage({ me }) {
+export default function SupportHelpPage({ me, checkingAuth }) {
   const [params, setParams] = useSearchParams(), paths = supportCenterPaths(params.toString());
   const [items, setItems] = useState([]), [error, setError] = useState("");
   const [loading, setLoading] = useState(true), [reload, setReload] = useState(0);
@@ -30,7 +30,7 @@ export default function SupportHelpPage({ me }) {
     if (topic) next.set("category", topic); else next.delete("category");
     setParams(next, { replace: true });
   }
-  return <SupportCenterLayout active="help" title="어떤 도움이 필요하세요?" description="궁금한 내용을 찾아보고, 해결되지 않으면 문의를 남겨 주세요." backTo={me ? "/jars" : "/"} backLabel={me ? "내 저금통으로" : "홈으로"} action={<Link to={paths.inquiries} className="support-letter-action">내 문의 확인 →</Link>}>
+  return <SupportCenterLayout active="help" title="어떤 도움이 필요하세요?" description="궁금한 내용을 찾아보고, 해결되지 않으면 문의를 남겨 주세요." showLoginHelp={!checkingAuth && !me}>
     <section className="sc-search"><label htmlFor="support-faq-search">궁금한 내용을 검색해 보세요</label><div><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="support-faq-search" aria-label="도움말 검색" type="search" maxLength={200} value={search} onChange={e => updateFilters(e.target.value, category)} placeholder="사진, 초대, 로그인 등을 검색해 주세요"/>{search && <button type="button" onClick={() => updateFilters("", category)}>지우기</button>}</div>
       <p>바로 찾기 {[["사진", "사진 업로드"], ["초대", "초대 링크"], ["로그인", "로그인"]].map(([value, label]) => <button key={value} type="button" onClick={() => updateFilters(value, "")}>{label}</button>)}</p>
     </section>

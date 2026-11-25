@@ -21,7 +21,7 @@ test("FAQ는 제목·내용·유형에서 검색하며 주제와 교차 필터�
   const rows = [{ category: "PHOTO_UPLOAD", question: "사진 업로드", answer: "PNG 파일" }, { category: "LOGIN_ACCOUNT", question: "로그인", answer: "같은 브라우저" }];
   assert.equal(filterSupportFaq(rows, " png ", "").length, 1);
   assert.equal(filterSupportFaq(rows, "사진", "LOGIN_ACCOUNT").length, 0);
-  assert.equal(filterSupportFaq(rows, "로그인·계정", "LOGIN_ACCOUNT").length, 1);
+  assert.equal(filterSupportFaq(rows, "로그인 및 계정", "LOGIN_ACCOUNT").length, 1);
   assert.equal(filterSupportFaq(rows, "", "").length, 2);
 });
 test("첨부의 불확실한 저장 결과는 같은 번호로 복구하고 확정 실패만 새 번호를 사용한다", () => {

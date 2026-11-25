@@ -17,7 +17,7 @@ export function useEarlyDesignDraft({ userId, id, initial, allowMissing, onResto
       if (!ctx.active) return;
       if (record?.serverDraftId) { callbacks.current.onPromoted(record.serverDraftId); return; }
       if (record?.cleared || (record && (!record.state || record.expiresAt <= Date.now())) || (!record && !allowMissing))
-        throw new Error("저장한 작업이 삭제·만료되었거나 이 계정·브라우저에 없어요. 새 제작으로 시작해 주세요.");
+        throw new Error("이 계정으로 이 브라우저에 저장한 작업을 찾을 수 없어요. 작업이 삭제됐거나 보관 기간이 지났을 수 있어요. 새로 만들어 주세요.");
       ctx.writer = createEarlyDesignWriter({ initial: record?.state || initial, revision: record?.revision || 0,
         write: (value, revision, options) => writeEarlyDesignDraft(userId, id, value, revision, options),
         onStatus: (value, message) => { if (ctx.active) { setStatus(value); setError(message); } },

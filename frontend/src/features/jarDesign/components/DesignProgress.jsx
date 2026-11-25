@@ -10,7 +10,12 @@ export default function DesignProgress({ activeStep = 1, bodyOnly = false }) {
   const steps = bodyOnly ? BODY_ONLY_DESIGN_STEPS : DESIGN_STEPS;
   const currentStep = bodyOnly && activeStep !== 1 ? (activeStep === 5 ? 3 : 2) : activeStep;
   return <nav className="design-progress" data-body-only={bodyOnly || undefined} aria-label="디자인 제작 순서">
-    <div className="design-progress-heading"><span>저금통 완성까지</span><span>{currentStep}/{steps.length} · {steps[currentStep - 1]}</span></div>
+    <div className="design-progress-heading">
+      <span>저금통 완성까지</span>
+      <span className="design-progress-current">
+        {steps[currentStep - 1]} <small className="design-progress-total">{currentStep}/{steps.length}단계</small>
+      </span>
+    </div>
     <button type="button" className="design-progress-toggle" aria-expanded={expanded} aria-controls={stepsId} onClick={() => setExpanded(!expanded)}>{expanded ? "전체 단계 접기" : "전체 단계 보기"}<span aria-hidden="true">{expanded ? "−" : "+"}</span></button>
     <ol id={stepsId} className={expanded ? "is-expanded" : ""}>{steps.map((label, index) => {
       const step = index + 1;

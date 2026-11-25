@@ -16,6 +16,7 @@ import { useId } from "react";
  */
 export default function MemoryJarLogoIcon({
   className = "h-9 w-9",
+  monochrome = false,
 }) {
   /*
    * 같은 화면에서 아이콘이 여러 번 사용되어도
@@ -26,6 +27,15 @@ export default function MemoryJarLogoIcon({
   const edgeGradientId = `${rawId}-logo-edge`;
   const glassGradientId = `${rawId}-logo-glass`;
   const lidGradientId = `${rawId}-logo-lid`;
+
+  // 메뉴 아이콘은 버튼의 글자색을 따라 선택 상태에서 흰색으로 표시한다.
+  if (monochrome) return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="6" y="3" width="12" height="4" rx="2" />
+      <path d="M8 7v2c-2 1-3 2.5-3 5v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4c0-2.5-1-4-3-5V7M10 13h4" />
+    </svg>
+  );
 
   return (
     <svg

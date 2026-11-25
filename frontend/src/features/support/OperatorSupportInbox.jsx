@@ -63,20 +63,20 @@ export default function OperatorSupportInbox({ me, checkingAuth }) {
     {checkingAuth ? <StatusNotice type="loading" title="로그인을 확인하고 있어요."/> : !me ? <div className="support-letter-card"><p>로그인 후 운영 문의함을 확인할 수 있어요.</p><Link to="/" className="support-letter-action mt-4">로그인 화면으로</Link></div> : !inbox.allowed ? <div className="support-letter-card"><p role={inbox.permission || inbox.permissionError ? "alert" : "status"}>{inbox.permissionError || (inbox.permission ? "서비스 운영자만 이용할 수 있습니다. 저금통 관리자 권한과는 다릅니다." : "운영자 권한을 확인하고 있어요.")}</p>{inbox.permissionError && <button className="support-letter-action mt-4" onClick={inbox.retryPermission}>다시 확인</button>}</div> : <>
       <div className="operator-inbox-toolbar"><div><span className="operator-inbox-eyebrow">문의 관리</span><h2>도움이 필요한 이야기</h2></div><button type="button" disabled={inbox.loading || detailBusy} className="support-letter-action" onClick={inbox.refresh}>↻ {inbox.loading ? "확인 중…" : "새로고침"}</button></div>
       <nav className="operator-inbox-filters" aria-label="문의 처리 상태">{["", ...statuses].map(value => <button key={value} type="button" aria-pressed={inbox.status === value} disabled={detailBusy} onClick={() => inbox.changeStatus(value)}>{value ? SUPPORT_STATUS[value] : "전체"}</button>)}</nav>
-      <div className="operator-inbox-caption"><span>{inbox.result ? <>현재 페이지 <strong>{items.length}건</strong></> : "문의 목록 확인 중"}</span><span>{inbox.updatedAt && <time dateTime={inbox.updatedAt.toISOString()}>최근 확인 {inbox.updatedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} · </time>}최근 접수 순</span></div>
+      <div className="operator-inbox-caption"><span>{inbox.result ? <>현재 페이지 <strong>{items.length}건</strong></> : "문의 목록 확인 중"}</span><span>최근 접수 순{inbox.updatedAt && <> (갱신 <time dateTime={inbox.updatedAt.toISOString()}>{inbox.updatedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</time>)</>}</span></div>
       {inbox.error && <StatusNotice type="error" onRetry={inbox.refresh} busy={inbox.loading}>{inbox.error}</StatusNotice>}
       <div className="operator-inbox-workspace">
         <aside className="operator-inbox-list" aria-label="운영 문의 목록" aria-busy={inbox.loading}>
           {!inbox.result && !inbox.error && <p role="status" className="operator-inbox-empty">문의 목록을 불러오고 있어요.</p>}
           {inbox.result && !items.length && <p role="status" className="operator-inbox-empty">해당 상태의 문의가 없어요.</p>}
           {items.map(ticket => <button type="button" key={ticket.inquiryId} disabled={detailBusy} aria-current={selected === String(ticket.inquiryId) ? "true" : undefined} className="operator-inbox-item" onClick={() => { if (selected !== String(ticket.inquiryId)) { focusRequested.current = true; navigate(`${base}/${ticket.inquiryId}`); } }}>
-            <div className="operator-inbox-item-meta"><span>#{ticket.inquiryId} · {SUPPORT_CATEGORIES[ticket.category] || "AI 생성·결과 품질"}</span><SupportStatusBadge status={ticket.status}/></div>
+            <div className="operator-inbox-item-meta"><span>#{ticket.inquiryId} ({SUPPORT_CATEGORIES[ticket.category] || "AI 생성 및 결과 품질"})</span><SupportStatusBadge status={ticket.status}/></div>
             <h3>{supportTitle(ticket)}</h3><p>{ticket.contentExpired ? "문의 보관 기간이 지났습니다." : ticket.description}</p>
             <div className="operator-inbox-item-bottom"><time>{supportTime(ticket.createdAt)}</time>{draftIds.includes(String(ticket.inquiryId)) && <span className="operator-inbox-draft-badge">작성 중</span>}</div>
           </button>)}
         </aside>
         <div ref={detailRef} tabIndex={-1} className="operator-inbox-conversation" aria-label="선택한 문의">
-          {selected && inbox.result && !items.some(ticket => String(ticket.inquiryId) === selected) && <p className="operator-inbox-selection-note">선택한 문의는 현재 목록 밖에 있어요. 다른 문의를 선택하거나 필터·페이지를 바꿀 수 있어요.</p>}
+          {selected && inbox.result && !items.some(ticket => String(ticket.inquiryId) === selected) && <p className="operator-inbox-selection-note">선택한 문의는 현재 목록에 없어요. 다른 문의를 선택하거나 필터 또는 페이지를 바꿔 보세요.</p>}
           {validSelection ? <SupportInquiryDetail key={`${userId}:${selected}`} inquiryId={selected} operator userId={userId} embedded initialDraft={drafts.current.get(selected)} onDraftChange={draft => rememberDraft(selected, draft)} onBusyChange={setDetailBusy} onAccessDenied={inbox.revokeAccess} onUpdated={inbox.refresh}/> : <p role={selected ? "alert" : "status"} className="operator-inbox-empty">{selected ? "문의 번호가 올바르지 않아요. 목록에서 문의를 선택해 주세요." : "확인할 문의를 선택해 주세요."}</p>}
         </div>
       </div>

@@ -45,6 +45,7 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
   const requestGate = useRequestGate(location.pathname + location.search);
   const [inputMode, setInputMode] = useState("DRAW");
   const [sourceImage, setSourceImage] = useState(null);
+  const [sourceMode, setSourceMode] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [customBody, setCustomBody] = useState(null);
   // URL에서 단계를 읽어 새로고침과 브라우저 뒤로 가기도 같은 선택으로 복원한다. 파일은 메모리에만 둔다.
@@ -74,6 +75,7 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
     onPromoted: id => setRawSearchParams({ draft: String(id) }, { replace: true }),
     onRestore: value => {
       setCustomBody(value.customBody); setSourceImage(value.sourceImage); setInputMode(value.inputMode);
+      setSourceMode(value.sourceMode ?? (value.sourceImage?.name === "jar-design-drawing.png" ? "DRAW" : "UPLOAD"));
       setSourceDirty(value.sourceDirty);
       setInitialBodyCanvas(value.bodyCanvas); setInitialImageCanvas(value.imageCanvas);
       const next = { work: workId };
@@ -136,12 +138,13 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
   }
 
   /** 새 원본을 고르면 이전 Draft로 이어지는 URL을 지워 잘못된 후보를 섞지 않는다. */
-  function setDesignSource(imageFile) {
+  function setDesignSource(imageFile, mode = "DRAW") {
     sourceSelection.current += 1;
     setReadingSource(false);
     setLoadedPreviewUrl("");
     setSourceImage(imageFile);
-    early.patch({ sourceImage: imageFile, sourceDirty: false });
+    setSourceMode(mode);
+    early.patch({ sourceImage: imageFile, sourceMode: mode, sourceDirty: false });
     setSearchParams(body ? { body: body.id, step: "image" } : { mode: "image-only", step: "image" } , { replace: true });
     setError("");
     setSourceDirty(false);
@@ -159,7 +162,7 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
     try {
       const prepared = await prepareSourceImage(imageFile);
       // 연속 선택·입력 방식 전환 뒤 늦게 끝난 이전 파일이 최신 그림을 덮어쓰지 않는다.
-      if (isCurrent() && selection === sourceSelection.current) setDesignSource(prepared);
+      if (isCurrent() && selection === sourceSelection.current) setDesignSource(prepared, "UPLOAD");
     } catch (readError) {
       if (isCurrent() && selection === sourceSelection.current) setError(readError.message || "사진을 읽지 못했어요. 다시 선택해 주세요.");
     } finally {
@@ -231,24 +234,24 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
       <main className={studioPage ? "mx-auto max-w-[1440px]" : catalogSelection && !catalogMode ? "mx-auto max-w-5xl" : "mx-auto max-w-6xl"}>
         <Link to="/jars/new" className="text-sm font-bold text-violet-700 hover:text-violet-900">← 만들기 방식 다시 선택</Link>
         {!catalogSelection && <section className={studioPage ? "studio-intro mt-4 py-3" : "mt-4 rounded-[28px] border border-white bg-gradient-to-br from-[#e7f2ec] via-[#fffdf7] to-[#f8e9dc] p-6 shadow-[0_12px_36px_rgba(42,74,57,0.06)] sm:p-8"}>
-          <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black tracking-wide text-emerald-800">MEMORY JAR · 작은 저금통 공방</span>
+          <span className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-black tracking-wide text-emerald-800">Memory Jar의 작은 저금통 공방</span>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-800 sm:text-4xl">{stepIntro[0]}</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">{stepIntro[1]}</p>
-          <details className="mt-2 max-w-3xl text-sm leading-6 text-slate-600"><summary className="min-h-11 cursor-pointer py-3 font-bold">만들기 도움말</summary><p>다른 방식으로 시작하려면 위에 있는 ‘만들기 방식 다시 선택’을 눌러주세요. AI 변환은 선택 사항이고, 원본으로도 완성할 수 있어요.</p></details>
           <DesignProgress activeStep={draftId ? galleryStep : imageStep ? 2 : 1} bodyOnly={bodyOnlyDraft} />
         </section>}
 
-        {!draftId && (!catalogSelection || early.error) && <div className="mt-4 rounded-xl border border-emerald-100 bg-white px-4 py-3 text-xs text-emerald-900">
-          {!catalogSelection && <p role="status">{early.status === "saving" ? "작업을 저장하고 있어요…" : early.status === "saved" ? "이 브라우저에 작업을 저장했어요. 이어서 만들기로 다시 열 수 있어요." : "틀과 그림은 이 브라우저에 계정별로 자동 저장돼요."}</p>}
-          {early.error && <p role="alert" className="mt-2 text-rose-700">{early.error} <button type="button" onClick={early.retry} className="min-h-8 underline">다시 저장</button></p>}
-        </div>}
+        {!draftId && early.error && (
+          <p role="alert" className="mt-4 rounded-xl border border-rose-100 bg-white px-4 py-3 text-xs text-rose-700">
+            {early.error} <button type="button" onClick={early.retry} className="min-h-8 underline">다시 저장</button>
+          </p>
+        )}
         {/* 선택 목록이나 그림 담기로 이동해도 틀 그림판을 유지해 미완성 획과 실행 취소 이력을 보존한다. */}
         {!draftId && <div hidden={imageStep || catalogOpen}><JarBodyWorkshop value={customBody} onChange={value => { setCustomBody(value); early.patch({ customBody: value }); }} initialCanvas={initialBodyCanvas} onSnapshot={value => early.patch({ bodyCanvas: value })} previewUrl={previewUrl} disabled={saving || imageStep || catalogOpen}
           onContinue={() => { if (getJarBody("CUSTOM",customBody)) setSearchParams({body:"CUSTOM",step:"image"}); }}/></div>}
         {catalogSelection && <>
           <div role="group" aria-label="사진 또는 그림 사용 방식" className="mt-6 grid gap-4 sm:grid-cols-2 sm:gap-5">
             {[
-              { id: "photo", label: "사진·그림 함께 담기", detail: "사진 창이 있는 모양을 고르고 내 사진이나 그림을 담아요." },
+              { id: "photo", label: "사진이나 그림 함께 담기", detail: "사진 창이 있는 모양을 고르고 내 사진이나 그림을 담아요." },
               { id: "body-only", label: "저금통 모양만 사용하기", detail: "사진 창 없이 몸통의 색과 무늬가 이어지는 모양을 골라요." },
             ].map(({ id, label, detail }) => (
               <div key={id} data-selected={catalogMode === id || undefined} className={`relative rounded-[24px] border border-emerald-100 bg-white shadow-sm transition-colors hover:border-emerald-500 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-700 data-selected:border-emerald-700 data-selected:bg-emerald-50 ${catalogMode ? "flex items-center gap-3 p-2.5 sm:gap-4" : "grid gap-4 p-3 sm:p-4"}`}>
@@ -292,15 +295,6 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
               <div><p className="text-xs font-bold text-emerald-700">선택한 제작 방식</p><p className="mt-1 font-black text-slate-800">{body?.name || "이미지만 사용하기"}</p></div>
               <button type="button" disabled={saving} onClick={() => setSearchParams(body ? { body: body.id } : {})} className="min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-emerald-800 disabled:opacity-50">모양 다시 고르기</button>
             </div>
-            {body && imageStep && !catalogOpen && (
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-white px-4 py-3">
-                <p className="text-sm text-slate-600">사진 없이 만들면 사진 창 자리까지 저금통의 색과 무늬가 이어져요.</p>
-                <button type="button" disabled={saving || readingSource} onClick={() => void handleCreateDraft(true)}
-                  className="min-h-11 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-800 disabled:opacity-50">
-                  저금통 모양만 사용할래요 →
-                </button>
-              </div>
-            )}
             <div className="studio-workspace">
               <div hidden={inputMode !== "DRAW"} className="studio-editor min-w-0"><JarDesignCanvas workshopLayout toolboxHeader={sourceTabs} disabled={saving || !imageStep || inputMode !== "DRAW"} onConfirm={setDesignSource} initialCanvas={initialImageCanvas} onSnapshot={value => early.patch({ imageCanvas: value })} onDirtyChange={value => { setSourceDirty(value); early.patch({ sourceDirty: value }); }} /></div>
               {inputMode === "UPLOAD" && (
@@ -309,11 +303,19 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
                   <label className="image-upload-paper relative flex min-h-96 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[18px] border-2 border-dashed border-emerald-200 bg-white p-6 text-center hover:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500">
                     {previewUrl ? <img key={previewUrl} src={previewUrl} alt="선택한 원본 사진" className="max-h-72 w-full rounded-xl object-contain" /> : <span className="text-4xl">🖼️</span>}
                     <span className="mt-3 font-black text-slate-800">{previewUrl ? "다른 사진 선택" : "외부 이미지 선택"}</span>
-                    <span className="mt-2 text-xs leading-5 text-slate-500">PNG, JPEG, WebP · 최대 10MB<br />HEIC 사진은 JPEG로 변환해 주세요.</span>
+                    <span className="mt-2 text-xs leading-5 text-slate-500">PNG, JPEG, WebP 파일을 최대 10MB까지 올릴 수 있어요.<br />HEIC 사진은 JPEG로 변환해 주세요.</span>
                     {/* 모바일에서도 실제 파일 입력이 선택 영역 전체를 받도록 한다. */}
                     <input aria-label="외부 이미지 선택" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" type="file" accept={SOURCE_IMAGE_ACCEPT} disabled={saving} onChange={(event) => void handleExternalImageChange(event)} />
                   </label>
-                  <p role="status" className="image-upload-status mt-3 break-words text-xs leading-5 text-emerald-800">{readingSource ? "선택한 사진을 확인하고 있어요…" : sourceImage ? `${sourceImage.name || "선택한 그림"} · ${previewReady ? "사진 준비 완료. 다음 단계로 계속해 주세요." : "미리보기를 확인하고 있어요…"}` : "사진을 고르면 여기에서 바로 확인할 수 있어요."}</p>
+                  <p role="status" className="image-upload-status mt-3 break-words text-xs leading-5 text-emerald-800">
+                    {readingSource ? "선택한 사진을 확인하고 있어요…" : sourceImage ? <>
+                      {previewReady
+                        ? (sourceMode === "DRAW" ? "그린 그림을 사용할 수 있어요." : "선택한 사진을 사용할 수 있어요.")
+                        : "미리보기를 확인하고 있어요."}
+                      {sourceMode === "UPLOAD" && sourceImage.name && <span className="block break-all">{sourceImage.name}</span>}
+                    </>
+                      : "사진을 고르면 여기에서 바로 확인할 수 있어요."}
+                  </p>
                   {error && <p role="alert" className="image-upload-error mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
                   <section aria-label="저작권과 AI 변환 안내" className="image-upload-notice mt-5 rounded-2xl border border-stone-200/80 bg-[#faf8f4] p-4 sm:p-5">
                     <div className="flex items-start gap-3">
@@ -337,9 +339,13 @@ function JarDesignEditor({ userId, workId, allowMissing }) {
                 {!previewUrl && <p className="mt-2 text-center text-xs leading-5 text-slate-500">그림을 확정하거나 이미지를 골라<br />저금통 안을 채워주세요.</p>}
                 {imageOnly && previewUrl && <p className="mt-2 text-xs leading-5 text-slate-500">3D는 이미지 윤곽에 두께를 더해 돌려보는 미리보기예요. 사진 속 대상을 입체 모델로 바꾸지는 않아요.</p>}
                 {sourceDirty && sourceImage && inputMode === "DRAW" && <p role="status" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">그림이 바뀌었어요. ‘이 그림 사용하기’를 눌러 최신 그림을 반영해 주세요.</p>}
+                {inputMode === "DRAW" && previewReady && !sourceDirty && <p role="status" className="mt-3 text-xs leading-5 text-emerald-800">
+                  {sourceMode === "DRAW" ? "그린 그림을 사용할 수 있어요." : "선택한 사진을 사용할 수 있어요."}
+                  {sourceMode === "UPLOAD" && sourceImage?.name && <span className="block break-all">{sourceImage.name}</span>}
+                </p>}
                 <button type="button" disabled={!sourceImage || !previewReady || readingSource || saving || (inputMode === "DRAW" && sourceDirty)} onClick={() => void handleCreateDraft()}
                   className="mt-4 min-h-12 w-full rounded-xl bg-emerald-800 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? "그림을 준비하고 있어요…" : "이 그림으로 다음 단계 →"}</button>
-                <p className="mt-3 text-xs leading-5 text-slate-500">{body ? "다음 화면에서 사진을 빈틈없이 채우고 위치·확대를 조절해요. 모양을 바꾸거나 이미지만 쓰는 방식으로 돌아갈 수 있어요." : "다음 화면에서 원본 또는 AI 후보를 고른 뒤 기존 이미지 자르기·배경 지우기를 이용해요."}</p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">{body ? "다음 화면에서 사진이 빈틈없이 들어가도록 위치와 확대 비율을 조절할 수 있어요. 모양을 바꾸거나 이미지만 사용하는 방식으로 돌아갈 수도 있어요." : "다음 화면에서 원본이나 AI 후보를 고른 뒤 이미지를 자르거나 배경을 지울 수 있어요."}</p>
               </aside>
             </div>
           </section>

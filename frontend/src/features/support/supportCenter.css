@@ -2,12 +2,9 @@
 .support-center { color:#203b30; background:#faf7f0; min-height:calc(100dvh - 80px); }
 .sc-main { background:radial-gradient(ellipse at 94% 5%,#eeefdf80,transparent 35%),#faf7f0; padding:25px 24px 32px; }
 .sc-inner { max-width:1140px; margin:auto; }
-.sc-breadcrumb { display:flex; justify-content:space-between; align-items:center; gap:12px; color:#6e7c65; font-size:12px; min-height:32px; }
-.sc-breadcrumb>a { display:inline-flex; align-items:center; min-height:44px; font-weight:600; }
-.sc-breadcrumb>span { color:#8c9686; font-size:11px; }
-.sc-heading { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:24px 0 28px; }
+.sc-heading { padding:24px 0 28px; }
 .sc-kicker { color:#6f7e64; font-size:11px; font-weight:700; letter-spacing:.05em; }
-.sc-heading h1 { margin-top:8px; color:#142d25; font-size:34px; font-weight:800; letter-spacing:-.045em; line-height:1.4; }
+.sc-heading h1 { color:#142d25; font-size:34px; font-weight:800; letter-spacing:-.045em; line-height:1.4; }
 .sc-heading p { margin-top:10px; color:#6c7965; font-size:15px; line-height:1.8; }
 .sc-section-nav { display:flex; gap:30px; border-bottom:1px solid #dce2d5; margin-bottom:26px; }
 .sc-section-nav>a { display:inline-flex; align-items:center; min-height:50px; padding:9px 1px 12px; border-bottom:2px solid transparent; font-size:14px; font-weight:650; color:#7a8671; white-space:nowrap; }
@@ -133,11 +130,9 @@
 .support-center button:focus-visible,.support-center a:focus-visible,.support-center summary:focus-visible { outline:3px solid #69855c; outline-offset:3px; }
 @media(max-width:767px) {
   .sc-main { padding:16px 16px 25px; }
-  .sc-breadcrumb>span { display:none; }
   .sc-heading { padding:15px 0 22px; }
   .sc-heading h1 { font-size:26px; }
   .sc-heading p { font-size:13px; }
-  .sc-heading>.support-letter-action { display:none; }
   .sc-section-nav { gap:0; justify-content:space-between; margin-bottom:20px; }
   .sc-section-nav>a { font-size:12px; min-height:44px; }
   .sc-help-grid,.sc-compose-grid,.sc-detail-grid { grid-template-columns:1fr; gap:20px; }

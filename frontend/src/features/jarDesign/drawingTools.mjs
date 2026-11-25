@@ -71,7 +71,7 @@ export const BRUSH_DESCRIPTIONS = {
   soft:"포근하게 번지는 붓", scallop:"동그란 볼록무늬가 이어지는 선",
 };
 export const SHAPES = [
-  ["line", "직선"], ["rectangle", "사각형"], ["rounded", "둥근 사각형"], ["ellipse", "원 · 타원"],
+  ["line", "직선"], ["rectangle", "사각형"], ["rounded", "둥근 사각형"], ["ellipse", "원 또는 타원"],
   ["triangle", "삼각형"], ["rightTriangle", "직각 삼각형"], ["diamond", "마름모"],
   ["pentagon", "오각형"], ["hexagon", "육각형"], ["octagon", "팔각형"],
   ["star", "별"], ["star4", "반짝임"], ["heart", "하트"], ["cloud", "구름"],

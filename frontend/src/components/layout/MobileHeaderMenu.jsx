@@ -24,6 +24,8 @@ import NicknameEditor from "../profile/NicknameEditor";
 
 export default function MobileHeaderMenu({
   isOpen,
+  isJarsSection,
+  isHelpSection,
   me,
   isSupportOperator = false,
   loggingOut,
@@ -150,13 +152,13 @@ export default function MobileHeaderMenu({
                    * 로그인 사용자 이름의 첫 글자를
                    * 프로필 원 안에 보여준다.
                    */}
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-300 to-cyan-300 text-sm font-black text-slate-900 shadow-sm">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-black ring-1 ring-slate-200">
                     {(me?.name || "U").slice(0, 1)}
                   </div>
 
                   <div className="min-w-0">
                     {/* 사용자 이름 */}
-                    <p className="truncate text-base font-black text-slate-900">
+                    <p className="truncate text-base font-black text-black">
                       {me?.name || "이름 없음"}
                     </p>
 
@@ -192,7 +194,8 @@ export default function MobileHeaderMenu({
             {/* 가운데 메뉴 목록 */}
             <div className="flex-1 overflow-y-auto px-4 py-5">
               <div className="space-y-2">
-                <SupportHelpLink onClick={handleClose} className="block min-h-11 rounded-2xl bg-emerald-50 px-4 py-3.5 text-sm font-bold text-emerald-800"/>
+                <SupportHelpLink onClick={handleClose} aria-current={isHelpSection ? "page" : undefined}
+                  className={`block min-h-11 rounded-2xl px-4 py-3.5 text-sm font-bold transition ${isHelpSection ? "bg-emerald-800 text-white" : "bg-white text-black hover:bg-slate-50"}`} />
                 <Link to="/account/connections" onClick={handleClose} className="block min-h-11 rounded-2xl bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-800">로그인 수단 연결</Link>
                 <Link to="/support/inquiries" onClick={handleClose} className="block min-h-11 rounded-2xl bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-800">내 문의 <span className="ml-2 text-xs font-normal text-slate-500">접수 상태와 답변 확인</span></Link>
                 {isSupportOperator && <Link to="/admin/support/inquiries" onClick={handleClose} className="block min-h-11 rounded-2xl bg-emerald-50 px-4 py-3.5 text-sm font-bold text-emerald-800">운영 문의함</Link>}
@@ -203,11 +206,12 @@ export default function MobileHeaderMenu({
                 <Link
                   to="/jars"
                   onClick={handleClose}
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left text-sm font-black text-slate-800 transition hover:bg-emerald-50"
+                  aria-current={isJarsSection ? "page" : undefined}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left text-sm font-black transition ${isJarsSection ? "bg-emerald-800 text-white" : "text-slate-800 hover:bg-emerald-50"}`}
                 >
                   {/* Memory Jar 아이콘 */}
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                    <MemoryJarLogoIcon className="h-7 w-7" />
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isJarsSection ? "bg-white/15" : "bg-emerald-50 text-emerald-600"}`}>
+                    <MemoryJarLogoIcon className="h-6 w-6" monochrome />
                   </span>
 
                   <span className="flex-1">
@@ -215,7 +219,7 @@ export default function MobileHeaderMenu({
                   </span>
 
                   <span
-                    className="text-slate-300"
+                    className={isJarsSection ? "text-white" : "text-slate-300"}
                     aria-hidden="true"
                   >
                     →

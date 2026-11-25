@@ -23,6 +23,7 @@ export function earlyDesignSnapshot(value = {}) {
       ...(png(body.artworkUrl) ? { artworkUrl: png(body.artworkUrl) } : {}),
     } : null,
     bodyCanvas: png(value.bodyCanvas), imageCanvas: png(value.imageCanvas), sourceImage: file || null,
+    sourceMode: ["DRAW", "UPLOAD"].includes(value.sourceMode) ? value.sourceMode : null,
     sourceDirty: Boolean(value.sourceDirty), inputMode: value.inputMode === "UPLOAD" ? "UPLOAD" : "DRAW",
     imageOnly: Boolean(value.imageOnly), catalogOpen: Boolean(value.catalogOpen), step: value.step === 2 ? 2 : 1,
     catalogMode: ["photo", "body-only"].includes(value.catalogMode) ? value.catalogMode : null,
@@ -110,7 +111,7 @@ export async function writeEarlyDesignDraft(userId, id, value, revision, { remov
     request.onsuccess = () => {
       const old = request.result;
       if ((old?.revision || 0) !== revision || old?.cleared || old?.expiresAt <= now) {
-        failure = new Error("다른 탭에서 작업이 변경되었거나 삭제·만료됐어요. 저장한 작업을 다시 열어주세요.");
+        failure = new Error("다른 탭에서 작업이 바뀌었거나 작업이 삭제됐을 수 있어요. 보관 기간이 지났을 수도 있으니 저장 목록을 다시 확인해 주세요.");
         failure.code = "DRAFT_CONFLICT"; tx.abort(); return;
       }
       nextRevision = revision + 1;

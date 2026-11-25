@@ -700,7 +700,7 @@ export default function NoteAttachmentPicker({
                 <span className="block text-sm font-black text-slate-700">
                   {isLimitReached
                     ? "사진과 영상을 모두 채웠어요"
-                    : compact ? "사진·영상 추가" : "사진, 영상 추가하기"}
+                    : compact ? "사진과 영상 추가" : "사진, 영상 추가하기"}
                 </span>
 
                 <span className={compact ? "sr-only" : "mt-1 block text-xs font-medium leading-5 text-slate-400"}>
@@ -735,7 +735,7 @@ export default function NoteAttachmentPicker({
           앞으로, 뒤로 버튼으로 바꿀 수 있어요.
         </p>
       </div>}
-      {compact && attachmentCount > 0 && <p className="text-xs text-slate-500">사진 10MB · 영상 30MB까지, 최대 10개를 담을 수 있어요.</p>}
+      {compact && attachmentCount > 0 && <p className="text-xs text-slate-500">파일 하나당 사진은 10MB, 영상은 30MB까지 올릴 수 있어요. 사진과 영상을 합해 최대 10개까지 담을 수 있어요.</p>}
 
       {/* 10개를 모두 채웠을 때 보여주는 안내 */}
       {isLimitReached && (
@@ -750,15 +750,17 @@ export default function NoteAttachmentPicker({
       {uploading && (
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
           <p className="text-sm font-semibold text-emerald-700">
-            선택한 순서대로 파일을 올리고 있어요.
+            파일을 올리고 있어요
           </p>
 
-          <p className="mt-1 truncate text-xs font-semibold text-emerald-600">
-            {uploadProgress?.currentFileName ||
-              "파일 준비 중"}{" "}
-            · {uploadProgress?.completed || 0}/
-            {uploadProgress?.total || 0}개 처리
-          </p>
+          {uploadProgress?.total > 0 && (
+            <p className="mt-1 text-xs font-semibold text-emerald-700">
+              {uploadProgress.total}개 중 {uploadProgress.completed ?? 0}개 처리 완료
+            </p>
+          )}
+          {uploadProgress?.currentFileName && (
+            <p className="mt-1 break-all text-xs text-emerald-700">{uploadProgress.currentFileName}</p>
+          )}
         </div>
       )}
 

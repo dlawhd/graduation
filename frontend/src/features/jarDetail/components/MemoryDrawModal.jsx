@@ -674,7 +674,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
 
                          <p className="mt-1 text-xs text-slate-500">
                            {item.authorName || `사용자 ${item.authorId}`}
-                           {item.location ? ` · ${item.location}` : ""}
+                           {item.location && <span className="block break-words">장소 {item.location}</span>}
                          </p>
                        </button>
                      ))}
@@ -689,7 +689,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
            {jar?.isOpen && !loading && !error && !note && !isAllMemoriesReceived && history.length > 0 && (
              <aside className={`mt-5 rounded-[30px] border p-6 ${palette.panel}`}>
                <h3 className="mb-3 text-sm font-black text-slate-800">
-                 이전 뽑기 기록 · {historyPagination?.totalElements ?? history.length}개
+                 이전 뽑기 기록 ({historyPagination?.totalElements ?? history.length}개)
                </h3>
                <div className="space-y-3">
                  {history.map((item) => (
@@ -834,7 +834,7 @@ import { formatNoteDateOnly } from "../utils/jarDetailDateUtils";
 
                          <p className="mt-1 text-xs text-slate-500">
                            {item.authorName || `사용자 ${item.authorId}`}
-                           {item.location ? ` · ${item.location}` : ""}
+                           {item.location && <span className="block break-words">장소 {item.location}</span>}
                          </p>
                        </button>
                      ))}

@@ -41,7 +41,6 @@ button, input, textarea, select { font-family: inherit; }
 .profile-menu { display:flex; flex-direction:column; width:340px; max-width:calc(100vw - 32px); padding:8px 0; border-radius:22px; scrollbar-width:thin; }
 .profile-menu > * { flex-shrink:0; }
 .profile-menu-account { order:1; background:white; padding:16px 20px; }
-.profile-menu-account > div > div:first-child { background:#e2eee4; color:#32624b; }
 .profile-menu-help { order:2; padding:8px 12px 0; border:0; }
 .profile-menu-help > button { border:0; background:white; border-radius:12px; padding:10px; }
 .profile-menu-help > button > span:first-child { width:32px; height:32px; border-radius:10px; box-shadow:none; background:#f0f5ee; }

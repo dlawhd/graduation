@@ -529,7 +529,7 @@ function PaperComposeModal({
               <div className="space-y-4">
                 <section className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4" aria-label="비공개 쪽지 초안">
                   <p className="text-sm font-bold text-emerald-950">{draft.available ? "작성 중인 쪽지가 있어요" : draft.status === "loading" ? "저장한 초안을 확인하는 중이에요" : "나만의 쪽지 초안"}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">이 계정·이 저금통의 초안만 이 브라우저에 저장해요. 다른 멤버에게는 작성 여부도 보이지 않아요.</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">이 계정으로 이 저금통에 쓰던 쪽지만 이 브라우저에 저장해요. 다른 멤버에게는 작성 여부도 보이지 않아요.</p>
                   <p role="status" className="mt-1 text-xs text-emerald-800">{draft.status === "saved" ? "작성 내용을 저장했어요." : draft.status === "restoring" ? "첨부파일과 작성 내용을 복구하는 중이에요." : ""}</p>
                   {draft.error && <p role="alert" className="mt-2 text-sm text-rose-700">{draft.error} <button type="button" disabled={loading || uploading} onClick={() => draft.reload()} className="underline">저장한 초안 다시 불러오기</button></p>}
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -628,7 +628,7 @@ function PaperComposeModal({
 
                 <details open={optionsOpen} onToggle={(event) => setOptionsOpen(event.currentTarget.open)} className="note-composer-options rounded-2xl border border-slate-200 bg-white/60 px-4">
                   {/* 첨부 추가처럼 화살표로 hover를 알리고 공통 사각형 강조는 적용하지 않는다. */}
-                  <summary data-hover-feedback="custom" className="group min-h-11 cursor-pointer rounded-2xl py-3 text-sm font-bold text-slate-700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/></svg><span>날짜·장소·태그 추가 <span className="sr-only">(선택)</span></span><span className="note-options-chevron transition group-hover:translate-x-0.5 group-hover:text-slate-400" aria-hidden="true">⌄</span></summary>
+                  <summary data-hover-feedback="custom" className="group min-h-11 cursor-pointer rounded-2xl py-3 text-sm font-bold text-slate-700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/></svg><span>날짜, 장소, 태그 추가 <span className="sr-only">(선택)</span></span><span className="note-options-chevron transition group-hover:translate-x-0.5 group-hover:text-slate-400" aria-hidden="true">⌄</span></summary>
                 <div className="grid gap-4 pb-4 pt-2 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold text-slate-500">
@@ -805,7 +805,7 @@ function PaperComposeModal({
           </div>
           {/* 스크롤 영역 밖에 두어 PC·모바일 모두 다음 행동을 바로 찾을 수 있다. */}
           <footer className="note-composer-footer shrink-0 px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:px-6">
-            {isFormStep && <p className="note-composer-warning"><span aria-hidden="true">!</span>넣은 쪽지는 수정·삭제할 수 없어요.</p>}
+            {isFormStep && <p className="note-composer-warning"><span aria-hidden="true">!</span>한 번 넣은 쪽지는 수정하거나 삭제할 수 없어요.</p>}
             <div className="note-composer-actions flex justify-end gap-2">
               <button type="button" disabled={disableClose} onClick={isFormStep ? onClose : isPreviewStep ? onBackToForm : onBackToPreview} className={`min-h-11 rounded-xl border px-4 py-3 text-sm font-bold disabled:opacity-50 ${palette.outlineBtn}`}>{isFormStep ? "취소" : isPreviewStep ? "다시 수정하기" : "다시 보기"}</button>
               <button type="button" disabled={uploading || loading || isClosing || draft.blocked} onClick={isFormStep ? onShowPreview : isPreviewStep ? onShowConfirm : onSubmit} className="min-h-11 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "파일 업로드 중..." : loading ? "넣는 중..." : isFormStep ? "미리보기 보기" : isPreviewStep ? "제출 확인으로" : "저금통에 넣기"}</button>

@@ -6,7 +6,7 @@ import { SUPPORT_CATEGORIES, supportTitle } from "./supportContext.mjs";
 /** 본인 문의와 브라우저 문의의 표시만 재사용한다. 목록 데이터의 접근 권한은 각 API에서 검사한다. */
 export default function SupportInquiryList({ items, pathFor, history = false }) {
   return <div className={`sc-ticket-list${history ? " sc-history-list" : ""}`}>{items.map(ticket => <Link key={ticket.inquiryId} to={pathFor(ticket.inquiryId)} className="sc-ticket-row">
-    <div><span className="sc-meta">#{ticket.inquiryId} · {SUPPORT_CATEGORIES[ticket.category] || "AI 생성·결과 품질"}</span><h3>{supportTitle(ticket)}</h3>
+    <div><span className="sc-meta">#{ticket.inquiryId} ({SUPPORT_CATEGORIES[ticket.category] || "AI 생성 및 결과 품질"})</span><h3>{supportTitle(ticket)}</h3>
       <p>{ticket.contentExpired ? "문의 보관 기간이 지났습니다." : ticket.description}</p><time>{supportTime(ticket.createdAt)}</time></div>
     <div><SupportStatusBadge status={ticket.status}/><span className="sc-row-open">문의 확인 →</span></div>
   </Link>)}</div>;

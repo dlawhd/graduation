@@ -13,7 +13,7 @@ export function buildOpenCalendar(jar, now = Date.now()) {
   const start = Date.parse(`${local}+09:00`);
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Memory Jar//Opening Promise//KO", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
     `UID:jar-${Number(jar.jarId)}@memoryjar`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(start + 30 * 60 * 1000)}`,
-    `SUMMARY:${calendarText(`${jar.name} · 추억 여는 날`)}`, `DESCRIPTION:${calendarText("함께 모은 추억을 열어봐요. 오픈 시간은 한국 시간(KST) 기준이에요.")}`,
+    `SUMMARY:${calendarText(`${jar.name}에서 추억 여는 날`)}`, `DESCRIPTION:${calendarText("함께 모은 추억을 열어봐요. 오픈 시간은 한국 시간(KST) 기준이에요.")}`,
     "END:VEVENT", "END:VCALENDAR"];
   // RFC 5545의 한 줄 75바이트 제한은 한글에서도 지킨다.
   return lines.map(line => {

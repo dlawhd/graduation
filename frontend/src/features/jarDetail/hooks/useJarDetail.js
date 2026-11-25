@@ -24,7 +24,7 @@ export function useJarDetail(jarId) {
   const [loading, setLoading] = useState(true);
 
   // 상세 정보를 불러오다 실패했을 때 보여줄 메시지
-  const [error, setError] = useState("");
+  const [failure, setFailure] = useState(null);
 
   /*
    * Refresh Token까지 만료되어
@@ -55,7 +55,7 @@ export function useJarDetail(jarId) {
         setSessionExpired(false);
       }
 
-      setError("");
+      setFailure(null);
 
       try {
         const res = await apiClient.get(`/api/v1/jars/${jarId}`);
@@ -74,7 +74,6 @@ export function useJarDetail(jarId) {
           isSessionExpiredError(e)
         ) {
           setSessionExpired(true);
-          setError("");
           setJar(null);
 
           return false;
@@ -92,7 +91,7 @@ export function useJarDetail(jarId) {
          * 원래 보던 화면까지 잃어버리기 때문이다.
          */
         if (!suppressError) {
-          setError(serverMessage);
+          setFailure({ message: serverMessage, status: e?.response?.status });
         }
 
         if (!keepCurrentOnError) {
@@ -123,7 +122,8 @@ export function useJarDetail(jarId) {
     jar,
     setJar,
     loading,
-    error,
+    error: failure?.message || "",
+    errorStatus: failure?.status,
     sessionExpired,
     loadJarDetail,
   };

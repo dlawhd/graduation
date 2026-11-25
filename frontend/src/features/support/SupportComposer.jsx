@@ -66,13 +66,19 @@ export default function SupportComposer({guest=false,context={},userId,onCreated
     <div><label className="support-letter-label">문의 내용<textarea aria-label="문의 내용" required maxLength={1000} rows={5} disabled={locked} value={description} onChange={e=>setDescription(e.target.value)} placeholder="겪고 계신 어려움이나 궁금한 점을 자세히 알려주세요." className="support-letter-description"/></label>
     <p className="support-letter-count">{description.length} / 1,000자</p></div>
     {!guest&&Object.keys(context).length>0&&<label className="block rounded-xl bg-slate-50 p-4 text-sm leading-6"><input type="checkbox" disabled={locked} checked={includeContext} onChange={e=>setIncludeContext(e.target.checked)} className="mr-2"/>문제가 발생한 화면 정보 함께 보내기
-      <span className="mt-1 block break-words text-xs text-slate-500">{context.contextPath||""}{context.jarId?` · 저금통 #${context.jarId}`:""}{context.draftId?` · 디자인 #${context.draftId}`:""}{context.errorCode?` · 화면 오류 코드 ${context.errorCode}`:""} · 쪽지·대화 내용과 사진은 자동 첨부하지 않아요.</span></label>}
+      <span className="mt-1 block break-words text-xs text-slate-500">
+        {context.contextPath && <span className="block">{context.contextPath}</span>}
+        {context.jarId && <span className="block">저금통 #{context.jarId}</span>}
+        {context.draftId && <span className="block">디자인 #{context.draftId}</span>}
+        {context.errorCode && <span className="block">화면 오류 코드 {context.errorCode}</span>}
+        <span className="block">쪽지, 대화 내용, 사진은 자동으로 첨부되지 않아요.</span>
+      </span></label>}
     <SupportScreenshots appearance="letter" files={files} onChange={setFiles} disabled={busy} onReadingChange={value=>{filePending.current=value;setFileReading(value);}}/>
     {files.some(f=>!f.uploaded)&&<label className="block text-sm leading-6"><input type="checkbox" checked={shared} disabled={busy} onChange={e=>setShared(e.target.checked)} className="mr-2"/>선택한 화면 자료를 문의 확인을 위해 운영자에게 공유하는 데 동의해요.</label>}
     <p className="support-letter-privacy"><SupportLetterIcon name="shield"/><span>비밀번호와 인증번호는 적지 마세요.</span></p>
     <p className="support-letter-retention">첨부는 최대 30일, 내용과 추가 대화는 접수부터 90일 보관해요. 첨부가 실패해도 이미 접수된 내용은 유지돼요.</p>
     {error&&<p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-    {ticket&&<p role="status" className="text-sm text-emerald-800">문의 #{ticket.inquiryId} 접수 완료 · <Link to={base+ticket.inquiryId} className="font-bold underline">첨부를 건너뛰고 문의 보기</Link></p>}
+    {ticket&&<p role="status" className="text-sm text-emerald-800">문의 #{ticket.inquiryId}가 접수됐어요.<br /><Link to={base+ticket.inquiryId} className="font-bold underline">첨부를 건너뛰고 문의 보기</Link></p>}
     <button type="submit" disabled={busy||fileReading||!title.trim()||!description.trim()||(files.some(f=>!f.uploaded)&&!shared)} className="support-letter-submit">{busy?"문의와 화면 자료를 저장하고 있어요…":fileReading?"화면 자료를 확인하고 있어요…":ticket?"남은 첨부 다시 시도":"문의 접수하기"}</button>
   </form>;
 }
