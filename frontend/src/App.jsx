@@ -61,7 +61,7 @@ import MemoryJarLogoIcon from "./components/icons/MemoryJarLogoIcon";
 import MobileHeaderMenu from "./components/layout/MobileHeaderMenu";
 import { getSupportPermissions } from "./api/supportApi";
 import { supportNotificationPath } from "./features/support/supportView.mjs";
-import SupportHelpLink from "./features/support/SupportHelpLink";
+import { HeaderSupportLink, OPERATOR_INBOX_PATH } from "./features/support/SupportHelpLink";
 const SocialConnectionsPage = lazy(() => import("./pages/SocialConnectionsPage"));
 const JarsPage = lazy(() => import("./pages/JarsPage"));
 const JarsNewPage = lazy(() => import("./pages/JarsNewPage"));
@@ -927,10 +927,12 @@ useEffect(() => {
     "bg-emerald-800 text-white shadow-sm";
   const { pathname } = location;
   const isJarsSection = pathname === "/jars" || pathname.startsWith("/jars/");
-  const isHelpSection = pathname === "/help" || pathname.startsWith("/support/");
+  const isSupportSection = isSupportOperator
+    ? pathname === OPERATOR_INBOX_PATH || pathname.startsWith(`${OPERATOR_INBOX_PATH}/`)
+    : pathname === "/help" || pathname.startsWith("/support/");
   // 열린 헤더 패널을 우선 표시하고 닫히면 현재 페이지를 다시 표시한다.
   const activeHeaderItem = notificationOpen ? "notifications" : profileOpen ? "profile"
-    : isHelpSection ? "help" : isJarsSection ? "jars" : null;
+    : isSupportSection ? "support" : isJarsSection ? "jars" : null;
 
   /*
    * 모바일 메뉴를 닫는 공통 함수
@@ -992,9 +994,10 @@ useEffect(() => {
               - 로그인 전에는 메뉴를 보여주지 않아 로고만 남긴다.
               - 로그인 후에는 Jars, 알림, 내정보, 로그아웃만 보여준다. */}
           <div className="flex items-center gap-2">
-            <SupportHelpLink
-              aria-current={activeHeaderItem === "help" ? "page" : undefined}
-              className={`${me ? "hidden sm:inline-flex" : "inline-flex"} min-h-11 shrink-0 items-center rounded-xl px-3 text-xs font-bold transition sm:text-sm ${activeHeaderItem === "help" ? activeNavClass : "bg-white/85 text-black ring-1 ring-slate-200 hover:bg-slate-50"}`}
+            <HeaderSupportLink
+              isSupportOperator={isSupportOperator}
+              aria-current={activeHeaderItem === "support" ? "page" : undefined}
+              className={`${me ? "hidden sm:inline-flex" : "inline-flex"} min-h-11 shrink-0 items-center rounded-xl px-3 text-xs font-bold transition sm:text-sm ${activeHeaderItem === "support" ? activeNavClass : "bg-white/85 text-black ring-1 ring-slate-200 hover:bg-slate-50"}`}
             />
             {/* 로그인된 경우만 저금통 메뉴와 사용자 기능을 보여준다. */}
             {!checkingAuth && me && (
@@ -1257,7 +1260,6 @@ useEffect(() => {
                                   {/* 내가 참여한 저금통 */}
                                   <div className="profile-menu-support space-y-2 border-b border-slate-100 px-5 py-4">
                                     <Link to="/support/inquiries" onClick={() => setProfileOpen(false)} className="block rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">내 문의 <span className="ml-2 text-xs font-normal text-slate-500">접수 상태와 답변 확인</span></Link>
-                                    {isSupportOperator && <Link to="/admin/support/inquiries" onClick={() => setProfileOpen(false)} className="block rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">운영 문의함</Link>}
                                   </div>
                                   <details className="profile-menu-jars px-5 py-5">
                                     <summary className="mb-3 flex items-center justify-between">
@@ -1379,7 +1381,7 @@ useEffect(() => {
           // 햄버거 메뉴 열림 여부
           isOpen={mobileMenuOpen}
           isJarsSection={isJarsSection}
-          isHelpSection={isHelpSection}
+          isSupportSection={isSupportSection}
 
           // 현재 로그인 사용자 정보
           me={me}

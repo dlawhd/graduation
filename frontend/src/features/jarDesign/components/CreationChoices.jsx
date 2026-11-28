@@ -92,7 +92,6 @@ export default function CreationChoices({ userId }) {
         <header className="creation-choice-heading">
           <Link to="/jars" className="creation-back">← 내 저금통으로</Link>
           <h1>어떤 저금통을 만들어볼까요?</h1>
-          <p>만들기 방식을 선택해 완성 모습과 다음 단계를 살펴보세요.</p>
         </header>
 
         <DesignDraftShelf key={userId} userId={userId} />

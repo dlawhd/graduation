@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import SupportHelpLink from "../../features/support/SupportHelpLink";
+import { HeaderSupportLink } from "../../features/support/SupportHelpLink";
 import { AnimatePresence, motion } from "framer-motion";
 import MemoryJarLogoIcon from "../icons/MemoryJarLogoIcon";
 import NicknameEditor from "../profile/NicknameEditor";
@@ -25,7 +25,7 @@ import NicknameEditor from "../profile/NicknameEditor";
 export default function MobileHeaderMenu({
   isOpen,
   isJarsSection,
-  isHelpSection,
+  isSupportSection,
   me,
   isSupportOperator = false,
   loggingOut,
@@ -194,11 +194,10 @@ export default function MobileHeaderMenu({
             {/* 가운데 메뉴 목록 */}
             <div className="flex-1 overflow-y-auto px-4 py-5">
               <div className="space-y-2">
-                <SupportHelpLink onClick={handleClose} aria-current={isHelpSection ? "page" : undefined}
-                  className={`block min-h-11 rounded-2xl px-4 py-3.5 text-sm font-bold transition ${isHelpSection ? "bg-emerald-800 text-white" : "bg-white text-black hover:bg-slate-50"}`} />
+                <HeaderSupportLink isSupportOperator={isSupportOperator} onClick={handleClose} aria-current={isSupportSection ? "page" : undefined}
+                  className={`block min-h-11 rounded-2xl px-4 py-3.5 text-sm font-bold transition ${isSupportSection ? "bg-emerald-800 text-white" : "bg-white text-black hover:bg-slate-50"}`} />
                 <Link to="/account/connections" onClick={handleClose} className="block min-h-11 rounded-2xl bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-800">로그인 수단 연결</Link>
                 <Link to="/support/inquiries" onClick={handleClose} className="block min-h-11 rounded-2xl bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-800">내 문의 <span className="ml-2 text-xs font-normal text-slate-500">접수 상태와 답변 확인</span></Link>
-                {isSupportOperator && <Link to="/admin/support/inquiries" onClick={handleClose} className="block min-h-11 rounded-2xl bg-emerald-50 px-4 py-3.5 text-sm font-bold text-emerald-800">운영 문의함</Link>}
 
                 {/* ==================================================
                  * 1. 내 저금통

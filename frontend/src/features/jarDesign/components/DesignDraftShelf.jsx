@@ -74,7 +74,6 @@ function DraftCard({ row, userId, busy, onDelete }) {
     <ol aria-label="제작 진행 상황" className="mt-2 flex gap-1">{steps.map((label, index) => <li key={label} title={label} aria-current={index + 1 === displayStep ? "step" : undefined} className={`h-1.5 flex-1 rounded-full ${index < displayStep ? "bg-emerald-700" : "bg-slate-100"}`}><span className="sr-only">{index + 1}. {label}{index + 1 === displayStep ? " (현재 단계)" : ""}</span></li>)}</ol>
     </div>
     </div>
-    {row.kind === "LOCAL" && <p className="mt-2 text-[11px] font-semibold text-slate-500">이 브라우저에 저장한 작업</p>}
     <dl className="mt-3 space-y-1 text-xs text-slate-500">
       <div className="flex flex-wrap gap-x-1"><dt>생성 시간 :</dt><dd>{timeLabel(row.createdAt)}</dd></div>
       <div className="flex flex-wrap gap-x-1"><dt>보관 기한 :</dt><dd>{timeLabel(row.expiresAt)}</dd></div>
