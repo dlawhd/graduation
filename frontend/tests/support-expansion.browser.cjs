@@ -16,9 +16,31 @@ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIH
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
    const open=async(entry,operator=false)=>{await page.goto(base+'/tests/support-preview.html?role='+(operator?'operator':'user')+'&entry='+encodeURIComponent(entry));};
    const fill=async()=>{await page.getByLabel('문의 제목',{exact:true}).fill('3D 사진 표시 문의');await page.getByLabel('문의 내용',{exact:true}).fill('3D를 누르면 사진이 늦게 보입니다.');};
+   const chooseScreen=async()=>{
+    await page.getByLabel('화면 자료 선택').setInputFiles({name:'screen.png',mimeType:'image/png',buffer:png});
+    const picker=page.getByRole('dialog',{name:'첨부할 사진 고르기'});
+    await picker.getByRole('button',{name:'screen.png',exact:true}).click();
+    await picker.getByRole('button',{name:'1개 첨부하기',exact:true}).click();
+   };
    const state=()=>page.evaluate(()=>window.fixture.state());
    const noOverflow=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    const capture=async name=>{if(output){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(output,`${name}-${width}.png`),fullPage:true});}};
+   await open('/support/new');
+   await page.getByLabel('화면 자료 선택').setInputFiles(
+     ['a','b','c','d','e','f'].map(name=>({name:name+'.png',mimeType:'image/png',buffer:png})));
+   const picker=page.getByRole('dialog',{name:'첨부할 사진 고르기'});
+   const photo=name=>picker.getByRole('button',{name:new RegExp(name+'[.]png')});
+   for(const name of ['f','c','a','e','b'])await photo(name).click();
+   await photo('d').click();
+   await picker.getByRole('alert').filter({hasText:'최대 5개'}).waitFor();
+   await photo('c').click();
+   assert.match(await photo('a').innerText(), /2/);
+   await picker.getByRole('button',{name:'4개 첨부하기',exact:true}).click();
+   const selected=page.getByRole('region',{name:'선택 화면 첨부'}).getByRole('listitem');
+   assert.deepEqual(await selected.getByText(/[a-f][.]png/).allTextContents().then(items=>items.map(item=>item.split(' ')[0])),['f.png','a.png','e.png','b.png']);
+   await noOverflow();passed.push({width,scenario:'ordered-attachment-selection-and-limit'});
+   if(process.env.SUPPORT_ATTACHMENT_SELECTION_ONLY==='1'){await context.close();continue;}
+
    await open('/support/new?from=/jars/112&jarId=112&invite=secret');await fill();
    assert.equal(await page.getByLabel('문의 유형',{exact:true}).locator('option').count(),9);
    assert.equal(await page.getByLabel('문의 유형',{exact:true}).locator('option').last().textContent(),'기타');
@@ -37,10 +59,10 @@ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIH
    await page.getByRole('link',{name:/3D 사진 표시 문의/}).click();await page.getByText('추가 설명입니다.',{exact:true}).waitFor();
    await noOverflow();passed.push({width,scenario:'general-without-photo-duplicate-followup-resolve-reopen'});
 
-   await open('/support/new');await fill();await page.getByLabel('화면 자료 선택').setInputFiles({name:'screen.png',mimeType:'image/png',buffer:png});
+   await open('/support/new');await fill();await chooseScreen();
    await page.getByAltText('선택한 화면 자료 미리보기').waitFor();await page.getByRole('button',{name:'선택 취소',exact:true}).click();
    assert.equal(await page.getByAltText('선택한 화면 자료 미리보기').count(),0);
-   await page.getByLabel('화면 자료 선택').setInputFiles({name:'screen.png',mimeType:'image/png',buffer:png});await page.getByAltText('선택한 화면 자료 미리보기').waitFor();
+   await chooseScreen();await page.getByAltText('선택한 화면 자료 미리보기').waitFor();
    await page.getByText('선택한 화면 자료를 문의 확인을 위해 운영자에게 공유하는 데 동의해요.').check();
    await page.evaluate(()=>window.fixture.failUpload=true);await page.getByRole('button',{name:'문의 접수하기',exact:true}).click();await page.getByRole('alert').filter({hasText:'일부 첨부'}).waitFor();
    assert.equal((await state()).tickets.length,1);await page.getByRole('button',{name:'남은 첨부 다시 시도',exact:true}).click();
@@ -58,7 +80,7 @@ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIH
 
    for(const status of [413,503]){
     await open('/support/login-help');await fill();
-    await page.getByLabel('화면 자료 선택').setInputFiles({name:'screen.png',mimeType:'image/png',buffer:png});await page.getByAltText('선택한 화면 자료 미리보기').waitFor();
+    await chooseScreen();await page.getByAltText('선택한 화면 자료 미리보기').waitFor();
     await page.getByText('선택한 화면 자료를 문의 확인을 위해 운영자에게 공유하는 데 동의해요.').check();
     await page.evaluate(status=>{window.fixture.failUpload=true;window.fixture.failUploadStatus=status;},status);
     await page.getByRole('button',{name:'문의 접수하기',exact:true}).click();

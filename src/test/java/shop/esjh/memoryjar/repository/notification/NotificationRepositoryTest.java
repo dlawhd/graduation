@@ -32,6 +32,52 @@ class NotificationRepositoryTest extends AbstractMariaDbRepositoryTest {
     private NotificationRepository notificationRepository;
 
     @Test
+    void marksOnlyNotificationsForOpenedJarNoteAndVisibleComment() {
+        var user = saveUser("jar-reader", "jar-reader@example.com", "reader");
+        var other = saveUser("jar-other", "jar-other@example.com", "other");
+        var jar = saveJar(user, "jar-read-target", LocalDateTime.now().plusDays(1));
+        var anotherJar = saveJar(user, "jar-read-other", LocalDateTime.now().plusDays(1));
+        var target = payload(jar.getJarId(), 10L, 20L, other, null);
+        saveNotification(user, jar, NotificationType.JAR_MEMBER_JOINED, target);
+        saveNotification(user, jar, NotificationType.NOTE_REACTED, target);
+        saveNotification(user, jar, NotificationType.NOTE_COMMENTED, target);
+        saveNotification(user, jar, NotificationType.COMMENT_REPLIED, payload(jar.getJarId(), 10L, 21L, other, null));
+        saveNotification(user, jar, NotificationType.NOTE_REACTED, payload(jar.getJarId(), 11L, null, other, null));
+        saveNotification(user, anotherJar, NotificationType.JAR_MEMBER_JOINED, target);
+        saveNotification(other, jar, NotificationType.NOTE_COMMENTED, target);
+        flushAndClear();
+
+        var now = LocalDateTime.now();
+        assertThat(notificationRepository.markJarTargetAsRead(user.getId(), jar.getJarId(), 0L, java.util.List.of(0L), now)).isEqualTo(1);
+        assertThat(notificationRepository.markJarTargetAsRead(user.getId(), jar.getJarId(), 10L, java.util.List.of(20L), now)).isEqualTo(2);
+        assertThat(notificationRepository.markJarTargetAsRead(user.getId(), jar.getJarId(), 10L, java.util.List.of(20L), now)).isZero();
+        assertThat(notificationRepository.countByUser_IdAndIsReadFalseAndDeletedAtIsNull(user.getId())).isEqualTo(3);
+        assertThat(notificationRepository.markJarTargetAsRead(user.getId(), jar.getJarId(), 10L, java.util.List.of(21L), now)).isEqualTo(1);
+        assertThat(notificationRepository.countByUser_IdAndIsReadFalseAndDeletedAtIsNull(other.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void marksOnlyNotificationsForViewedInquiryAndCurrentRecipient() {
+        var user = saveUser("support-reader", "support-reader@example.com", "reader");
+        var other = saveUser("other-reader", "other-reader@example.com", "other");
+        var target = new NotificationPayload(null, null, null, null, "operator", null, 10L);
+        var separate = new NotificationPayload(null, null, null, null, "operator", null, 11L);
+        saveNotification(user, null, NotificationType.SUPPORT_REPLIED, target);
+        saveNotification(user, null, NotificationType.SUPPORT_REPLIED, separate);
+        saveNotification(user, null, NotificationType.SUPPORT_INQUIRY_RECEIVED, target);
+        saveNotification(other, null, NotificationType.SUPPORT_REPLIED, target);
+        flushAndClear();
+
+        var now = LocalDateTime.now();
+        assertThat(notificationRepository.markSupportInquiryAsRead(user.getId(), 10L, false, now)).isEqualTo(1);
+        assertThat(notificationRepository.markSupportInquiryAsRead(user.getId(), 10L, false, now)).isZero();
+        assertThat(notificationRepository.countByUser_IdAndIsReadFalseAndDeletedAtIsNull(user.getId())).isEqualTo(2);
+        assertThat(notificationRepository.markSupportInquiryAsRead(user.getId(), 10L, true, now)).isEqualTo(1);
+        assertThat(notificationRepository.countByUser_IdAndIsReadFalseAndDeletedAtIsNull(user.getId())).isEqualTo(1);
+        assertThat(notificationRepository.countByUser_IdAndIsReadFalseAndDeletedAtIsNull(other.getId())).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("findByUser_IdAndDeletedAtIsNull은 현재 사용자의 삭제되지 않은 알림만 조회한다")
     void findByUserIdAndDeletedAtIsNull_returnsOnlyActiveNotificationsForUser() {
         User user = saveUser("notification-list-user", "notification-list-user@example.com", "user");

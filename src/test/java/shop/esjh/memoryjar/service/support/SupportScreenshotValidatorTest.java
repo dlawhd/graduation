@@ -24,6 +24,28 @@ class SupportScreenshotValidatorTest {
             assertThat(result).startsWith(new byte[]{(byte)137,80,78,71});decoded.flush();
         }
     }
+    @Test void compressedJpegThatExpandsPastLimitIsResizedAndAccepted() throws Exception {
+        int edge = 1200;
+        int[] pixels = new java.util.Random(42).ints(edge * edge).toArray();
+        var source = new BufferedImage(edge, edge, BufferedImage.TYPE_INT_RGB);
+        source.setRGB(0, 0, edge, edge, pixels, 0, edge);
+        var jpeg = new ByteArrayOutputStream();
+        assertThat(ImageIO.write(source, "jpeg", jpeg)).isTrue();
+        source.flush();
+        assertThat(jpeg.size()).isLessThan(SupportScreenshotValidator.MAX_BYTES);
+        var original = ImageIO.read(new ByteArrayInputStream(jpeg.toByteArray()));
+        var unscaledPng = new ByteArrayOutputStream();
+        assertThat(ImageIO.write(original, "png", unscaledPng)).isTrue();
+        original.flush();
+        assertThat(unscaledPng.size()).isGreaterThan(SupportScreenshotValidator.MAX_BYTES);
+
+        byte[] result = validator.normalize(jpeg.toByteArray());
+        assertThat(result.length).isLessThanOrEqualTo(SupportScreenshotValidator.MAX_BYTES);
+        var resized = ImageIO.read(new ByteArrayInputStream(result));
+        assertThat(resized.getWidth()).isLessThan(edge).isEqualTo(resized.getHeight());
+        resized.flush();
+    }
+
     @Test void invalidOversizedAndHugeDecodedImagesAreRejected() throws Exception {
         for(byte[] bytes:new byte[][]{new byte[0],"<svg/>".getBytes(),new byte[SupportScreenshotValidator.MAX_BYTES+1],image(4001,3000,"png"),image(20,20,"gif")})
             assertThatThrownBy(()->validator.normalize(bytes)).isInstanceOf(ResponseStatusException.class);

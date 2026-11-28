@@ -109,6 +109,23 @@ public class NotificationService {
         );
     }
 
+    /** 문의 상세에서 확인한 알림만 해당 수신자 기준으로 처리한다. */
+    @Transactional
+    public NotificationReadAllResponse markSupportInquiryAsRead(Long userId, Long inquiryId, boolean operator) {
+        LocalDateTime now = LocalDateTime.now();
+        int updated = notificationRepository.markSupportInquiryAsRead(userId, inquiryId, operator, now);
+        return new NotificationReadAllResponse(updated, now);
+    }
+
+    /** 빈 댓글 목록은 0번을 사용해 DB의 IN 조건을 안전하게 구성한다. 실제 댓글 번호는 양수다. */
+    @Transactional
+    public NotificationReadAllResponse markJarTargetAsRead(Long userId, long jarId, long noteId, List<Long> commentIds) {
+        LocalDateTime now = LocalDateTime.now();
+        int updated = notificationRepository.markJarTargetAsRead(userId, jarId, noteId,
+                commentIds.isEmpty() ? List.of(0L) : commentIds, now);
+        return new NotificationReadAllResponse(updated, now);
+    }
+
     // 안 읽은 알림을 한 번에 전부 읽음 처리하는 메서드
     @Transactional
     public NotificationReadAllResponse markAllAsRead(Long currentUserId) {

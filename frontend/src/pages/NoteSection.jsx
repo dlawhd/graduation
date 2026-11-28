@@ -1062,6 +1062,7 @@ export default function NoteSection({
   showSearchControls = true,
   createRequestId = 0,
   getJarDropTargetRect,
+  onTargetViewed,
 }) {
 
   // 목록 첫 로딩 때 사용할 기본 검색 조건
@@ -1304,6 +1305,7 @@ const [justCreatedNoteId, setJustCreatedNoteId] = useState(null);
       const data = await noteApi.getNoteDetail(jar.jarId, noteId);
       if (!isCurrent()) return;
       setDetailNote(data || null);
+      if (data) onTargetViewed?.(jar.jarId, noteId);
     } catch (e) {
       if (!isCurrent()) return;
       const serverMessage =

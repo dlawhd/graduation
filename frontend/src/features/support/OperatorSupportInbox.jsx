@@ -13,7 +13,7 @@ const base = "/admin/support/inquiries";
 const statuses = ["OPEN", "IN_PROGRESS", "WAITING_USER", "ANSWERED", "RESOLVED"];
 
 /** 실제 운영 목록과 기존 문의 상세를 함께 표시한다. 답변 초안은 이 화면의 메모리에만 보관한다. */
-export default function OperatorSupportInbox({ me, checkingAuth }) {
+export default function OperatorSupportInbox({ me, checkingAuth, onInquiryViewed }) {
   const userId = me?.userId ?? me?.id;
   const { inquiryId } = useParams();
   const navigate = useNavigate();
@@ -77,7 +77,7 @@ export default function OperatorSupportInbox({ me, checkingAuth }) {
         </aside>
         <div ref={detailRef} tabIndex={-1} className="operator-inbox-conversation" aria-label="선택한 문의">
           {selected && inbox.result && !items.some(ticket => String(ticket.inquiryId) === selected) && <p className="operator-inbox-selection-note">선택한 문의는 현재 목록에 없어요. 다른 문의를 선택하거나 필터 또는 페이지를 바꿔 보세요.</p>}
-          {validSelection ? <SupportInquiryDetail key={`${userId}:${selected}`} inquiryId={selected} operator userId={userId} embedded initialDraft={drafts.current.get(selected)} onDraftChange={draft => rememberDraft(selected, draft)} onBusyChange={setDetailBusy} onAccessDenied={inbox.revokeAccess} onUpdated={inbox.refresh}/> : <p role={selected ? "alert" : "status"} className="operator-inbox-empty">{selected ? "문의 번호가 올바르지 않아요. 목록에서 문의를 선택해 주세요." : "확인할 문의를 선택해 주세요."}</p>}
+          {validSelection ? <SupportInquiryDetail key={`${userId}:${selected}`} inquiryId={selected} operator userId={userId} embedded initialDraft={drafts.current.get(selected)} onDraftChange={draft => rememberDraft(selected, draft)} onBusyChange={setDetailBusy} onAccessDenied={inbox.revokeAccess} onUpdated={inbox.refresh} onInquiryViewed={onInquiryViewed}/> : <p role={selected ? "alert" : "status"} className="operator-inbox-empty">{selected ? "문의 번호가 올바르지 않아요. 목록에서 문의를 선택해 주세요." : "확인할 문의를 선택해 주세요."}</p>}
         </div>
       </div>
       <nav className="operator-inbox-pages" aria-label="운영 문의 목록 페이지"><button type="button" className="support-letter-action" disabled={inbox.loading || detailBusy || inbox.page === 0} onClick={inbox.previous}>이전</button><span>{inbox.page + 1} 페이지</span><button type="button" className="support-letter-action" disabled={inbox.loading || detailBusy || !inbox.result?.nextBefore} onClick={inbox.next}>다음</button></nav>

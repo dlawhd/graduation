@@ -32,24 +32,45 @@ public class SupportScreenshotValidator {
                     BufferedImage oriented=shop.esjh.memoryjar.service.ai.DraftOriginalImageValidator.orientJpeg(decoded,bytes);
                     if (oriented!=decoded) decoded.flush(); decoded=oriented;
                 }
-                double scale=Math.min(1,1600.0/Math.max(decoded.getWidth(),decoded.getHeight()));
-                var output=new BufferedImage(Math.max(1,(int)Math.round(decoded.getWidth()*scale)),
-                        Math.max(1,(int)Math.round(decoded.getHeight()*scale)),BufferedImage.TYPE_INT_ARGB);
-                var graphics=output.createGraphics();
-                try { graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    graphics.drawImage(decoded,0,0,output.getWidth(),output.getHeight(),null);
-                } finally { graphics.dispose(); decoded.flush(); }
-                var result=new ByteArrayOutputStream();
-                try { if (!ImageIO.write(output,"png",result)) throw invalid(); }
-                finally { output.flush(); }
-                if (result.size()>MAX_BYTES) throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,"첨부 화면을 조금 작게 저장해 주세요. 변환 후에도 2MB 이하여야 합니다.");
-                return result.toByteArray();
+                try {
+                    byte[] png = encodePng(decoded, 1600);
+                    if (png.length <= MAX_BYTES) return png;
+                    // 손실 압축된 원본은 PNG에서 커질 수 있다. 예산에 맞춰 해상도를 줄여 다시 저장한다.
+                    int longEdge = Math.min(1600, Math.max(decoded.getWidth(), decoded.getHeight()));
+                    int adjustedEdge = (int) (longEdge * Math.sqrt((double) MAX_BYTES / png.length) * 0.95);
+                    if (adjustedEdge > 700) {
+                        png = encodePng(decoded, adjustedEdge);
+                        if (png.length <= MAX_BYTES) return png;
+                    }
+                    // 700×700 RGBA 픽셀과 PNG 인코딩 오버헤드는 2MiB 이내다.
+                    png = encodePng(decoded, 700);
+                    if (png.length > MAX_BYTES) throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
+                            "첨부 화면을 조금 작게 저장해 주세요. 변환 후에도 2MB 이하여야 합니다.");
+                    return png;
+                } finally { decoded.flush(); }
             } finally { reader.dispose(); }
         } catch (IOException | RuntimeException e) {
             if (e instanceof ResponseStatusException status) throw status;
             throw invalid();
         }
     }
+    /** 비율과 투명도를 유지하고 원본 메타데이터 없이 PNG로 다시 인코딩한다. */
+    private byte[] encodePng(BufferedImage source, int maxEdge) throws IOException {
+        double scale = Math.min(1, (double) maxEdge / Math.max(source.getWidth(), source.getHeight()));
+        var output = new BufferedImage(Math.max(1, (int) Math.round(source.getWidth() * scale)),
+                Math.max(1, (int) Math.round(source.getHeight() * scale)), BufferedImage.TYPE_INT_ARGB);
+        try {
+            var graphics = output.createGraphics();
+            try {
+                graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                graphics.drawImage(source, 0, 0, output.getWidth(), output.getHeight(), null);
+            } finally { graphics.dispose(); }
+            var result = new ByteArrayOutputStream();
+            if (!ImageIO.write(output, "png", result)) throw invalid();
+            return result.toByteArray();
+        } finally { output.flush(); }
+    }
+
     /** PNG/WebP의 애니메이션 청크도 검사한다. 정지 화면만 읽는 디코더가 다중 프레임을 놓치지 않게 한다. */
     private boolean animatedContainer(byte[] bytes,String format) {
         boolean png="png".equals(format),webp="webp".equals(format);if(!png&&!webp)return false;

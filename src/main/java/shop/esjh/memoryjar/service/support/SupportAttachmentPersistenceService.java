@@ -16,6 +16,8 @@ import static shop.esjh.memoryjar.service.support.SupportInquiryAccess.problem;
 /** 첨부의 예약/확정/삭제 표시만 짧게 처리한다. 문의 → 첨부 순서를 유지하고 S3는 호출하지 않는다. */
 @Service @RequiredArgsConstructor @Transactional(readOnly=true)
 public class SupportAttachmentPersistenceService {
+    static final int MAX_ATTACHMENTS_PER_INQUIRY = 5;
+
     private final SupportAttachmentRepository attachments;
     private final SupportInquiryRepository inquiries;
     private final SupportInquiryAccess access;
@@ -25,7 +27,7 @@ public class SupportAttachmentPersistenceService {
     public List<SupportAttachmentResponse> list(SupportActor actor,Long inquiryId) {
         var i=access.require(actor,inquiryId,false); access.activeContent(i);
         var now=SupportInquiryPersistenceService.now();
-        return attachments.visible(inquiryId,now,PageRequest.of(0,3))
+        return attachments.visible(inquiryId,now,PageRequest.of(0,MAX_ATTACHMENTS_PER_INQUIRY))
                 .stream().filter(a->a.getExpiresAt().isAfter(now)).map(SupportAttachmentResponse::from).toList();
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
@@ -43,8 +45,8 @@ public class SupportAttachmentPersistenceService {
             if ("FAILED".equals(a.getStatus())) throw problem(HttpStatus.UNPROCESSABLE_ENTITY,"보관에 실패한 첨부입니다. 다시 시도하면 새 첨부 요청으로 보냅니다.");
             throw problem(HttpStatus.CONFLICT,"이미 처리 중이거나 사용할 수 없는 첨부 요청입니다. 잠시 후 다시 확인해 주세요.");
         }
-        if (attachments.activeCount(inquiryId,SupportInquiryPersistenceService.now())>=3)
-            throw problem(HttpStatus.CONFLICT,"한 문의에는 화면 자료를 3개까지 첨부할 수 있습니다.");
+        if (attachments.activeCount(inquiryId,SupportInquiryPersistenceService.now())>=MAX_ATTACHMENTS_PER_INQUIRY)
+            throw problem(HttpStatus.CONFLICT,"한 문의에는 화면 자료를 " + MAX_ATTACHMENTS_PER_INQUIRY + "개까지 첨부할 수 있습니다.");
         var now=SupportInquiryPersistenceService.now();
         if (!limit.consume(20,Duration.ofHours(1),now)) throw problem(HttpStatus.TOO_MANY_REQUESTS,"첨부 요청이 많습니다. 잠시 후 다시 시도해 주세요.");
         var expiry=now.plusDays(30).isBefore(i.getContentExpiresAt())?now.plusDays(30):i.getContentExpiresAt();

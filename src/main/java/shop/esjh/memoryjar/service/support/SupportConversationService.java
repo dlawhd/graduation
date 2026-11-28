@@ -88,7 +88,7 @@ public class SupportConversationService {
         var rows=messages.findByInquiryIdAndMessageIdLessThanOrderByMessageIdDesc(id,Long.MAX_VALUE,PageRequest.of(0,21));
         var items=rows.stream().limit(20).map(SupportMessageResponse::from).toList();
         return new SupportDetailResponse(response,new SupportMessageResponse.MessagePage(items,rows.size()>20?items.get(19).messageId():null),
-                attachments.visible(id,now,PageRequest.of(0,3)).stream().map(SupportAttachmentResponse::from).toList());
+                attachments.visible(id,now,PageRequest.of(0,SupportAttachmentPersistenceService.MAX_ATTACHMENTS_PER_INQUIRY)).stream().map(SupportAttachmentResponse::from).toList());
     }
     public SupportInquiryResponse.InquiryPage guestList(SupportActor actor, Long before) {
         if (actor.guestSessionId() == null) throw problem(HttpStatus.FORBIDDEN, "로그인 도움 문의만 조회할 수 있습니다.");

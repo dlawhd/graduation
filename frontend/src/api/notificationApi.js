@@ -55,6 +55,32 @@ export async function readNotification(notificationId) {
   return extractData(response);
 }
 
+/** 문의 상세에 연결된 내 알림만 읽음 처리한다. */
+export async function readSupportInquiryNotifications(inquiryId, operator, isCurrent) {
+  await fetchCsrf();
+  if (!isCurrent()) return null;
+  return extractData(await apiClient.post(`/api/v1/notifications/support/${inquiryId}/read`, null, {
+    params: { operator },
+  }));
+}
+
+/** 한 화면에 실제로 열린 쪽지와 댓글의 알림을 한 번에 갱신한다. */
+export async function readJarTargetNotifications(jarId, noteId, commentIds, isCurrent) {
+  await fetchCsrf();
+  let updatedCount = 0;
+  // 댓글 페이지를 여러 번 펼친 화면도 요청당 개수 제한에 맞춰 처리한다.
+  for (let start = 0; start < Math.max(1, commentIds.length) && isCurrent(); start += 100) {
+    const ids = commentIds.slice(start, start + 100);
+    const { updatedCount: count = 0 } = extractData(await apiClient.post(
+      `/api/v1/notifications/jars/${jarId}/read`, null, {
+        params: { noteId, commentIds: ids.length ? ids.join(",") : undefined },
+      },
+    )) ?? {};
+    updatedCount += count;
+  }
+  return { updatedCount };
+}
+
 /*
  * 내 안 읽은 알림 전체 읽음 처리
  * "모두 읽음" 버튼에 연결할 함수야.

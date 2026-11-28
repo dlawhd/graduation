@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -72,6 +73,32 @@ public class NotificationController {
                 notificationService.markAsRead(currentUserId, notificationId);
 
         return ResponseEntity.ok(ApiResponse.of(response));
+    }
+
+    /** 문의를 직접 열었을 때 로그인한 수신자의 해당 알림을 읽음으로 바꾼다. */
+    @PostMapping("/support/{inquiryId}/read")
+    public ResponseEntity<ApiResponse<NotificationReadAllResponse>> markSupportInquiryAsRead(
+            Authentication authentication, @PathVariable Long inquiryId,
+            @RequestParam(defaultValue = "false") boolean operator
+    ) {
+        Long userId = extractCurrentUserId(authentication);
+        return ResponseEntity.ok(ApiResponse.of(notificationService.markSupportInquiryAsRead(userId, inquiryId, operator)));
+    }
+
+    /** 실제로 열린 저금통과 쪽지 화면에서 로그인한 사람의 알림을 정리한다. */
+    @PostMapping("/jars/{jarId}/read")
+    public ResponseEntity<ApiResponse<NotificationReadAllResponse>> markJarTargetAsRead(
+            Authentication authentication, @PathVariable long jarId,
+            @RequestParam(defaultValue = "0") long noteId,
+            @RequestParam(required = false) List<Long> commentIds
+    ) {
+        Long userId = extractCurrentUserId(authentication);
+        List<Long> ids = commentIds == null ? List.of() : commentIds;
+        if (jarId <= 0 || noteId < 0 || ids.size() > 100 || ids.stream().anyMatch(id -> id == null || id <= 0)
+                || (noteId == 0 && !ids.isEmpty())) {
+            throw new ResponseStatusException(BAD_REQUEST, "알림 대상을 확인해 주세요.");
+        }
+        return ResponseEntity.ok(ApiResponse.of(notificationService.markJarTargetAsRead(userId, jarId, noteId, ids)));
     }
 
     // 내 안 읽은 알림 전체 읽음 처리 API

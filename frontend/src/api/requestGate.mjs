@@ -6,6 +6,12 @@ export function createRequestGate() {
   return {
     activate() { active = true; },
     invalidate() { active = false; epoch += 1; lanes.clear(); },
+    // 별개 쓰기 요청은 계정 전환 때만 무효화하고 서로의 성공 처리를 막지 않는다.
+    captureScope() {
+      const startedEpoch = epoch;
+      const startedActive = active;
+      return () => startedActive && active && epoch === startedEpoch;
+    },
     begin(lane = "default") {
       const version = (lanes.get(lane) || 0) + 1;
       lanes.set(lane, version);

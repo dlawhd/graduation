@@ -148,7 +148,7 @@ function getInviteStatus(invite, palette) {
   };
 }
 
-export default function JarDetailPage({ me, onSuccess }) {
+export default function JarDetailPage({ me, onSuccess, onTargetViewed }) {
   const { feedback, notify, dismiss } = useFeedback();
   const [editErrors, setEditErrors] = useState({});
   const [editError, setEditError] = useState("");
@@ -504,6 +504,29 @@ const {
  * 두 가지를 순서대로 확인한다.
  */
 const currentUserId = me?.userId ?? me?.id ?? null;
+const loadedJarId = jar?.jarId;
+useEffect(() => {
+  if (!loading && !error && loadedJarId && String(loadedJarId) === jarId) {
+    onTargetViewed?.(loadedJarId);
+  }
+}, [loadedJarId, jarId, loading, error, onTargetViewed]);
+
+const hasLoadedZoomNote = Boolean(jarZoomDetailNote);
+useEffect(() => {
+  if (!jarZoomDetailOpen || !hasLoadedZoomNote || jarZoomDetailLoading || !jarZoomDetailNoteId) return;
+
+  // 댓글 목록에 로드됐더라도 접혀 있는 답글은 사용자가 펼칠 때 읽음 처리한다.
+  const visibleCommentIds = [];
+  const pending = jar?.isOpen && !jarZoomCommentsLoading && !jarZoomCommentsError ? [...jarZoomComments] : [];
+  while (pending.length > 0) {
+    const comment = pending.pop();
+    if (comment.commentId) visibleCommentIds.push(comment.commentId);
+    if (replyExpandedMap[comment.commentId] && comment.replies) pending.push(...comment.replies);
+  }
+  onTargetViewed?.(jarId, jarZoomDetailNoteId, visibleCommentIds);
+}, [jarId, jar?.isOpen, jarZoomDetailOpen, hasLoadedZoomNote, jarZoomDetailNoteId,
+  jarZoomDetailLoading, jarZoomComments, jarZoomCommentsLoading, jarZoomCommentsError,
+  replyExpandedMap, onTargetViewed]);
 
 /*
  * 최종 디자인 이미지는 짧은 Presigned URL을 사용한다.
@@ -4250,6 +4273,7 @@ async function handleViewOpenedJarNotes() {
           showCreateButton={false}
           showSearchControls={false}
           createRequestId={noteCreateRequestId}
+          onTargetViewed={onTargetViewed}
           getJarDropTargetRect={getJarDropTargetRect}
         />
 

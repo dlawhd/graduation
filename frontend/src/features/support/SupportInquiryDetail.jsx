@@ -16,18 +16,20 @@ function DetailDisclosure({ embedded, label, expanded, children }) {
 
 /** 내 문의와 운영자 상세에서 같은 내용을 표시한다. 사진은 사용자가 열기를 눌러야 요청한다. */
 export default function SupportInquiryDetail({ inquiryId, operator = false, guest=false, onUpdated,userId,
-  embedded=false,initialDraft,onDraftChange,onBusyChange,onAccessDenied,onLoaded }) {
+  embedded=false,initialDraft,onDraftChange,onBusyChange,onAccessDenied,onLoaded,onInquiryViewed }) {
   const location=useLocation();const [refresh,setRefresh]=useState(0);
   const gate=useRequestGate(`${userId}:${inquiryId}:${operator}:${guest}:${location.key}`);
   const loadedScope=useRef(null),pendingLive=useRef(false);
   const [ticket,setTicket]=useState(null),[messages,setMessages]=useState([]),[nextBefore,setNextBefore]=useState(null);
   const [attachments,setAttachments]=useState([]),[previews,setPreviews]=useState({}),[image,setImage]=useState(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(""),[busy,setBusy]=useState(false);
+  const [attachmentErrors,setAttachmentErrors]=useState({});
   const [historyBusy,setHistoryBusy]=useState(false),[previewBusy,setPreviewBusy]=useState({});
   const [content,setContent]=useState(()=>initialDraft?.content||""),[waiting,setWaiting]=useState(()=>initialDraft?.waiting||false),[files,setFiles]=useState(()=>initialDraft?.files||[]),[shared,setShared]=useState(()=>initialDraft?.shared||false);
   const inFlight=useRef(false),imageInFlight=useRef(new Set()),attempted=useRef(initialDraft?.attempted||{key:null,id:null});
   const filePending=useRef(false),updatedPending=useRef(false),updatedCallback=useRef(onUpdated);
   updatedCallback.current=onUpdated;
+  const viewedCallback=useRef(onInquiryViewed);viewedCallback.current=onInquiryViewed;
   const loadedCallback=useRef(onLoaded);loadedCallback.current=onLoaded;
   const draftCallback=useRef(onDraftChange),busyCallback=useRef(onBusyChange),deniedCallback=useRef(onAccessDenied);
   draftCallback.current=onDraftChange;busyCallback.current=onBusyChange;deniedCallback.current=onAccessDenied;
@@ -37,13 +39,14 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, gues
   useEffect(()=>{draftCallback.current?.({content,waiting,files,shared,attempted:{...attempted.current}});},[content,waiting,files,shared]);
   useLayoutEffect(()=>{busyCallback.current?.(busy||fileReading);},[busy,fileReading]);
   useEffect(()=>()=>busyCallback.current?.(false),[]);
-  useLayoutEffect(()=>{inFlight.current=false;imageInFlight.current.clear();setBusy(false);setHistoryBusy(false);setPreviewBusy({});},[gate]);
+  useLayoutEffect(()=>{inFlight.current=false;imageInFlight.current.clear();setBusy(false);setHistoryBusy(false);setPreviewBusy({});setAttachmentErrors({});},[gate]);
   useEffect(()=>{
     const controller=new AbortController(),current=gate.begin("view"),silent=loadedScope.current===gate;
     if(!silent){setLoading(true);setTicket(null);setMessages([]);setAttachments([]);setPreviews({});setImage(null);setNextBefore(null);}setError("");
     getSupportView(inquiryId,{operator,guest,signal:controller.signal}).then(data=>{if(!current())return;
       loadedScope.current=gate;setTicket(data.inquiry);
       loadedCallback.current?.(data.inquiry);
+      if(!data.inquiry.contentExpired)viewedCallback.current?.(inquiryId,operator);
       setMessages(previous=>!silent||data.inquiry.contentExpired?data.messages?.items||[]:Array.from(new Map([...previous,...(data.messages?.items||[])].map(m=>[m.messageId,m])).values()));
       setNextBefore(data.messages?.nextBefore||null);setAttachments(data.attachments||[]);
       if(data.inquiry.contentExpired){setPreviews({});setImage(null);setContent("");setFiles([]);setWaiting(false);setShared(false);}
@@ -72,7 +75,7 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, gues
   }
   async function addMessage(current) {
     for(const item of files.filter(f=>!f.uploaded)) {
-      try {await uploadSupportScreenshot(inquiryId,item.file,item.requestId,mode);if(!current())return;setFiles(previous=>previous.map(f=>f.id===item.id?{...f,uploaded:true}:f));}
+      try {const uploaded=await uploadSupportScreenshot(inquiryId,item.file,item.requestId,mode);if(!current())return;setFiles(previous=>previous.map(f=>f.id===item.id?{...f,uploaded:true,attachmentId:uploaded.attachmentId}:f));}
       catch(e){if(current()&&requiresNewSupportAttachmentRequest(e))setFiles(previous=>previous.map(f=>f.id===item.id?{...f,requestId:crypto.randomUUID()}:f));throw e;}
     }
     if(!current())return;
@@ -90,15 +93,23 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, gues
   }
   async function openImage(id) {
     const key=id==null?"original":String(id);if(imageInFlight.current.has(key))return;
+    if(id!=null)setAttachmentErrors(previous=>({...previous,[key]:null}));
     imageInFlight.current.add(key);setPreviewBusy(p=>({...p,[key]:true}));const current=gate.begin(`image:${key}`);
     try {const data=id==null?await getSupportImage(inquiryId,operator):await getSupportAttachmentImage(inquiryId,id,mode);
       if(current()){const preview={url:data.previewUrl,until:Math.min(Date.now()+60000,Date.parse(data.expiresAt)||Date.now()+60000)};
         if(id==null)setImage(preview);else setPreviews(p=>({...p,[key]:preview}));}
-    }catch(e){if(current()){setError(supportError(e));if([401,403].includes(e?.response?.status))deniedCallback.current?.();}}
+    }catch(e){if(current()){
+      if(id==null)setError(supportError(e));
+      else setAttachmentErrors(previous=>({...previous,[key]:[404,410].includes(e?.response?.status)?"자료를 더 이상 열 수 없어요.":"자료를 열지 못했어요."}));
+      if([401,403].includes(e?.response?.status))deniedCallback.current?.();
+    }}
     finally{if(current()){imageInFlight.current.delete(key);setPreviewBusy(p=>({...p,[key]:false}));}}
   }
   const button="support-letter-action is-soft";
   const canAct=ticket&&!ticket.contentExpired&&!["COPYING","COPY_FAILED"].includes(ticket.status),resolved=ticket?.status==="RESOLVED";
+  // 업로드 직후 실시간으로 목록이 갱신되어도 같은 자료를 한 번만 센다.
+  const savedAttachmentIds = new Set(attachments.map(attachment=>attachment.attachmentId));
+  const savedAttachmentCount = attachments.length - files.filter(file=>savedAttachmentIds.has(file.attachmentId)).length;
   const chronological=[...messages].sort((a,b)=>a.messageId-b.messageId);
   return <section aria-label="문의 상세" className="support-letter-detail space-y-5">
     <div className={embedded?"operator-inbox-detail-toolbar":"flex justify-end"}>{embedded&&<span>{ticket?`문의 #${ticket.inquiryId} (${SUPPORT_CATEGORIES[ticket.category]||"AI 생성 및 결과 품질"})`:"문의 확인"}</span>}<button type="button" disabled={loading||busy} onClick={()=>setRefresh(n=>n+1)} className={button}>{embedded?"대화 새로고침":"새로고침"}</button></div>
@@ -122,7 +133,9 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, gues
       {ticket.contentExpired?<p className="text-sm text-slate-500">문의 내용과 대화는 90일 보관 기간이 지나 삭제되었습니다.</p>:<div className={embedded?"support-letter-message operator-inbox-initial-message":undefined}><h3 className="mb-2 text-sm font-bold">{embedded?"사용자 문의":"처음 남긴 문의"}</h3><p className="whitespace-pre-wrap break-words text-sm leading-7">{ticket.description}</p></div>}
       {embedded&&<p className="operator-inbox-privacy">문의 내용과 첨부는 작성자와 운영자만 확인할 수 있어요.</p>}
       {ticket.imageAvailable&&<div className="rounded-2xl border p-4"><p className="font-bold">공유한 원본 이미지</p><p className="mt-1 text-xs text-slate-500">{supportTime(ticket.imageExpiresAt)}까지 보관해요. 열람 주소는 최대 1분 후 만료돼요.</p><button disabled={previewBusy.original} onClick={()=>image?setImage(null):void openImage(null)} className={button+" mt-3"}>{image?"원본 이미지 닫기":previewBusy.original?"사진 확인 중…":"원본 이미지 보기"}</button>{image&&<img src={image.url} alt="문의 접수 시 공유한 원본" referrerPolicy="no-referrer" className="mt-4 max-h-80 w-full rounded-xl object-contain" onError={()=>{setImage(null);setError("사진 주소가 만료되었거나 파일을 읽지 못했어요. 다시 열어 주세요.");}}/>}</div>}
-      {attachments.length>0&&<section aria-label="보관한 화면 자료" className="space-y-3"><h3 className="font-bold">보관한 화면 자료</h3>{attachments.map(a=><div key={a.attachmentId} className="rounded-xl border p-4"><p className="text-xs text-slate-500">자료 #{a.attachmentId} ({supportTime(a.expiresAt)}까지)</p><button disabled={previewBusy[a.attachmentId]} onClick={()=>previews[a.attachmentId]?setPreviews(p=>{const next={...p};delete next[a.attachmentId];return next;}):void openImage(a.attachmentId)} className={button+" mt-2"}>{previews[a.attachmentId]?"자료 닫기":"화면 자료 보기"}</button>{previews[a.attachmentId]&&<img src={previews[a.attachmentId].url} alt={`공유한 화면 자료 ${a.attachmentId}`} referrerPolicy="no-referrer" className="mt-3 max-h-96 w-full object-contain" onError={()=>{setPreviews(p=>{const next={...p};delete next[a.attachmentId];return next;});setError("자료 주소가 만료되었어요. 다시 열어 주세요.");}}/>}</div>)}</section>}
+      {attachments.length>0&&<section aria-label="보관한 화면 자료" className="space-y-3"><h3 className="font-bold">보관한 화면 자료</h3>{attachments.map(a=><div key={a.attachmentId} className="rounded-xl border p-4"><p className="text-xs text-slate-500">자료 #{a.attachmentId} ({supportTime(a.expiresAt)}까지)</p><button disabled={previewBusy[a.attachmentId]} onClick={()=>previews[a.attachmentId]?setPreviews(p=>{const next={...p};delete next[a.attachmentId];return next;}):void openImage(a.attachmentId)} className={button+" mt-2"}>{previews[a.attachmentId]?"자료 닫기":"화면 자료 보기"}</button>
+        {attachmentErrors[a.attachmentId]&&<p role="status" className="mt-2 text-xs text-rose-700">{attachmentErrors[a.attachmentId]}</p>}
+        {previews[a.attachmentId]&&<img src={previews[a.attachmentId].url} alt={`공유한 화면 자료 ${a.attachmentId}`} referrerPolicy="no-referrer" className="mt-3 max-h-96 w-full object-contain" onError={()=>{setPreviews(p=>{const next={...p};delete next[a.attachmentId];return next;});setAttachmentErrors(previous=>({...previous,[a.attachmentId]:"자료를 열지 못했어요. 다시 눌러 주세요."}));}}/>}</div>)}</section>}
       {!ticket.contentExpired&&(!embedded||messages.length>0||ticket.reply||nextBefore)&&<section aria-label="문의 대화" className="space-y-3"><h3 className="font-bold">추가 대화</h3>{nextBefore&&<button disabled={historyBusy} onClick={()=>void older()} className={button}>{historyBusy?"대화 확인 중…":"이전 대화 20개 보기"}</button>}
         {chronological.map(m=><article key={m.messageId} className={`support-letter-message rounded-2xl p-4${m.role==="OPERATOR"?" is-operator":""}`}><div className="flex flex-wrap justify-between gap-2 text-xs text-slate-500"><strong>{m.role==="OPERATOR"?"운영자":"문의자"}</strong><time>{supportTime(m.createdAt)}</time></div><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{m.content}</p></article>)}
         {!messages.length&&ticket.reply&&<article className="support-letter-message is-operator rounded-2xl p-4"><h4 className="font-bold">운영자 답변</h4><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7">{ticket.reply}</p></article>}
@@ -133,7 +146,7 @@ export default function SupportInquiryDetail({ inquiryId, operator = false, gues
       {canAct&&!resolved&&<form onSubmit={e=>{e.preventDefault();if((content.trim()||files.length)&&(!files.some(f=>!f.uploaded)||shared))void mutate(addMessage);}} className="support-letter-reply space-y-3 rounded-2xl p-4">
         <label className="support-letter-label">{embedded?"답변 작성":operator?"운영자 답변":"내용 추가"}<textarea aria-label={operator?"운영자 답변":"추가 문의 내용"} placeholder={embedded?"확인한 내용과 다음 방법을 안내해 주세요.":undefined} disabled={busy} rows={embedded?3:5} maxLength={3000} value={content} onChange={e=>setContent(e.target.value)} className="support-letter-description"/></label><p className="text-right text-xs text-slate-500">{content.length} / 3,000자</p>
         {operator&&<label className="block text-sm"><input type="checkbox" checked={waiting} disabled={busy} onChange={e=>setWaiting(e.target.checked)} className="mr-2"/>문의자에게 추가 정보가 필요해요</label>}
-        <DetailDisclosure embedded={embedded} label={`화면 캡처 첨부${files.length?` (${files.length}개 선택)`:" (선택)"}`} expanded={files.length>0}><SupportScreenshots appearance="letter" files={files} onChange={setFiles} disabled={busy} maxCount={Math.max(0,3-attachments.length)} onReadingChange={value=>{filePending.current=value;setFileReading(value);}}/></DetailDisclosure>
+        <DetailDisclosure embedded={embedded} label={`화면 캡처 첨부${files.length?` (${files.length}개 선택)`:" (선택)"}`} expanded={files.length>0}><SupportScreenshots appearance="letter" files={files} onChange={setFiles} disabled={busy} savedCount={savedAttachmentCount} onReadingChange={value=>{filePending.current=value;setFileReading(value);}}/></DetailDisclosure>
         {files.some(f=>!f.uploaded)&&<label className="block text-sm leading-6"><input type="checkbox" checked={shared} disabled={busy} onChange={e=>setShared(e.target.checked)} className="mr-2"/>선택한 화면 자료 공유에 동의해요.</label>}
         {embedded&&<p className="text-xs text-slate-500">답변은 문의를 남긴 사용자에게만 전달돼요.</p>}
         <div className={embedded?"operator-inbox-reply-footer":"contents"}>

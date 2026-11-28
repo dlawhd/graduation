@@ -258,7 +258,15 @@ class SupportExpansionIntegrationTest extends AbstractMariaDbRepositoryTest {
     @Test void attachmentCapAndSharingConsentAreServerSide() throws Exception {
         var owner=user();var id=create(owner).inquiryId();
         status(400,()->uploads.upload(owner,id,UUID.randomUUID().toString(),image(),false));
-        for(int n=0;n<3;n++)attachmentState.reserve(owner,id,UUID.randomUUID().toString());
+        var operator = operator();
+        for (int n = 0; n < 5; n++) {
+            var actor = n < 3 ? owner : operator;
+            var target = attachmentState.reserve(actor, id, UUID.randomUUID().toString());
+            attachmentState.finish(actor, target, 100);
+        }
+        assertThat(attachmentState.list(operator, id)).hasSize(5);
+        assertThat(conversations.view(owner, id).attachments()).hasSize(5);
+        status(409, () -> attachmentState.reserve(operator, id, UUID.randomUUID().toString()));
         status(409,()->attachmentState.reserve(owner,id,UUID.randomUUID().toString()));
         status(413,()->uploads.upload(owner,id,UUID.randomUUID().toString(),new MockMultipartFile("image",new byte[2*1024*1024+1]),true));
         verifyNoInteractions(s3);

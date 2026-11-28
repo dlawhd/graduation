@@ -40,6 +40,8 @@ import {
   getUnreadCount,
   readAllNotifications,
   readNotification,
+  readSupportInquiryNotifications,
+  readJarTargetNotifications,
 } from "./api/notificationApi";
 
 import {
@@ -597,6 +599,30 @@ useEffect(() => {
         notificationRequests.begin("list");
         setNotificationsLoading(false);
       }, [notificationRequests]);
+
+      const handleSupportInquiryViewed = useCallback(async (inquiryId, operator) => {
+        const isCurrent = notificationRequests.captureScope();
+        try {
+          const result = await readSupportInquiryNotifications(inquiryId, operator, isCurrent);
+          if (!isCurrent() || !result?.updatedCount) return;
+          invalidateNotificationReads();
+          await Promise.all([loadUnreadCount(), loadNotifications(0, 10, { silent: true })]);
+        } catch {
+          // 알림 갱신 실패는 문의 열람을 막지 않는다. 다음 상세 조회 때 다시 시도한다.
+        }
+      }, [notificationRequests, invalidateNotificationReads, loadUnreadCount, loadNotifications]);
+
+      const handleJarTargetViewed = useCallback(async (jarId, noteId = 0, commentIds = []) => {
+        const isCurrent = notificationRequests.captureScope();
+        try {
+          const result = await readJarTargetNotifications(jarId, noteId, commentIds, isCurrent);
+          if (!isCurrent() || !result.updatedCount) return;
+          invalidateNotificationReads();
+          await Promise.all([loadUnreadCount(), loadNotifications(0, 10, { silent: true })]);
+        } catch {
+          // 알림 동기화가 실패해도 저금통과 쪽지는 계속 볼 수 있다.
+        }
+      }, [notificationRequests, invalidateNotificationReads, loadUnreadCount, loadNotifications]);
 
       // 계정이 바뀐 직후에는 이전 알림을 한 프레임도 새 계정 화면에 남기지 않는다.
       useLayoutEffect(() => {
@@ -1523,11 +1549,11 @@ useEffect(() => {
             : <Suspense fallback={<StatusNotice type="loading" title="디자인 공방을 준비하고 있어요." />}>
                 <JarDesignNewPage key={supportUserId} userId={getCurrentUserId(me)} />
               </Suspense>} />
-          <Route path="/jars/:jarId" element={<JarDetailRoute me={me} checkingAuth={checkingAuth} onSuccess={setLoginToastMessage} />} />
+          <Route path="/jars/:jarId" element={<JarDetailRoute me={me} checkingAuth={checkingAuth} onSuccess={setLoginToastMessage} onTargetViewed={handleJarTargetViewed} />} />
           <Route path="/support/inquiries" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
-          <Route path="/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} /></Suspense>} />
-          <Route path="/admin/support/inquiries" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator /></Suspense>} />
-          <Route path="/admin/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator /></Suspense>} />
+          <Route path="/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} onInquiryViewed={handleSupportInquiryViewed} /></Suspense>} />
+          <Route path="/admin/support/inquiries" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator onInquiryViewed={handleSupportInquiryViewed} /></Suspense>} />
+          <Route path="/admin/support/inquiries/:inquiryId" element={<Suspense fallback={<p className="p-6">운영 문의함을 준비하고 있어요.</p>}><SupportInquiriesPage key={supportUserId} me={me} checkingAuth={checkingAuth} operator onInquiryViewed={handleSupportInquiryViewed} /></Suspense>} />
           {/*
            * 초대 페이지에 App이 이미 확인한 로그인 사용자 정보를 전달한다.
            * InvitePage에서 /api/v1/me를 다시 호출하지 않아 중복 요청을 줄인다.
@@ -1548,11 +1574,11 @@ useEffect(() => {
 }
 
 /** 저금통이나 계정이 바뀌면 이전 모달·폼·비동기 작업 상태를 새 화면에 넘기지 않는다. */
-function JarDetailRoute({ me, checkingAuth, onSuccess }) {
+function JarDetailRoute({ me, checkingAuth, onSuccess, onTargetViewed }) {
   const { jarId } = useParams();
   // 최초 계정 확인 전후로 상세 페이지를 두 번 마운트해 같은 조회를 반복하지 않는다.
   if (checkingAuth) return <StatusNotice type="loading" title="로그인 상태를 확인하고 있어요." />;
   return <Suspense fallback={<StatusNotice type="loading" title="저금통을 준비하고 있어요." />}>
-    <JarDetailPage key={`${getCurrentUserId(me)}:${jarId}`} me={me} onSuccess={onSuccess} />
+    <JarDetailPage key={`${getCurrentUserId(me)}:${jarId}`} me={me} onSuccess={onSuccess} onTargetViewed={onTargetViewed} />
   </Suspense>;
 }
